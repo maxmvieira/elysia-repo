@@ -3,10 +3,14 @@ import assert from 'node:assert/strict';
 import {
   COMMON_SMITH_MAX,
   FRAGMENT_ITEM,
+  FRAGMENT_MAX_BY_SOURCE,
   FRAGMENTS_PER_CRAFT,
   ITEMS,
   RARITIES,
+  RECIPE_ITEM,
+  RECIPE_MAX_BY_SOURCE,
   rollFragmentDrop,
+  rollRecipeDrop,
   MIN_FRAGMENTS_FOR_CHANCE,
   canCraft,
   craftXp,
@@ -223,6 +227,54 @@ test('o fragmento do teto é RARO dentro da própria fonte', () => {
     if (rollFragmentDrop('boss', 1, rng) === 'mythic') topo++;
   }
   assert.ok(topo / N < 0.10, `o topo saiu ${(topo / N * 100).toFixed(1)} % das vezes`);
+});
+
+test('DD-PROF-025: cada raridade tem sua receita, e ela é consumível', () => {
+  for (const r of RARITIES) {
+    const kind = RECIPE_ITEM[r];
+    assert.ok(kind, `falta receita para ${r}`);
+    const item = ITEMS[kind];
+    assert.ok(item, `o item ${kind} não existe no catálogo`);
+    // Empilha porque é consumida por fabricação — o artesão guarda várias.
+    assert.equal(item!.stackable, true);
+  }
+});
+
+test('DD-PROF-027: só as receitas baixas são vendidas por NPC', () => {
+  // O doc põe Comuns e Incomuns no NPC; Raras em monstro/boss; Míticas e
+  // Relíquias só em endgame. Preço de balcão nas altas apagaria a distribuição.
+  assert.ok(ITEMS[RECIPE_ITEM.common]!.buyPrice > 0);
+  assert.ok(ITEMS[RECIPE_ITEM.uncommon]!.buyPrice > 0);
+  for (const r of ['rare', 'epic', 'legendary', 'mythic', 'relic'] as const) {
+    assert.equal(
+      ITEMS[RECIPE_ITEM[r]]!.buyPrice, 0,
+      `receita ${r} não pode ter preço de balcão`,
+    );
+  }
+});
+
+test('a receita se distribui mais solto que o fragmento', () => {
+  // Receita Rara cai de monstro comum, enquanto fragmento Raro é o TOPO dessa
+  // fonte. É de propósito: receita sozinha não fabrica nada, então distribuí-la
+  // mais solto não desequilibra.
+  assert.equal(RECIPE_MAX_BY_SOURCE.common, 'rare');
+  assert.equal(FRAGMENT_MAX_BY_SOURCE.common, 'rare');
+  // Já no boss a diferença aparece: fragmento alcança Mítico, receita só Lendária.
+  assert.ok(
+    rarityRank(FRAGMENT_MAX_BY_SOURCE.boss) > rarityRank(RECIPE_MAX_BY_SOURCE.boss),
+  );
+});
+
+test('receita nunca passa do teto da fonte', () => {
+  for (let i = 0; i <= 100; i++) {
+    const r = rollRecipeDrop('common', 1, () => i / 100);
+    if (r) {
+      assert.ok(
+        rarityRank(r) <= rarityRank('rare'),
+        `monstro comum largou receita ${r}, acima do teto`,
+      );
+    }
+  }
 });
 
 test('chance zero nunca larga fragmento', () => {

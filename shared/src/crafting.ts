@@ -225,6 +225,48 @@ export const FRAGMENT_ITEM: Record<Rarity, string> = {
   relic: 'fragment_relic',
 };
 
+/** Item de receita correspondente a cada raridade (`DD-PROF-025`). */
+export const RECIPE_ITEM: Record<Rarity, string> = {
+  common: 'recipe_common',
+  uncommon: 'recipe_uncommon',
+  rare: 'recipe_rare',
+  epic: 'recipe_epic',
+  legendary: 'recipe_legendary',
+  mythic: 'recipe_mythic',
+  relic: 'recipe_relic',
+};
+
+/**
+ * 🔴 `DD-PROF-027` — de onde vem cada raridade de receita.
+ *
+ * O doc dá a distribuição por dificuldade de conteúdo, e ela é **diferente** do
+ * teto dos fragmentos: receita Rara já cai de monstro comum, enquanto fragmento
+ * Raro é o topo dessa fonte. É de propósito — receita sozinha não fabrica nada,
+ * então distribuí-la mais solto não desequilibra.
+ */
+export const RECIPE_MAX_BY_SOURCE: Record<FragmentSource, Rarity> = {
+  common: 'rare',
+  elite: 'rare',
+  boss: 'legendary', // "Raras, Épicas, pequena chance de Lendárias"
+  worldBoss: 'relic', // endgame: "Lendárias, Míticas, Relíquias"
+};
+
+/**
+ * Sorteia a receita que uma fonte larga, ou `null`.
+ *
+ * Reusa a curva de pesos dos fragmentos: o topo da fonte continua sendo o
+ * evento raro. `chance` é baixa no servidor porque uma receita rende uma
+ * fabricação inteira, enquanto fragmento rende 1/100 dela.
+ */
+export function rollRecipeDrop(
+  source: FragmentSource,
+  chance: number,
+  rng: () => number = Math.random,
+): Rarity | null {
+  if (rng() >= chance) return null;
+  return rollWeightedBelow(RECIPE_MAX_BY_SOURCE[source], rng);
+}
+
 /** De onde o fragmento veio. Define o teto de raridade. */
 export type FragmentSource = 'common' | 'elite' | 'boss' | 'worldBoss';
 
@@ -267,15 +309,20 @@ export function rollFragmentDrop(
   rng: () => number = Math.random,
 ): Rarity | null {
   if (rng() >= chance) return null;
+  return rollWeightedBelow(FRAGMENT_MAX_BY_SOURCE[source], rng);
+}
 
-  const teto = rarityRank(FRAGMENT_MAX_BY_SOURCE[source]);
-  // Degraus disponíveis: do teto para baixo, no máximo quantos os pesos cobrem.
+/**
+ * Sorteia uma raridade do teto para baixo, com os pesos decrescentes.
+ * Compartilhado por fragmento e receita: a curva é a mesma, só o teto muda.
+ */
+function rollWeightedBelow(teto: Rarity, rng: () => number): Rarity {
+  const topo = rarityRank(teto);
   const degraus: Rarity[] = [];
   for (let i = 0; i < FRAGMENT_TIER_WEIGHTS.length; i++) {
-    const r = RARITIES[teto - i];
+    const r = RARITIES[topo - i];
     if (r) degraus.push(r);
   }
-
   const total = degraus.reduce((s, _, i) => s + FRAGMENT_TIER_WEIGHTS[i]!, 0);
   let sorteio = rng() * total;
   for (let i = 0; i < degraus.length; i++) {

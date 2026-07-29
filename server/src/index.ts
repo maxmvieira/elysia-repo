@@ -39,7 +39,9 @@ import {
   DAMAGE_TYPES,
   resolveDamage,
   FRAGMENT_ITEM,
+  RECIPE_ITEM,
   rollFragmentDrop,
+  rollRecipeDrop,
   type FragmentSource,
   CONDITIONS,
   CONDITION_IDS,
@@ -802,6 +804,12 @@ function fragmentSourceOf(c: Creature): FragmentSource {
  */
 const FRAGMENT_DROP_CHANCE = 0.55;
 const BOSS_FRAGMENT_DROPS = 8;
+/**
+ * Chance de receita. Baixa de propósito: uma receita rende uma fabricação
+ * INTEIRA, enquanto cada fragmento rende 1/100 dela. Igualar as duas encheria o
+ * jogador de receitas sem material para usá-las. ⚠️ REFERÊNCIA.
+ */
+const RECIPE_DROP_CHANCE = 0.06;
 
 function dropLoot(c: Creature): void {
   const gold = c.def.goldMin + Math.floor(Math.random() * (c.def.goldMax - c.def.goldMin + 1));
@@ -815,6 +823,11 @@ function dropLoot(c: Creature): void {
     const raridade = rollFragmentDrop(fonte, FRAGMENT_DROP_CHANCE);
     if (raridade) dropItem(FRAGMENT_ITEM[raridade], 1, c.tileX, c.tileY, c.floor);
   }
+
+  // Receita: chance BEM menor que fragmento, porque uma receita rende uma
+  // fabricação inteira enquanto o fragmento rende 1/100 dela. Chefe garante uma.
+  const receita = rollRecipeDrop(fonte, c.def.boss ? 1 : RECIPE_DROP_CHANCE);
+  if (receita) dropItem(RECIPE_ITEM[receita], 1, c.tileX, c.tileY, c.floor);
 
   for (const entry of LOOT_TABLE[c.def.type] ?? []) {
     if (Math.random() < entry.chance) dropItem(entry.kind, 1, c.tileX, c.tileY, c.floor);

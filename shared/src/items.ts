@@ -118,6 +118,46 @@ export const ITEMS: Record<string, ItemDef> = {
     // Ferreiros do mundo. Preço de balcão apagaria essa raridade.
     stackable: true, buyPrice: 0, color: 0xffe14a,
   },
+
+  // --- Receitas (`DD-PROF-024` / `DD-PROF-025`) ---------------------------
+  // 🔴 **Receita é CONSUMÍVEL, não conhecimento permanente.** Cada fabricação
+  // gasta uma. É o que mantém demanda por receitas durante toda a vida do
+  // servidor, em vez de o artesão aprender tudo no primeiro mês e nunca mais
+  // comprar nada.
+  //
+  // A receita define a CATEGORIA (raridade), não o tipo de equipamento — o
+  // jogador escolhe espada ou armadura na hora (`DD-PROF-026`).
+  //
+  // Só as duas primeiras são vendidas por NPC: `DD-PROF-027` põe as Raras em
+  // monstros e bosses, e Míticas/Relíquias só em conteúdo endgame.
+  recipe_common: {
+    kind: 'recipe_common', name: 'Receita Comum', category: 'loot',
+    stackable: true, buyPrice: 25, color: 0xb8b8b8,
+  },
+  recipe_uncommon: {
+    kind: 'recipe_uncommon', name: 'Receita Incomum', category: 'loot',
+    stackable: true, buyPrice: 90, color: 0x5fbf5f,
+  },
+  recipe_rare: {
+    kind: 'recipe_rare', name: 'Receita Rara', category: 'loot',
+    stackable: true, buyPrice: 0, color: 0x4a86d8,
+  },
+  recipe_epic: {
+    kind: 'recipe_epic', name: 'Receita Épica', category: 'loot',
+    stackable: true, buyPrice: 0, color: 0xa657ff,
+  },
+  recipe_legendary: {
+    kind: 'recipe_legendary', name: 'Receita Lendária', category: 'loot',
+    stackable: true, buyPrice: 0, color: 0xf2a03c,
+  },
+  recipe_mythic: {
+    kind: 'recipe_mythic', name: 'Receita Mítica', category: 'loot',
+    stackable: true, buyPrice: 0, color: 0xe0405a,
+  },
+  recipe_relic: {
+    kind: 'recipe_relic', name: 'Receita de Relíquia', category: 'loot',
+    stackable: true, buyPrice: 0, color: 0xffe14a,
+  },
   slime_gel: { kind: 'slime_gel', name: 'Gosma de Slime', category: 'loot', stackable: true, buyPrice: 0, color: 0x5fae5f },
   snake_skin: { kind: 'snake_skin', name: 'Pele de Serpente', category: 'loot', stackable: true, buyPrice: 0, color: 0x6f9a4a },
   // Armas: o `atk` é o dano-base, e o TIPO define identidade (velocidade,
