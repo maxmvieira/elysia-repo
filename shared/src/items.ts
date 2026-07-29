@@ -79,6 +79,45 @@ export const ITEMS: Record<string, ItemDef> = {
     stackable: true, buyPrice: 20, healMana: 60, color: 0x4a86d8,
   },
   torch: { kind: 'torch', name: 'Tocha (fonte de luz)', category: 'loot', stackable: true, buyPrice: 8, color: 0xff9a3c },
+
+  // --- Fragmentos de Equipamento (`DD-PROF-021`) --------------------------
+  // O material que sustenta o crafting inteiro. O doc escolheu "Fragmento de
+  // Equipamento" genérico em vez de "fragmento de espada / de elmo / de
+  // machado" de propósito: um item por raridade em vez de dezenas por tipo, e o
+  // jogador entende na hora que é material reaproveitável do artesão.
+  //
+  // As cores acompanham `RARITY` em weapons.ts, para o ícone ser lido de
+  // relance na mochila.
+  fragment_common: {
+    kind: 'fragment_common', name: 'Fragmento Comum', category: 'loot',
+    stackable: true, buyPrice: 2, color: 0xb8b8b8,
+  },
+  fragment_uncommon: {
+    kind: 'fragment_uncommon', name: 'Fragmento Incomum', category: 'loot',
+    stackable: true, buyPrice: 8, color: 0x5fbf5f,
+  },
+  fragment_rare: {
+    kind: 'fragment_rare', name: 'Fragmento Raro', category: 'loot',
+    stackable: true, buyPrice: 30, color: 0x4a86d8,
+  },
+  fragment_epic: {
+    kind: 'fragment_epic', name: 'Fragmento Épico', category: 'loot',
+    stackable: true, buyPrice: 120, color: 0xa657ff,
+  },
+  fragment_legendary: {
+    kind: 'fragment_legendary', name: 'Fragmento Lendário', category: 'loot',
+    stackable: true, buyPrice: 500, color: 0xf2a03c,
+  },
+  fragment_mythic: {
+    kind: 'fragment_mythic', name: 'Fragmento Mítico', category: 'loot',
+    stackable: true, buyPrice: 2000, color: 0xe0405a,
+  },
+  fragment_relic: {
+    kind: 'fragment_relic', name: 'Fragmento de Relíquia', category: 'loot',
+    // Não vendável a NPC: `DD-PROF-028` faz dele matéria-prima dos dois Mestres
+    // Ferreiros do mundo. Preço de balcão apagaria essa raridade.
+    stackable: true, buyPrice: 0, color: 0xffe14a,
+  },
   slime_gel: { kind: 'slime_gel', name: 'Gosma de Slime', category: 'loot', stackable: true, buyPrice: 0, color: 0x5fae5f },
   snake_skin: { kind: 'snake_skin', name: 'Pele de Serpente', category: 'loot', stackable: true, buyPrice: 0, color: 0x6f9a4a },
   // Armas: o `atk` é o dano-base, e o TIPO define identidade (velocidade,

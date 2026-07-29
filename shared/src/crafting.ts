@@ -214,6 +214,77 @@ export function rollCraft(
   return { rarity, upgraded, chances };
 }
 
+/** Item de fragmento correspondente a cada raridade. */
+export const FRAGMENT_ITEM: Record<Rarity, string> = {
+  common: 'fragment_common',
+  uncommon: 'fragment_uncommon',
+  rare: 'fragment_rare',
+  epic: 'fragment_epic',
+  legendary: 'fragment_legendary',
+  mythic: 'fragment_mythic',
+  relic: 'fragment_relic',
+};
+
+/** De onde o fragmento veio. Define o teto de raridade. */
+export type FragmentSource = 'common' | 'elite' | 'boss' | 'worldBoss';
+
+/**
+ * 🔴 **Teto de raridade por fonte.** Não é invenção: é a regra "raridade máxima
+ * por fonte" já fechada no roadmap (Etapa 4) — monstro comum → Raro · elite →
+ * Épico (com chance de Lendário) · boss de dungeon → Mítico · world boss →
+ * Relíquia.
+ *
+ * Aplicá-la aos fragmentos mantém a coerência: se um monstro comum não pode
+ * dropar equipamento Lendário, também não pode dropar o material que fabrica um.
+ */
+export const FRAGMENT_MAX_BY_SOURCE: Record<FragmentSource, Rarity> = {
+  common: 'rare',
+  elite: 'legendary',
+  boss: 'mythic',
+  worldBoss: 'relic',
+};
+
+/**
+ * ⚠️ REFERÊNCIA. Peso de cada degrau ABAIXO do teto da fonte, do teto para
+ * baixo. O primeiro peso é o do próprio teto.
+ *
+ * A curva é agressivamente decrescente de propósito: o fragmento do teto tem
+ * que ser o evento raro que faz valer a pena caçar a fonte difícil. Se sair com
+ * frequência, farmar monstro comum vira caminho válido para Lendário e o
+ * `MIN_FRAGMENTS_FOR_CHANCE` perde a função.
+ */
+const FRAGMENT_TIER_WEIGHTS = [1, 4, 12, 30];
+
+/**
+ * Sorteia qual fragmento uma fonte larga, ou `null` quando não larga nada.
+ *
+ * `chance` é a probabilidade de sair fragmento; o resto do sorteio decide a
+ * raridade dentro do teto da fonte.
+ */
+export function rollFragmentDrop(
+  source: FragmentSource,
+  chance: number,
+  rng: () => number = Math.random,
+): Rarity | null {
+  if (rng() >= chance) return null;
+
+  const teto = rarityRank(FRAGMENT_MAX_BY_SOURCE[source]);
+  // Degraus disponíveis: do teto para baixo, no máximo quantos os pesos cobrem.
+  const degraus: Rarity[] = [];
+  for (let i = 0; i < FRAGMENT_TIER_WEIGHTS.length; i++) {
+    const r = RARITIES[teto - i];
+    if (r) degraus.push(r);
+  }
+
+  const total = degraus.reduce((s, _, i) => s + FRAGMENT_TIER_WEIGHTS[i]!, 0);
+  let sorteio = rng() * total;
+  for (let i = 0; i < degraus.length; i++) {
+    sorteio -= FRAGMENT_TIER_WEIGHTS[i]!;
+    if (sorteio < 0) return degraus[i]!;
+  }
+  return degraus[degraus.length - 1]!;
+}
+
 /**
  * XP profissional de uma fabricação (`DD-PROF-023`/`024`).
  *

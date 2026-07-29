@@ -662,11 +662,39 @@ escolhe o risco.
    dizer como as duas convivem. Teto preserva as duas: fragmentos sorteiam, a
    receita limita. **Precisa de confirmação do dono.**
 
+### Fragmentos entram no jogo (mesmo dia)
+
+Os 7 fragmentos viraram **item de verdade** e **caem de monstro**. O elo
+Exploração → Fragmentos existe; falta o resto do ciclo.
+
+🔴 **O teto de raridade por fonte não foi inventado** — é a regra "raridade
+máxima por fonte" já fechada no roadmap (Etapa 4), agora aplicada ao material:
+
+| Fonte | Fragmento máximo |
+|---|---|
+| Monstro comum | Raro |
+| Elite (variante Robusto/Raro) | Lendário |
+| Boss | Mítico |
+| World boss | Relíquia |
+
+Se um monstro comum não pode dropar equipamento Lendário, também não pode
+dropar o material que fabrica um. E isso dá **função extra às variantes de
+spawn**: um exemplar Robusto passa a ser fonte de fragmento melhor, não só mais
+HP e XP.
+
+- **Chance alta (55 %)** de propósito: são 100 fragmentos por fabricação, e o
+  doc faz do fragmento a via PRINCIPAL de equipamento. Na frequência de um
+  equipamento inteiro, ninguém craftaria nunca.
+- **Chefe larga 8 tentativas** de uma vez — é o que justifica organizar grupo.
+- O **fragmento do teto é raro dentro da própria fonte** (teste garante menos de
+  10 %), senão farmar a fonte difícil perderia a graça.
+- **Fragmento de Relíquia não é vendável a NPC**: `DD-PROF-028` faz dele
+  matéria-prima dos dois Mestres Ferreiros, e preço de balcão apagaria isso.
+
 ### O que falta para virar jogo
 
-Fragmentos como item dropável · receitas como consumível (`DD-PROF-024`: cada
-fabricação consome uma) · profissões e seus níveis · UI de bancada · o NPC
-Mestre Ferreiro. Nada disso existe — é a Etapa 12.
+Receitas como consumível (`DD-PROF-024`: cada fabricação consome uma) ·
+profissões e seus níveis · UI de bancada · o NPC Mestre Ferreiro. É a Etapa 12.
 
 ## Armadilha conhecida
 

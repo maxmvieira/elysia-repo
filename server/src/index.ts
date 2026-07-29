@@ -38,6 +38,9 @@ import {
   computeStats,
   DAMAGE_TYPES,
   resolveDamage,
+  FRAGMENT_ITEM,
+  rollFragmentDrop,
+  type FragmentSource,
   CONDITIONS,
   CONDITION_IDS,
   applyCondition,
@@ -777,9 +780,42 @@ const DROP_POOL_ARMOR = [
   'leather_helmet', 'leather_armor', 'leather_pants', 'leather_boots', 'wooden_shield',
 ];
 
+/**
+ * Que tipo de fonte esta criatura é, para o teto de raridade do fragmento.
+ *
+ * A variante de spawn conta: um exemplar Robusto é "elite" pela regra de
+ * raridade máxima por fonte, o que dá função extra às variantes além de mais
+ * HP e XP.
+ */
+function fragmentSourceOf(c: Creature): FragmentSource {
+  if (c.def.boss) return 'boss';
+  return c.variant === 'common' ? 'common' : 'elite';
+}
+
+/**
+ * Chance de largar fragmento. Alta de propósito: `DD-PROF-021` faz do fragmento
+ * a via PRINCIPAL de equipamento, e são precisos 100 deles por fabricação. Se
+ * caísse na frequência de um equipamento inteiro, ninguém craftaria nunca.
+ *
+ * ⚠️ REFERÊNCIA — o doc deixa "quantidades de fragmentos e custos" para a fase
+ * final de balanceamento.
+ */
+const FRAGMENT_DROP_CHANCE = 0.55;
+const BOSS_FRAGMENT_DROPS = 8;
+
 function dropLoot(c: Creature): void {
   const gold = c.def.goldMin + Math.floor(Math.random() * (c.def.goldMax - c.def.goldMin + 1));
   if (gold > 0) dropItem('gold', gold, c.tileX, c.tileY, c.floor);
+
+  // Fragmentos de Equipamento: o material que sustenta o crafting inteiro.
+  // Chefe larga vários de uma vez — é o que justifica organizar um grupo.
+  const fonte = fragmentSourceOf(c);
+  const tentativas = c.def.boss ? BOSS_FRAGMENT_DROPS : 1;
+  for (let i = 0; i < tentativas; i++) {
+    const raridade = rollFragmentDrop(fonte, FRAGMENT_DROP_CHANCE);
+    if (raridade) dropItem(FRAGMENT_ITEM[raridade], 1, c.tileX, c.tileY, c.floor);
+  }
+
   for (const entry of LOOT_TABLE[c.def.type] ?? []) {
     if (Math.random() < entry.chance) dropItem(entry.kind, 1, c.tileX, c.tileY, c.floor);
   }

@@ -2,7 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COMMON_SMITH_MAX,
+  FRAGMENT_ITEM,
   FRAGMENTS_PER_CRAFT,
+  ITEMS,
+  RARITIES,
+  rollFragmentDrop,
   MIN_FRAGMENTS_FOR_CHANCE,
   canCraft,
   craftXp,
@@ -166,6 +170,63 @@ test('DD-PROF-024: receita muito abaixo do nível rende menos XP', () => {
 
   // Receita difícil rende mais que receita fácil, para o mesmo artesão.
   assert.ok(craftXp('legendary', 50) > craftXp('common', 50));
+});
+
+test('cada raridade tem seu item de fragmento', () => {
+  for (const r of RARITIES) {
+    const kind = FRAGMENT_ITEM[r];
+    assert.ok(kind, `falta fragmento para ${r}`);
+    assert.ok(ITEMS[kind], `o item ${kind} não existe no catálogo`);
+    assert.equal(ITEMS[kind]!.stackable, true, 'fragmento precisa empilhar');
+  }
+});
+
+test('teto de raridade por fonte: monstro comum NUNCA larga Lendário', () => {
+  // A regra que impede farmar o bicho fácil como via barata para o item caro.
+  // Varre o espaço de rng inteiro em vez de sortear: prova, não amostra.
+  for (let i = 0; i <= 100; i++) {
+    const v = i / 100;
+    const r = rollFragmentDrop('common', 1, () => v);
+    if (r) {
+      assert.ok(
+        rarityRank(r) <= rarityRank('rare'),
+        `monstro comum largou ${r}, acima do teto Raro`,
+      );
+    }
+  }
+});
+
+test('a fonte melhor alcança raridade melhor', () => {
+  const tetos: Array<[Parameters<typeof rollFragmentDrop>[0], string]> = [
+    ['common', 'rare'],
+    ['elite', 'legendary'],
+    ['boss', 'mythic'],
+    ['worldBoss', 'relic'],
+  ];
+  for (const [fonte, teto] of tetos) {
+    // rng 0 no segundo sorteio cai no primeiro peso, que é o próprio teto.
+    const r = rollFragmentDrop(fonte, 1, () => 0);
+    assert.equal(r, teto, `${fonte} deveria alcançar ${teto}`);
+  }
+});
+
+test('o fragmento do teto é RARO dentro da própria fonte', () => {
+  // Se o topo saísse fácil, farmar a fonte difícil perderia a graça e o mínimo
+  // de fragmentos por raridade perderia a função.
+  let topo = 0;
+  const N = 1000;
+  for (let i = 0; i < N; i++) {
+    const v = i / N;
+    // Primeiro sorteio passa (chance 1), segundo decide a raridade.
+    let n = 0;
+    const rng = (): number => (n++ === 0 ? 0 : v);
+    if (rollFragmentDrop('boss', 1, rng) === 'mythic') topo++;
+  }
+  assert.ok(topo / N < 0.10, `o topo saiu ${(topo / N * 100).toFixed(1)} % das vezes`);
+});
+
+test('chance zero nunca larga fragmento', () => {
+  assert.equal(rollFragmentDrop('boss', 0, () => 0), null);
 });
 
 test('rarityRank ordena as sete raridades corretamente', () => {
