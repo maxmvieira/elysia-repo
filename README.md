@@ -3,8 +3,12 @@
 <sub>(nasceu como "Project Dominion 2D"; o nome antigo ainda aparece em alguns
 lugares do código e da documentação.)</sub>
 
+> 🤝 **Vai continuar o trabalho? Comece em** [`docs/HANDOFF.md`](./docs/HANDOFF.md) —
+> estado atual, gargalos, decisões pendentes e armadilhas.
+>
 > 📍 **Estado do projeto e próximos passos:** [`docs/ROADMAP-elysia.md`](./docs/ROADMAP-elysia.md)
 > · o que já foi feito: [`docs/HISTORICO.md`](./docs/HISTORICO.md)
+> · o que falta desenhar: [`docs/INVENTARIO-DE-ARTE.md`](./docs/INVENTARIO-DE-ARTE.md)
 
 MMORPG 2D top-down que roda no **navegador**, com construção de bases e raids.
 Inspirado na *sensação* de MMORPGs 2D clássicos (câmera, movimento em grid,
