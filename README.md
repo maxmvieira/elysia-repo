@@ -232,6 +232,8 @@ eles são inertes — viram mensagem de chat comum.
 | `/hp <n>` | Define a vida atual (testar morte, Execução, fim da Fúria) |
 | `/tp <x> <y>` | Teleporta para um tile (voltar ao corpo, achar chefe) |
 | `/heal` | Enche vida e mana |
+| `/cond <id>` | Aplica uma condição em você (`freeze`, `poison`, `silence`, …) |
+| `/uncond` | Limpa todas as condições |
 
 ## Roadmap por fases
 

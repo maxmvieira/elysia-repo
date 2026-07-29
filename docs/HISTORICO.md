@@ -356,13 +356,47 @@ Detalhes que valem lembrar:
   provisório: o roadmap da Etapa 14 diz que "ataque básico com cajado é FÍSICO".
   Reescrever isso é trabalho daquela etapa; aqui só demos tipo ao que já existe.
 
+### Condições ligadas ao servidor (mesmo dia)
+
+Jogador e criatura agora carregam `conditions: ActiveCondition[]`, e o
+`gameTick` roda `tickConditionsAll` **antes** do `regen` — uma parcela de veneno
+que mata não pode ser desfeita pela regeneração do mesmo tique.
+
+- **DoT passa pelo pipeline de defesa completo**, não como dano puro. O tipo
+  importa: Sangramento é físico e sofre a armadura, Queimadura é fogo e sofre
+  resistência a fogo. Tratar DoT como dano cru anularia metade da etapa.
+- **Quem plantou o DoT leva o crédito do abate** (`sourceId` → `damageCreature`).
+  Sem isso, matar com veneno não daria XP nem loot a ninguém.
+- `onDamaged` roda nos três caminhos onde HP cai e quebra **só** Congelamento.
+- `restrictionsOf` bloqueia de verdade: movimento, ataque e conjuração no
+  jogador; e a IA da criatura sob controle é **pulada inteira** — deixá-la
+  "pensando" faria ela teleportar ao fim do controle.
+- **Silêncio desarma as classes mágicas mas não o Knight**, porque o ataque
+  básico delas é conjuração. É a assimetria que o doc pede.
+- Lentidão soma com a Postura Defensiva no intervalo de movimento.
+- O snapshot transmite os ids das condições, e só quando há alguma — array vazio
+  em cada entidade a cada tique é peso de rede por nada.
+- `S2C_Hit` ganhou `element` e `dot`, para o cliente colorir o número.
+
+⚠️ **Ninguém tem resistência, redução ou imunidade a condição ainda.**
+`applyConditionTo` passa `emptyConditionDefense()`, e isso é o estado correto:
+nada no jogo as concede antes das cartas (Etapa 10) e do equipamento (Etapa 11).
+O caminho está montado — o dia em que um item der "imune a Congelamento" é uma
+linha, não uma reescrita.
+
+⚠️ **Condição não persiste no banco, de propósito.** Sair envenenado e voltar
+curado é melhor que voltar morrendo de um DoT que o jogador não pode responder.
+
+Como testar: `npm run dev:test` e no chat `/cond poison`, `/cond freeze`,
+`/cond silence`, `/uncond`. Sem esses comandos a etapa é intestável na mão,
+porque **nenhuma habilidade aplica condição ainda**.
+
 ### O que AINDA falta na Etapa 8
 
-As condições existem e estão testadas, mas **nada no jogo as aplica ainda**.
-Falta: o laço de tique cobrar DoT, o protocolo transmitir as condições ativas,
-o cliente desenhar os ícones, `restrictionsOf` bloquear movimento/ataque/cast no
-servidor, e as habilidades ganharem chance de aplicar condição. A flag PK
-(`canHarm`) também está pronta e sem uso — não há PvP implementado.
+- **Ícones no cliente.** O servidor manda as condições, o cliente ainda ignora.
+- **Habilidades que aplicam condição.** É o que falta para sair do comando de
+  teste e virar jogo — e depende das linhas de maestria da Etapa 13.
+- **A flag PK (`canHarm`)** está pronta e sem uso: não há PvP implementado.
 
 ⚠️ `computeStats` **continua com a esquiva linear antiga**. `computeDodgeChance`
 (retorno decrescente, teto 35 %) está pronto e testado, mas trocar lá muda o

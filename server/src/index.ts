@@ -38,6 +38,16 @@ import {
   computeStats,
   DAMAGE_TYPES,
   resolveDamage,
+  CONDITIONS,
+  CONDITION_IDS,
+  applyCondition,
+  breakOnDamage,
+  emptyConditionDefense,
+  restrictionsOf,
+  tickConditions,
+  tryApplyCondition,
+  type ActiveCondition,
+  type ConditionId,
   type DamageType,
   type DefenseProfile,
   type ResistanceProfile,
@@ -196,6 +206,12 @@ interface Player {
   lastMoveAt: number;
   lastAckSeq: number;
   joined: boolean;
+  /**
+   * Condições ativas (Etapa 8). Não persiste no banco de propósito: sair do
+   * jogo envenenado e voltar curado é melhor que voltar morrendo de um DoT que
+   * o jogador não pode responder.
+   */
+  conditions: ActiveCondition[];
   /** Cooldown das habilidades: id -> timestamp em que fica pronta de novo. */
   spellReadyAt: Record<string, number>;
   /** Skill Points não gastos e nível de cada habilidade aprendida. */
@@ -236,6 +252,8 @@ interface Creature {
   targetId: string | null;
   lastAttackAt: number;
   lastMoveAt: number;
+  /** Condições ativas (Etapa 8). Zeradas ao renascer, como o resto do estado. */
+  conditions: ActiveCondition[];
   /** Chefes: última magia e última invocação (controle de cooldown). */
   lastSpellAt: number;
   lastSummonAt: number;
@@ -598,6 +616,7 @@ function spawnCreature(
     tileX: pos.x, tileY: pos.y, floor: 0, direction: 'down',
     homeX: pos.x, homeY: pos.y, hp: maxHp, maxHp,
     alive: true, respawnAt: 0, targetId: null, lastAttackAt: 0, lastMoveAt: 0,
+    conditions: [],
     lastSpellAt: 0, lastSummonAt: 0, summonedBy: opts.summonedBy,
     defBreakUntil: 0, defBreakPct: 0, tauntedBy: null, tauntUntil: 0,
     variant, lastHurtAt: 0, triumphs: 0,
@@ -991,7 +1010,7 @@ function basicAttackType(attackType: string): DamageType {
 function creatureDefenseProfile(
   creature: Creature,
   now: number,
-  player: Player,
+  player: Player | undefined,
   isMagic: boolean,
 ): DefenseProfile {
   return {
@@ -1033,6 +1052,7 @@ function damageCreature(
   now: number,
 ): void {
   creature.hp = Math.max(0, creature.hp - dmg);
+  onDamaged(creature); // dano quebra Congelamento (`DD-CC-012`)
   creature.lastHurtAt = now;
   // Enfrentar já conta: mesmo que o jogador morra ou fuja, a criatura entra
   // no bestiário como "encontrada".
@@ -1089,6 +1109,12 @@ const BOSS_TRIUMPH_MAX = 5;
 function playerAttack(player: Player, creature: Creature, now: number): void {
   const d = player.derived;
   const isMagic = d.attackType === 'magic';
+  // Etapa 8: controle total impede atacar. Para as classes mágicas o ataque
+  // básico também é conjuração, então o Silêncio as desarma — e é justamente
+  // por isso que ele não desarma o Knight.
+  const restr = restrictionsOf(player.conditions);
+  if (!restr.canAttack) return;
+  if (isMagic && !restr.canCast) return;
   if (isMagic && player.mana < d.manaCost) return; // sem mana, não conjura
   if (isMagic) player.mana -= d.manaCost;
   player.lastAttackAt = now;
@@ -1131,6 +1157,13 @@ function castSpell(player: Player, def: SkillDef, now: number): void {
   const nivel = skillLevelOf(player.skillLevels, def.id);
   if (!isSkillUsable(def, player.cls.id, player.skillLevels)) {
     send(player, { t: 'denied', reason: `Você ainda não aprendeu ${def.name}.` });
+    return;
+  }
+  // Etapa 8: Silêncio bloqueia SÓ magia (o silenciado anda e bate normal);
+  // Congelamento, Petrificação e Stun bloqueiam tudo.
+  const restr = restrictionsOf(player.conditions);
+  if (!restr.canCast) {
+    send(player, { t: 'denied', reason: 'Você não consegue conjurar agora.' });
     return;
   }
   const readyAt = player.spellReadyAt[def.id] ?? 0;
@@ -1326,6 +1359,7 @@ function creatureAttack(creature: Creature, player: Player, now: number): void {
   const dodged = res.outcome === 'dodged';
   const dmg = res.amount;
   player.hp = Math.max(0, player.hp - dmg);
+  if (dmg > 0) onDamaged(player);
   const fatal = player.hp <= 0;
   broadcastFloor(player.floor, {
     t: 'hit', attackerId: creature.id, targetId: player.id, amount: dmg, crit, dodged,
@@ -1383,6 +1417,7 @@ function creatureCastSpell(creature: Creature, player: Player, now: number): voi
   );
   const dmg = res.amount;
   player.hp = Math.max(0, player.hp - dmg);
+  if (dmg > 0) onDamaged(player);
   const fatal = player.hp <= 0;
   broadcastFloor(player.floor, {
     t: 'hit', attackerId: creature.id, targetId: player.id, amount: dmg, crit, dodged: false,
@@ -1418,6 +1453,8 @@ function summonMinion(boss: Creature): void {
  *   /sp <n>      dá Skill Points avulsos
  *   /gold <n>    define o ouro
  *   /heal        enche vida e mana
+ *   /cond <id>   aplica uma condição em você (Etapa 8)
+ *   /uncond      limpa todas as condições
  *
  * Devolve true quando consumiu o texto (não deve virar chat).
  */
@@ -1429,6 +1466,27 @@ function handleDevCommand(player: Player, text: string): boolean {
   const aviso = (t: string): void => send(player, { t: 'chat', from: 'DEV', text: t });
 
   switch (cmd) {
+    // Sem isto a Etapa 8 é intestável na mão: nenhuma habilidade aplica
+    // condição ainda, então não há como ver veneno, congelamento ou silêncio
+    // acontecendo no jogo.
+    case 'cond': {
+      const id = arg as ConditionId;
+      if (!arg || !CONDITIONS[id]) {
+        return aviso(`uso: /cond <${CONDITION_IDS.join('|')}>`), true;
+      }
+      const def = CONDITIONS[id];
+      applyConditionTo(
+        player, id, 1, def.referenceDurationMs, Date.now(),
+        // DoT precisa de potência; controle não usa.
+        def.dot ? 8 : undefined,
+        player.id,
+      );
+      return aviso(`${def.name} aplicado por ${def.referenceDurationMs} ms.`), true;
+    }
+    case 'uncond': {
+      player.conditions = [];
+      return aviso('condições limpas.'), true;
+    }
     case 'level': {
       if (!Number.isFinite(n) || n < 1 || n > 500) return aviso('uso: /level <1..500>'), true;
       // Reconstrói a ficha do nível 1 até `n`, concedendo tudo que seria ganho.
@@ -1731,8 +1789,16 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       // Diagonal percorre √2 de distância: custa ~1.5x o tempo para não virar
       // atalho de velocidade (no Tibia diagonal é mais lento que reto).
       const diagonal = dx !== 0 && dy !== 0;
-      // Postura Defensiva cobra o preço também na mobilidade.
-      const base = player.derived.moveIntervalMs * (player.stance ? 1 + STANCE_SLOW : 1);
+      // Etapa 8: Congelamento, Petrificação, Stun e Aprisionamento prendem os
+      // pés. A checagem vem antes de tudo — o servidor é a autoridade, então
+      // não basta o cliente não mandar a intenção.
+      const restr = restrictionsOf(player.conditions);
+      if (!restr.canMove) return;
+      // Postura Defensiva cobra o preço também na mobilidade, e a Lentidão soma
+      // por cima dela.
+      const base = player.derived.moveIntervalMs
+        * (player.stance ? 1 + STANCE_SLOW : 1)
+        * (1 + restr.slowPct);
       const interval = diagonal ? base * 1.5 : base;
       if (now - player.lastMoveAt < interval) return;
       const nx = player.tileX + dx;
@@ -2079,9 +2145,14 @@ function updateCreatures(now: number): void {
         c.tileX = c.homeX;
         c.tileY = c.homeY;
         c.targetId = null;
+        c.conditions = []; // renascer limpa o estado, como o HP
       }
       continue;
     }
+    // Etapa 8: criatura sob controle total não anda, não ataca e não conjura.
+    // Pular a IA inteira é o comportamento certo — deixá-la "pensando" faria
+    // ela teleportar para a posição nova assim que o controle acabasse.
+    if (!restrictionsOf(c.conditions).canMove) continue;
     const avoidCenter = !!c.def.avoidCenter;
     let target = c.targetId ? players.get(c.targetId) : null;
     if (target && (!target.alive || target.floor !== c.floor || chebyshev(c.tileX, c.tileY, target.tileX, target.tileY) > c.def.aggroRange + 2)) {
@@ -2229,6 +2300,97 @@ function updatePlayers(now: number): void {
   }
 }
 
+/**
+ * Aplica uma condição a um alvo, passando pelas três contramedidas (Etapa 8).
+ *
+ * ⚠️ Hoje ninguém tem resistência, redução ou imunidade — nada no jogo as
+ * concede ainda. Passar `emptyConditionDefense()` não é preguiça: é o estado
+ * correto até cartas (Etapa 10) e equipamento (Etapa 11) existirem. O caminho
+ * já está montado, então o dia em que um item der "imune a Congelamento" é uma
+ * linha aqui, não uma reescrita.
+ */
+function applyConditionTo(
+  target: Player | Creature,
+  id: ConditionId,
+  chance: number,
+  durationMs: number,
+  now: number,
+  power?: number,
+  sourceId?: string,
+): boolean {
+  const r = tryApplyCondition(id, chance, durationMs, emptyConditionDefense());
+  if (!r.applied) return false;
+  const def = CONDITIONS[id];
+  target.conditions = applyCondition(target.conditions, {
+    id,
+    expiresAt: now + r.durationMs,
+    nextTickAt: def.dot ? now + def.dot.tickMs : undefined,
+    power,
+    sourceId,
+  });
+  return true;
+}
+
+/**
+ * Dano recebido quebra Congelamento — e só ele (`DD-CC-012`).
+ *
+ * Chamado de todo lugar onde HP cai. Se algum caminho de dano esquecer de
+ * chamar, o congelamento vira controle sem contrapartida, que é exatamente o
+ * que o doc quer evitar.
+ */
+function onDamaged(target: Player | Creature): void {
+  if (target.conditions.length === 0) return;
+  target.conditions = breakOnDamage(target.conditions);
+}
+
+/**
+ * Avança o relógio das condições de todo mundo e cobra as parcelas de DoT.
+ *
+ * A parcela passa pelo MESMO pipeline de defesa de um golpe normal, porque o
+ * tipo importa: Sangramento é físico e sofre a armadura, Queimadura é fogo e
+ * sofre resistência a fogo. Tratar DoT como dano puro anularia metade da
+ * Etapa 8.
+ */
+function tickConditionsAll(now: number): void {
+  for (const p of players.values()) {
+    if (!p.joined || !p.alive || p.conditions.length === 0) continue;
+    const r = tickConditions(p.conditions, now);
+    p.conditions = r.active;
+    for (const d of r.damage) {
+      const dmg = resolveDamage(d.amount, d.type, playerDefenseProfile(p, false)).amount;
+      p.hp = Math.max(0, p.hp - dmg);
+      broadcastFloor(p.floor, {
+        t: 'hit', attackerId: d.sourceId ?? p.id, targetId: p.id, amount: dmg,
+        crit: false, dodged: false, element: d.type, dot: true,
+        hp: Math.round(p.hp), maxHp: p.maxHp, fatal: p.hp <= 0,
+      });
+      if (p.hp <= 0) {
+        killPlayer(p, CONDITIONS[d.id].name);
+        break;
+      }
+    }
+  }
+
+  for (const c of creatures.values()) {
+    if (!c.alive || c.conditions.length === 0) continue;
+    const r = tickConditions(c.conditions, now);
+    c.conditions = r.active;
+    for (const d of r.damage) {
+      // Quem plantou o DoT leva o crédito do abate: sem isso, matar com veneno
+      // não daria XP nem loot a ninguém.
+      const dono = d.sourceId ? players.get(d.sourceId) : undefined;
+      const dmg = resolveDamage(
+        d.amount,
+        d.type,
+        creatureDefenseProfile(c, now, dono, d.type !== 'physical'),
+      ).amount;
+      if (dono) damageCreature(dono, c, dmg, false, now);
+      else c.hp = Math.max(0, c.hp - dmg);
+      if (!c.alive) break;
+    }
+  }
+}
+
 function regen(now: number): void {
   if (now - lastRegenAt < REGEN_INTERVAL_MS) return;
   lastRegenAt = now;
@@ -2250,6 +2412,9 @@ function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
       id: p.id, name: p.name, tileX: p.tileX, tileY: p.tileY, floor: p.floor,
       direction: p.direction, kind: 'player', hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
       charClass: p.cls.id, gender: p.gender,
+      // Só manda o campo quando há algo: um array vazio em cada entidade a cada
+      // tique é peso de rede por nada.
+      conditions: p.conditions.length ? p.conditions.map((c) => c.id) : undefined,
     });
   }
   for (const c of creatures.values()) {
@@ -2257,6 +2422,7 @@ function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
     out.push({
       id: c.id, name: c.name, tileX: c.tileX, tileY: c.tileY, floor: c.floor,
       direction: c.direction, kind: 'creature', hp: c.hp, maxHp: c.maxHp, creatureType: c.def.type,
+      conditions: c.conditions.length ? c.conditions.map((x) => x.id) : undefined,
     });
   }
   for (const item of items.values()) {
@@ -2299,6 +2465,9 @@ function gameTick(): void {
   isNight = worldHour < 6 || worldHour >= 18;
   updateCreatures(now);
   updatePlayers(now);
+  // Antes do regen: uma parcela de veneno que mata não deve ser desfeita pela
+  // regeneração do mesmo tique.
+  tickConditionsAll(now);
   regen(now);
   // Autosave: se o servidor cair de bota, perde-se no máximo AUTOSAVE_MS de
   // progresso — não a sessão inteira.
@@ -2338,6 +2507,7 @@ wss.on('connection', (socket) => {
     hp: 100, maxHp: 100, mana: 30, maxMana: 30, gold: 0,
     backpack: emptySlots(BACKPACK_SIZE), equipment: {}, depot: emptySlots(DEPOT_SIZE),
     alive: true, deadUntil: 0, targetId: null, lastAttackAt: 0, lastMoveAt: 0, lastAckSeq: 0, joined: false,
+    conditions: [],
     spellReadyAt: {}, skillPoints: 0, skillLevels: {}, skillResets: 0,
     fury: null, stance: false, proficiencies: {}, bestiary: {},
     wasAtDepot: false, wasNearVendor: false,

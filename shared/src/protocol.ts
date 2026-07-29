@@ -11,6 +11,8 @@
 import type { Direction, Gender } from './constants.js';
 import type { AttributeKey, Attributes, AttackType, PlayerClass } from './stats.js';
 import type { EquipSlot, ItemStack } from './items.js';
+import type { DamageType } from './elements.js';
+import type { ConditionId } from './conditions.js';
 
 /** Versão do protocolo. Incrementar em mudanças incompatíveis. */
 export const PROTOCOL_VERSION = 1;
@@ -44,6 +46,14 @@ export interface EntitySnapshot {
   amount?: number;
   /** Corpo de jogador: nome de quem morreu (o cliente rotula o cadáver). */
   corpseOwner?: string;
+  /**
+   * Condições ativas (Etapa 8), para o cliente desenhar os ícones de estado.
+   *
+   * Só os ids: a duração restante não vai no snapshot porque o relógio do
+   * cliente não é confiável e o servidor manda a lista a cada tique de qualquer
+   * forma. Ausente ou vazio = nenhuma condição.
+   */
+  conditions?: ConditionId[];
 }
 
 // ----------------------------------------------------------------------------
@@ -343,6 +353,13 @@ export interface S2C_Hit {
   crit: boolean;
   /** Golpe esquivado (dano 0). */
   dodged: boolean;
+  /**
+   * Tipo de dano (Etapa 8), para o número flutuante sair na cor do elemento.
+   * Ausente = físico, que é a esmagadora maioria dos golpes.
+   */
+  element?: DamageType;
+  /** Parcela de DoT (veneno/sangramento/queimadura), não um golpe direto. */
+  dot?: boolean;
   /** Vida do alvo após o golpe. */
   hp: number;
   maxHp: number;
