@@ -1000,10 +1000,13 @@ function basicAttackType(attackType: string): DamageType {
  * servidor já fazia sem mexer no balanceamento:
  *
  * - contra dano físico vale `creatureDefense` (Ruptura e penetração incluídas)
- * - contra magia a defesa é ZERO, porque o jogo já tratava dano mágico como
- *   ignorando a defesa da criatura
- * - `resistances` é a novidade que passa a valer de verdade: o Zumbi leva +50 %
- *   de dano Sagrado
+ * - `resistances` faz o Zumbi levar +50 % de dano Sagrado
+ *
+ * 🔴 **Mudança do Doc 3:** magia deixou de ignorar a defesa da criatura. Antes
+ * `magicDefense` era sempre 0 porque nenhuma criatura tinha o dado; as fichas
+ * canônicas (`DD-BAL-033` em diante) dão "DEF Mágica" por espécie, então agora
+ * ela vale. É pouco no Tier I (0 no Slime Verde, 2 no Vermelho) e sensível no
+ * MVP (5), que é exatamente a curva que o doc desenha.
  *
  * Criatura não esquiva nem bloqueia hoje — as duas camadas ficam neutras.
  */
@@ -1018,7 +1021,7 @@ function creatureDefenseProfile(
     fullBlockChance: 0,
     shieldMitigation: 0,
     defense: isMagic ? 0 : creatureDefense(creature, now, player),
-    magicDefense: 0,
+    magicDefense: creature.def.magicDefense ?? 0,
     resistances: creature.def.resistances ?? {},
   };
 }

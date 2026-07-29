@@ -76,8 +76,24 @@ export interface CreatureDef {
   type: string;
   name: string;
   maxHp: number;
+  /**
+   * Potência do ataque. O doc dá FAIXAS de dano (ex.: "4–7") e aqui guardamos o
+   * ponto médio, porque `computeHit` aplica variância de ±15 % — mais estreita
+   * que as faixas do documento. Reproduzir "4–7" exatamente exigiria variância
+   * por criatura; até lá o valor médio é o que preserva a curva entre espécies,
+   * que é o que `DD-BAL-027` realmente protege.
+   */
   strength: number;
+  /** Defesa física. Corte plano no dano bruto (cap. 31). */
   defense: number;
+  /**
+   * Defesa mágica (`DD-BAL-033` e seguintes dão "DEF Mágica" por criatura).
+   *
+   * Ausente = 0, que era o comportamento anterior: magia ignorava a defesa da
+   * criatura por completo. Agora que o doc dá números, magia passa a ser
+   * reduzida — de leve no Tier I, mais no MVP.
+   */
+  magicDefense?: number;
   /** Distância (tiles) para começar a perseguir. */
   aggroRange: number;
   attackCooldownMs: number;
@@ -159,7 +175,11 @@ export const CREATURES: Record<string, CreatureDef> = {
     // Doc 3 dá nome e lugar: existe uma linha de Slimes (Verde → Tier I ·
     // Azul → Tier II · Vermelho → Tier III · Ancião → Tier V). Este é o Verde.
     name: 'Slime Verde',
-    behavior: 'hostile',
+    // 🔴 `DD-BAL-033`: comportamento **Neutro**, não hostil. O doc é explícito —
+    // "permanece parado enquanto nenhum jogador se aproxima" e "abandona a
+    // perseguição após perder o alvo". O primeiro monstro do jogo não caça o
+    // jogador: ele revida. Isso muda a sensação da vila inicial.
+    behavior: 'neutral',
     // 🔴 `DD-BAL-027` (Doc 3) — APROVADO, valor CANÔNICO. O Slime Verde é a
     // **âncora de balanceamento de todo o bestiário**: nenhuma outra criatura
     // tem XP definido isoladamente, todas saem por comparação com estes 10.
@@ -171,16 +191,55 @@ export const CREATURES: Record<string, CreatureDef> = {
     // no DANO DAS CLASSES, não aqui — mexer na âncora desalinha o bestiário
     // inteiro, que é exatamente o que `DD-BAL-027` existe para impedir.
     maxHp: 50,
-    // Doc 3: "dano 4–7". `strength` alimenta `computeHit`, que aplica variância
-    // de 0,85–1,15 — 5 de força cai dentro da faixa pedida.
-    strength: 5,
+    strength: 5.5, // doc: dano 4–7 (guardamos o ponto médio, ver `strength`)
     defense: 1,
+    magicDefense: 0,
     aggroRange: 5,
     attackCooldownMs: 1200,
     moveCooldownMs: 1500, // "velocidade baixa" (a velocidade-base do sistema segue PENDENTE)
     xpReward: 10,
     goldMin: 2,
     goldMax: 8,
+  },
+  // `DD-BAL-034` — ficha canônica. Segundo degrau da família: +40 % de HP e de
+  // XP sobre o Verde, com dano e defesa subindo de forma controlada. Mesma IA:
+  // a lição aqui é que uma família pode escalar sem mudar de comportamento.
+  //
+  // ⚠️ **DORMENTE.** Definido mas não nasce no mapa — o mundo hoje só tem Slime
+  // Verde, Zumbi e Super Slime, por decisão do dono. Ligar é uma linha em
+  // `spawnInitialCreatures`, do lado do servidor.
+  slime_blue: {
+    type: 'slime_blue',
+    name: 'Slime Azul',
+    behavior: 'neutral',
+    maxHp: 70,
+    strength: 8, // doc: dano 6–10
+    defense: 2,
+    magicDefense: 1,
+    aggroRange: 5,
+    attackCooldownMs: 1200,
+    moveCooldownMs: 1500,
+    xpReward: 16,
+    goldMin: 3,
+    goldMax: 11,
+  },
+  // `DD-BAL-035` — o membro mais forte da família antes do MVP. Ainda básico:
+  // "o desafio continua vindo dos atributos, não de mecânicas complexas".
+  // ⚠️ DORMENTE, como o Azul.
+  slime_red: {
+    type: 'slime_red',
+    name: 'Slime Vermelho',
+    behavior: 'neutral',
+    maxHp: 100,
+    strength: 10.5, // doc: dano 8–13
+    defense: 3,
+    magicDefense: 2,
+    aggroRange: 5,
+    attackCooldownMs: 1200,
+    moveCooldownMs: 1500,
+    xpReward: 25,
+    goldMin: 5,
+    goldMax: 16,
   },
   zombie: {
     type: 'zombie',
@@ -245,26 +304,46 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'super_slime',
     name: 'Super Slime',
     boss: true,
-    // FANÁTICO: persegue sem medo e nunca recua.
+    // 🔴 `DD-BAL-036` — ficha canônica APROVADA. É a mudança mais drástica do
+    // rebalanceamento: o Super Slime era uma muralha de 2.400 HP que corria mais
+    // que todo mundo. O doc o quer como **primeiro MVP didático** — "ensinar que
+    // um MVP exige preparação", não ser intransponível.
+    //
+    // ⚠️ Efeito colateral consciente: com velocidade BAIXA, **dá para fugir dele
+    // andando**. A lógica antiga era "corra para o centro do mapa, onde ele não
+    // entra" — `avoidCenter` continua ligado, mas deixou de ser a única saída.
+    //
+    // Continua FANÁTICO. A ficha diz "Comportamento: Agressivo", que é rótulo
+    // grosso; a descrição de IA é específica e decide: "nunca abandona o combate
+    // enquanto houver um alvo na área" — que é a definição de `fanatic` aqui
+    // ("como o hostil, mas nunca recua"). `hostile` deixaria ele desistir.
     behavior: 'fanatic',
-    // CHEFE. Uma muralha de gosma: muito HP e MUITA força. Ele se move bem mais
-    // rápido que o resto, então fugir dele é difícil: a saída é correr para o
-    // centro do mapa, onde ele NÃO pode entrar.
-    maxHp: 2400,
-    strength: 44,
-    defense: 14,
-    aggroRange: 9,
+    maxHp: 500,
+    strength: 23, // doc: dano 18–28
+    defense: 8,
+    magicDefense: 5,
+    aggroRange: 9, // "detecta jogadores a uma distância maior"
     attackCooldownMs: 850,
-    moveCooldownMs: 620, // o mais rápido do mapa
-    xpReward: 800,
+    moveCooldownMs: 1500, // "Velocidade: Baixa" — igual ao resto da família
+    xpReward: 250,
     goldMin: 200,
     goldMax: 480,
     respawnMs: 90000, // 1min30 até renascer
     avoidCenter: true, // não invade a zona central (spawn de morte)
-    // Cospe uma bola de gosma ácida à distância (dano mágico, ignora parte da
-    // defesa via resistência mágica). Só a média/longa distância.
-    spell: { power: 34, rangeMin: 2, range: 6, cooldownMs: 3500, projectile: 'firebolt' },
-    // Invoca Slimes comuns: poucos (teto de 3 vivos), 2 por vez.
+    // ⚠️ A ficha canônica NÃO lista magia nem invocação. As duas mecânicas que
+    // `DD-BAL-036` pede são outras: **Salto Esmagador** (dano em área) e um
+    // **estado de fúria aos 50 % de vida** (só velocidade de ataque, sem mexer
+    // no deslocamento). Nenhuma das duas está implementada.
+    //
+    // Mantidos por ora porque removê-los é apagar mecânica funcionando, e o doc
+    // não manda remover — só descreve um conjunto diferente. Decisão do dono:
+    // trocar magia+invocação por Salto+fúria, ou somar os quatro?
+    //
+    // A potência foi ajustada de 34 para 14 junto com o resto da ficha: com 500
+    // de HP em vez de 2.400, o dano antigo mataria personagem de nível baixo em
+    // dois cuspes.
+    spell: { power: 14, rangeMin: 2, range: 6, cooldownMs: 3500, projectile: 'firebolt' },
+    // Invoca Slimes Verdes: poucos (teto de 3 vivos), 2 por vez.
     summon: { type: 'slime', count: 2, maxAlive: 3, cooldownMs: 14000 },
   },
 };

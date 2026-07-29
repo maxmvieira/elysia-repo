@@ -114,11 +114,20 @@ inteiro antes de seguir, e esse trabalho ainda não foi feito.
 As DORMENTES não nascem no mapa, então o desalinhamento não afeta quem joga
 hoje. O Zumbi afeta.
 
+## ⚠️ Conflito interno do Doc 3: o Tier do Slime Azul
+
+A linha 1906 diz **`Slime Azul → Tier II`**. A ficha canônica na linha 3155 diz
+**`Tier: I`**. As duas não podem valer.
+
+Implementado como **Tier I**, seguindo a ficha — ela é mais específica, mais
+recente no documento e traz os números. Precisa de confirmação.
+
 ## Ordem sugerida de implementação
 
 1. ✅ **`DD-BAL-027`** — Slime Verde como âncora *(feito)*
-2. **Rebalancear o Tier I inteiro** contra a âncora (`DD-BAL-038`) — decidir o
-   Tier do Zumbi e o que fazer com as dormentes
+2. ✅ **`DD-BAL-033` a `036`** — família Slime inteira *(feito)*
+3. **Decidir o Tier do Zumbi** — é a única criatura ativa ainda fora de escala
+4. **Rebalancear o resto do Tier I** contra a âncora (`DD-BAL-038`)
 3. **Lore no código** — Asteria em `shared/src/towns.ts`, calendário, reinos.
    Destrava a Etapa 16
 4. **Crafting por fragmentos** (Bloco 01) — encaixa na Etapa 12

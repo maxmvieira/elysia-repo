@@ -452,6 +452,56 @@ Zumbi**, que está ativo e ainda não tem Tier definido.
 ⚠️ **As quatro pendências que travam código continuam abertas** — nenhuma
 aparece no Doc 3: `DD-CC-013/014`, `DD-DEF-012`, `DD-PROG-002`, `DD-DEATH-009`.
 
+## Família Slime canônica — `DD-BAL-033` a `036` (2026-07-29)
+
+Primeira família do bestiário com ficha oficial. Encerra a primeira etapa do
+`PENDENTE 15` (balancear Tier I criatura por criatura).
+
+| Criatura | HP | Dano | DEF | DEF Mág | XP |
+|---|---|---|---|---|---|
+| Slime Verde | 50 | 4–7 | 1 | 0 | 10 |
+| Slime Azul 🆕 | 70 | 6–10 | 2 | 1 | 16 |
+| Slime Vermelho 🆕 | 100 | 8–13 | 3 | 2 | 25 |
+| Super Slime (MVP) | 500 | 18–28 | 8 | 5 | 250 |
+
+**Três mudanças que alteram o jogo de verdade:**
+
+1. 🔴 **O Slime Verde virou NEUTRO.** Era hostil. O doc é explícito: "permanece
+   parado enquanto nenhum jogador se aproxima". O primeiro monstro do jogo não
+   caça o jogador — ele revida. Muda a sensação da vila inicial.
+2. 🔴 **O Super Slime caiu de 2.400 para 500 HP**, XP de 800 para 250, e a
+   velocidade de "o mais rápido do mapa" (620 ms) para **baixa** (1500 ms).
+   ⚠️ Efeito colateral consciente: **dá para fugir dele andando**. A lógica
+   antiga era "corra para o centro, onde ele não entra" — `avoidCenter` continua
+   ligado, mas deixou de ser a única saída.
+3. 🔴 **Magia deixou de ignorar a defesa da criatura.** `magicDefense` entrou em
+   `CreatureDef` e é usada de verdade. Antes era sempre 0 porque nenhuma criatura
+   tinha o dado.
+
+**Detalhes de implementação:**
+
+- `strength` guarda o **ponto médio** da faixa do doc, porque `computeHit` aplica
+  variância de ±15 % — mais estreita que "4–7". Reproduzir a faixa exata exigiria
+  variância por criatura; o ponto médio preserva a curva entre espécies, que é o
+  que `DD-BAL-027` protege.
+- O chefe **continua `fanatic`**, não `hostile`. A ficha diz "Agressivo", mas a
+  descrição de IA — "nunca abandona o combate enquanto houver um alvo na área" —
+  é a definição de `fanatic` no código. Rótulo grosso perde para IA específica.
+- Azul e Vermelho estão **DORMENTES**: definidos, sem nascer no mapa. O mundo
+  segue com Slime Verde, Zumbi e Super Slime. Ligar é uma linha em
+  `spawnInitialCreatures`.
+
+### 🔴 Duas decisões esperando o dono
+
+1. **Mecânicas do Super Slime.** A ficha pede **Salto Esmagador** (dano em área)
+   e **fúria aos 50 % de vida** (só velocidade de ataque). Nenhuma das duas
+   existe. O que existe é magia + invocação, que a ficha **não** lista. Manter os
+   quatro, ou trocar? A potência da magia foi baixada de 34 para 14 junto com a
+   ficha — com 500 HP, o dano antigo matava nível baixo em dois cuspes.
+2. **Tier do Slime Azul.** O Doc 3 se contradiz: linha 1906 diz Tier II, a ficha
+   na linha 3155 diz Tier I. Implementado como **Tier I** (a ficha é mais
+   específica e traz os números).
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os

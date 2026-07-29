@@ -82,6 +82,53 @@ test('DD-BAL-027: o Slime Verde é a âncora canônica do bestiário', () => {
   assert.equal(s!.defense, 1);
 });
 
+test('DD-BAL-033/034/035: a família Slime sobe em curva previsível', () => {
+  const verde = CREATURES.slime!;
+  const azul = CREATURES.slime_blue!;
+  const vermelho = CREATURES.slime_red!;
+
+  // Fichas canônicas do Doc 3, na íntegra.
+  assert.deepEqual(
+    [verde.maxHp, azul.maxHp, vermelho.maxHp],
+    [50, 70, 100],
+  );
+  assert.deepEqual(
+    [verde.xpReward, azul.xpReward, vermelho.xpReward],
+    [10, 16, 25],
+  );
+  assert.deepEqual(
+    [verde.defense, azul.defense, vermelho.defense],
+    [1, 2, 3],
+  );
+  assert.deepEqual(
+    [verde.magicDefense, azul.magicDefense, vermelho.magicDefense],
+    [0, 1, 2],
+  );
+
+  // "Criaturas lentas, previsíveis e ideais para aprendizado": a família inteira
+  // compartilha comportamento e velocidade — só os números sobem.
+  for (const s of [verde, azul, vermelho]) {
+    assert.equal(s.behavior, 'neutral', `${s.name} deveria ser neutro`);
+    assert.equal(s.moveCooldownMs, verde.moveCooldownMs);
+  }
+});
+
+test('DD-BAL-036: o Super Slime é MVP, não um Slime Vermelho inflado', () => {
+  const mvp = CREATURES.super_slime!;
+  const vermelho = CREATURES.slime_red!;
+  assert.equal(mvp.boss, true);
+  assert.equal(mvp.maxHp, 500);
+  assert.equal(mvp.xpReward, 250);
+  assert.equal(mvp.defense, 8);
+  assert.equal(mvp.magicDefense, 5);
+  // Cinco vezes o HP do Vermelho e dez vezes a XP: é outro patamar, mas não os
+  // 2.400 HP de antes, que faziam dele uma parede em vez de um chefe didático.
+  assert.equal(mvp.maxHp, vermelho.maxHp * 5);
+  // "Velocidade: Baixa" — o MVP não corre mais que o resto da família. É o que
+  // torna possível fugir dele andando.
+  assert.equal(mvp.moveCooldownMs, vermelho.moveCooldownMs);
+});
+
 test('o Slime Verde ainda aguenta mais de um golpe no nível 1', () => {
   // O doc pede combate de 3–8 s. Com o dano de nível 1 (~28–39 por golpe), 50 HP
   // dá dois golpes. Se cair para um só, o combate deixou de existir.
