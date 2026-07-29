@@ -255,6 +255,70 @@ o idle composto não tem o problema. Suspeita a investigar: nos quadros 1–8 da
 linha 8 o conteúdo sobe acima de y15 (a medição da bbox foi feita na linha de
 andar para BAIXO), e a diferença estoura o recorte da célula.
 
+## Etapa 8 — Elementos, condições e defesa em camadas (2026-07-29)
+
+Fundação de combate do cap. 31/32. **Só o pacote `shared`** — servidor e cliente
+ainda não consomem nada disto. É de propósito: a Etapa 8 é pré-requisito de
+cartas, Druid, Sorcerer, bestiário e PvP, e valia fechar as regras com teste
+antes de mexer nos 84 KB de `server/src/index.ts`.
+
+**Quatro módulos novos, 48 testes** (134 → 182):
+
+| Arquivo | O que fecha |
+|---|---|
+| `shared/src/elements.ts` | os 7 tipos de dano (`DD-ELM-002`) e resistências |
+| `shared/src/defense.ts` | o pipeline em camadas do cap. 31 |
+| `shared/src/conditions.ts` | as 10 condições e as 3 contramedidas |
+| `shared/src/pvp.ts` | flag PK ON/OFF (32.57–32.61) |
+
+**Decisões que seguem o doc à risca:**
+
+- 🔴 **Elemento ≠ Condição** (32.2). `elements.ts` só faz DANO; quem aplica
+  ESTADO é `conditions.ts`, com chance própria. Dano de gelo não congela.
+- 🔴 `DD-DEF-006` escudo **reduz**, nunca anula — o exemplo do doc (1.000 com
+  25 % → 750) virou teste literal.
+- 🔴 `DD-DEF-009` chance de bloqueio **não vem de atributo nenhum**. Por isso
+  `fullBlockChance` e `shieldMitigation` entram como DADO no `DefenseProfile` e
+  `computeStats` não os calcula.
+- 🔴 `DD-ELM-003` resistência nunca zera dano — existe `RESISTANCE_CAP < 1`.
+- 🔴 `DD-CC-009` imunidade é lista de **ids exatos**: imune a Congelamento não
+  protege de Petrificação. Agrupar por categoria "controle" seria conveniente e
+  quebraria a regra na primeira criatura imune.
+- 🔴 Dano quebra Congelamento, **não** quebra Petrificação.
+- 🔴 Com **PK OFF a ação nem existe** — `canHarm` tem de ser consultada antes do
+  dano E antes da condição. Consultar só antes do dano deixaria passar
+  queimadura e stun, que é o que o doc proíbe.
+
+**As três pendências do doc foram implementadas como ESTRUTURA, não como número:**
+
+- ⚠️ `31.56` **a ordem das camadas não está fechada — e o doc se contradiz**: o
+  diagrama põe ESCUDO antes de ARMADURA, o texto do mesmo capítulo diz o
+  inverso ("DEF corta o dano bruto primeiro"). As duas ordens funcionam
+  (`LayerOrder`), o default segue o diagrama, e há teste provando que a escolha
+  **muda o número** — 200 de dano viram 80 ou 90 conforme a ordem. Precisa de
+  decisão do dono.
+- ⚠️ `DD-CC-012` **durações de Congelamento × Petrificação em conflito.** Adotada
+  a revisão **posterior** (Druid: 10 s e 6 s), aplicando a regra de ouro do
+  roadmap. Registrado em `CONFLITO_DD_CC_012` para o dono confirmar ou reverter.
+- ⚠️ `DD-CC-013/014` **anti-CC-chain não foi implementado** porque o doc não
+  define o método. Reaplicar só renova a expiração (não empilha), e o ponto de
+  plugar está marcado em `applyCondition`.
+
+Valores marcados `REFERÊNCIA` (o doc não fecha): `RESISTANCE_CAP` 0,75 ·
+`BLOCK_CAP` 0,25 · `WEAKNESS_FLOOR` −1,0 · `DODGE_HALF_AGI` 120.
+
+**Esquiva ganhou retorno decrescente** (`DD-DEF-005`): `computeDodgeChance` é
+assintótica com teto de 35 %, no lugar do `clamp` linear de teto 50 %. Resolve
+também o ajuste pendente da Etapa 1 ("teto de 30–35 % vinda de AGI").
+⚠️ `computeStats` **ainda não usa** — trocar lá mexe no balanceamento do jogo
+rodando e merece ser feito junto da integração no servidor.
+
+### Próximo passo desta etapa
+
+Nada disto está ligado ao jogo. Falta: `computeStats` produzir `DefenseProfile`,
+o servidor resolver o dano por `resolveDamage`, o laço de tique cobrar DoT, o
+protocolo transmitir condições ativas, e o cliente desenhar os ícones.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os
