@@ -57,6 +57,39 @@ export interface CreatureSpell {
   projectile: string;
 }
 
+/**
+ * Ataque em ÁREA de um chefe (Salto Esmagador do Super Slime, `DD-BAL-036`).
+ *
+ * Diferente de `CreatureSpell`: não tem projétil nem alvo único — cai em volta
+ * do ponto de impacto e pega todo mundo no raio. É o que ensina posicionamento,
+ * que o doc quer como primeira lição de MVP.
+ */
+export interface CreatureSlam {
+  power: number;
+  /** Raio em tiles (Chebyshev) a partir da criatura. */
+  radius: number;
+  cooldownMs: number;
+  /** Distância máxima do alvo para ele decidir saltar. */
+  range: number;
+  damageType?: DamageType;
+}
+
+/**
+ * Estado de fúria por vida baixa (`DD-BAL-036`).
+ *
+ * 🔴 O doc é específico: aumenta **velocidade de ataque**, "sem alterar sua
+ * velocidade de deslocamento". Acelerar o passo transformaria a fase em
+ * perseguição impossível — a lição aqui é aguentar pressão, não fugir.
+ */
+export interface CreatureEnrage {
+  /** Fração de vida que dispara (0.5 = aos 50 %). */
+  hpPct: number;
+  /** Multiplicador do cooldown de ataque. Menor que 1 = ataca mais rápido. */
+  attackSpeedMult: number;
+  /** "Temporariamente": quanto dura depois de disparar. */
+  durationMs: number;
+}
+
 /** Invocação de lacaios por um chefe. */
 export interface CreatureSummon {
   /** Tipo de criatura invocada. */
@@ -113,6 +146,10 @@ export interface CreatureDef {
   spell?: CreatureSpell;
   /** Invocação de lacaios (chefes). */
   summon?: CreatureSummon;
+  /** Ataque em área (chefes). */
+  slam?: CreatureSlam;
+  /** Fase de fúria por vida baixa (chefes). */
+  enrage?: CreatureEnrage;
   /**
    * Condição que a criatura tenta aplicar quando acerta um golpe.
    *
@@ -745,21 +782,25 @@ export const CREATURES: Record<string, CreatureDef> = {
     goldMax: 480,
     respawnMs: 90000, // 1min30 até renascer
     avoidCenter: true, // não invade a zona central (spawn de morte)
-    // ⚠️ A ficha canônica NÃO lista magia nem invocação. As duas mecânicas que
-    // `DD-BAL-036` pede são outras: **Salto Esmagador** (dano em área) e um
-    // **estado de fúria aos 50 % de vida** (só velocidade de ataque, sem mexer
-    // no deslocamento). Nenhuma das duas está implementada.
+    // 🔴 **Magia à distância e invocação foram REMOVIDAS.** A ficha canônica
+    // `DD-BAL-036` lista a IA do chefe e nenhuma das duas está lá — o que ela
+    // pede é Salto Esmagador e fúria aos 50 %. Quatro mecânicas num MVP de 500
+    // HP, cujo papel é DIDÁTICO, é ruído: o doc quer que ele "ensine conceitos
+    // reutilizados em chefes futuros", não que faça tudo.
     //
-    // Mantidos por ora porque removê-los é apagar mecânica funcionando, e o doc
-    // não manda remover — só descreve um conjunto diferente. Decisão do dono:
-    // trocar magia+invocação por Salto+fúria, ou somar os quatro?
-    //
-    // A potência foi ajustada de 34 para 14 junto com o resto da ficha: com 500
-    // de HP em vez de 2.400, o dano antigo mataria personagem de nível baixo em
-    // dois cuspes.
-    spell: { power: 14, rangeMin: 2, range: 6, cooldownMs: 3500, projectile: 'firebolt' },
-    // Invoca Slimes Verdes: poucos (teto de 3 vivos), 2 por vez.
-    summon: { type: 'slime', count: 2, maxAlive: 3, cooldownMs: 14000 },
+    // As duas continuam existindo como sistema (`CreatureSpell`, `CreatureSummon`)
+    // e outra criatura pode usá-las. Reverter neste chefe é uma linha.
+
+    // "Periodicamente executa um Salto Esmagador, causando dano em área ao
+    // redor do ponto de impacto." É a lição de POSICIONAMENTO.
+    // Recarga longa a pedido do dono: o Salto é para ser um MOMENTO que o
+    // jogador aprende a ler e evitar, não pressão contínua. A 6 s ele saía toda
+    // hora e virava ruído; a 11 s dá tempo de reposicionar entre um e outro.
+    slam: { power: 20, radius: 2, range: 4, cooldownMs: 11000, damageType: 'physical' },
+    // "Quando sua vida atinge 50 %, entra em um estado de fúria, aumentando
+    // temporariamente sua velocidade de ataque (sem alterar sua velocidade de
+    // deslocamento)." É a lição de FASES DE COMBATE.
+    enrage: { hpPct: 0.5, attackSpeedMult: 0.6, durationMs: 12000 },
   },
 };
 

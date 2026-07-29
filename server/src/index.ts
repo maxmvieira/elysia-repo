@@ -257,6 +257,17 @@ interface Creature {
   /** Chefes: última magia e última invocação (controle de cooldown). */
   lastSpellAt: number;
   lastSummonAt: number;
+  /** Chefes: último Salto Esmagador. */
+  lastSlamAt: number;
+  /**
+   * Chefes: instante em que a fúria termina. 0 = nunca entrou.
+   *
+   * Guardamos o FIM e não um booleano porque a fúria é temporária, e porque
+   * `enrageUsed` precisa ser separado: ela dispara UMA vez ao cruzar o limiar,
+   * senão renasceria a cada golpe enquanto a vida estivesse abaixo dele.
+   */
+  enrageUntil: number;
+  enrageUsed: boolean;
   /** Ruptura: defesa física rasgada até este instante, nesta fração (0..1). */
   defBreakUntil: number;
   defBreakPct: number;
@@ -617,7 +628,9 @@ function spawnCreature(
     homeX: pos.x, homeY: pos.y, hp: maxHp, maxHp,
     alive: true, respawnAt: 0, targetId: null, lastAttackAt: 0, lastMoveAt: 0,
     conditions: [],
-    lastSpellAt: 0, lastSummonAt: 0, summonedBy: opts.summonedBy,
+    lastSpellAt: 0, lastSummonAt: 0, lastSlamAt: 0,
+    enrageUntil: 0, enrageUsed: false,
+    summonedBy: opts.summonedBy,
     defBreakUntil: 0, defBreakPct: 0, tauntedBy: null, tauntUntil: 0,
     variant, lastHurtAt: 0, triumphs: 0,
   };
@@ -1102,6 +1115,7 @@ function damageCreature(
 ): void {
   creature.hp = Math.max(0, creature.hp - dmg);
   onDamaged(creature); // dano quebra Congelamento (`DD-CC-012`)
+  checkEnrage(creature, now); // chefe pode virar a fase aqui
   creature.lastHurtAt = now;
   // Enfrentar já conta: mesmo que o jogador morra ou fuja, a criatura entra
   // no bestiário como "encontrada".
@@ -1446,6 +1460,76 @@ function bossTriumph(creature: Creature): void {
     t: 'chat', from: 'Mundo',
     text: `${creature.def.name} dizimou seus desafiantes e ficou mais forte.`,
   });
+}
+
+/**
+ * Salto Esmagador (`DD-BAL-036`): dano em ÁREA ao redor do chefe.
+ *
+ * Diferente da magia, não escolhe alvo — pega **todos** os jogadores no raio, no
+ * mesmo andar. É a mecânica que ensina posicionamento: ficar colado no chefe com
+ * o grupo inteiro passa a custar caro.
+ */
+function creatureSlam(creature: Creature, now: number): void {
+  const s = creature.def.slam;
+  if (!s) return;
+  creature.lastSlamAt = now;
+  broadcastFloor(creature.floor, {
+    // Reusa o efeito de área do Vendaval de Lâminas: é a mesma leitura visual
+    // (círculo de impacto no chão) e evita arte nova para o placeholder.
+    t: 'fx', kind: 'whirlwind',
+    x: creature.tileX, y: creature.tileY, floor: creature.floor, radius: s.radius,
+  });
+  const base = s.power * (isNight ? NIGHT_DMG_MULT : 1);
+  for (const p of players.values()) {
+    if (!p.joined || !p.alive || p.floor !== creature.floor) continue;
+    if (chebyshev(p.tileX, p.tileY, creature.tileX, creature.tileY) > s.radius) continue;
+    const { amount, crit } = computeHit(base, 0.05, 1.5);
+    // Área não é esquivável: o chão inteiro treme. Esquivar de AoE tornaria a
+    // lição de posicionamento opcional.
+    const dmg = resolveDamage(
+      amount, s.damageType ?? 'physical', playerDefenseProfile(p, false),
+    ).amount;
+    p.hp = Math.max(0, p.hp - dmg);
+    onDamaged(p);
+    const fatal = p.hp <= 0;
+    broadcastFloor(p.floor, {
+      t: 'hit', attackerId: creature.id, targetId: p.id, amount: dmg, crit, dodged: false,
+      element: s.damageType ?? 'physical',
+      hp: Math.round(p.hp), maxHp: p.maxHp, fatal,
+    });
+    if (fatal) {
+      killPlayer(p, creature.name);
+      bossTriumph(creature);
+    }
+  }
+}
+
+/**
+ * Fúria por vida baixa (`DD-BAL-036`): dispara UMA vez ao cruzar o limiar.
+ *
+ * 🔴 Só acelera o ATAQUE. O doc é explícito em "sem alterar sua velocidade de
+ * deslocamento" — acelerar o passo transformaria a segunda fase numa
+ * perseguição impossível, e a lição pretendida é aguentar pressão.
+ */
+function checkEnrage(creature: Creature, now: number): void {
+  const e = creature.def.enrage;
+  if (!e || creature.enrageUsed) return;
+  if (creature.hp > creature.maxHp * e.hpPct) return;
+  creature.enrageUsed = true;
+  creature.enrageUntil = now + e.durationMs;
+  broadcastFloor(creature.floor, {
+    t: 'chat', from: 'Mundo',
+    text: `${creature.name} entra em fúria!`,
+  });
+}
+
+/** Cooldown de ataque efetivo da criatura, já com a fúria se estiver ativa. */
+function creatureAttackCooldown(creature: Creature, now: number): number {
+  const base = creature.def.attackCooldownMs;
+  if (creature.def.enrage && now < creature.enrageUntil) {
+    return Math.round(base * creature.def.enrage.attackSpeedMult);
+  }
+  return base;
 }
 
 /** Ataque mágico à distância de um chefe: projétil + dano mágico (reduzido pela
@@ -2269,8 +2353,16 @@ function updateCreatures(now: number): void {
           c.lastSummonAt = now;
         }
       }
-      if (dist <= 1) {
-        if (now - c.lastAttackAt >= atkCd) creatureAttack(c, target, now);
+      // Salto Esmagador: pega quem estiver colado, então ele salta assim que o
+      // alvo entra no alcance — antes de checar corpo a corpo, senão nunca
+      // sairia, porque a distância 1 satisfaz as duas condições.
+      if (
+        c.def.slam && dist <= c.def.slam.range
+        && now - c.lastSlamAt >= c.def.slam.cooldownMs
+      ) {
+        creatureSlam(c, now);
+      } else if (dist <= 1) {
+        if (now - c.lastAttackAt >= creatureAttackCooldown(c, now)) creatureAttack(c, target, now);
       } else if (
         c.def.spell && dist >= c.def.spell.rangeMin && dist <= c.def.spell.range &&
         now - c.lastSpellAt >= c.def.spell.cooldownMs

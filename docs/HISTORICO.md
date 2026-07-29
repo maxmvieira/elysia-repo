@@ -575,6 +575,48 @@ Teia (Lentidão) · recuo do arqueiro · buff da Formiga Mística · armadilhas 
 Kobold · alcateia do Lobo. Todos anotados no código, na criatura correspondente.
 O primeiro depende de criaturas poderem aplicar condição — que ainda não podem.
 
+## Super Slime ganha suas mecânicas — `DD-BAL-036` (2026-07-29)
+
+O primeiro MVP passa a ter as duas mecânicas que a ficha canônica pede, e perde
+as duas que ela não pede.
+
+**🆕 Salto Esmagador** (`CreatureSlam`) — dano em ÁREA ao redor do chefe, sem
+alvo escolhido: pega todo mundo no raio. É a lição de **posicionamento**. Não é
+esquivável de propósito — esquivar de AoE tornaria a lição opcional.
+
+**🆕 Fúria aos 50 %** (`CreatureEnrage`) — dispara **uma vez** ao cruzar o
+limiar e dura 12 s. 🔴 Só acelera o **ataque**: o doc é explícito em "sem alterar
+sua velocidade de deslocamento". Acelerar o passo transformaria a segunda fase
+numa perseguição impossível, e a lição pretendida é aguentar pressão. É a lição
+de **fases de combate**.
+
+**🔴 Magia à distância e invocação REMOVIDAS.** A ficha lista a IA do chefe e
+nenhuma das duas está lá. Quatro mecânicas num MVP de 500 HP cujo papel é
+didático é ruído. Os sistemas (`CreatureSpell`, `CreatureSummon`) continuam
+existindo e outra criatura pode usá-los — reverter neste chefe é uma linha.
+
+### Ajustes de recarga a pedido do dono
+
+| Habilidade | Antes | Agora | Porquê |
+|---|---|---|---|
+| **Salto Esmagador** | 6 s | **11 s** | a 6 s saía toda hora e virava pressão contínua em vez de um momento a ser lido |
+| **Investida** (Knight F3) | 8 s | **13 s** | é MOBILIDADE, não rotação: a 8 s cabia no ciclo normal e apagava a decisão de guardá-la para alcançar quem foge |
+
+O teste da Investida agora trava também que ela seja a recarga mais longa da
+árvore depois da Fúria de Batalha — é isso que a mantém recurso, não ciclo.
+
+### ⚠️ Por que a lore do Doc 3 NÃO virou código
+
+As 76 decisões `DD-LOR` são canon narrativo, mas quase nada é implementável:
+`DD-LOR-114` estabelece que **Asteria existe e é um grande centro**, e o mesmo
+bloco **adia explicitamente** primeiro rei, primeira capital, impérios, guerras
+e política dos reinos. Não há posição no mapa nem traçado da cidade.
+
+Pôr Asteria em `TOWNS` hoje criaria uma cidade **invisível**: um raio de visita
+em terreno vazio, com o sistema de respawn "funcionando" sobre nada. Isso é
+inventar mapa. Fica para a Etapa 16, quando a cidade for desenhada — e aí é uma
+entrada na tabela, como o comentário de `towns.ts` já previa.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os

@@ -105,7 +105,14 @@ test('Provocar: recarga curta e alvo único', () => {
 // --- Investida -------------------------------------------------------------
 
 test('Investida: alcança de longe e vale pela mobilidade, não pelo dano', () => {
-  assert.equal(SKILLS.charge.cooldownMs, 8000);
+  // Recarga alongada para 13 s a pedido do dono (2026-07-29). A Investida é
+  // MOBILIDADE: a 8 s cabia na rotação normal de combate, o que apagava a
+  // decisão de guardá-la para alcançar quem está fugindo.
+  assert.equal(SKILLS.charge.cooldownMs, 13000);
+  // Tem que continuar sendo a recarga mais longa da árvore depois da Fúria —
+  // é isso que a mantém como recurso, não como parte do ciclo.
+  assert.ok(SKILLS.charge.cooldownMs > SKILLS.bash.cooldownMs);
+  assert.ok(SKILLS.charge.cooldownMs > SKILLS.rupture.cooldownMs);
   assert.ok(SKILLS.charge.range >= 5, 'precisa alcançar quem está longe');
   assert.ok(
     SKILLS.charge.power < SKILLS.power_strike.power,
