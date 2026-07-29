@@ -617,6 +617,57 @@ em terreno vazio, com o sistema de respawn "funcionando" sobre nada. Isso é
 inventar mapa. Fica para a Etapa 16, quando a cidade for desenhada — e aí é uma
 entrada na tabela, como o comentário de `towns.ts` já previa.
 
+## Crafting por Fragmentos — Doc 3 Bloco 01 e cap. 78 (2026-07-29)
+
+`shared/src/crafting.ts` + 14 testes. **Só as regras**, sem UI e sem integração
+com inventário — mesmo método da Etapa 8: fechar a lógica com teste antes de
+mexer no servidor.
+
+O ciclo que o doc chama de pilar da economia (`DD-PROF-027`):
+**Exploração → Fragmentos → Craft → Marketplace → novas expedições.** Monstro
+não dropa equipamento pronto com frequência; dropa **fragmentos**, e o jogador
+escolhe o risco.
+
+### As regras que o doc fecha
+
+- **Chance proporcional à quantidade** (`DD-PROF-022`): 50 Comuns + 50 Incomuns
+  → 50 % / 50 %. Os exemplos do doc viraram teste literal.
+- 🔴 **Mínimo de fragmentos para entrar na tabela.** É a regra anti-exploit, e o
+  doc explica com o caso concreto: sem ela, `1 Lendário + 99 Comuns` daria 1 %
+  de Lendário por custo irrisório, e farmar Comum viraria a via barata para o
+  item caro.
+- 🔴 **Fragmento fraco nunca REBAIXA o resultado** — só deixa de contribuir. Por
+  isso o que não atinge o mínimo some da conta em vez de puxar a média, e a
+  proporção renormaliza. É o que garante o "crafting nunca gera item inútil":
+  com Raro/Épico/Lendário na bancada, **é impossível** sair Comum.
+- 🔴 `DD-PROF-028` **só existem DOIS Mestres Ferreiros no mundo**, e só eles
+  fazem Mítico e Relíquia. Ferreiro comum para em Lendário. Há teste garantindo
+  que nem o upgrade de profissão cruza essa fronteira — senão a decisão viraria
+  letra morta.
+- **Upgrade de profissão sobe UM degrau** e satura em 10 % (`DD-PROF-023`
+  insiste em "pequena chance").
+- **XP profissional decai** para receita muito abaixo do nível (`DD-PROF-024`),
+  mas nunca chega a zero: trabalho feito é trabalho feito.
+
+### ⚠️ Conflitos e leituras registradas
+
+1. **`DD-PROF-021` tem duas versões.** O Bloco 01 fala em **cinco** categorias
+   de fragmento; o **cap. 78 revisa para sete**, alinhando com as sete raridades
+   que o jogo já tem. Vale o cap. 78 (o capítulo mais alto vence).
+2. **O teto antigo "crafting alcança no máximo Lendário" NÃO foi contrariado** —
+   foi refinado. Ferreiro comum para em Lendário; Mítico e Relíquia existem, mas
+   passam pelos dois Mestres.
+3. ⚠️ **A receita foi implementada como TETO.** `DD-PROF-022` diz que a raridade
+   vem dos fragmentos e `DD-PROF-025` diz que a receita define a categoria, sem
+   dizer como as duas convivem. Teto preserva as duas: fragmentos sorteiam, a
+   receita limita. **Precisa de confirmação do dono.**
+
+### O que falta para virar jogo
+
+Fragmentos como item dropável · receitas como consumível (`DD-PROF-024`: cada
+fabricação consome uma) · profissões e seus níveis · UI de bancada · o NPC
+Mestre Ferreiro. Nada disso existe — é a Etapa 12.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os
