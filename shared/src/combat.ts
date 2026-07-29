@@ -793,10 +793,11 @@ export const CREATURES: Record<string, CreatureDef> = {
 
     // "Periodicamente executa um Salto Esmagador, causando dano em área ao
     // redor do ponto de impacto." É a lição de POSICIONAMENTO.
-    // Recarga longa a pedido do dono: o Salto é para ser um MOMENTO que o
-    // jogador aprende a ler e evitar, não pressão contínua. A 6 s ele saía toda
-    // hora e virava ruído; a 11 s dá tempo de reposicionar entre um e outro.
-    slam: { power: 20, radius: 2, range: 4, cooldownMs: 11000, damageType: 'physical' },
+    // Recarga longa a pedido do dono (6 s → 11 s → 13 s): o Salto é para ser um
+    // MOMENTO que o jogador aprende a ler e evitar, não pressão contínua. Com
+    // 13 s e o efeito visual durando 800 ms, dá tempo de ver, reagir e
+    // reposicionar entre um salto e o próximo.
+    slam: { power: 20, radius: 2, range: 4, cooldownMs: 13000, damageType: 'physical' },
     // "Quando sua vida atinge 50 %, entra em um estado de fúria, aumentando
     // temporariamente sua velocidade de ataque (sem alterar sua velocidade de
     // deslocamento)." É a lição de FASES DE COMBATE.

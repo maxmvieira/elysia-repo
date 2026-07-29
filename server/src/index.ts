@@ -1510,9 +1510,11 @@ function creatureSlam(creature: Creature, now: number): void {
   if (!s) return;
   creature.lastSlamAt = now;
   broadcastFloor(creature.floor, {
-    // Reusa o efeito de área do Vendaval de Lâminas: é a mesma leitura visual
-    // (círculo de impacto no chão) e evita arte nova para o placeholder.
-    t: 'fx', kind: 'whirlwind',
+    // 'bash' é o efeito de ÁREA do cliente (anel de corte + lâminas cobrindo o
+    // raio real). Antes eu mandava 'whirlwind', que não existe na lista e caía
+    // no `else` — desenhando um talho de espada de alvo único num ataque em
+    // área. Nome errado, leitura errada.
+    t: 'fx', kind: 'bash',
     x: creature.tileX, y: creature.tileY, floor: creature.floor, radius: s.radius,
   });
   const base = s.power * (isNight ? NIGHT_DMG_MULT : 1);

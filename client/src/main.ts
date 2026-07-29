@@ -620,7 +620,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
 
     fxLayer.addChild(node);
-    spellFx.push({ node, t: 0, dur: kind === 'bash' || kind === 'fury' ? 480 : 320, kind });
+    // Durações alongadas a pedido do dono: a 320 ms o talho mal era percebido,
+    // e efeito que o jogador não vê não ensina nada. Área dura mais que golpe
+    // porque cobre um espaço que precisa ser LIDO antes de reagir.
+    const dur = kind === 'bash' || kind === 'fury' ? 800 : 520;
+    spellFx.push({ node, t: 0, dur, kind });
   }
 
   function spawnProjectile(fromWX: number, fromWY: number, toTileX: number, toTileY: number, kind: string): void {
@@ -2281,6 +2285,20 @@ function makeConditionStrip(): { node: Container; set: (ids?: ConditionId[]) => 
   return { node, set };
 }
 
+/**
+ * Salto de até quantos tiles ainda conta como MOVIMENTO (e desliza) em vez de
+ * teleporte (e pisca). A Investida alcança 5; acima de 8 é troca de andar,
+ * renascimento ou correção de posição — aí piscar é o certo.
+ */
+const DASH_MAX_TILES = 8;
+
+/**
+ * Duração do deslize por tile percorrido. A 90 ms/tile, uma Investida de 5
+ * tiles leva ~450 ms: dá para VER o personagem atravessar, que é o ponto.
+ * Menos que isso volta a parecer teleporte.
+ */
+const DASH_MS_PER_TILE = 90;
+
 /** Escurece uma cor 0xRRGGBB por uma fração (0..1). Usado no contorno do blob. */
 function darken(color: number, amount: number): number {
   const f = 1 - Math.max(0, Math.min(1, amount));
@@ -2507,12 +2525,24 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
 
   function setTarget(x: number, y: number): void {
     if (x === toX && y === toY) return;
-    const far = Math.abs(x - toX) > TS * 1.5 || Math.abs(y - toY) > TS * 1.5;
     const now = performance.now();
-    fromX = far ? x : c.x;
-    fromY = far ? y : c.y;
+    const dTiles = Math.max(Math.abs(x - toX), Math.abs(y - toY)) / TS;
+    const far = dTiles > 1.5;
+    // INVESTIDA e afins: salto de vários tiles que é MOVIMENTO, não teleporte.
+    // Antes caía no mesmo caminho da troca de andar e o sprite simplesmente
+    // PISCAVA no destino — daí a sensação de "rápido demais": não havia
+    // animação nenhuma. Agora desliza, com duração proporcional à distância.
+    const dash = far && dTiles <= DASH_MAX_TILES;
+    fromX = far && !dash ? x : c.x;
+    fromY = far && !dash ? y : c.y;
     toX = x;
     toY = y;
+    if (dash) {
+      stepMs = Math.round(dTiles * DASH_MS_PER_TILE);
+      movingUntil = now + stepMs + 80;
+      moveStart = now;
+      return;
+    }
     if (!far) {
       const measured = now - moveStart;
       // O teto acompanha a cadência REAL do servidor (se ficar baixo, o sprite
@@ -2659,12 +2689,24 @@ function makeSpriteActor(opts: SpriteActorOpts): EntityView {
 
   function setTarget(x: number, y: number): void {
     if (x === toX && y === toY) return;
-    const far = Math.abs(x - toX) > TS * 1.5 || Math.abs(y - toY) > TS * 1.5;
     const now = performance.now();
-    fromX = far ? x : c.x;
-    fromY = far ? y : c.y;
+    const dTiles = Math.max(Math.abs(x - toX), Math.abs(y - toY)) / TS;
+    const far = dTiles > 1.5;
+    // INVESTIDA e afins: salto de vários tiles que é MOVIMENTO, não teleporte.
+    // Antes caía no mesmo caminho da troca de andar e o sprite simplesmente
+    // PISCAVA no destino — daí a sensação de "rápido demais": não havia
+    // animação nenhuma. Agora desliza, com duração proporcional à distância.
+    const dash = far && dTiles <= DASH_MAX_TILES;
+    fromX = far && !dash ? x : c.x;
+    fromY = far && !dash ? y : c.y;
     toX = x;
     toY = y;
+    if (dash) {
+      stepMs = Math.round(dTiles * DASH_MS_PER_TILE);
+      movingUntil = now + stepMs + 80;
+      moveStart = now;
+      return;
+    }
     if (!far) {
       const measured = now - moveStart;
       // O teto acompanha a cadência REAL do servidor (se ficar baixo, o sprite
@@ -3025,12 +3067,25 @@ function makeCreatureView(
 
   function setTarget(x: number, y: number): void {
     if (x === toX && y === toY) return;
-    const far = Math.abs(x - toX) > TS * 1.5 || Math.abs(y - toY) > TS * 1.5;
     const now = performance.now();
-    fromX = far ? x : c.x;
-    fromY = far ? y : c.y;
+    const dTiles = Math.max(Math.abs(x - toX), Math.abs(y - toY)) / TS;
+    const far = dTiles > 1.5;
+    // INVESTIDA e afins: salto de vários tiles que é MOVIMENTO, não teleporte.
+    // Antes caía no mesmo caminho da troca de andar e o sprite simplesmente
+    // PISCAVA no destino — daí a sensação de "rápido demais": não havia
+    // animação nenhuma. Agora desliza, com duração proporcional à distância.
+    const dash = far && dTiles <= DASH_MAX_TILES;
+    fromX = far && !dash ? x : c.x;
+    fromY = far && !dash ? y : c.y;
     toX = x;
     toY = y;
+    // Esta variante não controla estado de "andando" (não tem animação de
+    // caminhada), então só ajusta a duração do deslize.
+    if (dash) {
+      stepMs = Math.round(dTiles * DASH_MS_PER_TILE);
+      moveStart = now;
+      return;
+    }
     if (!far) {
       const measured = now - moveStart;
       // Idem: o teto acompanha a cadência real, senão a criatura salta o tile

@@ -225,11 +225,12 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     requires: [{ skill: 'power_strike', level: 3 }],
     manaCost: 10,
     manaPerLevel: 1,
-    // Recarga alongada de 8 s para 13 s a pedido do dono. A Investida é
-    // MOBILIDADE, não rotação de dano: a 8 s dava para usar como parte do ciclo
-    // normal de combate, o que apaga a decisão de "guardo para alcançar quem
-    // está fugindo?". O GDD já manda o cooldown nunca cair com o nível.
-    cooldownMs: 13000,
+    // Recarga alongada em duas rodadas a pedido do dono: 8 s → 13 s → 15 s. A
+    // Investida é MOBILIDADE, não rotação de dano: em recarga curta ela cabia
+    // no ciclo normal de combate, o que apaga a decisão de "guardo para
+    // alcançar quem está fugindo?". O GDD já manda o cooldown nunca cair com o
+    // nível, então este é o valor definitivo até o balanceamento final.
+    cooldownMs: 15000,
     // O dano não é o ponto: o valor está em CHEGAR no alvo. Contra Archer e
     // Sorcerer no PvP isso será a diferença entre lutar e apanhar de longe.
     power: 0.9,
