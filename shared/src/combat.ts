@@ -156,19 +156,29 @@ export const CREATURES: Record<string, CreatureDef> = {
   },
   slime: {
     type: 'slime',
-    name: 'Slime',
+    // Doc 3 dá nome e lugar: existe uma linha de Slimes (Verde → Tier I ·
+    // Azul → Tier II · Vermelho → Tier III · Ancião → Tier V). Este é o Verde.
+    name: 'Slime Verde',
     behavior: 'hostile',
-    // No nível 1 todas as classes batem ~28-39 por golpe (skill inicial 10), então
-    // 40 HP morria em 1 hit. ~120 HP faz o Slime durar ~3 golpes: inimigo básico,
-    // não uma esponja. Defesa maior tira um pouco do dano físico do Knight/Archer
-    // (o dano mágico ignora defesa, por isso a diferença de HP é o que segura o mago).
-    maxHp: 120,
-    strength: 9,
-    defense: 5,
+    // 🔴 `DD-BAL-027` (Doc 3) — APROVADO, valor CANÔNICO. O Slime Verde é a
+    // **âncora de balanceamento de todo o bestiário**: nenhuma outra criatura
+    // tem XP definido isoladamente, todas saem por comparação com estes 10.
+    //
+    // ⚠️ Isto SUBSTITUI o balanceamento anterior (120 HP / 9 força / 5 defesa /
+    // 28 XP), que tinha sido escolhido para o Slime durar ~3 golpes no nível 1.
+    // O doc pede combate de 3–8 s, o que com o dano atual de nível 1 (~28–39 por
+    // golpe) dá ~2 golpes. Se na prática ficar rápido demais, o ajuste correto é
+    // no DANO DAS CLASSES, não aqui — mexer na âncora desalinha o bestiário
+    // inteiro, que é exatamente o que `DD-BAL-027` existe para impedir.
+    maxHp: 50,
+    // Doc 3: "dano 4–7". `strength` alimenta `computeHit`, que aplica variância
+    // de 0,85–1,15 — 5 de força cai dentro da faixa pedida.
+    strength: 5,
+    defense: 1,
     aggroRange: 5,
     attackCooldownMs: 1200,
-    moveCooldownMs: 1500,
-    xpReward: 28,
+    moveCooldownMs: 1500, // "velocidade baixa" (a velocidade-base do sistema segue PENDENTE)
+    xpReward: 10,
     goldMin: 2,
     goldMax: 8,
   },

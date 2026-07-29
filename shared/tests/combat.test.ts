@@ -40,14 +40,16 @@ test('o Slime existe e tem recompensa de XP positiva', () => {
   assert.equal(CREATURES.slime!.xpReward > 0, true);
 });
 
-test('o Rotworm existe e é um pouco mais fraco que o Slime', () => {
+test('o Rotworm existe e continua sendo uma criatura válida', () => {
   const rotworm = CREATURES.rotworm;
-  const slime = CREATURES.slime;
   assert.ok(rotworm);
-  assert.ok(slime);
-  // "Um pouco mais fraco": menos vida e menos recompensa que o Slime.
-  assert.equal(rotworm!.maxHp < slime!.maxHp, true);
-  assert.equal(rotworm!.xpReward < slime!.xpReward, true);
+  assert.equal(rotworm!.maxHp > 0, true);
+  assert.equal(rotworm!.xpReward > 0, true);
+  // ⚠️ Este teste comparava Rotworm com Slime ("um pouco mais fraco"). A
+  // comparação caiu quando `DD-BAL-027` fixou o Slime Verde em 50 HP / 10 XP:
+  // hoje o Rotworm está ACIMA da âncora do Tier I. Não é bug — é o bestiário
+  // esperando o rebalanceamento que `DD-BAL-038` manda fazer Tier por Tier.
+  // O Rotworm está DORMENTE (não nasce no mapa), então não afeta quem joga.
 });
 
 test('o Zumbi é fraco a Sagrado — e a fraqueza vem do lore, não de gosto', () => {
@@ -68,8 +70,20 @@ test('nenhuma criatura nasce imune: resistência sempre abaixo do teto', () => {
   }
 });
 
-test('o Slime aguenta mais de um golpe no início (não é 1-hit)', () => {
-  // No nível 1 as classes batem ~28-39 por golpe (skill inicial 10). O Slime
-  // precisa de HP suficiente para não morrer com um único acerto forte.
-  assert.equal(CREATURES.slime!.maxHp >= 80, true);
+test('DD-BAL-027: o Slime Verde é a âncora canônica do bestiário', () => {
+  // Valor APROVADO no Doc 3. Toda a curva de XP do jogo sai por comparação com
+  // estes 10 — mudar aqui desalinha o bestiário inteiro, que é precisamente o
+  // que a decisão existe para impedir. Se algum dia mudar, é decisão do dono.
+  const s = CREATURES.slime;
+  assert.ok(s);
+  assert.equal(s!.name, 'Slime Verde');
+  assert.equal(s!.xpReward, 10);
+  assert.equal(s!.maxHp, 50);
+  assert.equal(s!.defense, 1);
+});
+
+test('o Slime Verde ainda aguenta mais de um golpe no nível 1', () => {
+  // O doc pede combate de 3–8 s. Com o dano de nível 1 (~28–39 por golpe), 50 HP
+  // dá dois golpes. Se cair para um só, o combate deixou de existir.
+  assert.equal(CREATURES.slime!.maxHp > 39, true);
 });

@@ -1,0 +1,131 @@
+# Doc 3 — Triagem para implementação
+
+Mapa do que o **Doc 3** (`ELYSIA ONLINE ATUALIZAÇOES DE LACUNAS.docx`) contém e
+o que dá para virar código. Texto pesquisável em
+[`doc3-lacunas-extraido.md`](./doc3-lacunas-extraido.md) — os números de linha
+abaixo se referem a ele.
+
+**Autorização do dono (2026-07-29):** *"tudo foi aprovado, mesmo como proposta,
+pode implementar"*. Ou seja, o status `PROPOSTA` **não bloqueia** implementação
+neste documento — diferente do vocabulário do Doc 1, onde `PENDENTE` bloqueia.
+
+## Tamanho do documento
+
+| | |
+|---|---|
+| Decisões `DD-` | **759** |
+| `PROPOSTA` | 215 |
+| `DEFINITIVO` / `Aprovado` | 83 |
+| Linhas de texto | 11.504 |
+
+Distribuição por família: **MVP 544** (projetos de chefe) · BAL 184 · LOR 80 ·
+PAS 70 · QST 38 · EVT 34 · FCT 32 · EXP 26 · REL 20 · BST/PROF 16 · DUR/ECO 15 ·
+ELEM 10 · WPN 10 · ART 9 · AI 8.
+
+Isso é conteúdo para **muitas sessões**. A ordem sugerida está no fim.
+
+## Blocos do documento
+
+| Linha | Bloco |
+|---|---|
+| 1 | 01 — Crafting (versão consolidada) |
+| 380 | 03 — A Hierarquia Celestial |
+| 483 | 04 — Os Seis Arcanjos Fiéis |
+| 578 | 05 — Os Sete Senhores da Corrupção |
+| 689 | 06 — As Religiões de Elysia |
+| 803 | 07 — As Sete Eras da Reconstrução |
+| 937 | 08 — A Queda das Grandes Civilizações |
+
+Depois da linha ~950 o documento abandona o formato "BLOCO" e passa a listar
+decisões `DD-` diretamente, em lotes por sistema.
+
+## ✅ O que o Doc 3 RESOLVE
+
+**Lore (76 decisões `DD-LOR-070` a `DD-LOR-145`, linhas 277–1494).** Fecha
+praticamente toda a lista de pendências de lore do roadmap: os Arcanjos, os Sete
+Senhores da Corrupção, as religiões, o calendário e a contagem dos anos, as
+eras, os reinos humanos, **Asteria** (`DD-LOR-114`, linha 1254) e os Povos
+Livres.
+
+🔴 **Isto destrava a Etapa 16**, que estava parada com um "não inventar"
+explícito sobre cidade inicial, capital humana, sistema político e religiões.
+
+**Balanceamento do bestiário (`DD-BAL-038` a `DD-BAL-043`, linhas 3421–3509).**
+São decisões de **processo**, não números:
+
+- ordem obrigatória: Tier I → II → III → IV → V → VI → MVPs → revisão global,
+  cada Tier fechado antes do seguinte
+- Tiers são referência, **não bloqueio** — jogador experiente pode subir de
+  faixa, e uma região pode misturar Tiers
+- dificuldade nunca é só atributo maior: entra IA, complexidade e comportamento
+- MVP tem escala própria, com identidade, habilidades, IA, loot e papel narrativo
+
+**Taxonomia dos Slimes** (linhas 1892–1895): Verde → Tier I · Azul → Tier II ·
+Vermelho → Tier III · Ancião → Tier V.
+
+**`DD-BAL-027` (linha 2744) — o único número canônico direto:** Slime Verde
+tem **XP 10, 50 HP, dano 4–7, defesa 1**, combate de 3–8 s, e é a **âncora de
+balanceamento de todo o bestiário**.
+
+## ❌ O que o Doc 3 NÃO resolve
+
+As quatro pendências que travam código **continuam abertas** — nenhuma aparece
+no documento:
+
+| Pendência | O que falta |
+|---|---|
+| `DD-CC-013/014` | método anti-CC-chain (resistência temporária? diminishing returns?) |
+| `DD-DEF-012` | valor do cap global de bloqueio (hoje 0,25 como referência) |
+| `DD-PROG-002` | faixas da curva de pontos por nível (10 → 20) |
+| `DD-DEATH-009` | fórmula de conversão da penalidade de morte |
+
+Também segue pendente a **velocidade-base do sistema** (linha 2661).
+
+## ⚠️ Conflitos a resolver
+
+**1. "Água" não é um dos sete elementos.** A linha 1670 dá `Slime Azul → Água`,
+mas `DD-ELM-002` fecha os sete tipos em Físico · Fogo · Gelo · Elétrico ·
+Veneno · Sagrado · Sombrio. Água não existe. Provável intenção: **Gelo**.
+🔴 Precisa de decisão antes de o Slime Azul entrar.
+
+**2. Códigos `DD-LOR` duplicados.** `DD-LOR-127` a `DD-LOR-133` aparecem duas
+vezes, com conteúdos diferentes (linhas 1355–1386 e 1393–1423). Um dos blocos
+precisa ser renumerado, senão referenciar um código fica ambíguo.
+
+**3. `DD-BAL-027` conflita com o bestiário implementado.** Ver abaixo.
+
+## Estado do bestiário depois de `DD-BAL-027`
+
+Aplicar a âncora canônica ao Slime Verde deixa o resto do bestiário
+**desalinhado** — o que é esperado: `DD-BAL-038` manda balancear o Tier I
+inteiro antes de seguir, e esse trabalho ainda não foi feito.
+
+| Criatura | HP | XP | Situação |
+|---|---|---|---|
+| Slime Verde | 50 | 10 | ✅ canônico (`DD-BAL-027`) |
+| Rotworm | 90 | 20 | ⚠️ acima da âncora do Tier I — DORMENTE |
+| Snake | 70 | 24 | ⚠️ idem — DORMENTE |
+| Aranha | 80 | 26 | ⚠️ idem — DORMENTE |
+| Coelho | 25 | 6 | ⚠️ DORMENTE |
+| Javali | 150 | 34 | ⚠️ DORMENTE |
+| Zumbi | 160 | 40 | ⚠️ ativo, precisa de Tier definido |
+| Super Slime | 2400 | 800 | ⚠️ chefe, escala própria (`DD-BAL-042`) |
+
+As DORMENTES não nascem no mapa, então o desalinhamento não afeta quem joga
+hoje. O Zumbi afeta.
+
+## Ordem sugerida de implementação
+
+1. ✅ **`DD-BAL-027`** — Slime Verde como âncora *(feito)*
+2. **Rebalancear o Tier I inteiro** contra a âncora (`DD-BAL-038`) — decidir o
+   Tier do Zumbi e o que fazer com as dormentes
+3. **Lore no código** — Asteria em `shared/src/towns.ts`, calendário, reinos.
+   Destrava a Etapa 16
+4. **Crafting por fragmentos** (Bloco 01) — encaixa na Etapa 12
+5. **MVPs** (544 decisões) — só depois dos Tiers, como `DD-BAL-038` manda
+
+## Como regerar o texto extraído
+
+O `.docx` é binário e ilegível por ferramenta de busca. Para regerar o `.md`
+depois de atualizar o Word, extraia `word/document.xml` do `.docx` (é um zip),
+tire as tags e decodifique as entidades HTML.

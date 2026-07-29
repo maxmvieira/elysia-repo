@@ -425,6 +425,33 @@ desenhado, só o miolo de `makeConditionStrip().set` muda.
 balanceamento de quem já está jogando — merece ser feito de propósito, não de
 carona numa troca de encanamento.
 
+## Doc 3 recebido e triado (2026-07-29)
+
+O Doc 3 chegou como `.docx` (398 KB, binário e ilegível por busca). Foi extraído
+para `docs/doc3-lacunas-extraido.md` — 407 KB, 11.504 linhas, **759 decisões**.
+
+Triagem completa em **[`DOC3-TRIAGEM.md`](./DOC3-TRIAGEM.md)**: o que o Doc 3
+fecha, o que ele não resolve, os conflitos, e a ordem sugerida de implementação.
+Comece por lá antes de mexer em qualquer coisa vinda do Doc 3.
+
+**Autorização do dono:** *"tudo foi aprovado, mesmo como proposta, pode
+implementar"*. O status `PROPOSTA` **não bloqueia** neste documento — diferente
+do vocabulário do Doc 1, onde `PENDENTE` bloqueia.
+
+**Aplicado nesta leva:** `DD-BAL-027` — o Slime virou **Slime Verde** e recebeu
+os valores canônicos: **50 HP, força 5, defesa 1, XP 10**. Ele é a âncora de
+balanceamento de todo o bestiário: nenhuma outra criatura tem XP definido
+isoladamente. Isso **substitui** o balanceamento anterior (120/9/5/28), que
+existia para o Slime durar ~3 golpes.
+
+⚠️ **O resto do bestiário ficou desalinhado** em relação à âncora — o que é
+esperado, porque `DD-BAL-038` manda balancear Tier por Tier e esse trabalho não
+foi feito. As criaturas fora de escala estão DORMENTES (não nascem), **menos o
+Zumbi**, que está ativo e ainda não tem Tier definido.
+
+⚠️ **As quatro pendências que travam código continuam abertas** — nenhuma
+aparece no Doc 3: `DD-CC-013/014`, `DD-DEF-012`, `DD-PROG-002`, `DD-DEATH-009`.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os
