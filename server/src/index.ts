@@ -650,6 +650,45 @@ function spawnInitialCreatures(): void {
     [13, 33], [27, 35], [14, 38], [7, 26], [38, 24], [11, 6], [31, 5], [42, 40], [6, 42],
   ];
   for (const [x, y] of zombieSpots) spawnCreature('zombie', x, y);
+
+  // -------------------------------------------------------------------------
+  // TIER II e TIER III — ligados a pedido do dono, com bolha colorida e nome.
+  //
+  // ⚠️ Nenhuma tem arte própria: todas usam o blob placeholder, diferenciado por
+  // COR (`CREATURE_PLACEHOLDER_COLORS`) e pelo nome sobre a cabeça. É andaime
+  // para conseguir testar a curva de dificuldade antes dos sprites existirem.
+  //
+  // A distribuição é por PERIGO: quanto mais longe da vila (centro em 20,20),
+  // mais alto o Tier. `DD-BAL-039` permite misturar Tiers numa região, mas a
+  // progressão tem que ser legível — quem anda para fora encontra coisa pior,
+  // e é o ambiente que avisa, não uma placa.
+  // -------------------------------------------------------------------------
+
+  // TIER II — primeiro anel fora da muralha. Duplas da mesma família nascem
+  // juntas de propósito: `DD-BAL-049` desenhou tank + ranged para atuarem em
+  // conjunto, e separá-las apagaria o papel de cada uma.
+  const tier2: Array<[string, number, number]> = [
+    ['forest_spider', 6, 12], ['forest_spider', 8, 9], ['web_spider', 5, 10],
+    ['soldier_ant', 36, 10], ['soldier_ant', 38, 12], ['spitter_ant', 37, 8],
+    ['goblin_warrior', 34, 34], ['goblin_warrior', 36, 32], ['goblin_archer', 35, 36],
+    ['grey_wolf', 8, 36], ['grey_wolf', 6, 34], ['grey_wolf', 10, 38],
+    ['young_orc', 40, 20], ['young_orc', 42, 22], ['orc_warrior', 41, 18],
+  ];
+  for (const [t, x, y] of tier2) spawnCreature(t, x, y);
+
+  // TIER III — bordas do mapa. `DD-BAL-058`: "transição para o conteúdo
+  // intermediário", exige build consistente e prioridade de alvos.
+  const tier3: Array<[string, number, number]> = [
+    ['skeleton_warrior', 48, 8], ['skeleton_warrior', 50, 10], ['skeleton_archer', 49, 6],
+    ['giant_spider', 6, 48], ['giant_spider', 9, 50],
+    ['mystic_ant', 50, 30], ['mystic_ant', 52, 32],
+    ['kobold_hunter', 30, 50], ['kobold_hunter', 33, 52],
+    ['brown_bear', 12, 46], ['brown_bear', 16, 49],
+    ['black_wolf', 46, 46], ['black_wolf', 49, 44],
+    ['minotaur', 52, 20], ['minotaur', 54, 24],
+    ['troll', 20, 52], ['troll', 24, 54],
+  ];
+  for (const [t, x, y] of tier3) spawnCreature(t, x, y);
   // CHEFE: Super Slime no canto sudeste da floresta, bem longe do centro. Ele
   // caça o jogador pelo mapa, mas trava na borda da zona central (spawn).
   spawnCreature('super_slime', 48, 48);

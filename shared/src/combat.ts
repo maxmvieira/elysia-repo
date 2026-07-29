@@ -736,6 +736,50 @@ export const CREATURES: Record<string, CreatureDef> = {
   },
 };
 
+/**
+ * Cor da BOLHA de placeholder de cada criatura sem arte própria.
+ *
+ * ⚠️ Isto é andaime, não arte. O cliente desenha todo tipo desconhecido com o
+ * mesmo blob do Slime; sem cor, 18 espécies com 140 a 480 de vida ficariam
+ * visualmente idênticas. Com cor + nome, dá para jogar e testar a curva de
+ * dificuldade enquanto a arte de verdade não chega.
+ *
+ * Agrupadas por família, para o olho aprender a ler o mundo: Slimes em tons
+ * próprios, mortos-vivos em osso, lobos em cinza/preto, orcs e goblins em
+ * verde-oliva. Quando uma espécie ganhar sprite, ela sai desta tabela.
+ */
+export const CREATURE_PLACEHOLDER_COLORS: Record<string, number> = {
+  // Slimes — a família tem cor no próprio nome
+  slime: 0x5fae5f,
+  slime_blue: 0x5f8fd0,
+  slime_red: 0xc05050,
+  // Aranhas
+  forest_spider: 0x6a4a7a,
+  web_spider: 0x8a6a9a,
+  giant_spider: 0x4a3a5a,
+  // Formigas
+  soldier_ant: 0xa06a3a,
+  spitter_ant: 0x8aa03a, // ácido
+  mystic_ant: 0x6a8ad0, // suporte mágico
+  // Goblins
+  goblin_warrior: 0x7aa04a,
+  goblin_archer: 0x9ab060,
+  // Lobos
+  grey_wolf: 0x9a9a9a,
+  black_wolf: 0x3a3a44,
+  // Orcs
+  young_orc: 0x6a8a4a,
+  orc_warrior: 0x4a6a3a,
+  // Mortos-vivos — osso
+  skeleton_warrior: 0xd8d0b8,
+  skeleton_archer: 0xc8c0a8,
+  // Humanoides e fauna grande
+  minotaur: 0x8a4a3a,
+  brown_bear: 0x7a5a3a,
+  kobold_hunter: 0xb08a4a,
+  troll: 0x5a7a5a,
+};
+
 /** Distância de Chebyshev (grid, permite diagonal como 1). */
 export function chebyshev(ax: number, ay: number, bx: number, by: number): number {
   return Math.max(Math.abs(ax - bx), Math.abs(ay - by));

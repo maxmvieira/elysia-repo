@@ -60,6 +60,7 @@ import {
   type CharacterSlot,
   type ServerMessage,
   CONDITION_COLORS,
+  CREATURE_PLACEHOLDER_COLORS,
   ELEMENT_INFO,
   type ConditionId,
 } from '@dominion/shared';
@@ -2280,6 +2281,24 @@ function makeConditionStrip(): { node: Container; set: (ids?: ConditionId[]) => 
   return { node, set };
 }
 
+/** Escurece uma cor 0xRRGGBB por uma fração (0..1). Usado no contorno do blob. */
+function darken(color: number, amount: number): number {
+  const f = 1 - Math.max(0, Math.min(1, amount));
+  const r = Math.round(((color >> 16) & 0xff) * f);
+  const g = Math.round(((color >> 8) & 0xff) * f);
+  const b = Math.round((color & 0xff) * f);
+  return (r << 16) | (g << 8) | b;
+}
+
+/** Clareia uma cor 0xRRGGBB. O nome precisa ler bem sobre o cenário escuro. */
+function lighten(color: number, amount: number): number {
+  const f = Math.max(0, Math.min(1, amount));
+  const mix = (c: number): number => Math.round(c + (255 - c) * f);
+  return (mix((color >> 16) & 0xff) << 16)
+    | (mix((color >> 8) & 0xff) << 8)
+    | mix(color & 0xff);
+}
+
 function nameLabel(text: string, color: number): Text {
   const label = new Text({
     text,
@@ -2853,16 +2872,23 @@ function makeCreatureView(
   c.addChild(body);
   const hpbar = makeHpBar();
   c.addChild(hpbar.node);
-  const nameCol = isSnake ? 0x9ab84a : isRotworm ? 0xd08a6a : 0xa0e0a0;
+  // Cor da bolha desta espécie. Toda criatura sem arte própria cai aqui, e sem
+  // a cor elas seriam 18 blobs verdes idênticos com 140 a 480 de vida.
+  const blobColor = CREATURE_PLACEHOLDER_COLORS[e.creatureType ?? 'slime'] ?? 0x5fae5f;
+  const nameCol = isSnake ? 0x9ab84a : isRotworm ? 0xd08a6a : lighten(blobColor, 0.45);
   c.addChild(nameLabel(e.name, nameCol));
 
-  // Slime: blob verde que "respira" (squash). Olhos escuros.
+  // Blob que "respira" (squash), na cor da espécie. Olhos escuros.
+  // Continua sendo placeholder: quando a criatura ganhar sprite, ela deixa de
+  // passar por aqui, como já acontece com o Zumbi.
   function drawSlime(squash: number): void {
     const h = 18 * (1 - squash * 0.12);
     const w = 24 * (1 + squash * 0.1);
     const baseY = TS - 3;
     body.clear();
-    body.roundRect(TS / 2 - w / 2, baseY - h, w, h, 7).fill(0x5fae5f).stroke({ width: 2, color: 0x2f5f2f });
+    body.roundRect(TS / 2 - w / 2, baseY - h, w, h, 7)
+      .fill(blobColor)
+      .stroke({ width: 2, color: darken(blobColor, 0.45) });
     body.circle(TS / 2 - 5, baseY - h * 0.6, 2).fill(0x0a1a0a);
     body.circle(TS / 2 + 5, baseY - h * 0.6, 2).fill(0x0a1a0a);
   }
