@@ -15,7 +15,22 @@
  * Migrações: `user_version` do SQLite. Cada versão é um passo idempotente.
  */
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
+
+/**
+ * v2 — Profissões (`DD-PROF-023`).
+ *
+ * Uma coluna JSON em vez de tabela própria: `DD-PROF-004` fecha que **não há
+ * limite de profissões** por personagem, então a forma final é um mapa
+ * `profissão -> { level, xp }` que cresce sem migração nova a cada ofício.
+ *
+ * `ALTER TABLE ... ADD COLUMN` com DEFAULT é idempotente na prática porque o
+ * passo só roda quando `user_version` está abaixo de 2 — personagens que já
+ * existem entram com o mapa vazio, ou seja, nenhuma profissão iniciada.
+ */
+export const SCHEMA_V2 = `
+ALTER TABLE character ADD COLUMN professions TEXT NOT NULL DEFAULT '{}';
+`;
 
 export const SCHEMA_V1 = `
 -- ---------------------------------------------------------------- CONTA ----

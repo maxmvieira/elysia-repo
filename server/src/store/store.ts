@@ -20,7 +20,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { nameKey } from '@dominion/shared';
-import { SCHEMA_V1, SCHEMA_VERSION } from './schema.js';
+import { SCHEMA_V1, SCHEMA_V2, SCHEMA_VERSION } from './schema.js';
 
 // --------------------------------------------------------------- Tipos ----
 
@@ -120,9 +120,35 @@ export class Store {
     if (current < 1) {
       this.db.exec(SCHEMA_V1);
     }
+    // ⚠️ **A v2 verifica a COLUNA, não o `user_version`.**
+    //
+    // Confiar só no número já falhou na prática: o banco ficou marcado como v2
+    // sem a coluna existir, e aí todo `INSERT` quebraria em produção com
+    // "no such column". Um `ALTER TABLE ADD COLUMN` não é transacional junto do
+    // `PRAGMA`, então qualquer interrupção entre os dois (um reinício do
+    // `tsx watch`, por exemplo) deixa o banco mentindo sobre o próprio estado.
+    //
+    // Checar o schema de verdade torna o passo idempotente e auto-corretivo:
+    // roda quando falta, não roda quando já está lá, e conserta banco que ficou
+    // no meio do caminho.
+    if (!this.hasColumn('character', 'professions')) {
+      this.db.exec(SCHEMA_V2);
+    }
     if (current !== SCHEMA_VERSION) {
       this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
     }
+  }
+
+  /**
+   * Esta tabela tem esta coluna? Base das migrações auto-verificáveis.
+   *
+   * `PRAGMA table_info` não aceita parâmetro vinculado, daí a interpolação — os
+   * argumentos aqui são sempre literais do próprio código, nunca entrada de
+   * usuário.
+   */
+  private hasColumn(table: string, column: string): boolean {
+    const rows = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    return rows.some((r) => r.name === column);
   }
 
   close(): void {

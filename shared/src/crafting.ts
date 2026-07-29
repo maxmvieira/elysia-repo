@@ -225,6 +225,61 @@ export const FRAGMENT_ITEM: Record<Rarity, string> = {
   relic: 'fragment_relic',
 };
 
+/**
+ * Profissões. Começa só com Ferreiro, que é a que o Doc 3 detalha.
+ *
+ * 🔴 `DD-PROF-004` **não há limite de profissões** por personagem — "o gargalo é
+ * tempo, receitas e materiais", não uma escolha exclusiva. Por isso o estado é
+ * um mapa que cresce, e não um campo único.
+ */
+export type ProfessionId = 'blacksmith';
+
+export interface ProfessionState {
+  level: number;
+  xp: number;
+}
+
+/** Mapa `profissão -> estado`. Ausente = nunca praticada. */
+export type Professions = Partial<Record<ProfessionId, ProfessionState>>;
+
+export const PROFESSION_NAME: Record<ProfessionId, string> = {
+  blacksmith: 'Ferreiro',
+};
+
+/**
+ * XP para subir do nível atual para o próximo.
+ *
+ * ⚠️ REFERÊNCIA. A curva cresce devagar no começo (o artesão precisa sentir
+ * progresso) e acelera depois, porque `DD-PROF-023` quer que nível alto seja
+ * investimento real e não passagem obrigatória.
+ */
+export function professionXpToNext(level: number): number {
+  return 40 + (level - 1) * 25;
+}
+
+/**
+ * Aplica XP e devolve o novo estado, subindo quantos níveis couberem.
+ *
+ * Puro de propósito: o servidor guarda o resultado, e o teste consegue verificar
+ * a curva sem tocar em banco.
+ */
+export function addProfessionXp(
+  state: ProfessionState,
+  ganho: number,
+): { state: ProfessionState; levelsGained: number } {
+  let { level, xp } = state;
+  xp += Math.max(0, Math.round(ganho));
+  let levelsGained = 0;
+  // `while` e não `if`: uma receita muito difícil pode dar mais de um nível de
+  // uma vez, e travar isso em um por fabricação puniria justamente quem arrisca.
+  while (xp >= professionXpToNext(level)) {
+    xp -= professionXpToNext(level);
+    level += 1;
+    levelsGained += 1;
+  }
+  return { state: { level, xp }, levelsGained };
+}
+
 /** Item de receita correspondente a cada raridade (`DD-PROF-025`). */
 export const RECIPE_ITEM: Record<Rarity, string> = {
   common: 'recipe_common',

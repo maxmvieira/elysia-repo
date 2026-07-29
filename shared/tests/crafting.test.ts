@@ -7,10 +7,14 @@ import {
   FRAGMENTS_PER_CRAFT,
   ITEMS,
   RARITIES,
+  PROFESSION_NAME,
   RECIPE_ITEM,
   RECIPE_MAX_BY_SOURCE,
+  addProfessionXp,
+  professionXpToNext,
   rollFragmentDrop,
   rollRecipeDrop,
+  type Professions,
   MIN_FRAGMENTS_FOR_CHANCE,
   canCraft,
   craftXp,
@@ -279,6 +283,40 @@ test('receita nunca passa do teto da fonte', () => {
 
 test('chance zero nunca larga fragmento', () => {
   assert.equal(rollFragmentDrop('boss', 0, () => 0), null);
+});
+
+test('DD-PROF-004: profissão é um mapa, porque não há limite de profissões', () => {
+  // "O gargalo é tempo, receitas e materiais", não uma escolha exclusiva. Por
+  // isso o estado cresce por chave em vez de ser um campo único.
+  const p: Professions = {};
+  assert.equal(p.blacksmith, undefined, 'ausente = nunca praticada');
+  assert.ok(PROFESSION_NAME.blacksmith);
+});
+
+test('a curva de profissão cresce com o nível', () => {
+  assert.ok(professionXpToNext(1) < professionXpToNext(10));
+  assert.ok(professionXpToNext(10) < professionXpToNext(50));
+});
+
+test('addProfessionXp sobe quantos níveis couberem de uma vez', () => {
+  const zerado = { level: 1, xp: 0 };
+  const pouco = addProfessionXp(zerado, 10);
+  assert.equal(pouco.levelsGained, 0);
+  assert.equal(pouco.state.xp, 10);
+
+  // Uma receita muito difícil pode dar mais de um nível. Travar em um por
+  // fabricação puniria justamente quem arrisca.
+  const muito = addProfessionXp(zerado, professionXpToNext(1) + professionXpToNext(2) + 5);
+  assert.equal(muito.levelsGained, 2);
+  assert.equal(muito.state.level, 3);
+  assert.equal(muito.state.xp, 5, 'a sobra fica acumulada, não se perde');
+});
+
+test('XP negativa ou zero não mexe no estado', () => {
+  const antes = { level: 4, xp: 12 };
+  const depois = addProfessionXp(antes, -100);
+  assert.deepEqual(depois.state, antes);
+  assert.equal(depois.levelsGained, 0);
 });
 
 test('rarityRank ordena as sete raridades corretamente', () => {
