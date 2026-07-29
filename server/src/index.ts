@@ -636,11 +636,18 @@ function spawnInitialCreatures(): void {
   // CreatureDefs e os desenhos continuam no código, só não nascem mais. Para
   // reintroduzir qualquer uma, basta voltar a chamar spawnCreature aqui.
   for (const [x, y] of slimeSpots) spawnCreature('slime', x, y);
-  // ZUMBIS: ocupam o lugar da fauna removida. Ficam FORA da muralha da vila
-  // (x/y 10..30) e longe da zona segura do centro. O primeiro, ao sul em
-  // (20,34), é o de teste: linha reta descendo a partir do nascimento (20,20).
+  // ZUMBIS: ficam FORA da muralha da vila (x/y 10..30) e longe da zona segura
+  // do centro.
+  //
+  // 🔴 **Nenhum fica no eixo sul do nascimento.** `DD-BAL-055` promoveu o Zumbi
+  // a Tier III (340 HP, dano 20–28) e havia um em (20,34) — linha reta descendo
+  // de (20,20), onde o personagem nasce. Servia como alvo de teste quando ele
+  // tinha 160 HP; virou execução de quem acabou de criar personagem.
+  //
+  // A regra agora: nada de Zumbi com |x − 20| < 5 ao sul da vila. Quem descer em
+  // linha reta tem espaço para ver o perigo antes de encostar nele.
   const zombieSpots: Array<[number, number]> = [
-    [20, 34], [14, 38], [27, 37], [7, 26], [38, 24], [11, 6], [31, 5], [42, 40], [6, 42],
+    [13, 33], [27, 35], [14, 38], [7, 26], [38, 24], [11, 6], [31, 5], [42, 40], [6, 42],
   ];
   for (const [x, y] of zombieSpots) spawnCreature('zombie', x, y);
   // CHEFE: Super Slime no canto sudeste da floresta, bem longe do centro. Ele

@@ -84,6 +84,65 @@ test('DD-BAL-055: o Zumbi é Tier III — muito acima da âncora do Tier I', () 
   assert.equal(z.xpReward > ancora.xpReward * 5, true);
 });
 
+test('DD-BAL-044..048: o Tier II inteiro está acima do Tier I e abaixo do III', () => {
+  const tierI = ['slime', 'slime_blue', 'slime_red'];
+  const tierII = [
+    'forest_spider', 'web_spider', 'soldier_ant', 'spitter_ant',
+    'goblin_warrior', 'goblin_archer', 'grey_wolf', 'young_orc', 'orc_warrior',
+  ];
+  const tierIII = [
+    'zombie', 'skeleton_warrior', 'skeleton_archer', 'minotaur',
+    'brown_bear', 'black_wolf', 'giant_spider', 'mystic_ant',
+    'kobold_hunter', 'troll',
+  ];
+
+  const xp = (t: string): number => {
+    const d = CREATURES[t];
+    assert.ok(d, `criatura ${t} não existe`);
+    return d!.xpReward;
+  };
+
+  // As faixas não podem se cruzar: o pior do Tier II rende mais que o melhor do
+  // Tier I, e assim por diante. É a curva que `DD-BAL-040` protege.
+  const maxI = Math.max(...tierI.map(xp));
+  const minII = Math.min(...tierII.map(xp));
+  const maxII = Math.max(...tierII.map(xp));
+  const minIII = Math.min(...tierIII.map(xp));
+  assert.equal(minII > maxI, true, `Tier II (${minII}) tem que render mais que Tier I (${maxI})`);
+  assert.equal(minIII > maxII, true, `Tier III (${minIII}) tem que render mais que Tier II (${maxII})`);
+});
+
+test('DD-BAL-049: família com várias espécies tem PAPÉIS, não só números maiores', () => {
+  // "Adicionar espécie cuja única diferença seja aumento de atributo" é
+  // explicitamente proibido. Nas duplas abaixo, o segundo é mais frágil que o
+  // primeiro em troca de alcance — se alguém empilhar tudo para cima, quebra.
+  const duplas: Array<[string, string]> = [
+    ['soldier_ant', 'spitter_ant'],
+    ['goblin_warrior', 'goblin_archer'],
+    ['skeleton_warrior', 'skeleton_archer'],
+  ];
+  for (const [tank, ranged] of duplas) {
+    const t = CREATURES[tank]!;
+    const r = CREATURES[ranged]!;
+    assert.equal(r.maxHp < t.maxHp, true, `${ranged} deveria ser mais frágil que ${tank}`);
+    assert.equal(r.defense < t.defense, true, `${ranged} deveria ter menos defesa que ${tank}`);
+    assert.ok(r.spell, `${ranged} precisa de ataque à distância para justificar o papel`);
+    assert.equal(t.spell, undefined, `${tank} é corpo a corpo`);
+  }
+});
+
+test('só o Zumbi é mais lento que a família Slime', () => {
+  // A lentidão é identidade dele. Qualquer criatura nova mais lenta rouba isso.
+  for (const [tipo, def] of Object.entries(CREATURES)) {
+    if (tipo === 'zombie') continue;
+    assert.equal(
+      def.moveCooldownMs < CREATURES.zombie!.moveCooldownMs,
+      true,
+      `${tipo} não pode ser tão lento quanto o Zumbi`,
+    );
+  }
+});
+
 test('nenhuma criatura nasce imune: resistência sempre abaixo do teto', () => {
   for (const [tipo, def] of Object.entries(CREATURES)) {
     for (const [elem, v] of Object.entries(def.resistances ?? {})) {

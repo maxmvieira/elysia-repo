@@ -527,6 +527,54 @@ um encontro provavelmente fatal para personagem recém-criado. Isso é
 mas merece decisão consciente. Opções em `DOC3-TRIAGEM.md`. O spawn **não** foi
 alterado: mapa é decisão do dono.
 
+## Tier II e Tier III definidos — `DD-BAL-044` a `059` (2026-07-29)
+
+**18 criaturas novas** com ficha canônica, todas **DORMENTES**. Mais o spawn dos
+Zumbis afastado do eixo sul.
+
+**Tier II:** Aranha da Floresta · Aranha de Teia · Formiga Soldado · Formiga
+Cuspidora · Goblin Guerreiro · Goblin Arqueiro · Lobo Cinzento · Orc Jovem ·
+Orc Guerreiro
+
+**Tier III:** Esqueleto Guerreiro · Esqueleto Arqueiro · Minotauro · Urso Pardo ·
+Lobo Negro · Aranha Gigante · Formiga Mística · Kobold Caçador · Troll
+
+### 🔴 O gargalo virou ARTE
+
+Nenhuma nasce no mapa, e o motivo **não é código nem espaço**. O cliente escolhe
+o desenho por `creatureType` e cai em `drawSlime` para tipo desconhecido:
+spawnar hoje encheria o mundo de bolhas idênticas com 140 a 480 de vida. O
+jogador não distinguiria um Troll de um Slime antes de morrer para ele.
+
+Opções em `DOC3-TRIAGEM.md`. O caminho barato é **placeholder por família** no
+`drawBody` — destrava playtest sem esperar 18 sprites, e cada arte real
+substitui o placeholder da sua espécie depois.
+
+⚠️ **Expandir o mapa não foi necessário.** O 60×60 comporta muito mais que as 27
+criaturas atuais; o aperto é de identificação visual, não de espaço.
+
+### Decisões de tradução do doc para o código
+
+- 🆕 **`SPEED`** traduz "Baixa/Média/Alta/Muito Alta" para ms por passo,
+  ancorando na família Slime (que já valia 1500 e o doc chama de "Baixa").
+  ⚠️ A velocidade-base do sistema segue **PENDENTE** no doc — isto é escala
+  relativa, não canônica.
+- **Criaturas à distância usam `spell`** com o `damageType` certo: flecha é
+  física, ácido é Veneno. É o primeiro uso real do campo que entrou na Etapa 8.
+- **Urso Pardo ficou `territorial` por INFERÊNCIA** — a ficha não dá
+  comportamento, e territorial é a leitura defensável para fauna ("tanque
+  natural", não caçador). Confirmar.
+- `DD-BAL-049` virou **teste**: nas duplas tank/ranged da mesma família, o
+  ranged tem que ser mais frágil E ter alcance. Impede que alguém acrescente
+  espécie "só com número maior", que o doc proíbe.
+- A curva entre Tiers virou teste: as faixas de XP **não podem se cruzar**.
+
+### Comportamentos que a ficha descreve e a IA ainda não faz
+
+Teia (Lentidão) · recuo do arqueiro · buff da Formiga Mística · armadilhas do
+Kobold · alcateia do Lobo. Todos anotados no código, na criatura correspondente.
+O primeiro depende de criaturas poderem aplicar condição — que ainda não podem.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os

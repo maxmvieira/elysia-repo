@@ -127,7 +127,53 @@ recente no documento e traz os números. Precisa de confirmação.
 1. ✅ **`DD-BAL-027`** — Slime Verde como âncora *(feito)*
 2. ✅ **`DD-BAL-033` a `036`** — família Slime inteira *(feito)*
 3. ✅ **`DD-BAL-055`** — Zumbi é Tier III *(feito)*
-4. **Rebalancear o resto do Tier I** contra a âncora (`DD-BAL-038`)
+4. ✅ **`DD-BAL-044` a `059`** — Tier II e Tier III definidos *(feito, dormentes)*
+5. 🔴 **ARTE** — é o que trava tudo agora, ver abaixo
+6. **Lore no código** — Asteria em `towns.ts`, destrava a Etapa 16
+
+## 🔴 O gargalo virou ARTE, não código
+
+18 criaturas novas estão definidas com ficha canônica e **nenhuma nasce no
+mapa**. O motivo não é espaço nem código:
+
+O cliente escolhe o desenho por `creatureType` e, para tipo desconhecido, cai em
+`drawSlime` (`client/src/main.ts`). Spawnar hoje encheria o mundo de **bolhas
+visualmente idênticas** com atributos de 140 a 480 de vida. O jogador não teria
+como distinguir um Troll de um Slime antes de morrer para ele — pior que não ter
+as criaturas.
+
+**Dois caminhos, e eles não se excluem:**
+
+| Caminho | O que envolve |
+|---|---|
+| **Arte de verdade** | um sprite por espécie, como o irmão fez com o Zumbi (formato LPC) |
+| **Placeholder distinguível** | dar cor/forma por família no `drawBody`, como o herói que ainda é geometria |
+
+O placeholder destrava playtest sem esperar 18 sprites. Depois cada arte
+substitui o placeholder da sua espécie, uma de cada vez.
+
+⚠️ **Expandir o mapa não é necessário ainda.** O 60×60 comporta bem mais que as
+27 criaturas atuais — o aperto seria de identificação visual, não de espaço.
+
+## Criaturas definidas e dormentes
+
+**Tier II** (`DD-BAL-044` a `048`): Aranha da Floresta · Aranha de Teia ·
+Formiga Soldado · Formiga Cuspidora · Goblin Guerreiro · Goblin Arqueiro ·
+Lobo Cinzento · Orc Jovem · Orc Guerreiro
+
+**Tier III** (`DD-BAL-055` a `059`): Esqueleto Guerreiro · Esqueleto Arqueiro ·
+Minotauro · Urso Pardo · Lobo Negro · Aranha Gigante · Formiga Mística ·
+Kobold Caçador · Troll *(o Zumbi também é Tier III e já está ativo)*
+
+## Comportamentos que as fichas descrevem e a IA ainda não faz
+
+- **Teia da Aranha de Teia** — aplicar Lentidão. Criaturas ainda não aplicam
+  condição nenhuma; hoje só o comando `/cond` aplica
+- **Recuo do Goblin Arqueiro e reposicionamento do Esqueleto Arqueiro** — não
+  existe kite na IA. Eles atiram enquanto dá e brigam quando encostam
+- **Buff da Formiga Mística** em outras formigas — não há IA de suporte
+- **Armadilhas do Kobold Caçador**
+- **Alcateia** do Lobo Cinzento (`predator` persegue, mas não cerca em grupo)
 
 ## 🔴 Aviso de dificuldade: o Zumbi na vila inicial
 

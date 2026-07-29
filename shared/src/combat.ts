@@ -122,6 +122,22 @@ export interface CreatureDef {
   resistances?: ResistanceProfile;
 }
 
+/**
+ * As quatro velocidades que o Doc 3 usa nas fichas, em ms por passo.
+ *
+ * O documento nunca dá número — só "Baixa", "Média", "Alta", "Muito Alta". Estes
+ * valores ancoram na família Slime, que é "Baixa" e já valia 1500 antes do Doc 3.
+ * ⚠️ A **velocidade-base do sistema segue PENDENTE** no doc (linha 2661 do
+ * `doc3-lacunas-extraido.md`), então isto é escala relativa, não canônica.
+ */
+export const SPEED = {
+  muitoLenta: 2000, // só o Zumbi: "lento" é a identidade dele
+  baixa: 1500,
+  media: 1200,
+  alta: 900,
+  muitoAlta: 700,
+} as const;
+
 export const CREATURES: Record<string, CreatureDef> = {
   rabbit: {
     type: 'rabbit',
@@ -311,6 +327,367 @@ export const CREATURES: Record<string, CreatureDef> = {
     goldMin: 0,
     goldMax: 5,
   },
+  // ===========================================================================
+  // TIER II — `DD-BAL-044` a `DD-BAL-048`
+  //
+  // 🔴 **Todas DORMENTES.** Não nascem no mapa, e o motivo é ARTE, não código: o
+  // cliente desenha por `creatureType` e cai em `drawSlime` para tipo
+  // desconhecido. Spawná-las hoje encheria o mundo de bolhas idênticas com
+  // atributos radicalmente diferentes — pior que não tê-las.
+  //
+  // `DD-BAL-049` fecha o princípio que organiza tudo aqui: quando uma família
+  // tem várias espécies, cada uma ocupa um PAPEL (melee, tank, ranged, controle,
+  // suporte). "Adicionar espécie cuja única diferença seja atributo maior" é
+  // explicitamente proibido.
+  // ===========================================================================
+
+  // --- Aranhas (`DD-BAL-044`): velocidade e os primeiros controles ---
+  forest_spider: {
+    type: 'forest_spider',
+    name: 'Aranha da Floresta',
+    behavior: 'hostile', // doc: "Comportamento: Agressivo"
+    maxHp: 140,
+    strength: 13, // doc: 10–16
+    defense: 4,
+    magicDefense: 2,
+    aggroRange: 6,
+    attackCooldownMs: 1000,
+    moveCooldownMs: SPEED.media,
+    xpReward: 35,
+    goldMin: 6,
+    goldMax: 18,
+  },
+  web_spider: {
+    type: 'web_spider',
+    name: 'Aranha de Teia',
+    behavior: 'hostile',
+    // "Menos resistência que a Aranha da Floresta, compensando com controle" —
+    // é a primeira criatura do jogo cuja identidade é aplicar condição.
+    // ⚠️ A teia (Lentidão em curto alcance) ainda NÃO está implementada: falta
+    // criaturas poderem aplicar condição, que hoje só o comando `/cond` faz.
+    maxHp: 130,
+    strength: 11.5, // doc: 9–14
+    defense: 3,
+    magicDefense: 3,
+    aggroRange: 6,
+    attackCooldownMs: 1000,
+    moveCooldownMs: SPEED.media,
+    xpReward: 40,
+    goldMin: 7,
+    goldMax: 20,
+  },
+
+  // --- Formigas (`DD-BAL-045`): a primeira dupla tank + ranged ---
+  soldier_ant: {
+    type: 'soldier_ant',
+    name: 'Formiga Soldado',
+    behavior: 'hostile',
+    // "Protege outras formigas... alta resistência, pouca mobilidade ofensiva."
+    maxHp: 180,
+    strength: 15, // doc: 12–18
+    defense: 6,
+    magicDefense: 2,
+    aggroRange: 5,
+    attackCooldownMs: 1200,
+    moveCooldownMs: SPEED.media,
+    xpReward: 45,
+    goldMin: 8,
+    goldMax: 22,
+  },
+  spitter_ant: {
+    type: 'spitter_ant',
+    name: 'Formiga Cuspidora',
+    behavior: 'hostile',
+    // "Ataque ácido à distância; prefere permanecer atrás das Soldados."
+    // Ácido = Veneno (`DD-ELM-002`); é o primeiro monstro comum com dano não-físico.
+    maxHp: 120,
+    strength: 14, // doc: 11–17 (corpo a corpo, quando encurralada)
+    defense: 3,
+    magicDefense: 3,
+    aggroRange: 6,
+    attackCooldownMs: 1200,
+    moveCooldownMs: SPEED.media,
+    xpReward: 42,
+    goldMin: 8,
+    goldMax: 21,
+    spell: {
+      power: 14, rangeMin: 2, range: 5, cooldownMs: 2600,
+      projectile: 'firebolt', damageType: 'poison',
+    },
+  },
+
+  // --- Goblins (`DD-BAL-046`): composição completa de combate ---
+  goblin_warrior: {
+    type: 'goblin_warrior',
+    name: 'Goblin Guerreiro',
+    behavior: 'hostile',
+    // "Utiliza espada e escudo; protege Goblins mais frágeis."
+    maxHp: 170,
+    strength: 16, // doc: 13–19
+    defense: 5,
+    magicDefense: 2,
+    aggroRange: 6,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.media,
+    xpReward: 48,
+    goldMin: 10,
+    goldMax: 26,
+  },
+  goblin_archer: {
+    type: 'goblin_archer',
+    name: 'Goblin Arqueiro',
+    behavior: 'hostile',
+    // ⚠️ "Recua quando inimigos se aproximam" NÃO está implementado — não existe
+    // comportamento de kite na IA. Ele mantém distância só enquanto a magia
+    // estiver no alcance; encostou, briga como todo mundo.
+    maxHp: 120,
+    strength: 15, // doc: 12–18
+    defense: 3,
+    magicDefense: 2,
+    aggroRange: 7,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.media,
+    xpReward: 46,
+    goldMin: 9,
+    goldMax: 24,
+    spell: {
+      power: 15, rangeMin: 2, range: 6, cooldownMs: 2200,
+      projectile: 'arrow', damageType: 'physical',
+    },
+  },
+
+  // --- Lobos (`DD-BAL-047`) ---
+  grey_wolf: {
+    type: 'grey_wolf',
+    name: 'Lobo Cinzento',
+    // "Caça em alcateia; tenta cercar o alvo" — predador, não simplesmente hostil.
+    behavior: 'predator',
+    maxHp: 160,
+    strength: 17, // doc: 14–20
+    defense: 4,
+    magicDefense: 2,
+    aggroRange: 8, // enxerga longe: é caçador
+    attackCooldownMs: 900,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 50,
+    goldMin: 6,
+    goldMax: 16,
+  },
+
+  // --- Orcs (`DD-BAL-048`): a elite do Tier II ---
+  young_orc: {
+    type: 'young_orc',
+    name: 'Orc Jovem',
+    behavior: 'hostile',
+    // "Agressivo; pouca técnica; combate baseado em força."
+    maxHp: 180,
+    strength: 18.5, // doc: 15–22
+    defense: 5,
+    magicDefense: 2,
+    aggroRange: 6,
+    attackCooldownMs: 1150,
+    moveCooldownMs: SPEED.media,
+    xpReward: 55,
+    goldMin: 12,
+    goldMax: 30,
+  },
+  orc_warrior: {
+    type: 'orc_warrior',
+    name: 'Orc Guerreiro',
+    behavior: 'hostile',
+    // "Representa a elite do Tier II."
+    maxHp: 230,
+    strength: 21, // doc: 17–25
+    defense: 7,
+    magicDefense: 3,
+    aggroRange: 6,
+    attackCooldownMs: 1150,
+    moveCooldownMs: SPEED.media,
+    xpReward: 65,
+    goldMin: 16,
+    goldMax: 38,
+  },
+
+  // ===========================================================================
+  // TIER III — `DD-BAL-055` a `DD-BAL-059`
+  //
+  // `DD-BAL-058` define a faixa: "transição para o conteúdo intermediário". Exige
+  // build consistente, uso frequente de habilidades, gestão de recursos,
+  // posicionamento e **prioridade de alvos** — é aqui que grupos com funções
+  // complementares aparecem de verdade.
+  //
+  // O Zumbi também é Tier III e está lá em cima, junto da definição antiga dele.
+  // Todas DORMENTES pelo mesmo motivo de arte do Tier II.
+  // ===========================================================================
+
+  // --- Mortos-Vivos (`DD-BAL-055`), a família do Zumbi ---
+  skeleton_warrior: {
+    type: 'skeleton_warrior',
+    name: 'Esqueleto Guerreiro',
+    behavior: 'hostile',
+    // "Técnica superior ao Esqueleto comum; utiliza equipamentos."
+    maxHp: 280,
+    strength: 29, // doc: 24–34
+    defense: 8,
+    magicDefense: 5,
+    aggroRange: 6,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.media,
+    xpReward: 100,
+    goldMin: 22,
+    goldMax: 55,
+    // Morto-vivo é alma que não voltou ao Heart: Sagrado devasta a família toda.
+    resistances: { holy: -0.5 },
+  },
+  skeleton_archer: {
+    type: 'skeleton_archer',
+    name: 'Esqueleto Arqueiro',
+    behavior: 'hostile',
+    // "Arqueiro disciplinado; combate à distância; reposicionamento."
+    // ⚠️ O reposicionamento não existe na IA, como no Goblin Arqueiro.
+    maxHp: 220,
+    strength: 29.5, // doc: 24–35
+    defense: 5,
+    magicDefense: 5,
+    aggroRange: 8,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.media,
+    xpReward: 95,
+    goldMin: 20,
+    goldMax: 50,
+    resistances: { holy: -0.5 },
+    spell: {
+      power: 26, rangeMin: 2, range: 7, cooldownMs: 2200,
+      projectile: 'arrow', damageType: 'physical',
+    },
+  },
+
+  // --- Minotauro (`DD-BAL-056`) ---
+  minotaur: {
+    type: 'minotaur',
+    name: 'Minotauro',
+    behavior: 'hostile',
+    // "Força bruta; grande alcance; alta resistência." O maior dano não-chefe do
+    // Tier III — e o alcance 2 vem do "grande alcance" da ficha.
+    maxHp: 420,
+    strength: 34, // doc: 28–40
+    defense: 10,
+    magicDefense: 4,
+    aggroRange: 6,
+    attackCooldownMs: 1400,
+    moveCooldownMs: SPEED.media,
+    xpReward: 120,
+    goldMin: 35,
+    goldMax: 80,
+  },
+
+  // --- Fauna Selvagem Avançada (`DD-BAL-057`) ---
+  brown_bear: {
+    type: 'brown_bear',
+    name: 'Urso Pardo',
+    // ⚠️ INFERÊNCIA: a ficha não dá comportamento. Territorial é a leitura mais
+    // defensável para fauna ("tanque natural", não caçador) e mantém a coerência
+    // com o Javali, que já é neutro. Confirmar com o dono.
+    behavior: 'territorial',
+    maxHp: 360,
+    strength: 31.5, // doc: 26–37
+    defense: 9,
+    magicDefense: 0, // a ficha do Urso não lista MDEF
+    aggroRange: 5,
+    attackCooldownMs: 1400,
+    moveCooldownMs: SPEED.media,
+    xpReward: 110,
+    goldMin: 18,
+    goldMax: 44,
+  },
+  black_wolf: {
+    type: 'black_wolf',
+    name: 'Lobo Negro',
+    behavior: 'predator',
+    // "Velocidade Muito Alta" — a criatura mais rápida do jogo. Fugir não é opção.
+    maxHp: 250,
+    strength: 32.5, // doc: 27–38
+    defense: 5,
+    magicDefense: 0, // a ficha não lista MDEF
+    aggroRange: 9,
+    attackCooldownMs: 800,
+    moveCooldownMs: SPEED.muitoAlta,
+    xpReward: 105,
+    goldMin: 16,
+    goldMax: 40,
+  },
+  giant_spider: {
+    type: 'giant_spider',
+    name: 'Aranha Gigante',
+    behavior: 'hostile',
+    // "Controle; teias; maior resistência que as aranhas do Tier II."
+    maxHp: 310,
+    strength: 29.5, // doc: 24–35
+    defense: 7,
+    magicDefense: 5,
+    aggroRange: 6,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.media,
+    xpReward: 110,
+    goldMin: 20,
+    goldMax: 48,
+  },
+  mystic_ant: {
+    type: 'mystic_ant',
+    name: 'Formiga Mística',
+    behavior: 'hostile',
+    // "Suporte mágico da colônia; fortalecimento de outras formigas." O buff em
+    // aliados NÃO existe — não há IA de suporte. MDEF 8 é a mais alta do Tier III.
+    maxHp: 260,
+    strength: 28, // doc: 22–34
+    defense: 5,
+    magicDefense: 8,
+    aggroRange: 6,
+    attackCooldownMs: 1200,
+    moveCooldownMs: SPEED.media,
+    xpReward: 108,
+    goldMin: 20,
+    goldMax: 46,
+    spell: {
+      power: 26, rangeMin: 2, range: 6, cooldownMs: 2600,
+      projectile: 'firebolt', damageType: 'poison',
+    },
+  },
+  kobold_hunter: {
+    type: 'kobold_hunter',
+    name: 'Kobold Caçador',
+    behavior: 'predator',
+    // "Perseguição; armadilhas; combate móvel." As armadilhas não existem.
+    maxHp: 220,
+    strength: 28, // doc: 23–33
+    defense: 5,
+    magicDefense: 3,
+    aggroRange: 8,
+    attackCooldownMs: 1000,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 92,
+    goldMin: 18,
+    goldMax: 42,
+  },
+
+  // --- Humanoides Avançados (`DD-BAL-059`) ---
+  troll: {
+    type: 'troll',
+    name: 'Troll',
+    behavior: 'hostile',
+    // O mais duro do Tier III: 480 HP e dano 30–42, mas lento.
+    maxHp: 480,
+    strength: 36, // doc: 30–42
+    defense: 11,
+    magicDefense: 4,
+    aggroRange: 5,
+    attackCooldownMs: 1500,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 130,
+    goldMin: 40,
+    goldMax: 90,
+  },
+
   super_slime: {
     type: 'super_slime',
     name: 'Super Slime',
