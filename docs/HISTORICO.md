@@ -291,12 +291,26 @@ antes de mexer nos 84 KB de `server/src/index.ts`.
 
 **As três pendências do doc foram implementadas como ESTRUTURA, não como número:**
 
-- ⚠️ `31.56` **a ordem das camadas não está fechada — e o doc se contradiz**: o
-  diagrama põe ESCUDO antes de ARMADURA, o texto do mesmo capítulo diz o
-  inverso ("DEF corta o dano bruto primeiro"). As duas ordens funcionam
-  (`LayerOrder`), o default segue o diagrama, e há teste provando que a escolha
-  **muda o número** — 200 de dano viram 80 ou 90 conforme a ordem. Precisa de
-  decisão do dono.
+- ⚠️ `31.56` **a ordem das camadas não está formalmente fechada**, mas a leitura
+  mais atenta diz que **não há contradição** e nada precisa ser decidido agora.
+
+  A frase que parecia conflitar com o diagrama — *"DEF corta o dano bruto
+  primeiro; a redução % age sobre o que sobrou"* — não fala do escudo. Ela
+  contrasta DEF com **outra categoria** de redução, que o próprio doc define na
+  frase seguinte: *"reduções % fortes vêm de equipamento/skill/buff/carta"*.
+  Essa categoria é o campo `flatReductionPct`, e ele já é a **última** coisa
+  aplicada, bem depois da armadura:
+
+  ```
+  esquiva → escudo → ARMADURA → resistências → reduções % de buff/skill/carta
+                        ↑                              ↑
+                "DEF corta primeiro"       "a redução % age sobre o que sobrou"
+  ```
+
+  O diagrama do cap. 31 é respeitado e a frase também. `LayerOrder` continua no
+  código com as duas ordens e teste para cada uma — não como pendência, e sim
+  como escape caso o balanceamento peça. A diferença entre elas é sempre
+  `armadura × %escudo`, então ela cresce justamente no Knight full equipado.
 - ⚠️ `DD-CC-012` **durações de Congelamento × Petrificação em conflito.** Adotada
   a revisão **posterior** (Druid: 10 s e 6 s), aplicando a regra de ouro do
   roadmap. Registrado em `CONFLITO_DD_CC_012` para o dono confirmar ou reverter.
@@ -313,11 +327,47 @@ também o ajuste pendente da Etapa 1 ("teto de 30–35 % vinda de AGI").
 ⚠️ `computeStats` **ainda não usa** — trocar lá mexe no balanceamento do jogo
 rodando e merece ser feito junto da integração no servidor.
 
-### Próximo passo desta etapa
+### Ligado ao servidor (mesmo dia)
 
-Nada disto está ligado ao jogo. Falta: `computeStats` produzir `DefenseProfile`,
-o servidor resolver o dano por `resolveDamage`, o laço de tique cobrar DoT, o
-protocolo transmitir condições ativas, e o cliente desenhar os ícones.
+Todo dano do jogo passa agora por `resolveDamage`. **A integração foi escrita
+para NÃO mudar o balanceamento** — é troca de encanamento, não de números. Quem
+garante isso são dois tradutores:
+
+| Função | Traduz |
+|---|---|
+| `playerDefenseProfile` | o que o jogador já tinha (`defense`, `dodgeChance`, `magicResist`, `defenseMult`) |
+| `creatureDefenseProfile` | `creatureDefense` com Ruptura e penetração; magia continua ignorando defesa de criatura |
+
+Detalhes que valem lembrar:
+
+- A `magicResist`, que era **um número só valendo para toda magia**, virou
+  resistência nos **seis tipos não-físicos**. O resultado hoje é idêntico, mas
+  agora um equipamento pode somar resistência só a fogo.
+- `shieldMitigation` e `fullBlockChance` chegam **zerados** — `DD-DEF-009` manda
+  que venham de escudo/equipamento/carta, que são as Etapas 10 e 11. Até lá as
+  camadas rodam neutras, o que é diferente de não existirem.
+- `damageTakenMult` entrou no `DefenseProfile` porque a Fúria de Batalha
+  **aumenta** o dano sofrido, e "redução %" não expressa multiplicador acima de 1.
+- 🆕 **Primeira fraqueza elemental do jogo:** o Zumbi leva **+50 % de dano
+  Sagrado**. Vem do lore (morto-vivo é alma que não voltou ao Heart; Sagrado é
+  energia vital), não de gosto. Só Sagrado — resistência a Veneno pareceria
+  óbvia para um zumbi, mas o doc não fala nisso.
+- ⚠️ `basicAttackType` chama o ataque básico mágico de **fogo**, o que é
+  provisório: o roadmap da Etapa 14 diz que "ataque básico com cajado é FÍSICO".
+  Reescrever isso é trabalho daquela etapa; aqui só demos tipo ao que já existe.
+
+### O que AINDA falta na Etapa 8
+
+As condições existem e estão testadas, mas **nada no jogo as aplica ainda**.
+Falta: o laço de tique cobrar DoT, o protocolo transmitir as condições ativas,
+o cliente desenhar os ícones, `restrictionsOf` bloquear movimento/ataque/cast no
+servidor, e as habilidades ganharem chance de aplicar condição. A flag PK
+(`canHarm`) também está pronta e sem uso — não há PvP implementado.
+
+⚠️ `computeStats` **continua com a esquiva linear antiga**. `computeDodgeChance`
+(retorno decrescente, teto 35 %) está pronto e testado, mas trocar lá muda o
+balanceamento de quem já está jogando — merece ser feito de propósito, não de
+carona numa troca de encanamento.
 
 ## Armadilha conhecida
 

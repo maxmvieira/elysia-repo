@@ -119,6 +119,24 @@ test('armadura absurda não cura o alvo nem devolve negativo', () => {
   assert.equal(r.amount, 1);
 });
 
+test('damageTakenMult pode AUMENTAR o dano — é a Fúria de Batalha', () => {
+  // Fúria multiplica a vida e o dano, mas o Knight passa a apanhar mais. Uma
+  // "redução %" não expressa isso, por isso o campo é multiplicador.
+  const furia = emptyDefense({ defense: 10, damageTakenMult: 1.5 });
+  assert.equal(resolveDamage(100, 'physical', furia, semSorte).amount, 135);
+
+  // Postura Defensiva usa o mesmo campo do outro lado do 1.
+  const postura = emptyDefense({ defense: 10, damageTakenMult: 0.7 });
+  assert.equal(resolveDamage(100, 'physical', postura, semSorte).amount, 63);
+});
+
+test('reduções % e multiplicador final se combinam, e o piso de 1 sobrevive', () => {
+  const def = emptyDefense({ flatReductionPct: 0.5, damageTakenMult: 0.5 });
+  assert.equal(resolveDamage(100, 'physical', def, semSorte).amount, 25);
+  const nulo = emptyDefense({ damageTakenMult: 0 });
+  assert.equal(resolveDamage(100, 'physical', nulo, semSorte).amount, 1);
+});
+
 test('fraqueza elemental atravessa a armadura e aumenta o dano final', () => {
   // Morto-vivo fraco a Sagrado: é assim que a família ganha um contra natural.
   const def = emptyDefense({ magicDefense: 10, resistances: { holy: -0.5 } });

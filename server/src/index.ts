@@ -36,6 +36,11 @@ import {
   chebyshev,
   computeHit,
   computeStats,
+  DAMAGE_TYPES,
+  resolveDamage,
+  type DamageType,
+  type DefenseProfile,
+  type ResistanceProfile,
   decodeClientMessage,
   encode,
   floorLinkAt,
@@ -912,6 +917,43 @@ function defenseMult(player: Player): number {
 }
 
 /**
+ * Monta o `DefenseProfile` do jogador para o pipeline em camadas da Etapa 8
+ * (`shared/src/defense.ts`).
+ *
+ * ⚠️ **Esta função foi escrita para NÃO mudar o balanceamento.** Ela traduz o
+ * que o servidor já fazia para a estrutura nova, e nada mais:
+ *
+ * - `defense` e `dodgeChance` saem de `player.derived`, como antes
+ * - a `magicResist` (um número só, que valia para toda magia) vira resistência
+ *   nos **seis tipos não-físicos** — mesmo resultado de hoje, mas agora dá para
+ *   um equipamento somar resistência só a fogo
+ * - `defenseMult` (Fúria, Postura) vira `damageTakenMult`
+ *
+ * O que ainda chega ZERADO, por não existir no jogo: `shieldMitigation` e
+ * `fullBlockChance`. `DD-DEF-009` manda que eles venham só de escudo,
+ * equipamento e carta — que são a Etapa 11 e a Etapa 10. Até lá o pipeline roda
+ * com essas camadas neutras.
+ */
+function playerDefenseProfile(player: Player, dodgeable: boolean): DefenseProfile {
+  const resistances: ResistanceProfile = {};
+  for (const t of DAMAGE_TYPES) {
+    if (t !== 'physical') resistances[t] = player.derived.magicResist;
+  }
+  return {
+    // Magia não é esquivável hoje (o servidor já mandava `dodged: false`).
+    dodgeChance: dodgeable ? player.derived.dodgeChance : 0,
+    fullBlockChance: 0,
+    shieldMitigation: 0,
+    defense: player.derived.defense,
+    // Jogador não tem DEF mágica plana: a mitigação mágica é toda percentual,
+    // via magicResist. Introduzir uma agora mexeria no balanceamento.
+    magicDefense: 0,
+    resistances,
+    damageTakenMult: defenseMult(player),
+  };
+}
+
+/**
  * Defesa efetiva da criatura contra ESTE jogador: desconta a Ruptura (se ativa)
  * e a penetração de armadura vinda dos passivos do equipamento.
  */
@@ -920,6 +962,46 @@ function creatureDefense(c: Creature, now: number, player?: Player): number {
   if (now < c.defBreakUntil) base *= 1 - c.defBreakPct;
   if (player) base *= 1 - Math.min(0.8, equipBonus(player).armorPen);
   return base;
+}
+
+/**
+ * Tipo de dano do ataque BÁSICO do jogador (`DD-ELM-002`).
+ *
+ * ⚠️ Provisório para as classes mágicas. O roadmap da Etapa 14 diz
+ * "🔴 ataque básico com cajado é FÍSICO — magia exige habilidade e mana", mas
+ * hoje o Sorcerer conjura firebolt e gasta mana no ataque básico. Reescrever
+ * isso é trabalho da Etapa 14; aqui só damos um tipo ao que já existe.
+ */
+function basicAttackType(attackType: string): DamageType {
+  return attackType === 'magic' ? 'fire' : 'physical';
+}
+
+/**
+ * `DefenseProfile` da criatura. Como em `playerDefenseProfile`, traduz o que o
+ * servidor já fazia sem mexer no balanceamento:
+ *
+ * - contra dano físico vale `creatureDefense` (Ruptura e penetração incluídas)
+ * - contra magia a defesa é ZERO, porque o jogo já tratava dano mágico como
+ *   ignorando a defesa da criatura
+ * - `resistances` é a novidade que passa a valer de verdade: o Zumbi leva +50 %
+ *   de dano Sagrado
+ *
+ * Criatura não esquiva nem bloqueia hoje — as duas camadas ficam neutras.
+ */
+function creatureDefenseProfile(
+  creature: Creature,
+  now: number,
+  player: Player,
+  isMagic: boolean,
+): DefenseProfile {
+  return {
+    dodgeChance: 0,
+    fullBlockChance: 0,
+    shieldMitigation: 0,
+    defense: isMagic ? 0 : creatureDefense(creature, now, player),
+    magicDefense: 0,
+    resistances: creature.def.resistances ?? {},
+  };
 }
 
 /** Roubo de vida dos passivos: devolve parte do dano causado como vida. */
@@ -1016,9 +1098,13 @@ function playerAttack(player: Player, creature: Creature, now: number): void {
     * offenseMult(player)
     * (1 + bonus.physDamage);
   const { amount, crit } = computeHit(power, d.critChance, d.critMult);
-  const dmg = isMagic
-    ? Math.max(1, amount)
-    : Math.max(1, Math.round(amount - creatureDefense(creature, now, player)));
+  // Etapa 8: o golpe do jogador também passa pelas camadas, e é aqui que a
+  // resistência da criatura entra em jogo.
+  const dmg = resolveDamage(
+    amount,
+    basicAttackType(d.attackType),
+    creatureDefenseProfile(creature, now, player, isMagic),
+  ).amount;
   applyLifeSteal(player, dmg);
   gainSkill(player);
 
@@ -1234,10 +1320,11 @@ function creatureAttack(creature: Creature, player: Player, now: number): void {
     * VARIANTS[creature.variant].damageMult
     * (1 + creature.triumphs * BOSS_TRIUMPH_POWER);
   const { amount, crit } = computeHit(str, 0.05, 1.5);
-  const dodged = Math.random() < player.derived.dodgeChance;
-  const dmg = dodged
-    ? 0
-    : Math.max(1, Math.round((amount - player.derived.defense) * defenseMult(player)));
+  // Etapa 8: o golpe passa pelas camadas do cap. 31 em vez de subtrair a defesa
+  // na mão. Ataque de criatura corpo a corpo é dano FÍSICO.
+  const res = resolveDamage(amount, 'physical', playerDefenseProfile(player, true));
+  const dodged = res.outcome === 'dodged';
+  const dmg = res.amount;
   player.hp = Math.max(0, player.hp - dmg);
   const fatal = player.hp <= 0;
   broadcastFloor(player.floor, {
@@ -1287,10 +1374,14 @@ function creatureCastSpell(creature: Creature, player: Player, now: number): voi
   });
   const base = spell.power * (isNight ? NIGHT_DMG_MULT : 1);
   const { amount, crit } = computeHit(base, 0.05, 1.5);
-  const dmg = Math.max(
-    1,
-    Math.round(amount * (1 - player.derived.magicResist) * defenseMult(player)),
+  // Etapa 8: magia de criatura tem TIPO (`DD-ELM-002`). Sem `damageType`
+  // declarado, vale fogo. A magia continua não sendo esquivável.
+  const res = resolveDamage(
+    amount,
+    spell.damageType ?? 'fire',
+    playerDefenseProfile(player, false),
   );
+  const dmg = res.amount;
   player.hp = Math.max(0, player.hp - dmg);
   const fatal = player.hp <= 0;
   broadcastFloor(player.floor, {

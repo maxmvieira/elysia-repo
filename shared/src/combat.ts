@@ -32,10 +32,21 @@ export function xpToNext(level: number): number {
   return 100 + (level - 1) * 50;
 }
 
+import type { DamageType, ResistanceProfile } from './elements.js';
+
 /** Ataque mágico à distância de um chefe (firebolt e afins). */
 export interface CreatureSpell {
   /** Potência-base do dano (reduzido pela resistência mágica do alvo). */
   power: number;
+  /**
+   * Tipo de dano da magia (`DD-ELM-002`). Padrão: `fire`.
+   *
+   * Hoje não muda número nenhum — a resistência mágica do jogador vale igual
+   * para os seis tipos não-físicos. Existe para quando as resistências por tipo
+   * entrarem no equipamento, aí uma capa anti-fogo passa a importar contra este
+   * chefe e não contra outro.
+   */
+  damageType?: DamageType;
   /** Só conjura quando o alvo está a pelo menos esta distância (tiles). */
   rangeMin: number;
   /** Alcance máximo da magia (tiles). */
@@ -85,6 +96,14 @@ export interface CreatureDef {
   spell?: CreatureSpell;
   /** Invocação de lacaios (chefes). */
   summon?: CreatureSummon;
+  /**
+   * Resistências e fraquezas por tipo de dano (`DD-ELM-002`). Ausente = neutra
+   * a tudo.
+   *
+   * O bestiário revela isto em patamares (`Resistências: ???` até o jogador
+   * conhecer a espécie) — encaixa no sistema já implementado na Etapa 6.
+   */
+  resistances?: ResistanceProfile;
 }
 
 export const CREATURES: Record<string, CreatureDef> = {
@@ -173,6 +192,14 @@ export const CREATURES: Record<string, CreatureDef> = {
     xpReward: 40,
     goldMin: 3,
     goldMax: 12,
+    // Primeira fraqueza elemental do jogo, e ela vem do lore, não de gosto:
+    // morto-vivo é ALMA QUE NÃO CONSEGUIU VOLTAR AO HEART, e Sagrado é energia
+    // vital. O roadmap fecha isso na etapa do Druid — "energia vital cura vivos
+    // e causa DANO em mortos-vivos, vampiros e demônios".
+    //
+    // ⚠️ Só Sagrado. Resistência a Veneno pareceria óbvia para um zumbi, mas o
+    // doc não fala nisso e a regra é não inventar.
+    resistances: { holy: -0.5 },
   },
   rotworm: {
     type: 'rotworm',

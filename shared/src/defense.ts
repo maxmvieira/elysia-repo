@@ -109,6 +109,15 @@ export interface DefenseProfile {
    * % fortes vêm de equipamento/skill/buff/carta — **nunca** de acumular VIT ou WIS.
    */
   flatReductionPct?: number;
+  /**
+   * Multiplicador final do dano RECEBIDO. Padrão 1.
+   *
+   * Existe separado de `flatReductionPct` porque pode ser **maior que 1**: a
+   * Fúria de Batalha do Knight aumenta o dano que o personagem sofre, e uma
+   * "redução" não consegue expressar isso. Postura Defensiva usa o mesmo campo
+   * com valor menor que 1.
+   */
+  damageTakenMult?: number;
 }
 
 /** Perfil neutro: nada mitiga. Base para montar defensores em teste e para criaturas sem equipamento. */
@@ -214,9 +223,13 @@ export function resolveDamage(
   // ── RESISTÊNCIAS ── agem sobre o TIPO. Nunca zeram (`DD-ELM-003`).
   const afterResist = applyResistance(afterLayers, type, def.resistances);
 
-  // ── REDUÇÕES % ── de skill/buff/carta, sobre o que sobrou.
+  // ── REDUÇÕES % ── de skill/buff/carta, sobre o que sobrou. É desta camada
+  // que o cap. 31 fala em "a redução % age sobre o que sobrou" — não do escudo,
+  // que é camada própria e vem antes da armadura no diagrama.
   const reduction = Math.min(1, Math.max(0, def.flatReductionPct ?? 0));
-  const afterReduction = afterResist * (1 - reduction);
+  // ── MULTIPLICADOR FINAL ── pode AUMENTAR o dano (Fúria de Batalha).
+  const takenMult = Math.max(0, def.damageTakenMult ?? 1);
+  const afterReduction = afterResist * (1 - reduction) * takenMult;
 
   // Piso de 1 só no fim: um golpe que conectou sempre machuca. Aplicar piso a
   // cada camada infla o resultado e esconde o efeito da armadura.

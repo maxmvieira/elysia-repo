@@ -50,18 +50,17 @@ estão fechadas e testadas em `shared`; falta **ligar no servidor e no cliente**
 **Saúde do código:** **182 testes** passando (170 shared + 12 server) · typecheck limpo
 nos 3 pacotes · smoke de ponta a ponta validado (derruba servidor → personagem sobrevive)
 
-### 🔴 Três decisões esperando o dono (Etapa 8)
+### ✅ Decisões do dono — 2026-07-29 (Etapa 8)
 
-O doc deixa as três em aberto e o código implementou a **estrutura** sem escolher
-número. Ver `docs/HISTORICO.md` para o detalhe:
-
-1. **Ordem das camadas de defesa** (`31.56`) — o diagrama do cap. 31 e o texto do
-   mesmo capítulo se contradizem. Default atual: o diagrama (escudo antes da
-   armadura). A escolha muda o dano final.
-2. **Duração de Congelamento × Petrificação** (`DD-CC-012`) — adotada a revisão
-   posterior (10 s e 6 s) pela regra de ouro. Confirmar ou reverter.
-3. **Método anti-CC-chain** (`DD-CC-013/014`) — resistência temporária?
-   diminishing returns? Não implementado, porque o doc não define.
+1. **Ordem das camadas de defesa** (`31.56`) — ✅ **nada a decidir.** O aparente
+   conflito entre o diagrama e o texto do cap. 31 não existe: a frase "a redução
+   % age sobre o que sobrou" fala das reduções de buff/skill/carta, não do
+   escudo — e essas já são a última camada. Fica a ordem do diagrama.
+2. **Duração de Congelamento × Petrificação** (`DD-CC-012`) — ✅ **confirmada**
+   pelo dono a revisão posterior: Congelamento 10 s, Petrificação 6 s.
+3. **Método anti-CC-chain** (`DD-CC-013/014`) — ✅ **confirmado deixar de fora**
+   enquanto o doc não define o método. Ponto de plugar marcado em
+   `applyCondition`.
 
 ### O que já funciona no jogo
 

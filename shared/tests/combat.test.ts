@@ -50,6 +50,24 @@ test('o Rotworm existe e é um pouco mais fraco que o Slime', () => {
   assert.equal(rotworm!.xpReward < slime!.xpReward, true);
 });
 
+test('o Zumbi é fraco a Sagrado — e a fraqueza vem do lore, não de gosto', () => {
+  // Morto-vivo é alma que não conseguiu voltar ao Heart; Sagrado é energia
+  // vital. O roadmap fecha isso na etapa do Druid.
+  const r = CREATURES.zombie!.resistances;
+  assert.ok(r);
+  assert.equal(r!.holy! < 0, true, 'resistência negativa = fraqueza');
+  // Só Sagrado: resistência a Veneno pareceria óbvia, mas o doc não fala nisso.
+  assert.equal(r!.poison, undefined);
+});
+
+test('nenhuma criatura nasce imune: resistência sempre abaixo do teto', () => {
+  for (const [tipo, def] of Object.entries(CREATURES)) {
+    for (const [elem, v] of Object.entries(def.resistances ?? {})) {
+      assert.equal(v < 1, true, `${tipo} seria imune a ${elem}`);
+    }
+  }
+});
+
 test('o Slime aguenta mais de um golpe no início (não é 1-hit)', () => {
   // No nível 1 as classes batem ~28-39 por golpe (skill inicial 10). O Slime
   // precisa de HP suficiente para não morrer com um único acerto forte.
