@@ -234,6 +234,29 @@ export const CONDITIONS: Record<ConditionId, ConditionDef> = {
   },
 };
 
+/**
+ * Cor do ícone de cada condição, para o cliente desenhar sem depender de arte.
+ *
+ * Fica aqui, e não no cliente, pelo mesmo motivo de `ELEMENT_INFO.color`: é
+ * dado do jogo, e o dia em que o bestiário ou o tooltip precisarem da mesma cor
+ * não vale ter duas listas para desincronizar.
+ *
+ * As famílias são reconhecíveis pela cor: controle em tons frios, DoT em tons
+ * quentes/venenosos, restrição em roxo.
+ */
+export const CONDITION_COLORS: Record<ConditionId, number> = {
+  freeze: 0x6ad4ff,
+  petrify: 0x9a8f7a,
+  stun: 0xffe14a,
+  silence: 0xb26ad1,
+  poison: 0x7ad13a,
+  bleed: 0xc0342b,
+  burn: 0xff6a2a,
+  slow: 0x4a9fb0,
+  knockback: 0xe0e0e0,
+  root: 0x8a6a3a,
+};
+
 /** As três contramedidas do doc, na estrutura que o servidor carrega por alvo. */
 export interface ConditionDefense {
   /** Reduz a CHANCE de aplicar. 0..1, onde 1 = a chance vira zero. */

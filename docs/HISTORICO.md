@@ -391,12 +391,34 @@ Como testar: `npm run dev:test` e no chat `/cond poison`, `/cond freeze`,
 `/cond silence`, `/uncond`. Sem esses comandos a etapa é intestável na mão,
 porque **nenhuma habilidade aplica condição ainda**.
 
+### Ícones e cores no cliente (mesmo dia) — Etapa 8 fechada no encanamento
+
+- **Fita de condições** acima da barra de vida: um quadradinho por condição, na
+  cor de `CONDITION_COLORS`. As cores ficam no `shared` pelo mesmo motivo de
+  `ELEMENT_INFO.color` — é dado de jogo, e quando o bestiário ou o tooltip
+  precisarem da mesma cor não vale ter duas listas para desincronizar.
+- **A fita é anexada em `syncEntities`, não nas fábricas de sprite.** São quatro
+  fábricas (jogador, criatura, item, NPC) e nenhuma delas precisa saber que
+  condições existem. Criada **sob demanda**: a maioria das entidades nunca tem
+  condição, e uma fita por sprite seria um `Container` e um `Graphics` à toa.
+- **Números de dano saem na cor do elemento.** Precedência: crítico manda em
+  tudo, depois o elemento, e o físico cai na regra antiga (vermelho em mim,
+  branco nos outros).
+- 🔴 **Parcela de DoT não toca animação.** Nem a de ataque (ninguém desferiu
+  nada) nem a de dano — piscar o alvo a cada tique de veneno viraria epilepsia.
+
+Sem arte ainda: o quadradinho colorido é placeholder. Quando houver ícone
+desenhado, só o miolo de `makeConditionStrip().set` muda.
+
 ### O que AINDA falta na Etapa 8
 
-- **Ícones no cliente.** O servidor manda as condições, o cliente ainda ignora.
 - **Habilidades que aplicam condição.** É o que falta para sair do comando de
-  teste e virar jogo — e depende das linhas de maestria da Etapa 13.
+  teste e virar jogo — e depende das linhas de maestria da Etapa 13. Hoje só
+  `/cond` aplica.
+- **Resistência, redução e imunidade a condição** não existem em lugar nenhum:
+  dependem das cartas (Etapa 10) e do equipamento (Etapa 11).
 - **A flag PK (`canHarm`)** está pronta e sem uso: não há PvP implementado.
+- **`DD-CC-013/014`** (anti-CC-chain) continua sem método definido no doc.
 
 ⚠️ `computeStats` **continua com a esquiva linear antiga**. `computeDodgeChance`
 (retorno decrescente, teto 35 %) está pronto e testado, mas trocar lá muda o

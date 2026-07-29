@@ -59,6 +59,9 @@ import {
   checkName,
   type CharacterSlot,
   type ServerMessage,
+  CONDITION_COLORS,
+  ELEMENT_INFO,
+  type ConditionId,
 } from '@dominion/shared';
 import { NetClient } from './net.js';
 import { spellIconUrl } from './spellicons.js';
@@ -473,6 +476,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   const wallSprites: Container[] = [];
   const sprites = new Map<string, EntityView>();
+  /** Fitas de ícone de condição, por id de entidade (criadas sob demanda). */
+  const condStrips = new Map<string, ReturnType<typeof makeConditionStrip>>();
 
   // Anel de alvo (sob o inimigo selecionado) e camada de efeitos (números).
   const targetRing = new Graphics();
@@ -801,15 +806,25 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         case 'hit': {
           // Quem bateu toca a animação de ataque; quem levou (e não esquivou)
           // toca a de dano — feedback visual casado com o combate autoritativo.
-          sprites.get(msg.attackerId)?.playAttack?.();
+          // Parcela de DoT não é golpe: ninguém desferiu nada, então nem a
+          // animação de ataque nem a de dano devem tocar. Piscar o alvo a cada
+          // tique de veneno viraria epilepsia.
+          if (!msg.dot) sprites.get(msg.attackerId)?.playAttack?.();
           const view = sprites.get(msg.targetId);
           if (view) {
             const iAmTarget = msg.targetId === myId;
             if (msg.dodged) {
               spawnFloater(view.container.x, view.container.y - 12, 'esquiva', 0xbfbfbf, false);
             } else {
-              view.playHurt?.();
-              const color = msg.crit ? 0xffcf3f : iAmTarget ? 0xff5a5a : 0xffffff;
+              if (!msg.dot) view.playHurt?.();
+              // Cor: crítico manda em tudo; depois o elemento (Etapa 8); e o
+              // físico cai na regra antiga de vermelho-em-mim/branco-nos-outros.
+              const elemental = msg.element && msg.element !== 'physical'
+                ? ELEMENT_INFO[msg.element].color
+                : undefined;
+              const color = msg.crit
+                ? 0xffcf3f
+                : elemental ?? (iAmTarget ? 0xff5a5a : 0xffffff);
               spawnFloater(view.container.x, view.container.y - 12, String(msg.amount), color, msg.crit);
             }
             // Golpe que matou a criatura E foi o MEU: mostra a XP ganha sobre ela,
@@ -1875,6 +1890,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       view.setTarget(e.tileX * TS, e.tileY * TS);
       view.setDirection(e.direction);
       view.setHp(e.hp, e.maxHp);
+      // Ícones de condição (Etapa 8). Criados sob demanda: a esmagadora maioria
+      // das entidades nunca tem condição alguma, e criar a fita para todas seria
+      // um Container e um Graphics por sprite à toa.
+      let strip = condStrips.get(e.id);
+      if (!strip && e.conditions?.length) {
+        strip = makeConditionStrip();
+        condStrips.set(e.id, strip);
+        view.container.addChild(strip.node);
+      }
+      strip?.set(e.conditions);
       if (isSelf) {
         myFloor = e.floor;
         myTileX = e.tileX;
@@ -1890,6 +1915,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         }
         view.container.destroy();
         sprites.delete(id);
+        // A fita morre junto: o destroy do container já leva o nó, mas deixar a
+        // entrada no mapa vazaria memória em servidor de vida longa.
+        condStrips.delete(id);
       }
     }
   }
@@ -2203,6 +2231,52 @@ function makeHpBar(): { node: Container; set: (hp?: number, maxHp?: number) => v
     fg.clear();
     fg.rect(0, 0, W * r, H).fill(col);
   }
+  return { node, set };
+}
+
+/**
+ * Fita de ícones de condição, logo acima da barra de vida.
+ *
+ * Sem arte ainda: cada condição é um quadradinho na sua cor (`CONDITION_COLORS`),
+ * com borda preta para destacar contra o cenário. Quando houver ícones
+ * desenhados, só o miolo do `set` muda — a posição e a lógica de sincronia
+ * continuam valendo.
+ *
+ * Fica anexada ao container da entidade em `syncEntities`, e não dentro das
+ * fábricas de sprite: são quatro fábricas diferentes (jogador, criatura, item,
+ * NPC) e nenhuma delas precisa saber que condições existem.
+ */
+function makeConditionStrip(): { node: Container; set: (ids?: ConditionId[]) => void } {
+  const S = 5; // lado do quadradinho
+  const GAP = 1;
+  const node = new Container();
+  const g = new Graphics();
+  node.addChild(g);
+  let anterior = '';
+
+  function set(ids?: ConditionId[]): void {
+    const lista = ids ?? [];
+    // Redesenhar a cada tique seria desperdício: o normal é a lista não mudar.
+    const chave = lista.join(',');
+    if (chave === anterior) return;
+    anterior = chave;
+
+    g.clear();
+    node.visible = lista.length > 0;
+    if (lista.length === 0) return;
+
+    const largura = lista.length * S + (lista.length - 1) * GAP;
+    // Centraliza sobre o tile e senta acima da barra de vida (que fica em y=-8).
+    node.x = (TS - largura) / 2;
+    node.y = -15;
+    lista.forEach((id, i) => {
+      const x = i * (S + GAP);
+      g.rect(x - 0.5, -0.5, S + 1, S + 1).fill({ color: 0x000000, alpha: 0.8 });
+      g.rect(x, 0, S, S).fill(CONDITION_COLORS[id] ?? 0xffffff);
+    });
+  }
+
+  set();
   return { node, set };
 }
 
