@@ -79,9 +79,14 @@ equipar item. Armadura, capacete, escudo e arma são invisíveis no corpo.
 
 ## ⚔️ Equipamento — 25 itens, nenhum no corpo
 
+> ✅ **Decisão do dono (2026-07-29): equipamento visível fica para DEPOIS do
+> lançamento.** É caro de fazer e não bloqueia o jogo sair. Entra como update
+> futuro. **Não desenhem peça de equipamento para vestir o personagem agora** —
+> ícone de inventário continua valendo.
+
 Os 25 itens têm ícone no inventário (tileset `Items.png`), mas:
 
-- 🔴 **nada aparece no personagem** quando equipado
+- ⏸️ **nada aparece no personagem** quando equipado — adiado para pós-lançamento
 - 🔴 **nenhuma arma tem sprite próprio** — os 8 tipos (espada, machado, maça,
   adaga, lança, arco, besta, cajado) usam ícone genérico
 - 🔴 **raridade não tem moldura** — Comum a Relíquia são sete degraus sem
@@ -125,13 +130,15 @@ já definido no Doc 3.
 
 ## Sugestão de prioridade
 
-Se for para escolher, o que mais muda a sensação de jogo:
+Com equipamento visível adiado para pós-lançamento, a ordem fica:
 
-1. **Equipamento visível no personagem** — é o retorno mais direto de progressão
-2. **Os 9 monstros do Tier II** — é a faixa que o jogador vê depois do tutorial
-3. **Ícones das 10 condições** — hoje são quadrados sem significado
+1. **Os 9 monstros do Tier II** — é a faixa que o jogador vê logo depois do
+   tutorial, e hoje são bolhas coloridas
+2. **Ícones das 10 condições** — hoje são quadrados sem significado, e agora que
+   as aranhas aplicam Lentidão de verdade o jogador precisa entender o que pegou
+3. **Slime Azul e Vermelho** — os mais baratos de todos: mesmo corpo, outra cor
 4. **Os 9 do Tier III**
-5. **Slime Azul e Vermelho** — os mais baratos, mesmo corpo em outra cor
+5. **Sprites de arma** para os 8 tipos (ícone de inventário, não no corpo)
 
 ---
 

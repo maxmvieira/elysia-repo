@@ -33,6 +33,7 @@ export function xpToNext(level: number): number {
 }
 
 import type { DamageType, ResistanceProfile } from './elements.js';
+import type { ConditionId } from './conditions.js';
 
 /** Ataque mágico à distância de um chefe (firebolt e afins). */
 export interface CreatureSpell {
@@ -112,6 +113,24 @@ export interface CreatureDef {
   spell?: CreatureSpell;
   /** Invocação de lacaios (chefes). */
   summon?: CreatureSummon;
+  /**
+   * Condição que a criatura tenta aplicar quando acerta um golpe.
+   *
+   * 🔴 **Elemento ≠ Condição** (32.2). Isto é DELIBERADO e separado do
+   * `damageType`: a Formiga Cuspidora causa dano de Veneno e **não** envenena,
+   * porque a ficha dela não diz que envenena. Quem aplica condição é quem o doc
+   * diz que aplica — dano elemental não vem com condição de brinde.
+   *
+   * A chance passa pelas três contramedidas de `conditions.ts` no servidor.
+   */
+  onHit?: {
+    condition: ConditionId;
+    /** 0..1, antes das resistências do alvo. */
+    chance: number;
+    durationMs: number;
+    /** Dano por parcela, só para condições de DoT. */
+    power?: number;
+  };
   /**
    * Resistências e fraquezas por tipo de dano (`DD-ELM-002`). Ausente = neutra
    * a tudo.
@@ -362,9 +381,9 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Aranha de Teia',
     behavior: 'hostile',
     // "Menos resistência que a Aranha da Floresta, compensando com controle" —
-    // é a primeira criatura do jogo cuja identidade é aplicar condição.
-    // ⚠️ A teia (Lentidão em curto alcance) ainda NÃO está implementada: falta
-    // criaturas poderem aplicar condição, que hoje só o comando `/cond` faz.
+    // é a primeira criatura do jogo cuja identidade é aplicar condição, e a
+    // única razão de existir ao lado da Aranha da Floresta. Sem a teia ela seria
+    // uma Aranha da Floresta pior, que é o que `DD-BAL-049` proíbe.
     maxHp: 130,
     strength: 11.5, // doc: 9–14
     defense: 3,
@@ -375,6 +394,11 @@ export const CREATURES: Record<string, CreatureDef> = {
     xpReward: 40,
     goldMin: 7,
     goldMax: 20,
+    // "Dispara teia em curto alcance; reduz TEMPORARIAMENTE a velocidade do
+    // alvo." A ficha é explícita, então a condição é Lentidão — e só ela.
+    // Chance abaixo de 1 para o jogador não ficar preso em lentidão perpétua
+    // quando enfrentar duas: reaplicar renova a expiração, não empilha.
+    onHit: { condition: 'slow', chance: 0.35, durationMs: 3000 },
   },
 
   // --- Formigas (`DD-BAL-045`): a primeira dupla tank + ranged ---
@@ -631,6 +655,9 @@ export const CREATURES: Record<string, CreatureDef> = {
     xpReward: 110,
     goldMin: 20,
     goldMax: 48,
+    // Ficha: "controle; teias". Mesma condição da Aranha de Teia, mais forte e
+    // mais longa — é a evolução da família, não uma mecânica nova.
+    onHit: { condition: 'slow', chance: 0.45, durationMs: 4000 },
   },
   mystic_ant: {
     type: 'mystic_ant',

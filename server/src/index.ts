@@ -1409,6 +1409,9 @@ function creatureAttack(creature: Creature, player: Player, now: number): void {
   const dmg = res.amount;
   player.hp = Math.max(0, player.hp - dmg);
   if (dmg > 0) onDamaged(player);
+  // Golpe que conectou pode aplicar a condição da espécie. Depois de
+  // `onDamaged`, senão uma teia entraria e sairia no mesmo golpe.
+  if (!dodged) creatureOnHit(creature, player, now);
   const fatal = player.hp <= 0;
   broadcastFloor(player.floor, {
     t: 'hit', attackerId: creature.id, targetId: player.id, amount: dmg, crit, dodged,
@@ -2378,6 +2381,28 @@ function applyConditionTo(
     sourceId,
   });
   return true;
+}
+
+/**
+ * Aplica o `onHit` da criatura no jogador, se ela tiver um.
+ *
+ * Só é chamado quando o golpe CONECTOU: esquivar ou bloquear tem que evitar a
+ * condição também, senão a defesa protege do dano e não do controle — que é a
+ * parte que mais dói.
+ */
+function creatureOnHit(creature: Creature, player: Player, now: number): void {
+  const oh = creature.def.onHit;
+  if (!oh || !player.alive) return;
+  const antes = player.conditions.length;
+  applyConditionTo(player, oh.condition, oh.chance, oh.durationMs, now, oh.power, creature.id);
+  // Só avisa quando a condição realmente entrou: mandar mensagem em toda
+  // tentativa entupiria o chat com "resistiu" a cada golpe de aranha.
+  if (player.conditions.length > antes) {
+    send(player, {
+      t: 'chat', from: 'Combate',
+      text: `${creature.name} aplicou ${CONDITIONS[oh.condition].name} em você.`,
+    });
+  }
 }
 
 /**

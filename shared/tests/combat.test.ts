@@ -131,6 +131,46 @@ test('DD-BAL-049: família com várias espécies tem PAPÉIS, não só números 
   }
 });
 
+test('a teia é o que justifica a Aranha de Teia existir', () => {
+  const teia = CREATURES.web_spider!;
+  const floresta = CREATURES.forest_spider!;
+  // Sem a teia ela seria uma Aranha da Floresta pior em tudo — exatamente o que
+  // `DD-BAL-049` proíbe. A condição É o papel dela.
+  assert.equal(teia.maxHp < floresta.maxHp, true);
+  assert.equal(teia.defense < floresta.defense, true);
+  assert.equal(teia.onHit?.condition, 'slow');
+  assert.equal(floresta.onHit, undefined, 'a da Floresta é corpo a corpo puro');
+  // A Gigante é a evolução: mesma condição, mais forte e mais longa.
+  const gigante = CREATURES.giant_spider!;
+  assert.equal(gigante.onHit?.condition, 'slow');
+  assert.equal(gigante.onHit!.chance > teia.onHit!.chance, true);
+  assert.equal(gigante.onHit!.durationMs > teia.onHit!.durationMs, true);
+});
+
+test('32.2 elemento ≠ condição: dano de veneno NÃO envenena sozinho', () => {
+  // A regra que o doc mais repete. A Formiga Cuspidora causa dano de Veneno
+  // (ácido) e não aplica a condição Veneno, porque a ficha dela não diz que
+  // aplica. Se alguém "consertar" isso, quebra a separação inteira.
+  const cuspidora = CREATURES.spitter_ant!;
+  assert.equal(cuspidora.spell?.damageType, 'poison');
+  assert.equal(cuspidora.onHit, undefined);
+
+  const mistica = CREATURES.mystic_ant!;
+  assert.equal(mistica.spell?.damageType, 'poison');
+  assert.equal(mistica.onHit, undefined);
+});
+
+test('nenhuma criatura aplica condição que o doc não deu a ela', () => {
+  // Trava contra invenção: só as duas aranhas de controle têm onHit, e ambas
+  // porque a ficha manda ("reduz temporariamente a velocidade do alvo" /
+  // "controle; teias"). Acrescentar outra exige achar no doc primeiro.
+  const comOnHit = Object.entries(CREATURES)
+    .filter(([, d]) => d.onHit)
+    .map(([t]) => t)
+    .sort();
+  assert.deepEqual(comOnHit, ['giant_spider', 'web_spider']);
+});
+
 test('só o Zumbi é mais lento que a família Slime', () => {
   // A lentidão é identidade dele. Qualquer criatura nova mais lenta rouba isso.
   for (const [tipo, def] of Object.entries(CREATURES)) {
