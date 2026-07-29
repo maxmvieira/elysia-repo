@@ -78,7 +78,10 @@ import {
   type CharacterAnims,
   type SpriteCfg,
 } from './sprites.js';
-import { classIconCss, loadClassAnims, loadNpcAnim, loadSlimeAnim, loadZombieAnim, type DirAnim } from './miniworld.js';
+import {
+  classIconCss, loadClassAnims, loadNpcAnim, loadSlimeAnim, loadZombieAnim, loadZombieIdleAnim,
+  type DirAnim,
+} from './miniworld.js';
 import { loadKnightSprites, knightIconCss, type KnightArt } from './knight.js';
 import { loadTrees, treeIndexFor } from './trees.js';
 
@@ -447,6 +450,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const slimeAnim = await loadSlimeAnim();
   // Zumbi: folha LPC 64px, fora do padrão MiniWorld (ver miniworld.ts).
   const zombieAnim = await loadZombieAnim();
+  const zombieIdleAnim = await loadZombieIdleAnim();
   // Knight em arte HD (masculino/feminino) — sobrepõe o MiniWorld p/ knight.
   const knightArt = await loadKnightSprites();
   // Sprite do NPC comerciante.
@@ -1861,7 +1865,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       let view = sprites.get(e.id);
       if (!view) {
         view = makeEntity(e, isSelf, isSelf ? selfTex : otherTex, anims, setTarget, {
-          classAnims, slimeAnim, zombieAnim, knightArt, npcAnim,
+          classAnims, slimeAnim, zombieAnim, zombieIdleAnim, knightArt, npcAnim,
           selfClass: charClass, selfGender: gender, openShop, openCorpse,
         });
         sprites.set(e.id, view);
@@ -2218,6 +2222,7 @@ interface MiniAssets {
   classAnims: Record<PlayerClass, DirAnim> | null;
   slimeAnim: Texture[] | null;
   zombieAnim: DirAnim | null;
+  zombieIdleAnim: DirAnim | null;
   knightArt: Record<Gender, KnightArt> | null;
   npcAnim: DirAnim | null;
   selfClass: PlayerClass;
@@ -2310,6 +2315,13 @@ interface MiniActorOpts {
    * MENOR, senão o ciclo termina antes do passo e o bicho "corre parado".
    */
   animSpeed?: number;
+  /**
+   * Quadros para quando o ator está PARADO. Sem isto ele congela no quadro 0 da
+   * direção — o padrão do MiniWorld, cujas folhas não têm idle.
+   */
+  idleAnim?: DirAnim;
+  /** Velocidade do idle. Bem mais lenta que a caminhada. */
+  idleSpeed?: number;
   onClick?: (id: string) => void;
 }
 
@@ -2366,18 +2378,26 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   let hurtUntil = 0;
   let attackUntil = 0;
 
-  function framesFor(d: Direction): Texture[] {
-    return d === 'up' ? anim.up : d === 'left' ? anim.left : d === 'right' ? anim.right : anim.down;
+  function framesFor(d: Direction, set: DirAnim): Texture[] {
+    return d === 'up' ? set.up : d === 'left' ? set.left : d === 'right' ? set.right : set.down;
   }
   function applyState(): void {
-    sprite.textures = framesFor(dir);
     if (base === 'walk' || alwaysAnimate) {
+      sprite.textures = framesFor(dir, anim);
       sprite.animationSpeed = opts.animSpeed ?? 0.18;
       sprite.loop = true;
       sprite.gotoAndPlay(0);
-    } else {
-      sprite.gotoAndStop(0);
+      return;
     }
+    if (opts.idleAnim) {
+      sprite.textures = framesFor(dir, opts.idleAnim);
+      sprite.animationSpeed = opts.idleSpeed ?? 0.05;
+      sprite.loop = true;
+      sprite.gotoAndPlay(0);
+      return;
+    }
+    sprite.textures = framesFor(dir, anim);
+    sprite.gotoAndStop(0);
   }
   applyState();
 
@@ -2714,6 +2734,9 @@ function makeCreatureView(
       e, anim: mini.zombieAnim, scale: 0.85,
       anchorX: 31.5 / 64, anchorY: 62 / 64, labelTop: -34,
       animSpeed: 0.09, // 8 quadros + passo de 2 s = arrastar de morto-vivo
+      // Parado ele não congela: a cabeça balança (ver loadZombieIdleAnim).
+      idleAnim: mini.zombieIdleAnim ?? undefined,
+      idleSpeed: 0.035,
       nameColor: 0x9fbf7f, creatureTint: true, onClick: onTargetClick,
     });
   }

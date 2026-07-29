@@ -149,6 +149,97 @@ export async function loadZombieAnim(): Promise<DirAnim | null> {
   }
 }
 
+/**
+ * Idle do zumbi — MONTADA aqui, não lida pronta de um arquivo.
+ *
+ * Zombie-alfa-idle.png tem 4 células de 64px, mas **não é uma animação**: são as
+ * 4 cabeças (cima/esquerda/baixo/direita) recortadas do próprio sheet de andar.
+ * Medindo linha a linha, de y15 a y31 a contagem de pixels da cabeça bate
+ * exatamente com a do corpo parado, e o idle não tem nenhum pixel que o corpo
+ * já não tenha. Não existem quadros de balanço no arquivo.
+ *
+ * Então o balanço é gerado: para cada direção, desenhamos o corpo parado
+ * (quadro 0 do andar), APAGAMOS a faixa da cabeça e redesenhamos a cabeça
+ * deslocada alguns pixels. Só a cabeça se mexe; o corpo fica cravado.
+ *
+ * Por que apagar em vez de só sobrepor: as cabeças das 4 direções têm
+ * silhuetas de larguras diferentes (a de baixo é ~3px mais larga que a de
+ * lado). Sobrepor sem apagar deixaria uma borda da cabeça original aparecendo
+ * por trás — o clássico "crânio duplo".
+ */
+
+/** Linhas 0..31 da célula são SÓ cabeça: em y32 já começam os ombros (medido). */
+const HEAD_CUT = 32;
+/** Amplitude do balanço, em pixels da arte. Subir para 2 deixa mais óbvio. */
+const HEAD_BOB = 1;
+/**
+ * Deslocamento por quadro. Só para BAIXO de propósito: subir a cabeça abriria
+ * uma fresta transparente na linha 31, onde a cabeça original foi apagada.
+ */
+const BOB_STEPS = [0, HEAD_BOB, HEAD_BOB, 0];
+
+interface IdleDir {
+  key: keyof DirAnim;
+  /** Linha do sheet de andar (LPC). */
+  row: number;
+  /** Célula no sheet de cabeças. */
+  col: number;
+  /**
+   * Correção de alinhamento. A cabeça de "cima" foi exportada 1px mais baixa
+   * que a do corpo; sem isto ela daria um pulinho ao sair da caminhada.
+   */
+  base: number;
+}
+const IDLE_DIRS: IdleDir[] = [
+  { key: 'up', row: 8, col: 0, base: -1 },
+  { key: 'left', row: 9, col: 1, base: 0 },
+  { key: 'down', row: 10, col: 2, base: 0 },
+  { key: 'right', row: 11, col: 3, base: 0 },
+];
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  const img = new Image();
+  img.src = src;
+  return img.decode().then(() => img);
+}
+
+export async function loadZombieIdleAnim(): Promise<DirAnim | null> {
+  try {
+    const [walk, heads] = await Promise.all([
+      loadImage('/assets/monsters/Zombie-alfa.png'),
+      loadImage('/assets/monsters/Zombie-alfa-idle.png'),
+    ]);
+
+    const compose = (d: IdleDir, off: number): Texture => {
+      const cv = document.createElement('canvas');
+      cv.width = LPC_CELL;
+      cv.height = LPC_CELL;
+      const g = cv.getContext('2d')!;
+      g.imageSmoothingEnabled = false; // pixel-art: nada de borrar
+      // 1) corpo parado da direção
+      g.drawImage(walk, 0, d.row * LPC_CELL, LPC_CELL, LPC_CELL, 0, 0, LPC_CELL, LPC_CELL);
+      // 2) fora a cabeça original
+      g.clearRect(0, 0, LPC_CELL, HEAD_CUT);
+      // 3) cabeça de volta, deslocada
+      g.drawImage(
+        heads, d.col * LPC_CELL, 0, LPC_CELL, LPC_CELL,
+        0, d.base + off, LPC_CELL, LPC_CELL,
+      );
+      const t = Texture.from(cv);
+      t.source.scaleMode = 'nearest';
+      return t;
+    };
+
+    const out = {} as DirAnim;
+    for (const d of IDLE_DIRS) out[d.key] = BOB_STEPS.map((off) => compose(d, off));
+    console.log('[monsters] idle do Zumbi montado (corpo parado + cabeça com balanço).');
+    return out;
+  } catch (err) {
+    console.warn('[monsters] idle do Zumbi indisponível — ficará estático.', err);
+    return null;
+  }
+}
+
 /** Animação de hop do Slime (linha 0, 6 quadros) — direção não importa. */
 export async function loadSlimeAnim(): Promise<Texture[] | null> {
   try {

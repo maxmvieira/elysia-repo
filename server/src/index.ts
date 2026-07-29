@@ -602,29 +602,23 @@ function spawnCreature(
 }
 
 function spawnInitialCreatures(): void {
-  // Mapa maior (60×60): Slimes perto da vila; Snakes na floresta mais longe.
+  // Mapa maior (60×60). Só três criaturas povoam o mundo: Slime, Zumbi e o
+  // chefe Super Slime.
   const slimeSpots: Array<[number, number]> = [
     [5, 6], [34, 6], [6, 33], [34, 33], [30, 8], [9, 30], [36, 20], [20, 36], [4, 18], [35, 15],
     [12, 8], [28, 30], [8, 22], [32, 12], [22, 8], [15, 34], [30, 24],
   ];
-  // Snake removida a pedido (design não ficou bom). A CreatureDef + drawSnake
-  // seguem DORMENTES no código, fáceis de reintroduzir.
+  // Snake, Rotworm, Coelho, Javali e Aranha estão DORMENTES a pedido: as
+  // CreatureDefs e os desenhos continuam no código, só não nascem mais. Para
+  // reintroduzir qualquer uma, basta voltar a chamar spawnCreature aqui.
   for (const [x, y] of slimeSpots) spawnCreature('slime', x, y);
-  // Fauna com comportamentos diferentes: coelho foge, javali só revida,
-  // aranha ataca de cara. É o que faz o mundo parecer vivo.
-  for (const [x, y] of [[18, 14], [24, 15], [14, 25], [27, 27], [10, 12], [30, 18]] as const) {
-    spawnCreature('rabbit', x, y);
-  }
-  for (const [x, y] of [[16, 27], [29, 14], [12, 20], [26, 33]] as const) {
-    spawnCreature('boar', x, y);
-  }
-  for (const [x, y] of [[8, 15], [33, 26], [19, 35], [37, 30]] as const) {
-    spawnCreature('spider', x, y);
-  }
-  // ZUMBI: um só, de teste. Fica ao SUL da vila, em linha reta a partir do
-  // ponto de nascimento (20,20) — é só descer para achar. Fora da muralha
-  // (x/y 10..30) e fora da zona segura do centro.
-  spawnCreature('zombie', 20, 34);
+  // ZUMBIS: ocupam o lugar da fauna removida. Ficam FORA da muralha da vila
+  // (x/y 10..30) e longe da zona segura do centro. O primeiro, ao sul em
+  // (20,34), é o de teste: linha reta descendo a partir do nascimento (20,20).
+  const zombieSpots: Array<[number, number]> = [
+    [20, 34], [14, 38], [27, 37], [7, 26], [38, 24], [11, 6], [31, 5], [42, 40], [6, 42],
+  ];
+  for (const [x, y] of zombieSpots) spawnCreature('zombie', x, y);
   // CHEFE: Super Slime no canto sudeste da floresta, bem longe do centro. Ele
   // caça o jogador pelo mapa, mas trava na borda da zona central (spawn).
   spawnCreature('super_slime', 48, 48);

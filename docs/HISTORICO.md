@@ -214,8 +214,54 @@ maior; maior = mais deslizante. As cadências ficam em `combat.ts`.
 | `/tp <x> <y>` | teleporta |
 | `/heal` | enche vida e mana |
 
+## Zumbi e limpeza do bestiário do mapa (2026-07-28)
+
+Primeira criatura com arte de terceiros no formato **LPC Universal Sprite
+Sheet** (células de 64px), fora do padrão MiniWorld 16x16 do resto do jogo.
+
+- `CreatureDef` `zombie`: hostil, 160 HP, força 15, aggro curto (4) e passo de
+  **2000 ms** — o mais lento do mapa. A identidade do morto-vivo é essa: não te
+  alcança se você andar, mas não desiste.
+- `loadZombieAnim` lê as linhas 8–11 (andar: cima/esquerda/baixo/direita),
+  quadros 1–8. O quadro 0 é a pose parada e fica de fora, senão o ciclo engasga.
+- **Âncora e escala saíram de medição**, não de chute: o conteúdo ocupa
+  x 17..46 / y 15..62 dentro da célula de 64px, daí `anchorX 31.5/64` e
+  `anchorY 62/64`.
+- `makeMiniActor` ganhou `animSpeed`: a folha LPC tem 8 quadros contra os 5 do
+  MiniWorld, e no valor padrão o zumbi "corria parado".
+
+**O idle foi gerado, não lido.** O `Zombie-alfa-idle.png` não contém animação:
+são as 4 cabeças por direção recortadas do próprio sheet de andar (de y15 a y31
+a contagem de pixels bate exatamente com a do corpo, e não há um pixel no idle
+que o corpo já não tenha). `loadZombieIdleAnim` monta o balanço em canvas —
+desenha o corpo parado, apaga a faixa da cabeça (linhas 0..31, porque os ombros
+começam em y32) e redesenha a cabeça deslocada. Apagar é obrigatório: as cabeças
+das direções têm larguras diferentes, e sobrepor deixaria a borda da original
+aparecendo por trás.
+
+O balanço só vai **para baixo** de propósito — subir abriria fresta na linha 31.
+A cabeça de "cima" foi exportada 1px mais baixa que a do corpo e leva
+`base: -1` para compensar.
+
+Fauna removida a pedido: o mundo agora tem só **Slime, Zumbi e Super Slime**
+(17 + 9 + 1 = 27). Coelho, Javali, Aranha, Snake e Rotworm seguem **DORMENTES** —
+`CreatureDef` e desenho continuam no código, só não nascem mais.
+
+### 🐛 Em aberto
+
+**Andando para CIMA, um pedacinho do topo da cabeça é cortado.** Reportado pelo
+dono, adiado por decisão dele. Só acontece na caminhada, que usa a folha crua —
+o idle composto não tem o problema. Suspeita a investigar: nos quadros 1–8 da
+linha 8 o conteúdo sobe acima de y15 (a medição da bbox foi feita na linha de
+andar para BAIXO), e a diferença estoura o recorte da célula.
+
 ## Armadilha conhecida
 
-O estado vive **em memória**: salvar qualquer arquivo do servidor reinicia o
-`tsx watch` e **apaga os personagens**. Isso atrapalha testes longos e some na
-Etapa 8 (persistência) — que por isso foi movida para a frente.
+⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os
+sete valores de uma vez corrompeu os acentos do arquivo (`ágil` → `Ã¡gil`). Use
+a ferramenta de edição.
+
+> **Histórico:** até a Etapa 7 o estado vivia só em memória e cada reinício do
+> `tsx watch` apagava os personagens. Isso acabou — hoje tudo vai para o SQLite
+> em `data/elysia.db`. O que **não** persiste são as criaturas: `spawnInitialCreatures`
+> roda a cada boot, então mexer nos spawns exige reiniciar o servidor.
