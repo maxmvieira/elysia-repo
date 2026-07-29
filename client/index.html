@@ -1,0 +1,1381 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Elysia Online</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --panel: #1c1a17;
+        --border: #3a352d;
+        --text: #d8cfbf;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0c0b0a;
+        color: var(--text);
+        font-family: "Segoe UI", system-ui, sans-serif;
+        overflow: hidden;
+      }
+      #app {
+        display: flex;
+        height: 100vh;
+      }
+      #viewport {
+        flex: 1;
+        position: relative;
+      }
+      #viewport canvas {
+        display: block;
+      }
+      /* Painel lateral estilo MMORPG clássico (doc 16). */
+      #sidebar {
+        width: 240px;
+        background: var(--panel);
+        border-left: 2px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+        gap: 10px;
+        overflow-y: auto;
+      }
+      #sidebar h1 {
+        font-size: 12px;
+        margin: 0;
+        letter-spacing: 0.3px;
+        color: #c9a86a;
+      }
+      .box {
+        background: linear-gradient(#1a1712, #131009);
+        border: 1px solid #000;
+        border-radius: 5px;
+        padding: 7px 8px;
+        font-size: 10.5px;
+        box-shadow: inset 0 1px 0 rgba(201, 168, 106, 0.09), 0 1px 3px rgba(0, 0, 0, 0.5);
+      }
+      /* Animação de clique em todos os botões (afunda levemente). */
+      button {
+        transition: transform 0.07s ease, filter 0.1s ease;
+      }
+      button:active {
+        transform: scale(0.93);
+      }
+      #status {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #status .on {
+        color: #6fbf73;
+      }
+      #status .off {
+        color: #cf6a6a;
+      }
+      #clock {
+        font-variant-numeric: tabular-nums;
+        color: #e2d6bd;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      /* À noite o relógio pisca (vermelho) para alertar o jogador. */
+      #clock.night {
+        animation: nightblink 1.1s steps(1, end) infinite;
+      }
+      @keyframes nightblink {
+        0%,
+        55% {
+          color: #ff6a5a;
+          text-shadow: 0 0 7px rgba(255, 70, 50, 0.85);
+        }
+        56%,
+        100% {
+          color: #8a8272;
+          text-shadow: none;
+        }
+      }
+      #minimap {
+        image-rendering: pixelated;
+        border: 1px solid #000;
+        border-radius: 3px;
+        box-shadow: inset 0 0 0 1px #2b2620;
+        width: 100%;
+        max-width: 190px;
+        height: auto;
+      }
+      #chatlog {
+        flex: 1;
+        overflow-y: auto;
+        font-size: 10.5px;
+        line-height: 1.5;
+      }
+      #chatlog .sys {
+        color: #8a8272;
+        font-style: italic;
+      }
+      #chatlog b {
+        color: #c9a86a;
+      }
+      #chatinput {
+        width: 100%;
+        background: #14120f;
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 6px;
+        border-radius: 4px;
+        font-size: 10.5px;
+      }
+      .hint {
+        color: #8a8272;
+        font-size: 9.5px;
+      }
+      /* Barras de status */
+      .bar {
+        position: relative;
+        height: 14px;
+        background: #0a0908;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        margin: 4px 0;
+        overflow: hidden;
+      }
+      .bar > i {
+        display: block;
+        height: 100%;
+        width: 0%;
+        transition: width 0.15s ease-out;
+      }
+      #hpfill {
+        background: linear-gradient(#c0473f, #8a2f2a);
+      }
+      #manafill {
+        background: linear-gradient(#3f6fb0, #2a4a8a);
+      }
+      #xpfill {
+        background: linear-gradient(#c9a86a, #9a7d3f);
+      }
+      .bar > span {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 9px;
+        color: #fff;
+        text-shadow: 0 1px 1px #000;
+      }
+      #topline {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10.5px;
+        color: #c9a86a;
+      }
+      /* Tela de morte */
+      #death {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 10px;
+        background: rgba(20, 0, 0, 0.6);
+        color: #e8c0c0;
+        font-size: 22px;
+        z-index: 10;
+        pointer-events: none;
+      }
+      #death small {
+        font-size: 14px;
+        color: #b09090;
+      }
+      /* Tela inicial de escolha de classe */
+      #start,
+      #login,
+      #charselect {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 16px;
+        background: radial-gradient(circle at 50% 30%, #1c1a17, #0a0908);
+        z-index: 20;
+        padding: 20px;
+      }
+      #start h2,
+      #login h2,
+      #charselect h2 {
+        color: #c9a86a;
+        margin: 0;
+        letter-spacing: 1px;
+      }
+      #start input,
+      #login input {
+        background: #14120f;
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 260px;
+        text-align: center;
+      }
+      /* --- Login e seleção de personagem (etapa 7) --- */
+      #login,
+      #charselect {
+        display: none;
+      }
+      .authrow {
+        display: flex;
+        gap: 8px;
+      }
+      .autherr {
+        color: #d98a7a;
+        font-size: 12.5px;
+        min-height: 16px;
+        text-align: center;
+        max-width: 300px;
+      }
+      .authhint {
+        color: #7d7466;
+        font-size: 12px;
+        text-align: center;
+        max-width: 320px;
+        line-height: 1.5;
+      }
+      #charlist {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 320px;
+        max-height: 46vh;
+        overflow-y: auto;
+      }
+      .charrow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #14120f;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px 14px;
+        cursor: pointer;
+        transition: border-color 0.15s;
+      }
+      .charrow:hover {
+        border-color: #6b5c3e;
+      }
+      .charrow.sel {
+        border-color: #c9a86a;
+      }
+      .charrow b {
+        color: var(--text);
+      }
+      .charrow small {
+        color: #8a8172;
+        display: block;
+        font-size: 11.5px;
+      }
+      .charempty {
+        color: #7d7466;
+        font-size: 13px;
+        text-align: center;
+        padding: 18px 0;
+      }
+      #genderbar {
+        display: flex;
+        gap: 8px;
+      }
+      .genderbtn {
+        background: #14120f;
+        border: 1px solid var(--border);
+        color: #a89f8f;
+        padding: 6px 18px;
+        border-radius: 5px;
+        font-size: 12.5px;
+        cursor: pointer;
+        transition: border-color 0.15s, color 0.15s;
+      }
+      .genderbtn:hover {
+        color: #d8cfbf;
+      }
+      .genderbtn.sel {
+        border-color: #c9a86a;
+        color: #c9a86a;
+        box-shadow: 0 0 8px rgba(201, 168, 106, 0.3);
+      }
+      #classes {
+        display: grid;
+        grid-template-columns: repeat(2, 260px);
+        gap: 12px;
+      }
+      #starttag {
+        margin: -6px 0 2px;
+        color: #8a8272;
+        font-size: 12px;
+        font-style: italic;
+      }
+      .classcard {
+        background: #16130f;
+        border: 2px solid var(--border);
+        border-radius: 6px;
+        padding: 12px;
+        cursor: pointer;
+        transition: border-color 0.15s, transform 0.1s;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .classcard:hover {
+        transform: translateY(-2px);
+      }
+      .classcard.sel {
+        border-color: #c9a86a;
+        box-shadow: 0 0 12px rgba(201, 168, 106, 0.4);
+      }
+      .classcard .cicon {
+        width: 48px;
+        height: 48px;
+        flex: none;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        background-color: #0e0c0a;
+      }
+      .classcard b {
+        color: #c9a86a;
+        font-size: 15px;
+      }
+      .classcard p {
+        margin: 6px 0 0;
+        font-size: 11.5px;
+        color: #a89f8f;
+        line-height: 1.4;
+      }
+      #playbtn {
+        background: #3a5a2f;
+        border: 1px solid #4a7a3a;
+        color: #eaffea;
+        padding: 10px 30px;
+        border-radius: 5px;
+        font-size: 15px;
+        cursor: pointer;
+      }
+      #playbtn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      /* Painel de personagem (tecla C) */
+      #charpanel {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        width: 300px;
+        background: var(--panel);
+        border: 2px solid var(--border);
+        border-radius: 6px;
+        padding: 12px;
+        display: none;
+        z-index: 8;
+        font-size: 13px;
+      }
+      #charpanel h3 {
+        margin: 0 0 8px;
+        color: #c9a86a;
+        font-size: 14px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .attrrow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 3px 0;
+      }
+      .attrrow .an {
+        width: 90px;
+        color: #d8cfbf;
+      }
+      .attrrow .av {
+        width: 28px;
+        text-align: right;
+        color: #fff;
+        font-weight: bold;
+      }
+      .attrrow button {
+        background: #3a5a2f;
+        border: 1px solid #4a7a3a;
+        color: #eaffea;
+        width: 22px;
+        height: 22px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .attrrow button:disabled {
+        opacity: 0.25;
+        cursor: default;
+      }
+      .attrrow small {
+        color: #7f7768;
+        font-size: 10px;
+        flex: 1;
+      }
+      #derived {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+        color: #a89f8f;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      /* Atributos na barra lateral (estilo Tibia) */
+      #attrhead {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #c9a86a;
+        font-size: 10.5px;
+      }
+      #attr-points {
+        color: #7f7768;
+      }
+      #attr-points.has {
+        color: #8fe08f;
+      }
+      #attr-toggle {
+        background: #14120f;
+        border: 1px solid var(--border);
+        color: #c9a86a;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        cursor: pointer;
+        line-height: 1;
+        font-size: 12px;
+        padding: 0;
+      }
+      #attrlist {
+        margin-top: 6px;
+      }
+      #attrlist.collapsed {
+        display: none;
+      }
+      .arow {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 1px 0;
+        font-size: 10.5px;
+      }
+      .arow .n {
+        flex: 1;
+        color: #cfc6b6;
+      }
+      .arow .v {
+        width: 26px;
+        text-align: right;
+        font-weight: bold;
+        color: #fff;
+      }
+      /* Custo do próximo ponto (sistema de custo crescente). */
+      .arow .c {
+        width: 24px;
+        text-align: right;
+        font-size: 9px;
+        color: #6d6659;
+        font-variant-numeric: tabular-nums;
+      }
+      .arow .c.ok {
+        color: #8fe08f;
+      }
+      .arow button {
+        background: #3a5a2f;
+        border: 1px solid #4a7a3a;
+        color: #eaffea;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+      }
+      .arow button:disabled {
+        opacity: 0.22;
+        cursor: default;
+      }
+      #attrderived {
+        margin-top: 6px;
+        padding-top: 6px;
+        border-top: 1px solid var(--border);
+        color: #a89f8f;
+        font-size: 10px;
+        line-height: 1.5;
+      }
+      #attrderived b {
+        color: #cfc6b6;
+      }
+      /* Battle list (estilo Tibia) */
+      #battlehead {
+        color: #c9a86a;
+        font-size: 10.5px;
+        margin-bottom: 5px;
+      }
+      #battlelist {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        max-height: 160px;
+        overflow-y: auto;
+      }
+      .brow {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 4px;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 10px;
+      }
+      .brow:hover {
+        background: #201d18;
+      }
+      .brow.tgt {
+        border-color: #c0473f;
+        background: #2a1512;
+      }
+      .brow .bi {
+        width: 18px;
+        height: 18px;
+        flex: none;
+        image-rendering: pixelated;
+        background: #14110d;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+      }
+      .brow .bn {
+        flex: 1;
+        color: #cfc6b6;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .brow .bhp {
+        width: 34px;
+        height: 5px;
+        flex: none;
+        background: #0a0908;
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .brow .bhp > i {
+        display: block;
+        height: 100%;
+        width: 100%;
+      }
+      .brow .bd {
+        width: 16px;
+        text-align: right;
+        color: #7f7768;
+        flex: none;
+      }
+      #battle-empty {
+        color: #7f7768;
+        font-size: 10px;
+        font-style: italic;
+      }
+      /* Painel de chat à esquerda */
+      #leftbar {
+        width: 240px;
+        background: var(--panel);
+        border-right: 2px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+      }
+      /* Painéis retráteis (+/−) */
+      .phead {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #d9b26a;
+        font-size: 10.5px;
+        letter-spacing: 0.4px;
+        gap: 6px;
+        cursor: grab;
+        user-select: none;
+        touch-action: none;
+        padding-bottom: 5px;
+        border-bottom: 1px solid rgba(201, 168, 106, 0.16);
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+      }
+      .phead:active {
+        cursor: grabbing;
+      }
+      /* Painel sendo arrastado para reordenar. */
+      .box.dragging {
+        opacity: 0.9;
+        outline: 1px solid #c9a86a;
+        box-shadow: 0 6px 22px rgba(0, 0, 0, 0.7), 0 0 10px rgba(201, 168, 106, 0.3);
+        position: relative;
+        z-index: 5;
+      }
+      .phead .pt {
+        background: #14120f;
+        border: 1px solid var(--border);
+        color: #c9a86a;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        cursor: pointer;
+        line-height: 1;
+        font-size: 12px;
+        padding: 0;
+        flex: none;
+      }
+      .panel.collapsed .pbody {
+        display: none !important;
+      }
+      .pbody {
+        margin-top: 6px;
+      }
+      /* Inventário: equipamento + mochila + depósito */
+      /* Paperdoll compacto e centrado. */
+      #equipgrid {
+        display: grid;
+        grid-template-columns: repeat(3, 34px);
+        grid-auto-rows: 34px;
+        gap: 3px;
+        justify-content: center;
+        margin: 2px 0 6px;
+      }
+      .eslot.corner {
+        border: none;
+        background: transparent;
+        box-shadow: none;
+        cursor: default;
+      }
+      #bpgrid,
+      #dpgrid {
+        display: grid;
+        grid-template-columns: repeat(5, 34px);
+        grid-auto-rows: 34px;
+        gap: 3px;
+        margin-top: 5px;
+        justify-content: center;
+      }
+      /* Célula de item/slot: encaixe escuro com relevo (inset), estilo Tibia. */
+      .islot,
+      .eslot {
+        position: relative;
+        width: 34px;
+        height: 34px;
+        background: linear-gradient(#0c0a08, #15120d);
+        border: 1px solid #000;
+        border-radius: 3px;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.85), inset 0 0 0 1px #2b2620;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        overflow: hidden;
+        transition: transform 0.07s ease, box-shadow 0.12s ease;
+      }
+      .eslot {
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.85), inset 0 0 0 1px #3a332a;
+      }
+      .islot:hover,
+      .eslot:hover {
+        box-shadow: inset 0 0 0 1px #c9a86a, 0 0 7px rgba(201, 168, 106, 0.4);
+      }
+      .islot.empty,
+      .islot.empty:hover {
+        cursor: default;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.85), inset 0 0 0 1px #211d17;
+      }
+      /* Animação de clique: a célula "afunda". */
+      .islot:not(.empty):active,
+      .eslot:active {
+        transform: scale(0.87);
+      }
+      .islot img,
+      .eslot img {
+        width: 80%;
+        height: 80%;
+        image-rendering: pixelated;
+        pointer-events: none;
+        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+      }
+      .eslot img.ph {
+        opacity: 0.4;
+        filter: none;
+      }
+      .islot .amt {
+        position: absolute;
+        right: 1px;
+        bottom: 0;
+        font-size: 9px;
+        font-weight: 700;
+        color: #fff;
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 1px 1px #000, 0 0 2px #000;
+        pointer-events: none;
+      }
+      .subhead {
+        color: #d9b26a;
+        font-size: 10px;
+        letter-spacing: 0.4px;
+        margin-top: 8px;
+        font-variant-numeric: tabular-nums;
+      }
+      /* Bestiário (tecla B) */
+      #bestiary {
+        position: fixed;
+        top: 20px;
+        right: 260px;
+        width: 320px;
+        max-height: 80vh;
+        overflow-y: auto;
+        background: var(--panel);
+        border: 2px solid var(--border);
+        border-radius: 6px;
+        padding: 12px;
+        display: none;
+        z-index: 8;
+        font-size: 12px;
+      }
+      #bestiary h3 {
+        margin: 0 0 8px;
+        color: #c9a86a;
+        font-size: 14px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .brow2 {
+        border: 1px solid #241f18;
+        border-radius: 5px;
+        padding: 7px 8px;
+        margin-bottom: 6px;
+        background: #16130f;
+      }
+      .brow2 .top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .brow2 img {
+        width: 26px;
+        height: 26px;
+        image-rendering: pixelated;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        background: #14110d;
+      }
+      .brow2 .nm {
+        flex: 1;
+        color: #d8cfbf;
+        font-weight: 600;
+      }
+      .brow2 .pc {
+        color: #c9a86a;
+        font-variant-numeric: tabular-nums;
+      }
+      .brow2 .kn {
+        color: #a89f8f;
+        font-size: 10.5px;
+        line-height: 1.5;
+        margin-top: 4px;
+      }
+      .brow2 .locked {
+        color: #6d6659;
+        font-style: italic;
+      }
+      .bestbar {
+        height: 4px;
+        background: #0a0908;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 5px;
+      }
+      .bestbar > i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #9a7d3f, #e0c070);
+      }
+      /* Espólio do corpo (clicar num cadáver no chão) */
+      #corpsewin {
+        position: fixed;
+        top: 90px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 250px;
+        background: var(--panel);
+        border: 2px solid #6a3a3a;
+        border-radius: 6px;
+        padding: 12px;
+        display: none;
+        z-index: 12;
+        box-shadow: 0 8px 26px rgba(0, 0, 0, 0.7);
+      }
+      #corpsewin h3 {
+        margin: 0 0 8px;
+        color: #d88a8a;
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+      }
+      #corpse-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 34px);
+        grid-auto-rows: 34px;
+        gap: 3px;
+        justify-content: center;
+      }
+      #corpse-hint {
+        margin-top: 8px;
+        text-align: center;
+      }
+      /* Painel de habilidades (tecla K): árvore + gasto de Skill Points */
+      #skillpanel {
+        position: fixed;
+        top: 20px;
+        left: 340px;
+        width: 340px;
+        max-height: 80vh;
+        overflow-y: auto;
+        background: var(--panel);
+        border: 2px solid var(--border);
+        border-radius: 6px;
+        padding: 12px;
+        display: none;
+        z-index: 8;
+        font-size: 12px;
+      }
+      #skillpanel h3 {
+        margin: 0 0 8px;
+        color: #c9a86a;
+        font-size: 14px;
+        display: flex;
+        justify-content: space-between;
+      }
+      #sp-points {
+        color: #8fe08f;
+      }
+      .skrow {
+        border: 1px solid #241f18;
+        border-radius: 5px;
+        padding: 7px 8px;
+        margin-bottom: 6px;
+        background: #16130f;
+      }
+      .skrow.locked {
+        opacity: 0.55;
+      }
+      .skrow .top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .skrow img {
+        width: 30px;
+        height: 30px;
+        flex: none;
+        border-radius: 4px;
+      }
+      .skrow.locked img {
+        filter: grayscale(1) brightness(0.5);
+      }
+      .skrow .nm {
+        flex: 1;
+        color: #d8cfbf;
+        font-weight: 600;
+      }
+      .skrow .lv {
+        color: #c9a86a;
+        font-variant-numeric: tabular-nums;
+      }
+      .skrow button {
+        background: #3a5a2f;
+        border: 1px solid #4a7a3a;
+        color: #eaffea;
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        flex: none;
+      }
+      .skrow button:disabled {
+        opacity: 0.25;
+        cursor: default;
+      }
+      .skrow .dsc {
+        color: #a89f8f;
+        font-size: 10.5px;
+        line-height: 1.5;
+        margin-top: 4px;
+      }
+      .skrow .why {
+        color: #cf6a6a;
+        font-size: 10px;
+        margin-top: 3px;
+      }
+      /* Barra de progresso do nível da skill (0..10) */
+      .skbar {
+        display: flex;
+        gap: 2px;
+        margin-top: 5px;
+      }
+      .skbar i {
+        flex: 1;
+        height: 4px;
+        background: #0a0908;
+        border-radius: 1px;
+      }
+      .skbar i.on {
+        background: linear-gradient(#e0c070, #9a7d3f);
+      }
+      #sp-foot {
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      #sp-reset {
+        background: #4a2f2f;
+        border: 1px solid #7a3a3a;
+        color: #ffeaea;
+        padding: 5px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+      }
+      #sp-reset:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      /* Barra de magias flutuante (estilo Ragnarok): F1, F2, … */
+      #spellbar {
+        position: fixed;
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%);
+        display: none;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px 6px 4px;
+        background: linear-gradient(#221e18, #14110c);
+        border: 1px solid #000;
+        border-radius: 7px;
+        box-shadow: inset 0 1px 0 rgba(201, 168, 106, 0.16), 0 5px 18px rgba(0, 0, 0, 0.65);
+        z-index: 9;
+        user-select: none;
+      }
+      /* "Pegador" para arrastar a barra pela tela. */
+      #spellgrip {
+        width: 12px;
+        height: 42px;
+        flex: none;
+        cursor: grab;
+        border-radius: 4px;
+        background: repeating-linear-gradient(
+          to bottom,
+          #4a4238 0 2px,
+          transparent 2px 5px
+        );
+        opacity: 0.7;
+      }
+      #spellgrip:active {
+        cursor: grabbing;
+      }
+      #spellbar.dragging {
+        outline: 1px solid #c9a86a;
+      }
+      .sslot {
+        position: relative;
+        width: 44px;
+        height: 44px;
+        background: linear-gradient(#0c0a08, #17130d);
+        border: 1px solid #000;
+        border-radius: 5px;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.85), inset 0 0 0 1px #2b2620;
+        cursor: pointer;
+        overflow: hidden;
+        transition: transform 0.07s ease, box-shadow 0.12s ease;
+      }
+      .sslot.free {
+        cursor: default;
+      }
+      .sslot:not(.free):hover {
+        box-shadow: inset 0 0 0 1px #c9a86a, 0 0 8px rgba(201, 168, 106, 0.45);
+      }
+      .sslot:not(.free):active {
+        transform: scale(0.9);
+      }
+      .sslot img {
+        position: absolute;
+        inset: 3px;
+        width: calc(100% - 6px);
+        height: calc(100% - 6px);
+        image-rendering: auto;
+        pointer-events: none;
+      }
+      /* Tecla de atalho no canto (sempre por cima do ícone). */
+      .sslot .sk {
+        position: absolute;
+        left: 3px;
+        top: 1px;
+        z-index: 2;
+        font-size: 9px;
+        font-weight: 700;
+        color: #e6d9bd;
+        text-shadow: 0 1px 2px #000, 0 0 3px #000, 0 0 5px #000;
+        pointer-events: none;
+      }
+      /* Nível da habilidade, no canto inferior direito do slot. */
+      .sslot .lv {
+        position: absolute;
+        right: 3px;
+        bottom: 1px;
+        z-index: 2;
+        font-size: 10px;
+        font-weight: 700;
+        color: #ffd24a;
+        text-shadow: 0 1px 2px #000, 0 0 4px #000;
+        pointer-events: none;
+      }
+      /* Bloqueada: cinza + cadeado com o requisito. */
+      .sslot.locked img {
+        filter: grayscale(1) brightness(0.45);
+      }
+      .sslot .lock {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        text-shadow: 0 1px 3px #000;
+        pointer-events: none;
+      }
+      .sslot.locked .lock {
+        display: flex;
+      }
+      /* Habilidade ATIVA no momento (Fúria, Postura): borda acesa pulsando. */
+      .sslot.active {
+        box-shadow: inset 0 0 0 2px #ffd24a, 0 0 12px rgba(255, 210, 74, 0.75);
+        animation: slotpulse 1.2s ease-in-out infinite;
+      }
+      @keyframes slotpulse {
+        0%,
+        100% {
+          box-shadow: inset 0 0 0 2px #ffd24a, 0 0 10px rgba(255, 210, 74, 0.6);
+        }
+        50% {
+          box-shadow: inset 0 0 0 2px #fff3c8, 0 0 18px rgba(255, 210, 74, 0.95);
+        }
+      }
+      /* Sem mana: escurece um pouco (mas continua clicável). */
+      .sslot.nomana img {
+        filter: brightness(0.5) saturate(0.5);
+      }
+      /* Cooldown: setor escuro girando + segundos restantes. */
+      .sslot .cd {
+        position: absolute;
+        inset: 0;
+        display: none;
+        background: rgba(6, 8, 14, 0.72);
+        pointer-events: none;
+      }
+      .sslot.cooling .cd {
+        display: block;
+      }
+      .sslot .cdt {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 700;
+        color: #fff;
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 1px 2px #000, 0 0 4px #000;
+        pointer-events: none;
+      }
+      .sslot.cooling .cdt {
+        display: flex;
+      }
+      /* Flash dourado ao conjurar com sucesso. */
+      @keyframes castflash {
+        from {
+          box-shadow: inset 0 0 0 2px #ffe08a, 0 0 16px rgba(255, 210, 74, 0.8);
+        }
+        to {
+          box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.85), inset 0 0 0 1px #2b2620;
+        }
+      }
+      .sslot.cast {
+        animation: castflash 0.4s ease-out;
+      }
+      /* Tooltip da magia (aparece acima do slot). */
+      .sslot .tip {
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        transform: translateX(-50%);
+        width: 190px;
+        display: none;
+        background: #1c1a17;
+        border: 1px solid #6a5836;
+        border-radius: 5px;
+        padding: 7px 8px;
+        font-size: 10.5px;
+        line-height: 1.5;
+        color: #a89f8f;
+        box-shadow: 0 5px 16px rgba(0, 0, 0, 0.7);
+        pointer-events: none;
+        z-index: 3;
+      }
+      .sslot:not(.free):hover .tip {
+        display: block;
+      }
+      .sslot .tip b {
+        color: #c9a86a;
+        font-size: 11.5px;
+      }
+      .sslot .tip .req {
+        color: #cf6a6a;
+      }
+      /* Loja do comerciante (modal) */
+      #shop {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.55);
+        z-index: 15;
+      }
+      #shop .win {
+        width: 340px;
+        max-height: 80vh;
+        overflow-y: auto;
+        background: var(--panel);
+        border: 2px solid #6a5836;
+        border-radius: 8px;
+        padding: 14px;
+      }
+      #shop h3 {
+        margin: 0 0 10px;
+        color: #c9a86a;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #shop h3 span.close {
+        cursor: pointer;
+        color: #a89f8f;
+      }
+      .shoprow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 4px;
+        border-bottom: 1px solid #241f18;
+      }
+      .shoprow img {
+        width: 26px;
+        height: 26px;
+        image-rendering: pixelated;
+      }
+      .shoprow .sn {
+        flex: 1;
+        color: #d8cfbf;
+        font-size: 12px;
+      }
+      .shoprow .sp {
+        color: #f2c14e;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .shoprow button {
+        background: #3a5a2f;
+        border: 1px solid #4a7a3a;
+        color: #eaffea;
+        padding: 4px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11.5px;
+      }
+      .shoprow button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="leftbar">
+        <div class="box panel" id="chatpanel" style="flex: 1; display: flex; flex-direction: column; min-height: 0">
+          <div class="phead"><span>💬 Chat</span><button class="pt" title="Minimizar">−</button></div>
+          <div class="pbody" style="flex: 1; display: flex; flex-direction: column; min-height: 0">
+            <div id="chatlog"></div>
+            <input id="chatinput" placeholder="Enter para conversar…" maxlength="200" />
+          </div>
+        </div>
+      </aside>
+      <div id="viewport"></div>
+      <aside id="sidebar">
+        <h1>ELYSIA ONLINE</h1>
+        <div class="box" id="status">
+          <span id="conn">Servidor: <span class="off">conectando…</span></span>
+          <span id="clock" title="Hora do mundo (ciclo dia/noite)">☀️ 08:00</span>
+        </div>
+        <div class="box panel" id="mapbox">
+          <div class="phead"><span>🗺️ Mapa</span><button class="pt" title="Minimizar">−</button></div>
+          <div class="pbody" style="display: flex; justify-content: center">
+            <canvas id="minimap" width="180" height="180"></canvas>
+          </div>
+        </div>
+        <div class="box panel" id="vitalsbox">
+          <div class="phead">
+            <span>Vanguard · Nv <b id="level">1</b></span>
+            <span style="display: flex; gap: 8px; align-items: center">
+              <span>🪙 <b id="gold">0</b></span>
+              <button class="pt" title="Minimizar">−</button>
+            </span>
+          </div>
+          <div class="pbody">
+            <div class="bar"><i id="hpfill"></i><span id="hptext">—</span></div>
+            <div class="bar"><i id="manafill"></i><span id="manatext">—</span></div>
+            <div class="bar"><i id="xpfill"></i><span id="xptext">—</span></div>
+          </div>
+        </div>
+        <div class="box panel" id="attrbox">
+          <div class="phead">
+            <span>Atributos · <b id="attr-points">0</b> pts</span>
+            <button class="pt" id="attr-toggle" title="Minimizar">−</button>
+          </div>
+          <div class="pbody"><div id="attrlist"></div></div>
+        </div>
+        <div class="box panel" id="invbox">
+          <div class="phead"><span>🛡️ Equipamentos</span><button class="pt" title="Minimizar">−</button></div>
+          <div class="pbody">
+            <div id="equipgrid"></div>
+            <div class="subhead" id="bpsubhead">🎒 Mochila</div>
+            <div id="bpgrid"></div>
+            <div id="depotbox" style="display: none">
+              <div class="subhead">🏦 Depósito</div>
+              <div id="dpgrid"></div>
+            </div>
+            <div id="invhint" class="hint" style="margin-top: 6px"></div>
+          </div>
+        </div>
+        <div class="box panel" id="battlebox">
+          <div class="phead"><span>⚔️ Battle</span><button class="pt" title="Minimizar">−</button></div>
+          <div class="pbody"><div id="battlelist"></div></div>
+        </div>
+        <div class="box">
+          <div id="coords">Posição: —</div>
+          <div class="hint">Mover: setas/WASD (2 juntas ou numpad = diagonal) · Clicar no monstro ou na Battle: atacar · Esc: soltar alvo</div>
+        </div>
+      </aside>
+    </div>
+    <div id="spellbar"><div id="spellgrip" title="Arraste para mover a barra"></div></div>
+    <div id="shop">
+      <div class="win">
+        <h3><span>🛒 Comerciante</span><span class="close" id="shop-close">✕</span></h3>
+        <div id="shoplist"></div>
+        <div class="hint" style="margin-top: 8px">Compra com ouro. Fique perto do comerciante.</div>
+      </div>
+    </div>
+    <div id="bestiary">
+      <h3>
+        <span>📖 Bestiário</span>
+        <span id="best-close" style="cursor: pointer">✕</span>
+      </h3>
+      <div id="best-list"></div>
+      <div class="hint" style="margin-top: 8px">Cace mais para revelar cada ficha.</div>
+    </div>
+    <div id="corpsewin">
+      <h3>
+        <span id="corpse-title">☠️ Corpo</span>
+        <span id="corpse-close" style="cursor: pointer">✕</span>
+      </h3>
+      <div id="corpse-grid"></div>
+      <div class="hint" id="corpse-hint"></div>
+    </div>
+    <div id="death">
+      <div>☠️ Você caiu em combate</div>
+      <small id="deathby"></small>
+      <small>Renascendo…</small>
+    </div>
+    <div id="login">
+      <h2>ELYSIA ONLINE</h2>
+      <p id="logintag">Um mundo persistente e vivo. Sua conta guarda o caminho.</p>
+      <input id="userin" placeholder="Usuário" maxlength="24" autocomplete="username" />
+      <input
+        id="passin"
+        type="password"
+        placeholder="Senha"
+        maxlength="64"
+        autocomplete="current-password"
+      />
+      <div class="autherr" id="loginerr"></div>
+      <div class="authrow">
+        <button id="loginbtn">Entrar</button>
+        <button id="regbtn">Criar conta</button>
+      </div>
+      <p class="authhint">
+        Usuário: letras, números e _ (3 a 24). Senha: pelo menos 6 caracteres.
+      </p>
+    </div>
+    <div id="charselect">
+      <h2>SEUS PERSONAGENS</h2>
+      <div id="charlist"></div>
+      <div class="authrow">
+        <button id="enterbtn" disabled>Entrar no mundo</button>
+        <button id="newcharbtn">Novo personagem</button>
+      </div>
+      <p class="authhint" id="charhint"></p>
+    </div>
+    <div id="start">
+      <h2>NOVO PERSONAGEM</h2>
+      <p id="starttag">O nome é definitivo. Escolha com carinho.</p>
+      <input id="namein" placeholder="Nome do aventureiro" maxlength="20" />
+      <div class="autherr" id="nameerr"></div>
+      <div id="classes"></div>
+      <button id="playbtn" disabled>Escolha uma classe</button>
+      <button id="backbtn">Voltar</button>
+    </div>
+    <div id="skillpanel">
+      <h3>
+        <span>Habilidades · <b id="sp-points">0</b> SP</span>
+        <span id="sp-close" style="cursor: pointer">✕</span>
+      </h3>
+      <div id="sp-list"></div>
+      <div id="sp-foot">
+        <button id="sp-reset">Resetar skills</button>
+        <span id="sp-resetinfo" class="hint"></span>
+      </div>
+    </div>
+    <div id="charpanel">
+      <h3>Personagem <span id="cp-close" style="cursor:pointer">✕</span></h3>
+      <div id="cp-summary"></div>
+      <div id="cp-attrs"></div>
+      <div id="derived"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

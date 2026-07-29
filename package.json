@@ -1,0 +1,30 @@
+{
+  "name": "project-dominion-2d",
+  "version": "0.0.1",
+  "private": true,
+  "description": "MMORPG 2D top-down no navegador, com construção de bases e raids. Fonte de verdade: docs/",
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:server dev:client",
+    "dev:test": "npm-run-all --parallel dev:server:test dev:client",
+    "dev:server": "npm run dev --workspace server",
+    "dev:server:test": "npm run dev:test --workspace server",
+    "dev:client": "npm run dev --workspace client",
+    "test": "npm-run-all --serial test:*",
+    "test:shared": "npm run test --workspace shared",
+    "test:server": "npm run test --workspace server",
+    "typecheck": "npm-run-all --serial typecheck:*",
+    "typecheck:shared": "npm run typecheck --workspace shared",
+    "typecheck:server": "npm run typecheck --workspace server",
+    "typecheck:client": "npm run typecheck --workspace client"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.7.3"
+  }
+}

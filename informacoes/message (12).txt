@@ -1,0 +1,165 @@
+Filosofia das Missões
+
+As missões existem para enriquecer o mundo, não para obrigar o jogador a seguir um roteiro.
+
+É perfeitamente possível chegar ao nível máximo sem completar uma única missão.
+
+Da mesma forma, um jogador pode passar centenas de horas fazendo missões porque gosta da história ou das recompensas.
+
+As duas formas de jogar são válidas.
+
+O jogador escolhe
+
+Ao chegar ao vilarejo inicial.
+
+O capitão da guarda diz:
+
+"As terras ao norte estão infestadas de lobos. Se desejar ajudar o reino, fale comigo."
+
+O jogador pode responder:
+
+Sim.
+Não.
+
+E simplesmente ir embora.
+
+Nada impede isso.
+
+Missões do Vilarejo
+
+Cada cidade e vilarejo possui seu próprio quadro de missões.
+
+Exemplo:
+
+Problemas Locais
+Mate 20 Lobos.
+Mate 10 Ursos.
+Elimine o Chefe da Caverna dos Lobos.
+Limpe a Mina Abandonada.
+Escolte uma carroça.
+Resgate um fazendeiro.
+Investigue desaparecimentos.
+
+Tudo completamente opcional.
+
+Recompensas
+
+Ao concluir uma missão.
+
+O jogador recebe:
+
+Ouro.
+XP.
+Equipamentos.
+Materiais.
+Reputação com aquela cidade.
+Títulos.
+Cosméticos.
+Acesso a comerciantes especiais.
+
+Nunca algo obrigatório para a progressão principal.
+
+Nada bloqueia conteúdo
+
+Você NÃO precisa fazer missão para:
+
+trocar de cidade;
+entrar em dungeons;
+enfrentar chefes;
+aprender magias;
+subir de nível;
+utilizar equipamentos.
+
+As missões apenas ajudam.
+
+Exploração continua sendo importante
+
+Imagine um jogador.
+
+Sai do vilarejo.
+
+Encontra uma caverna escondida.
+
+Mata um boss.
+
+Consegue uma espada rara.
+
+Nunca falou com nenhum NPC.
+
+Isso deve ser totalmente possível.
+
+O jogo recompensa a curiosidade.
+
+Missões contam histórias
+
+Ao invés de serem apenas:
+
+Mate 10 Lobos.
+
+Elas contam o que está acontecendo naquela região.
+
+Por exemplo:
+
+Os lobos começaram a atacar viajantes.
+
+↓
+
+Depois.
+
+Descobrimos que algo está expulsando os lobos da floresta.
+
+↓
+
+Depois.
+
+Encontramos um Warg Ancião.
+
+↓
+
+Depois.
+
+Descobrimos uma fenda da corrupção.
+
+Ou seja.
+
+As missões servem para aprofundar o mundo.
+
+Não para liberar o próximo mapa.
+
+Quadro de Caçadas
+
+Acho que aqui existe uma mecânica que combina muito com o Elysia.
+
+Toda cidade possui um quadro.
+
+Exemplo:
+
+Caçadas Comuns
+Mate 50 Lobos.
+Mate 100 Esqueletos.
+Mate 30 Trolls.
+Mate 200 Aranhas.
+Caçadas de Elite
+Mate o Rei dos Lobos.
+Derrote o Necromante da Cripta.
+Elimine a Hidra do Pântano.
+Caçadas Lendárias
+Derrote o Dragão Negro.
+Mate o Leviatã.
+Destrua o Senhor da Corrupção.
+
+Cada uma concede recompensas proporcionais ao desafio.
+
+Um sistema que pode ser uma marca do Elysia: Reputação Regional
+
+Ao invés de ganhar apenas XP, o jogador ganha reputação com aquela cidade.
+
+Por exemplo, no vilarejo inicial:
+
+Reputação 0 → ninguém conhece o jogador.
+Reputação 100 → comerciantes oferecem pequenos descontos.
+Reputação 500 → o capitão da guarda confia missões mais difíceis.
+Reputação 1000 → o jogador recebe um título como "Protetor de Lumindale".
+Reputação 3000 → uma estátua temporária ou uma placa pode aparecer na cidade com o nome dos maiores benfeitores.
+
+O mais importante é que essa reputação nunca desbloqueia conteúdo essencial. Ela oferece reconhecimento, algumas vantagens locais e recompensas extras, mas um aventureiro que ignore completamente as missões ainda pode explorar o mundo inteiro, enfrentar todos os chefes e evoluir normalmente. Isso reforça a filosofia que estamos definindo para o Elysia: o jogador escolhe o próprio caminho, e o mundo reage às suas escolhas, sem obrigá-lo a seguir uma única rota de progressão.

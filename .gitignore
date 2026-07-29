@@ -1,0 +1,28 @@
+node_modules/
+dist/
+build/
+*.log
+.env
+.env.local
+.DS_Store
+coverage/
+.vite/
+
+# Banco de dados local (SQLite). É estado do SERVIDOR, não código: cada
+# instalação tem o seu, e commitá-lo sobrescreveria os personagens de quem
+# clonar. Inclui os arquivos -wal e -shm do modo WAL.
+server/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Os assets de arte ENTRAM no repositório de propósito: ele é PRIVADO, então
+# versioná-los não é redistribuição pública, e quem clona já roda o jogo com os
+# sprites certos em vez de placeholders. Ver CREDITS.md para as licenças.
+#
+# ⚠️ Se algum dia este repositório virar PÚBLICO, revise as licenças de
+# client/public/assets/ ANTES — alguns packs proíbem redistribuição aberta.
+
+# Arquivos pesados só de trabalho (zips baixados, PSD), esses não precisam.
+*.zip
+*.psd

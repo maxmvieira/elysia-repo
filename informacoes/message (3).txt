@@ -1,0 +1,335 @@
+DUNGEONS OFICIAIS DE ELYSIA
+🌳 FLORESTA DE ARDEN (Nível 1–20)
+Mina Abandonada
+
+Monstros:
+
+Ratos
+Morcegos
+Aranhas
+Mineiros Corrompidos
+
+Chefe:
+
+O Capataz Esquecido
+Caverna dos Lobos
+
+Monstros:
+
+Lobos
+Lobos Alfa
+Lobos Negros
+
+Chefe:
+
+Fenrir, o Alfa Ancestral
+Ruínas Élficas
+
+Monstros:
+
+Espíritos Élficos
+Guardiões de Pedra
+Arqueiros Fantasmas
+
+Chefe:
+
+Rainha Élfica Corrompida
+🌲 FLORESTA SOMBRIA (20–40)
+Covil dos Lobisomens
+
+Monstros:
+
+Lobisomens Jovens
+Lobisomens
+Caçadores Amaldiçoados
+
+Chefe:
+
+Rei dos Lobisomens
+Mansão Blackthorn
+
+Uma antiga mansão tomada por vampiros.
+
+Monstros:
+
+Vampiros
+Servos
+Morcegos Vampiros
+Noivas Vampiras
+
+Chefe:
+
+Conde Draven
+Cemitério Esquecido
+
+Monstros:
+
+Fantasmas
+Almas Perdidas
+Esqueletos
+Zumbis
+
+Chefe:
+
+O Coveiro
+☠ PÂNTANOS DE MORVAK (35–60)
+Templo Afundado
+
+Monstros:
+
+Sapos Gigantes
+Serpentes
+Espíritos
+Hidras
+
+Chefe:
+
+Sacerdote do Pântano
+Covil das Aranhas
+
+Monstros:
+
+Aranhas
+Aranhas Venenosas
+Aranhas Gigantes
+
+Chefe:
+
+Rainha Aracnídea
+🏜 DESERTO DE KHARAD (40–70)
+Pirâmide do Faraó
+
+Monstros:
+
+Múmias
+Sacerdotes
+Escaravelhos
+Guardas de Pedra
+
+Chefe:
+
+Faraó Imortal
+Deserto Escaldante
+
+Monstros:
+
+Escorpiões
+Escorpiões Gigantes
+Cobras
+Vermes da Areia
+
+Chefe:
+
+Rei Escorpião
+Templo do Sol
+
+Monstros:
+
+Golems
+Guardiões Solares
+Espíritos
+
+Chefe:
+
+Avatar do Sol
+⛰ MONTANHAS DE FERRO (60–90)
+Minas Anãs
+
+Monstros:
+
+Goblins
+Orcs
+Trolls
+
+Chefe:
+
+Rei Orc
+Fortaleza dos Gigantes
+
+Monstros:
+
+Gigantes
+Gigantes de Pedra
+
+Chefe:
+
+Titã da Montanha
+Ninho dos Dragões
+
+Monstros:
+
+Dragões Jovens
+Wyrms
+Drake
+
+Chefe:
+
+Dragão Ancião
+❄ REINO DE FROSTHEIM (70–100)
+Palácio Congelado
+
+Monstros:
+
+Golems de Gelo
+Lobos Brancos
+Magos Congelados
+
+Chefe:
+
+Rainha do Gelo
+Cavernas Congeladas
+
+Monstros:
+
+Ursos Polares
+Aranhas de Gelo
+Espíritos Gelados
+
+Chefe:
+
+Leviatã de Gelo
+🌋 VULCÕES DE IGNIS (90–120)
+Fortaleza Infernal
+
+Monstros:
+
+Demônios
+Diabretes
+Succubus
+Incubus
+
+Chefe:
+
+General Infernal
+Coração do Vulcão
+
+Monstros:
+
+Elementais de Fogo
+Salamandras
+Magma Golems
+
+Chefe:
+
+Senhor do Magma
+🌊 COSTA DOS PIRATAS (80–110)
+Navio Fantasma
+
+Monstros:
+
+Piratas Mortos
+Fantasmas
+Capitães Esqueléticos
+
+Chefe:
+
+Capitão Barba Negra
+Naufrágio Imperial
+
+Monstros:
+
+Sereias
+Afogados
+Polvos Gigantes
+
+Chefe:
+
+Kraken
+🌿 SELVA DE MYR'VHAL (100–130)
+Cidade Perdida
+
+Monstros:
+
+Homens-Lagarto
+Cobras Gigantes
+Macacos Selvagens
+
+Chefe:
+
+Rei Lagarto
+Templo da Serpente
+
+Monstros:
+
+Sacerdotes
+Najas
+Basiliscos
+
+Chefe:
+
+Serpente Ancestral
+🌌 ABISMO DA CORRUPÇÃO (120+)
+Catedral Corrompida
+
+Monstros:
+
+Demônios
+Anjos Corrompidos
+Cavaleiros Negros
+
+Chefe:
+
+Arcebispo Corrompido
+Cidade Perdida
+
+Monstros:
+
+Humanos Corrompidos
+Cavaleiros
+Magos Negros
+
+Chefe:
+
+Rei Corrompido
+O Coração do Mundo
+
+Última dungeon do jogo.
+
+Monstros:
+
+Guardiões Primordiais
+Ecos do Vazio
+
+Chefe Final:
+
+O Avatar do Vazio
+DUNGEONS ESPECIAIS
+
+Além das regiões principais, o mundo terá locais raros e opcionais:
+
+🦇 Torre dos Vampiros
+🐺 Floresta da Lua (lobisomens)
+👻 Vale das Almas (fantasmas)
+☠ Catacumbas Reais
+🕷 Ninho da Rainha Aranha
+🦂 Covil dos Escorpiões
+🐍 Covil das Serpentes
+🦎 Pântano dos Crocodilos
+🐻 Caverna dos Ursos
+🐗 Bosque dos Javalis
+🐅 Selva dos Tigres
+🦅 Penhasco das Harpias
+🦅 Ninho dos Grifos
+🧙 Torre Arcana
+⚒ Mina dos Anões
+⛪ Mosteiro Abandonado
+🏰 Castelo Esquecido
+🌳 Bosque Encantado
+💎 Caverna de Cristal
+🌊 Cidade Submersa
+⚓ Fortaleza Pirata
+🏜 Arena dos Gladiadores
+🌋 Abismo de Obsidiana
+❄ Labirinto de Gelo
+🌑 Floresta Corrompida
+👑 Cripta dos Reis
+🧛 Castelo Carmesim
+🐉 Vale dos Dragões
+🪨 Cânion dos Gigantes
+🌪 Templo dos Elementos
+🌌 Biblioteca Proibida
+Sistema de Progressão
+
+Em vez de prender o jogador a um único caminho, várias regiões terão faixas de nível sobrepostas. Um jogador de nível 40 poderá escolher entre explorar o deserto, enfrentar vampiros, caçar lobisomens ou se aventurar nos pântanos. Isso incentiva diferentes estilos de jogo, melhora a economia (itens de regiões distintas continuam relevantes) e aumenta a rejogabilidade.
+
+Além disso, cada grande dungeon terá sua própria história, facções, missões, recursos exclusivos, equipamentos característicos e um chefe memorável. Dessa forma, visitar uma dungeon não será apenas "farmar monstros", mas conhecer uma parte importante da história de Elysia.

@@ -1,0 +1,352 @@
+ELYSIA ONLINE
+ANIMATION BIBLE v1.0
+Filosofia
+
+As animações devem transmitir peso, impacto e fluidez, mantendo a leitura rápida típica de Tibia, porém com muito mais detalhes.
+
+O jogador deve reconhecer imediatamente:
+
+andando
+correndo
+atacando
+morrendo
+
+mesmo vendo apenas a silhueta.
+
+Resolução
+
+Personagens
+
+32x32
+
+NPCs
+
+32x32
+
+Monstros pequenos
+
+32x32
+
+Monstros médios
+
+64x64
+
+Chefes
+
+Livre
+
+Direções
+
+Todos os personagens possuem obrigatoriamente:
+
+DOWN
+
+LEFT
+
+RIGHT
+
+UP
+
+Nunca apenas frente.
+
+FPS
+
+Idle
+
+8 FPS
+
+Walk
+
+10 FPS
+
+Run
+
+12 FPS
+
+Attack
+
+12 FPS
+
+Death
+
+10 FPS
+IDLE
+
+Frames
+
+8
+
+Movimentos
+
+Respiração
+
+Piscar
+
+Escudo oscila
+
+Cabelo balança
+
+Capa acompanha
+
+Nunca parado completamente.
+
+WALK
+
+Frames
+
+8
+
+Ciclo
+
+1 Contato
+
+2 Passo esquerdo
+
+3 Centro
+
+4 Passo direito
+
+5 Contato
+
+6 Passo esquerdo
+
+7 Centro
+
+8 Passo direito
+
+Movimentos
+
+Cabeça sobe e desce
+
+Braços alternam
+
+Escudo acompanha
+
+Espada acompanha
+
+Cabelo oscila
+
+Capa balança
+
+RUN
+
+Frames
+
+8
+
+Diferenças
+
+Passadas maiores.
+
+Braços mais rápidos.
+
+Corpo inclinado.
+
+Capa aberta.
+
+Cabelo com maior movimento.
+
+ATTACK
+
+Frames
+
+8
+
+Sequência
+
+1 Idle
+
+2 Preparação
+
+3 Rotação
+
+4 Arma atrás
+
+5 Impacto
+
+6 Final do corte
+
+7 Recuperação
+
+8 Idle
+
+A espada nunca muda de tamanho.
+
+Apenas gira.
+
+BLOCK
+
+Frames
+
+6
+1 Idle
+
+2 Levanta escudo
+
+3 Defesa
+
+4 Impacto
+
+5 Abaixa
+
+6 Idle
+HURT
+
+Frames
+
+4
+1 Idle
+
+2 Recuo
+
+3 Recupera
+
+4 Idle
+DEATH
+
+Frames
+
+8
+1 Dano
+
+2 Perde equilíbrio
+
+3 Joelhos
+
+4 Cai
+
+5 Corpo toca o chão
+
+6 Espada cai
+
+7 Capa termina
+
+8 Morto
+
+Último frame permanece.
+
+Pivot
+
+Sempre
+
+Centro inferior.
+
+Nunca muda.
+
+Assim evita deslizar.
+
+Sombras
+
+Sempre abaixo do personagem.
+
+Nunca giram.
+
+Nunca mudam de tamanho.
+
+Iluminação
+
+Sempre igual.
+
+Luz vindo do canto superior esquerdo.
+
+Nunca alterar durante animações.
+
+Escala
+
+Nunca aumentar.
+
+Nunca diminuir.
+
+O personagem sempre ocupa aproximadamente:
+
+26x30 px
+
+Dentro do canvas 32x32.
+
+Movimento
+
+Cabeça
+
+Máximo 1 px.
+
+Corpo
+
+Máximo 1 px.
+
+Escudo
+
+1~2 px.
+
+Espada
+
+Gira.
+
+Não estica.
+
+Cabelo
+
+Oscila.
+
+Capa
+
+Oscila.
+
+Nunca atravessa o corpo.
+
+Nome dos arquivos
+
+Exemplo
+
+ELY_WARRIOR_F_IDLE_DOWN.png
+
+ELY_WARRIOR_F_IDLE_LEFT.png
+
+ELY_WARRIOR_F_IDLE_RIGHT.png
+
+ELY_WARRIOR_F_IDLE_UP.png
+
+ELY_WARRIOR_F_WALK_DOWN.png
+
+ELY_WARRIOR_F_ATTACK_LEFT.png
+
+ELY_WARRIOR_F_DEATH_UP.png
+Organização das spritesheets
+
+Cada arquivo contém apenas UMA animação.
+
+Exemplo
+
+Idle
+
+□□□□□□□□
+
+Walk
+
+□□□□□□□□
+
+Attack
+
+□□□□□□□□
+
+Nunca misturar várias animações na mesma spritesheet.
+
+Convenção para o Claude
+
+Cada sprite deve manter:
+
+Mesmo tamanho em todos os frames.
+Mesmo centro de massa.
+Mesma posição dos pés quando o pé estiver apoiado.
+Equipamentos sem deformações.
+Sem cintilação (flickering).
+Sem mudanças na paleta durante a animação.
+Movimentos suaves e coerentes.
+Regra de Ouro do Elysia
+
+A animação deve dar vida ao personagem, não chamar mais atenção que o personagem.
+
+O jogador precisa sentir que está controlando um aventureiro experiente em um mundo vivo, e não assistindo a efeitos exagerados. Movimentos naturais, leitura clara e consistência serão sempre mais importantes do que quantidade de quadros ou exagero visual.
+
+Próximo documento
+
+Depois desta Animation Bible, eu criaria a Art Bible completa do Elysia (paleta, proporções, iluminação, arquitetura, vegetação, UI e efeitos). Com esses dois documentos prontos, qualquer IA, artista ou o próprio Claude terá uma referência sólida para produzir conteúdo mantendo a identidade visual do jogo do começo ao fim.

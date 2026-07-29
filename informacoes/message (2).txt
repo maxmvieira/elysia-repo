@@ -1,0 +1,404 @@
+ELYSIA ONLINE
+ART BIBLE v1.0
+1. VISÃO ARTÍSTICA
+
+O Elysia deve transmitir a sensação de um mundo antigo, vivo e perigoso.
+
+Não buscamos um visual "fofo" nem extremamente realista.
+
+A identidade será:
+
+Medieval Fantasy
+Atmosfera levemente sombria
+Natureza exuberante
+Pixel Art HD
+Leitura rápida
+Muito detalhamento
+
+O jogador deve olhar uma screenshot e reconhecer imediatamente que é Elysia Online.
+
+2. REFERÊNCIAS
+Jogabilidade
+Tibia
+Ragnarok Online
+Pixel Art
+Heroes of Hammerwatch
+Children of Morta
+Stoneshard
+Octopath Traveler (iluminação)
+Diablo II (atmosfera)
+
+Nunca copiar diretamente nenhum deles.
+
+3. CÂMERA
+
+Visão:
+
+Top Down 90°
+
+Sem perspectiva isométrica.
+
+O jogador sempre ocupa aproximadamente o centro da tela.
+
+4. GRID
+
+Tiles
+
+32x32
+
+Todos os mapas usam o mesmo grid.
+
+5. PERSONAGENS
+
+Canvas
+
+32x32
+
+Altura
+
+26~30 px
+
+Nunca ocupar o tile inteiro.
+
+Sempre deixar espaço para leitura.
+
+6. PROPORÇÕES
+
+Cabeça
+
+≈25%
+
+Corpo
+
+≈45%
+
+Pernas
+
+≈30%
+
+Armas podem ultrapassar o limite do corpo.
+
+7. CONTORNO
+
+Não usar contorno preto puro.
+
+Usar contorno seletivo.
+
+Exemplo
+
+couro → marrom escuro
+aço → cinza escuro
+pele → marrom muito escuro
+
+Isso deixa o sprite mais natural.
+
+8. ILUMINAÇÃO
+
+Sempre igual.
+
+Luz principal:
+
+Superior esquerda.
+
+Sombras:
+
+Inferior direita.
+
+Nunca inverter.
+
+9. PALETA
+
+Verdes naturais.
+
+Marrons quentes.
+
+Cinzas frios.
+
+Azuis profundos.
+
+Pouco vermelho.
+
+Pouco amarelo.
+
+Nada extremamente saturado.
+
+10. ARMADURAS
+
+Não devem parecer limpas.
+
+Sempre possuir:
+
+desgaste
+riscos
+brilho discreto
+couro envelhecido
+11. ARMAS
+
+Espadas
+
+Lâmina fina.
+
+Guarda simples.
+
+Pouco exagero.
+
+Escudos
+
+Formato medieval.
+
+Detalhes discretos.
+
+Machados
+
+Cabeça pesada.
+
+Cabos de madeira.
+
+12. CABELOS
+
+Sempre volumosos.
+
+Nunca totalmente parados.
+
+Durante Idle
+
+Mover 1 px.
+
+13. CAPAS
+
+Sempre reagem ao movimento.
+
+Idle
+
+Pequena oscilação.
+
+Walk
+
+Oscila para trás.
+
+Run
+
+Abre mais.
+
+14. NATUREZA
+
+Florestas
+
+Muito densas.
+
+Muitas plantas.
+
+Musgo.
+
+Raízes.
+
+Pedras.
+
+Flores pequenas.
+
+Nada vazio.
+
+15. ÁRVORES
+
+Nunca repetir exatamente iguais.
+
+Cada espécie terá:
+
+Pequena
+
+Média
+
+Grande
+
+Muito grande
+
+16. ROCHAS
+
+Sempre irregulares.
+
+Musgo em algumas.
+
+Nunca blocos perfeitos.
+
+17. ÁGUA
+
+Azul escuro.
+
+Transparência leve.
+
+Reflexos discretos.
+
+Movimento lento.
+
+18. CONSTRUÇÕES
+
+Madeira.
+
+Pedra.
+
+Telhados vermelhos.
+
+Telhados azuis.
+
+Luzes quentes.
+
+Janelas pequenas.
+
+19. INTERIORES
+
+Muito aconchegantes.
+
+Madeira.
+
+Tapetes.
+
+Livros.
+
+Velas.
+
+Lareiras.
+
+20. UI
+
+Tema
+
+Preto
+
+Cinza escuro
+
+Detalhes dourados
+
+Bordas discretas
+
+Ícones ricos em detalhes.
+
+21. EFEITOS
+
+Nunca exagerados.
+
+Ataques:
+
+Brilho curto.
+
+Magias:
+
+Poucos frames.
+
+Leitura rápida.
+
+Nunca esconder o personagem.
+
+22. CORES DOS NOMES
+
+Jogador
+
+Verde
+
+NPC
+
+Amarelo
+
+Monstro
+
+Vermelho
+
+Boss
+
+Vermelho escuro
+
+Guilda
+
+Azul
+
+23. QUALIDADE
+
+Todo asset deve responder "sim" para estas perguntas:
+
+Parece pertencer ao Elysia?
+Tem a mesma iluminação?
+Usa a mesma paleta?
+Mantém a mesma escala?
+É legível mesmo pequeno?
+Combina com os demais assets?
+
+Se alguma resposta for "não", o asset volta para revisão.
+
+24. O QUE NUNCA FAZER
+
+❌ Armas gigantes.
+
+❌ Ombros exagerados.
+
+❌ Personagens com proporções de anime.
+
+❌ Neon.
+
+❌ Magias cobrindo a tela.
+
+❌ Cores extremamente saturadas.
+
+❌ Assets fotorealistas.
+
+❌ Misturar estilos diferentes.
+
+25. IDENTIDADE DO ELYSIA
+
+Se Tibia pode ser resumido em:
+
+Liberdade.
+
+E Diablo em:
+
+Atmosfera.
+
+Quero que Elysia seja lembrado por:
+
+"Um mundo vivo, bonito e coerente."
+
+ROADMAP OFICIAL DO DESENVOLVIMENTO
+
+Agora eu estruturaria o projeto em etapas claras, como um estúdio faria:
+
+FASE 1 — Fundação
+✅ Game Design Bible
+✅ Animation Bible
+✅ Art Bible
+FASE 2 — Mundo Base
+Continente de Elysia
+Biomas
+Estradas
+Rios
+Cidades
+Dungeons
+FASE 3 — Biblioteca de Assets
+Nature Pack
+Vegetation Pack
+Rock Pack
+Building Pack
+Furniture Pack
+FASE 4 — Personagens
+Guerreiro
+Arqueiro
+Feiticeiro
+Assassino
+NPCs
+FASE 5 — Monstros
+Fauna inicial
+Criaturas corrompidas
+Chefes
+Demônios
+FASE 6 — Interface
+HUD
+Inventário
+Habilidades
+Mapa
+Craft
+Comércio
+FASE 7 — Programação
+Movimento
+Combate
+IA
+Economia
+Craft
+Missões
+Multiplayer

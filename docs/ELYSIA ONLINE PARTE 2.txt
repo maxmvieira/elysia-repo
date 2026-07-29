@@ -1,0 +1,6265 @@
+﻿78.9 — EQUIPAMENTO CRAFTADO SEGUE O SISTEMA DE ITENS
+Um item produzido não precisa existir fora do sistema de raridade.
+Ele ainda pode participar das categorias:
+⚪ Common
+🟢 Uncommon
+🔵 Rare
+🟣 Epic
+que já definimos.
+A questão que ainda precisa ser consolidada é:
+COMO A RARIDADE DO CRAFT É DETERMINADA?
+Pode depender de materiais, habilidade profissional, receita ou outros fatores, mas não vou escolher arbitrariamente um deles como regra definitiva.
+________________
+
+
+78.10 — QUALIDADE DO CRAFTER
+Existe uma ideia muito interessante para a economia:
+O DESENVOLVIMENTO DA PROFISSÃO PRECISA IMPORTAR.
+Caso contrário um jogador que acabou de começar produziria exatamente o mesmo item que alguém dedicado à profissão há meses.
+Mas a fórmula específica para transformar nível profissional em qualidade de item ainda precisa ser recuperada/definida.
+________________
+
+
+78.11 — PROFICIÊNCIA PROFISSIONAL
+A profissão pode seguir a mesma filosofia das maestrias de combate:
+VOCÊ MELHORA FAZENDO.
+Isso seria consistente com:
+Magic Level;
+Distance;
+Shield;
+maestrias de armas.
+Entretanto, até encontrarmos a definição explícita, isso deve permanecer como:
+DIREÇÃO DE DESIGN, NÃO REGRA NUMÉRICA FINAL.
+________________
+
+
+78.12 — NÃO QUEREMOS CRAFTING DE “CLIQUE 5.000 VEZES”
+Existe um problema clássico:
+faça 1.000 Espadas de Ferro
+↓
+jogue todas fora
+↓
+ganhe skill
+Isso produz lixo econômico e transforma profissão em grind artificial.
+Para Elysia, o sistema precisa favorecer:
+PRODUÇÃO QUE TENHA UTILIDADE.
+A implementação exata ainda é uma questão de balanceamento.
+________________
+
+
+78.13 — RECEITAS
+Crafting precisa possuir receitas ou conhecimentos equivalentes que determinem:
+materiais necessários;
+tipo de item;
+quantidade;
+requisitos.
+Receitas avançadas podem se tornar outra forma de progressão.
+Mas novamente, não devemos afirmar ainda que:
+“receita de boss é dropável com X%”
+ou:
+“receita é consumida ao aprender”
+sem confirmação.
+________________
+
+
+78.14 — CRAFTING E RARIDADE PRECISAM CONVERSAR
+Uma questão central para resolver posteriormente é se:
+A RECEITA DEFINE O ITEM
+ou se:
+O RESULTADO PODE VARIAR.
+Exemplo puramente estrutural:
+RECEITA: ESPADA DE AÇO
+
+
+resultado possível?
+Common
+Uncommon
+Rare
+Epic
+Isso criaria valor para especialização profissional.
+Mas também introduziria RNG.
+Portanto não devemos fechar isso sem uma decisão explícita.
+________________
+
+
+78.15 — CRAFTING NÃO DEVE SER CASSINO PURO
+Mesmo que exista variação de qualidade, é perigoso criar:
+“Coloque materiais extremamente raros e torça para não vir lixo.”
+Especialmente porque alguns materiais podem exigir:
+MVP;
+dungeon;
+viagem;
+risco de morte.
+Quanto maior o custo da tentativa:
+MENOS ACEITÁVEL É UM RESULTADO COMPLETAMENTE INÚTIL.
+________________
+
+
+78.16 — EQUIPAMENTO SOB ENCOMENDA
+O sistema player-driven permite naturalmente:
+JOGADOR A
+possui materiais
+
+
+        ↓
+
+
+CRAFTER
+possui conhecimento/proficiência
+
+
+        ↓
+
+
+EQUIPAMENTO
+
+
+        ↓
+
+
+pagamento / negociação
+Isso cria profissão econômica de verdade.
+O jogador não precisa fabricar apenas para si.
+________________
+
+
+78.17 — REPUTAÇÃO DO CRAFTER
+Em um servidor persistente, um jogador pode se tornar conhecido por determinada atividade.
+Isso cria relações sociais que não precisam de um sistema artificial de ranking.
+Um bom produtor pode receber:
+pedidos;
+clientes recorrentes;
+contratos informais;
+materiais de guild.
+Essa é uma consequência desejável da economia entre jogadores.
+________________
+
+
+78.18 — GUILDS E CRAFTING
+Guilds naturalmente podem organizar funções internamente.
+Por exemplo:
+MEMBROS
+ ↓
+coletam materiais
+
+
+CAÇADORES
+ ↓
+trazem drops especiais
+
+
+CRAFTER
+ ↓
+produz equipamento
+
+
+GUILD
+ ↓
+equipa seus membros
+Isso dá valor econômico para guild além de simplesmente:
+PvP.
+________________
+
+
+78.19 — PROFISSÕES E GUERRA
+Uma guild poderosa não depende apenas dos melhores combatentes.
+Também precisa conseguir:
+obter recursos;
+produzir;
+transportar;
+armazenar;
+repor perdas.
+Especialmente em um jogo onde morte pode fazer patrimônio circular.
+Isso faz a economia participar indiretamente das guerras.
+________________
+
+
+78.20 — CONSUMÍVEIS
+Consumíveis são outro componente natural da produção.
+Mas aqui precisamos evitar inventar uma profissão completa de:
+ALQUIMISTA
+sem confirmar que ela realmente permaneceu.
+O sistema pode conter consumíveis produzidos por jogadores sem necessariamente exigir uma profissão independente para cada categoria.
+________________
+
+
+78.21 — CONSUMÍVEL NÃO PODE ANULAR DRUID
+Esse é um ponto importante para o balanceamento das classes.
+Se uma poção restaurar enormes quantidades de HP:
+instantaneamente;
+sem limitação significativa;
+repetidamente,
+então:
+O DRUID PERDE PARTE DE SUA FUNÇÃO.
+Portanto consumíveis de cura precisam coexistir com a função de healer.
+________________
+
+
+78.22 — O MESMO VALE PARA MANA
+Sorcerer e Druid possuem Mana como recurso central.
+Se Mana puder ser restaurada infinitamente através de consumíveis baratos:
+GESTÃO DE MP DEIXA DE EXISTIR.
+Então custo, disponibilidade e limitações dos consumíveis precisam participar do balanceamento.
+________________
+
+
+78.23 — CONSUMÍVEIS CRIAM DEMANDA RECORRENTE
+Equipamentos possuem um problema econômico:
+um jogador compra uma espada e pode ficar muito tempo com ela.
+Consumíveis são diferentes:
+PRODUZ
+ ↓
+VENDE
+ ↓
+JOGADOR USA
+ ↓
+ITEM DESAPARECE
+ ↓
+PRECISA DE OUTRO
+Isso cria:
+ITEM SINK NATURAL.
+Portanto consumíveis podem ser extremamente importantes para manter profissões economicamente ativas.
+________________
+
+
+78.24 — RECURSOS PRECISAM TER SINK
+O mesmo princípio vale para materiais.
+Se o servidor produz toneladas de minério diariamente e quase nada consome minério:
+O PREÇO EVENTUALMENTE DESABA.
+Crafting funciona como:
+MATERIAL SINK.
+O recurso deixa de existir quando é transformado em outro objeto.
+________________
+
+
+78.25 — RECURSOS NÃO PRECISAM EXISTIR EM TODO LUGAR
+A geografia econômica que discutimos anteriormente funciona melhor se alguns recursos forem:
+comuns em determinadas regiões;
+raros em outras;
+inexistentes em outras.
+Isso incentiva:
+exploração;
+transporte;
+comércio.
+Mas a distribuição exata deve ser feita quando consolidarmos os continentes e biomas.
+________________
+
+
+78.26 — PESO LIMITA COLETA
+O sistema de peso impede:
+“Vou coletar 50 toneladas e voltar daqui a seis horas.”
+Quanto mais material o jogador carrega:
+MAIS IMPORTANTE SE TORNA A LOGÍSTICA.
+Isso conecta profissão com:
+montaria;
+armazenamento;
+rotas;
+risco.
+________________
+
+
+78.27 — MONTARIA DE CARGA
+As montarias podem ajudar justamente nessa função.
+O jogador pode utilizar uma montaria não porque ela é a mais rápida, mas porque:
+TRANSPORTA MAIS.
+Isso abre espaço para diferenças funcionais entre montarias no futuro.
+________________
+
+
+78.28 — MORTE DURANTE TRANSPORTE
+Aqui aparece uma das consequências mais interessantes da combinação dos sistemas.
+JOGADOR
+ ↓
+COLETA MATERIAL RARO
+ ↓
+CARREGA MATERIAL
+ ↓
+PRECISA VOLTAR
+ ↓
+MUNDO CONTINUA PERIGOSO
+O recurso só está realmente seguro depois de chegar ao armazenamento apropriado.
+Isso cria risco sem precisar inventar uma “missão de transporte”.
+________________
+
+
+78.29 — PvP E RECURSOS
+Regiões com recursos valiosos podem naturalmente virar:
+PONTOS DE CONFLITO.
+Guilds podem disputar:
+minas;
+rotas;
+regiões de monstros;
+acessos a dungeons;
+áreas estratégicas.
+Não porque o jogo abriu uma janela dizendo:
+“Evento PvP começa em 5 minutos.”
+Mas porque:
+EXISTE ALGO VALIOSO ALI.
+________________
+
+
+78.30 — NÃO SIGNIFICA PROPRIEDADE AUTOMÁTICA
+Mesmo que uma guild domine uma região:
+O MAPA NÃO PRECISA DECLARAR AQUELA HUNT COMO PROPRIEDADE PRIVADA.
+Outros jogadores podem tentar entrar.
+Isso preserva o mundo compartilhado.
+A “propriedade” pode surgir socialmente pela capacidade de controlar a região, não necessariamente por uma barreira artificial.
+________________
+
+
+78.31 — CRAFT E CARTAS SÃO SISTEMAS DIFERENTES
+Outro ponto importante:
+FABRICAR UM EQUIPAMENTO NÃO SIGNIFICA FABRICAR SUA CARTA.
+Cartas continuam ligadas principalmente aos seus próprios drops/origens.
+Assim:
+CRAFTER
+→ cria a base do equipamento
+
+
+MONSTRO/BOSS
+→ fornece carta
+
+
+JOGADOR
+→ combina as camadas
+Isso mantém caça e crafting relevantes simultaneamente.
+________________
+
+
+78.32 — ITEM FINAL É RESULTADO DE VÁRIAS CAMADAS
+Podemos visualizar:
+      BASE DO ITEM
+            │
+            ▼
+         RARIDADE
+            │
+            ▼
+       PROPRIEDADES
+            │
+            ▼
+          CARTA
+            │
+            ▼
+     REFINO / OUTRAS CAMADAS
+            │
+            ▼
+      EQUIPAMENTO FINAL
+Nem todas as regras de cada camada estão fechadas ainda.
+Mas essa separação é importante para não misturar:
+RARIDADE ≠ CARTA ≠ REFINO ≠ CRAFT.
+________________
+
+
+78.33 — NÃO CRIAR PROFISSÃO PARA CADA SISTEMA
+Outro risco seria acabar com:
+Minerador;
+Lenhador;
+Herbalista;
+Alquimista;
+Ferreiro;
+Armeiro;
+Armadureiro;
+Joalheiro;
+Cozinheiro;
+Encantador;
+Engenheiro;
+Pescador;
+etc.
+Só porque outros MMORPGs fazem isso.
+Para Elysia, a regra deve ser:
+SE A PROFISSÃO NÃO CRIA UMA FUNÇÃO ECONÔMICA REAL, ELA NÃO PRECISA EXISTIR.
+________________
+
+
+78.34 — MENOS PROFISSÕES, MAIS PROFUNDIDADE
+Isso combina melhor com a filosofia das próprias classes.
+Existem apenas cinco classes principais.
+Mas cada uma possui:
+builds;
+armas;
+atributos;
+maestrias;
+skills.
+Profissões podem seguir a mesma ideia:
+POUCAS, MAS RELEVANTES.
+________________
+
+
+78.35 — O QUE ESTÁ REALMENTE CONSOLIDADO
+Podemos considerar seguro neste ponto:
+Jogadores participam da produção de equipamentos.
+Forja/crafting faz parte da economia.
+Materiais vêm do mundo e de criaturas.
+Bosses podem fornecer materiais especiais.
+Craft não deve substituir todo boss drop.
+Boss drop não deve tornar craft inútil.
+Profissões são separadas das cinco classes.
+Peso interfere na logística.
+Montarias podem transportar itens.
+Economia é orientada fortemente por jogadores.
+Itens produzidos podem ser negociados.
+Agora, coisas como:
+quantidade exata de profissões;
+nomes finais;
+nível máximo profissional;
+receitas;
+chances de qualidade;
+tempo de fabricação;
+estações necessárias;
+custos;
+sistema de experiência profissional
+ainda precisam ser recuperadas ou definidas.
+________________
+
+
+78.36 — DESIGN DECISION LOG — PROFISSÕES
+DD-PROF-001 — Profissão não substitui classe de combate.
+ Status: FECHADO.
+DD-PROF-002 — As cinco classes continuam independentes das profissões.
+ Status: FECHADO.
+DD-PROF-003 — Jogadores podem fabricar equipamentos.
+ Status: FECHADO.
+DD-PROF-004 — Forja é parte importante do sistema produtivo.
+ Status: CONSOLIDADO EM CONCEITO.
+DD-PROF-005 — Recursos naturais alimentam crafting.
+ Status: CONSOLIDADO EM CONCEITO.
+DD-PROF-006 — Monstros também fornecem materiais.
+ Status: FECHADO EM CONCEITO.
+DD-PROF-007 — Bosses/MVPs podem fornecer materiais raros.
+ Status: FECHADO EM CONCEITO.
+DD-PROF-008 — Craft e PvE devem depender parcialmente um do outro.
+ Status: PRINCÍPIO.
+DD-PROF-009 — Equipamento craftado precisa possuir utilidade econômica real.
+ Status: PRINCÍPIO.
+DD-PROF-010 — Craft não deve invalidar drops especiais.
+ Status: PRINCÍPIO.
+DD-PROF-011 — Progressão profissional precisa representar especialização.
+ Status: CONCEITO; fórmula não fechada.
+DD-PROF-012 — Método exato de determinar raridade/qualidade de craft ainda não está consolidado.
+ Status: PENDENTE.
+DD-PROF-013 — Lista final de profissões ainda não deve ser inventada.
+ Status: PENDENTE.
+DD-PROF-014 — Consumíveis precisam respeitar o balanceamento das classes e recursos.
+ Status: PRINCÍPIO.
+DD-PROF-015 — Consumíveis funcionam como item sink natural.
+ Status: PRINCÍPIO ECONÔMICO.
+DD-PROF-016 — Materiais precisam possuir demanda/consumo contínuos.
+ Status: PRINCÍPIO ECONÔMICO.
+DD-PROF-017 — Peso participa da coleta e transporte.
+ Status: FECHADO.
+DD-PROF-018 — Montarias podem participar da logística de recursos.
+ Status: FECHADO.
+DD-PROF-019 — Recursos valiosos podem gerar conflito emergente entre jogadores.
+ Status: COERENTE COM PvP OPEN WORLD.
+DD-PROF-020 — Cartas permanecem uma camada distinta do crafting da base do equipamento.
+ Status: FECHADO EM CONCEITO.
+________________
+
+
+CAPÍTULO 79 — SOBREVIVÊNCIA: FOME, PESO E REGENERAÇÃO
+Depois de profissões e economia, existe outro conjunto de sistemas que já havia sido pensado e que interfere diretamente em:
+hunt;
+exploração;
+transporte;
+combate;
+economia.
+O SISTEMA DE SOBREVIVÊNCIA.
+Mas Elysia não foi pensado como um survival em que o jogador precisa passar metade do tempo administrando barras.
+A proposta é usar sobrevivência para dar:
+PESO À AVENTURA.
+Entre as mecânicas que já apareceram estão:
+🍖 FOME
+🎒 PESO
+❤️ REGENERAÇÃO
+e a relação dessas mecânicas com o que o personagem está carregando.
+A regra mais importante que você havia colocado é que peso excessivo reduz a movimentação e também interfere na regeneração, o que faz carregar loot demais ter uma consequência prática além de simplesmente atingir um número máximo.
+Depois disso entram montarias, incluindo a regra já definida de que elas podem carregar itens, desaparecem dentro de dungeons, não podem ser usadas nas cidades, desmontam quando o personagem recebe dano e exigem cerca de 3 segundos para montar novamente.
+CAPÍTULO 79 — SOBREVIVÊNCIA: FOME, PESO E REGENERAÇÃO
+O sistema de sobrevivência do Elysia não deve transformar o jogo em um survival puro. A função dessas mecânicas é fazer exploração, hunt e transporte terem consequências.
+A ideia central é:
+QUANTO MAIS TEMPO LONGE DA SEGURANÇA, MAIS RECURSOS E RISCOS O JOGADOR PRECISA ADMINISTRAR.
+Os três pilares que já havíamos estabelecido são:
+🍖 Fome
+ 🎒 Peso
+ ❤️ Regeneração
+________________
+
+
+79.1 — FOME
+Fome existe para tornar comida útil durante toda a progressão.
+Ela não deve funcionar apenas como:
+“Se chegar a zero, você morre.”
+Isso faria a mecânica virar uma obrigação irritante.
+A função mais interessante é relacionar alimentação com:
+MANUTENÇÃO DA EFICIÊNCIA DO PERSONAGEM.
+Assim, comida continua relevante durante hunts e viagens.
+________________
+
+
+79.2 — COMIDA NÃO SUBSTITUI DRUID
+É importante separar:
+Comida
+Sustentação e sobrevivência ao longo do tempo.
+Druid
+Cura e suporte efetivos durante combate.
+Comida não deve permitir que alguém simplesmente ignore a necessidade de cura durante conteúdo difícil.
+________________
+
+
+79.3 — PESO
+Peso possui uma função muito maior.
+O personagem possui capacidade limitada de transporte.
+Equipamentos, materiais, loot e demais objetos contribuem para aquilo que está carregando.
+Quanto mais carga:
+MAIS DIFÍCIL FICA TRANSPORTAR O PATRIMÔNIO.
+Isso cria uma decisão durante a hunt:
+CONTINUAR CAÇANDO
+      ↓
+MAIS XP + MAIS LOOT
+      ↓
+MAIS PESO + MAIS RISCO
+
+
+             OU
+
+
+VOLTAR
+      ↓
+GUARDAR/VENDER
+      ↓
+PERDER TEMPO DE HUNT
+________________
+
+
+79.4 — PESO NÃO É APENAS UM LIMITE BINÁRIO
+A ideia registrada anteriormente era mais interessante do que:
+“Você pode carregar 99,9 kg; com 100 kg não consegue pegar nada.”
+Peso excessivo também interfere no personagem.
+Principalmente:
+VELOCIDADE DE MOVIMENTO
+e
+REGENERAÇÃO.
+Isso significa que carregar demais pode tornar o próprio retorno para a cidade mais perigoso.
+________________
+
+
+79.5 — SOBRECARGA E MOVIMENTO
+Conforme o personagem fica excessivamente carregado:
+ELE FICA MAIS LENTO.
+Isso possui implicações diretas em:
+PvE;
+PvP;
+fuga;
+transporte;
+exploração.
+Um jogador carregando uma quantidade enorme de recursos não possui a mesma mobilidade de alguém viajando leve.
+________________
+
+
+79.6 — SOBRECARGA E REGENERAÇÃO
+O excesso de peso também reduz a eficiência de:
+REGENERAÇÃO.
+Isso impede que peso seja tratado simplesmente como:
+“Não me importo de andar um pouco mais devagar.”
+Um personagem sobrecarregado também fica menos eficiente durante uma sequência longa de combates.
+________________
+
+
+79.7 — ATRIBUTOS E CAPACIDADE DE CARGA
+Existe uma relação conceitualmente natural entre características físicas do personagem e capacidade de transporte.
+Entretanto, como estamos reconstruindo o documento e houve revisões do sistema de atributos, eu não vou fixar agora uma fórmula do tipo STR × X = capacidade sem recuperar a definição correspondente.
+O que está consolidado é:
+CAPACIDADE DE CARGA É LIMITADA.
+A fórmula exata continua sendo questão de balanceamento/consolidação.
+________________
+
+
+79.8 — PESO E CLASSES
+O sistema não deve gerar uma situação em que determinada classe simplesmente não consegue jogar porque possui menos capacidade.
+Mas diferenças de build podem afetar logística.
+Isso cria inclusive escolhas interessantes:
+um personagem preparado para combate máximo;
+versus;
+um personagem preparado para expedição/transporte.
+________________
+
+
+79.9 — LOOT TEM PESO
+Esse ponto é fundamental.
+Se loot não contribuísse para peso, o sistema perderia grande parte de sua função.
+Durante uma hunt longa:
+ENTRA LEVE
+   ↓
+MATA MONSTROS
+   ↓
+PEGA LOOT
+   ↓
+PESO AUMENTA
+   ↓
+EFICIÊNCIA COMEÇA A CAIR
+   ↓
+DECIDE SE CONTINUA OU RETORNA
+Isso cria um encerramento natural para sessões de caça sem precisar dizer:
+“Você só pode permanecer nesta dungeon durante 30 minutos.”
+________________
+
+
+79.10 — PESO E ECONOMIA
+O sistema também impede transporte ilimitado de mercadorias.
+Se determinado minério é barato em uma região e caro em outra, não basta comprar:
+QUANTIDADE INFINITA.
+O jogador precisa pensar em:
+capacidade;
+rota;
+montaria;
+tempo;
+risco.
+Isso dá valor à logística.
+________________
+
+
+79.11 — REGENERAÇÃO
+Regeneração serve como sustentação entre combates.
+Ela não deve necessariamente substituir:
+poções;
+comida;
+cura;
+Druid.
+A função é permitir recuperação gradual e reduzir períodos completamente mortos entre encontros.
+________________
+
+
+79.12 — REGENERAÇÃO E FOME
+Fome e regeneração podem conversar.
+A alimentação mantém o personagem em condições melhores para recuperar recursos.
+Mas os valores específicos de:
+tempo;
+taxa;
+bônus;
+penalidades
+não devem ser inventados antes da tabela final de sobrevivência.
+________________
+
+
+79.13 — SOBREVIVÊNCIA NÃO DEVE VIRAR MICROGERENCIAMENTO
+Esse é um ponto importante para o GDD.
+Não queremos:
+barra de fome;
+barra de sede;
+temperatura;
+sono;
+sanidade;
+doença;
+higiene;
+fadiga;
+mais dez necessidades.
+ELYSIA CONTINUA SENDO MMORPG.
+Fome e peso existem porque interagem diretamente com exploração e economia.
+Adicionar sistemas simplesmente por realismo aumentaria complexidade sem necessariamente melhorar o jogo.
+________________
+
+
+79.14 — DESIGN DECISION LOG — SOBREVIVÊNCIA
+DD-SURV-001 — Existe sistema de fome.
+ Status: FECHADO.
+DD-SURV-002 — Existe sistema de peso/capacidade.
+ Status: FECHADO.
+DD-SURV-003 — Loot e recursos participam da carga transportada.
+ Status: FECHADO EM CONCEITO.
+DD-SURV-004 — Excesso de peso reduz movimentação.
+ Status: FECHADO.
+DD-SURV-005 — Excesso de peso interfere negativamente na regeneração.
+ Status: FECHADO.
+DD-SURV-006 — Regeneração é parte da sustentação do personagem.
+ Status: FECHADO.
+DD-SURV-007 — Fórmula exata de capacidade ainda precisa ser consolidada.
+ Status: PENDENTE.
+DD-SURV-008 — Fome não deve transformar Elysia em survival puro.
+ Status: PRINCÍPIO.
+DD-SURV-009 — Não adicionar necessidades de sobrevivência sem função concreta.
+ Status: PRINCÍPIO DE SIMPLIFICAÇÃO.
+________________
+
+
+CAPÍTULO 80 — MONTARIAS
+Agora peso e transporte explicam por que as montarias do Elysia possuem função muito maior do que cosmética.
+Elas servem para:
+DESLOCAMENTO + LOGÍSTICA.
+Mas foram colocadas várias restrições justamente para impedir que montaria se torne:
+“botão universal para escapar de qualquer perigo”.
+________________
+
+
+80.1 — FUNÇÃO DAS MONTARIAS
+As duas funções principais são:
+🐎 Mobilidade
+Percorrer grandes distâncias.
+📦 Transporte
+Auxiliar no carregamento de itens.
+Isso dá valor funcional à montaria.
+________________
+
+
+80.2 — MONTARIA NÃO É PET
+Outra distinção importante:
+NÃO EXISTE SISTEMA DE PET COMO PILAR DO JOGO.
+Montaria possui função própria.
+Ela não precisa:
+atacar monstros;
+upar;
+possuir árvore de skills;
+virar um segundo personagem.
+Isso evita adicionar mais um sistema enorme sem necessidade.
+________________
+
+
+80.3 — MONTARIAS NÃO PODEM SER USADAS NAS CIDADES
+Uma das regras definidas foi:
+NÃO É POSSÍVEL MONTAR DENTRO DAS CIDADES.
+Isso evita:
+poluição visual;
+jogadores cobrindo NPCs;
+aglomerados enormes de montarias;
+problemas de circulação.
+Dentro da cidade:
+PERSONAGEM A PÉ.
+________________
+
+
+80.4 — MONTARIAS E DUNGEONS
+Outra regra definida:
+MONTARIA NÃO ENTRA EM DUNGEON.
+Ao entrar:
+ELA DESAPARECE / É RECOLHIDA AUTOMATICAMENTE.
+O jogador continua a dungeon a pé.
+Isso preserva:
+corredores;
+posicionamento;
+combate;
+velocidade prevista para o conteúdo.
+________________
+
+
+80.5 — RECEBER DANO DESMONTA
+Essa é uma das regras mais importantes:
+SE O PERSONAGEM MONTADO RECEBER DANO, ELE DESMONTA AUTOMATICAMENTE.
+Portanto montaria não funciona como:
+FUGA GRATUITA.
+Se alguém consegue atingir o cavaleiro:
+JOGADOR MONTADO
+      ↓
+RECEBE DANO
+      ↓
+DESMONTA
+      ↓
+PRECISA LUTAR / FUGIR A PÉ
+________________
+
+
+80.6 — TEMPO PARA MONTAR NOVAMENTE
+Depois de desmontado:
+MONTAR NOVAMENTE EXIGE CERCA DE 3 SEGUNDOS.
+Essa referência já havia sido definida.
+O tempo impede:
+leva hit
+↓
+desmonta
+↓
+aperta botão
+↓
+instantaneamente montado outra vez
+O jogador precisa conseguir criar espaço suficiente para completar a montagem.
+________________
+
+
+80.7 — MONTAGEM PODE SER INTERROMPIDA
+Para a regra dos três segundos funcionar em combate, o processo precisa ser vulnerável à interrupção.
+Caso contrário, bastaria apertar montar e esperar enquanto recebe golpes.
+A implementação exata da interrupção precisa ser consolidada, mas o princípio do tempo de montagem existe justamente para impedir remount imediato durante pressão.
+________________
+
+
+80.8 — PvP MONTADO
+Isso produz um comportamento interessante no open PvP.
+Um jogador viajando montado encontra um inimigo.
+Se conseguir continuar sem ser atingido:
+PODE ESCAPAR.
+Se o inimigo conseguir acertá-lo:
+DESMONTA.
+Agora existe combate real.
+Assim montaria melhora mobilidade sem destruir a perseguição.
+________________
+
+
+80.9 — MONSTROS TAMBÉM DESMONTAM
+A regra de dano não precisa distinguir arbitrariamente:
+“Dano de jogador desmonta, dano de monstro não.”
+A lógica definida é:
+RECEBEU DANO → DESMONTA.
+Isso faz atravessar regiões perigosas montado continuar envolvendo risco.
+________________
+
+
+80.10 — MONTARIAS E CARGA
+Montarias também podem auxiliar no transporte de itens.
+Isso conecta diretamente:
+HUNT
+ ↓
+LOOT
+ ↓
+PESO
+ ↓
+MONTARIA
+ ↓
+TRANSPORTE
+ ↓
+CIDADE / CASA / MERCADO
+Assim existem motivos econômicos para possuir uma montaria.
+________________
+
+
+80.11 — MONTARIAS PODEM TER PERFIS DIFERENTES
+A estrutura permite futuramente diferenciar montarias por características como:
+velocidade;
+capacidade de carga.
+Por exemplo, conceitualmente:
+MONTARIA A
+rápida
+carga menor
+
+
+MONTARIA B
+mais lenta
+carga maior
+Mas isso ainda deve ser tratado como possibilidade de balanceamento, não como uma tabela final já recuperada.
+________________
+
+
+80.12 — MONTARIA NÃO ANULA PESO DO PERSONAGEM
+Mesmo utilizando uma montaria:
+CAPACIDADE CONTINUA FINITA.
+Caso contrário o jogador poderia transformar a montaria em:
+“Banco infinito portátil.”
+Isso destruiria justamente o sistema de logística que motivou sua existência.
+________________
+
+
+80.13 — O QUE ACONTECE COM A CARGA QUANDO DESMONTA?
+Aqui existe uma questão técnica que precisa ser fechada.
+Se a montaria possui armazenamento próprio e o jogador é desmontado:
+os itens continuam associados à montaria?
+passam para o personagem?
+ficam inacessíveis até remontar?
+A documentação disponível não é suficiente para eu afirmar uma dessas opções como definitiva.
+Portanto:
+PENDENTE DE CONSOLIDAÇÃO.
+________________
+
+
+80.14 — MONTARIA NÃO DEVE VIRAR INVENTÁRIO INVULNERÁVEL
+Qualquer solução escolhida precisa evitar exploit.
+Exemplo:
+jogador carrega materiais extremamente valiosos;
+coloca tudo na montaria;
+entra em PvP;
+morre;
+os materiais ficam magicamente protegidos porque estavam “na montaria”.
+Isso entraria em conflito direto com:
+RISCO DE TRANSPORTE.
+Então armazenamento de montaria precisa conversar com as regras de morte.
+________________
+
+
+80.15 — MONTARIAS E CIDADES
+A restrição dentro das cidades também reforça visualmente a transição:
+ESTRADA / MUNDO
+→ viagem
+
+
+PORTÃO
+→ desmonta
+
+
+CIDADE
+→ caminhada / comércio / interação
+Isso ajuda as cidades a parecerem lugares diferentes das estradas.
+________________
+
+
+80.16 — NÃO EXISTE NECESSIDADE DE MONTARIA VOADORA
+Até aqui não existe base para introduzir:
+MONTARIA VOADORA.
+E ela seria particularmente problemática porque poderia ignorar:
+montanhas;
+rios;
+pontes;
+rotas;
+monstros;
+PK;
+barcos;
+geografia.
+Então não devemos adicioná-la sem uma mudança explícita de design.
+________________
+
+
+80.17 — DESIGN DECISION LOG — MONTARIAS
+DD-MOUNT-001 — Existem montarias.
+ Status: FECHADO.
+DD-MOUNT-002 — Montarias auxiliam deslocamento.
+ Status: FECHADO.
+DD-MOUNT-003 — Montarias podem auxiliar transporte de itens.
+ Status: FECHADO.
+DD-MOUNT-004 — Montarias não são pets de combate.
+ Status: COERENTE COM A EXCLUSÃO DE PETS.
+DD-MOUNT-005 — Não é possível utilizar montaria dentro das cidades.
+ Status: FECHADO.
+DD-MOUNT-006 — Montaria desaparece/é recolhida ao entrar em dungeon.
+ Status: FECHADO.
+DD-MOUNT-007 — Receber dano enquanto montado causa desmontagem automática.
+ Status: FECHADO.
+DD-MOUNT-008 — Remontar exige aproximadamente 3 segundos.
+ Status: FECHADO.
+DD-MOUNT-009 — Montaria não deve fornecer fuga automática de PvP.
+ Status: PRINCÍPIO DO SISTEMA.
+DD-MOUNT-010 — Capacidade de transporte da montaria é finita.
+ Status: NECESSÁRIO PARA O SISTEMA DE PESO.
+DD-MOUNT-011 — Relação exata entre armazenamento da montaria e morte ainda precisa ser fechada.
+ Status: PENDENTE.
+DD-MOUNT-012 — Montarias voadoras não fazem parte do sistema atualmente consolidado.
+ Status: NÃO DEFINIDO / NÃO ADICIONAR.
+________________
+
+
+CAPÍTULO 81 — BARCOS, PORTOS E VIAGEM ENTRE CONTINENTES
+Agora chegamos ao segundo grande meio de transporte.
+Como Elysia possui continentes, ilhas e regiões separadas por mar, barcos não são apenas decoração.
+Eles participam de:
+EXPLORAÇÃO
+TRANSPORTE
+ECONOMIA
+GEOGRAFIA.
+E isso é particularmente importante porque o mundo foi pensado para ser global e persistente, no estilo de Tibia: o mapa não é recriado proceduralmente a cada login.
+A próxima parte precisa consolidar justamente como os barcos funcionam, portos, viagens entre continentes, transporte de jogadores/carga e até que ponto existe viagem rápida, sem inventar um sistema de navegação naval complexo caso ele não tenha sido realmente definido.
+CAPÍTULO 81 — BARCOS, PORTOS E VIAGEM ENTRE CONTINENTES
+Barcos entram no Elysia como consequência direta da estrutura física do mundo.
+O mapa não foi pensado como uma sequência de menus ou lobbies. Existem continentes, ilhas, cidades, regiões selvagens e rotas entre esses lugares.
+Portanto:
+O MAR FAZ PARTE DA GEOGRAFIA.
+E barcos existem principalmente para conectar regiões que não podem ser alcançadas normalmente por terra.
+________________
+
+
+81.1 — FUNÇÃO DOS BARCOS
+A função básica é:
+TRANSPORTE ENTRE REGIÕES.
+Eles conectam:
+continentes;
+ilhas;
+portos;
+cidades costeiras;
+regiões específicas acessíveis pelo mar.
+Isso permite manter distância geográfica real sem obrigar todo o mapa a ser uma única massa continental.
+________________
+
+
+81.2 — PORTOS
+Cidades importantes próximas ao oceano podem possuir:
+PORTOS.
+O porto funciona como ponto de entrada e saída das rotas marítimas.
+Conceitualmente:
+CIDADE A
+   │
+ ⚓ PORTO
+   │
+ 🌊 MAR
+   │
+ ⚓ PORTO
+   │
+CIDADE B
+O jogador precisa chegar fisicamente ao ponto apropriado para utilizar a rota.
+________________
+
+
+81.3 — NÃO TRANSFORMAR O MAPA EM MENU DE TELEPORTE
+Esse é o ponto mais importante da existência dos barcos.
+Se qualquer jogador puder abrir o mapa e clicar:
+“Viajar para outro continente”
+a geografia praticamente deixa de existir.
+Isso prejudicaria:
+exploração;
+economia regional;
+distância;
+rotas;
+transporte;
+risco do mundo.
+Portanto viagens precisam preservar a sensação de que:
+OS LUGARES POSSUEM DISTÂNCIA ENTRE SI.
+________________
+
+
+81.4 — MAS NÃO PRECISAMOS CRIAR UM SIMULADOR NAVAL
+O outro extremo também não é necessário.
+Até aqui não há base suficiente para afirmar que o jogador:
+pilota manualmente o barco;
+controla velas;
+administra vento;
+repara casco;
+participa de combate naval;
+constrói navios;
+contrata tripulação.
+Nada disso deve entrar como sistema definitivo sem ter sido realmente estabelecido.
+O barco pode cumprir sua função de transporte sem criar outro jogo inteiro dentro do MMORPG.
+________________
+
+
+81.5 — VIAGEM ENTRE CONTINENTES
+O sistema permite uma estrutura como:
+CONTINENTE A
+     │
+   PORTO
+     │
+   BARCO
+     │
+   PORTO
+     │
+CONTINENTE B
+Isso faz a chegada a um novo continente possuir mais peso do que simplesmente:
+FAST TRAVEL.
+________________
+
+
+81.6 — ILHAS
+Ilhas ficam particularmente interessantes com esse sistema.
+Uma ilha pode possuir:
+cidade;
+vila;
+dungeon;
+boss;
+recursos;
+criaturas próprias;
+quests;
+região de caça.
+E o acesso físico pode depender de uma rota marítima.
+________________
+
+
+81.7 — BARCO E ECONOMIA
+Barcos também conversam com a economia regional.
+Se recursos possuem distribuição geográfica diferente, o mar pode separar:
+PRODUÇÃO
+de:
+DEMANDA.
+Exemplo conceitual:
+CONTINENTE A
+Minério abundante
+      │
+      ▼
+    PORTO
+      │
+     🚢
+      │
+      ▼
+    PORTO
+      │
+CONTINENTE B
+Minério escasso
+Isso cria oportunidade de comércio.
+________________
+
+
+81.8 — CARGA E TRANSPORTE
+Como peso já existe, barcos podem participar da logística de longa distância.
+Mas aqui é importante distinguir:
+BARCO COMO TRANSPORTE
+de:
+BARCO COMO BANCO INFINITO.
+A capacidade e as regras exatas de transporte marítimo ainda precisam ser consolidadas.
+Não devemos simplesmente declarar que o jogador pode carregar quantidade ilimitada porque entrou em um navio.
+________________
+
+
+81.9 — MONTARIA E BARCO POSSUEM FUNÇÕES DIFERENTES
+🐎 Montaria
+Transporte terrestre.
+Mobilidade individual.
+Auxílio de carga.
+🚢 Barco
+Conexão marítima.
+Viagem entre regiões separadas pelo oceano.
+Portanto um não substitui o outro.
+________________
+
+
+81.10 — O MUNDO CONTINUA PERSISTENTE
+Outro princípio importante é que:
+O MAPA É O MESMO PARA TODOS.
+Não existe geração procedural diferente a cada login.
+As rotas marítimas fazem parte dessa geografia persistente.
+Um porto está sempre naquele lugar.
+Uma ilha continua naquela posição.
+Uma cidade continua conectada às mesmas regiões.
+Isso permite que os jogadores realmente aprendam o mundo.
+________________
+
+
+81.11 — DESCOBRIR UMA NOVA REGIÃO PRECISA TER SIGNIFICADO
+Essa estrutura ajuda a recuperar uma sensação clássica de MMORPG:
+“Finalmente cheguei naquele continente.”
+Em vez de todo personagem possuir acesso imediato a:
+todas as cidades;
+todos os biomas;
+todos os mercados;
+todas as hunts.
+Exploração física continua relevante.
+________________
+
+
+81.12 — ROTAS PRECISAM SER COMPREENSÍVEIS
+Por outro lado, viajar não deve depender de decorar combinações absurdas.
+O jogador precisa conseguir entender:
+qual porto leva para onde;
+qual cidade possui aquela rota;
+quanto custa;
+quais requisitos existem, se houver.
+Isso pode ser apresentado naturalmente pelos NPCs e pelo próprio mapa.
+________________
+
+
+81.13 — CUSTO DE VIAGEM
+Barcos também podem funcionar como:
+GOLD SINK.
+Uma passagem marítima pode retirar Gold da economia.
+Porém:
+O VALOR EXATO NÃO ESTÁ CONSOLIDADO.
+Não devemos definir agora algo como:
+“viagem custa 500 Gold”
+sem a tabela econômica final.
+________________
+
+
+81.14 — CUSTO NÃO PODE BLOQUEAR EXPLORAÇÃO INICIAL
+Se transporte for caro demais, jogadores novos podem ficar presos economicamente em determinada região.
+Então o preço precisa funcionar como:
+CUSTO DE SERVIÇO,
+não como barreira artificial.
+Viagens especiais ou regiões endgame podem naturalmente seguir regras diferentes.
+________________
+
+
+81.15 — TEMPO DE VIAGEM
+Também não devemos presumir automaticamente que uma viagem marítima precisa durar:
+5 minutos;
+10 minutos;
+20 minutos em tempo real.
+A existência de distância no mundo não significa obrigar o jogador a ficar olhando para um barco sem fazer nada.
+O tempo e a apresentação da viagem ainda precisam ser definidos.
+________________
+
+
+81.16 — VIAGEM RÁPIDA
+Até este ponto, a filosofia geral favorece:
+VIAGEM FÍSICA.
+Isso não significa necessariamente que absolutamente nenhuma forma de transporte rápido possa existir.
+Mas qualquer sistema desse tipo precisa ser limitado o suficiente para não tornar:
+montarias;
+barcos;
+portos;
+estradas;
+geografia
+irrelevantes.
+Portanto:
+TELEPORTE GLOBAL IRRESTRITO NÃO COMBINA COM A ESTRUTURA ATUAL.
+________________
+
+
+81.17 — ROTAS PERIGOSAS
+Regiões próximas aos portos e estradas que levam até eles podem naturalmente se tornar locais estratégicos.
+Principalmente em um mundo com:
+PvP aberto;
+transporte de mercadorias;
+guilds;
+recursos regionais.
+Mas não devemos concluir automaticamente que:
+EXISTIRÁ PIRATARIA NAVAL.
+Combate entre barcos ainda não foi estabelecido.
+________________
+
+
+81.18 — DESIGN DECISION LOG — BARCOS
+DD-SHIP-001 — Barcos fazem parte do transporte do mundo.
+ Status: FECHADO EM CONCEITO.
+DD-SHIP-002 — Barcos conectam regiões separadas pelo mar.
+ Status: FECHADO.
+DD-SHIP-003 — Portos funcionam como pontos de conexão marítima.
+ Status: CONSOLIDADO EM CONCEITO.
+DD-SHIP-004 — Ilhas podem depender de transporte marítimo.
+ Status: COERENTE COM A GEOGRAFIA DEFINIDA.
+DD-SHIP-005 — Barcos podem participar da logística econômica.
+ Status: CONCEITO.
+DD-SHIP-006 — Viagens podem funcionar como Gold Sink.
+ Status: POSSIBILIDADE ECONÔMICA; valor não fechado.
+DD-SHIP-007 — Teleporte global irrestrito entra em conflito com a importância da geografia.
+ Status: PRINCÍPIO.
+DD-SHIP-008 — Pilotagem manual não está confirmada.
+ Status: NÃO ADICIONAR COMO REGRA.
+DD-SHIP-009 — Combate naval não está confirmado.
+ Status: NÃO ADICIONAR COMO REGRA.
+DD-SHIP-010 — Construção de navios não está confirmada.
+ Status: NÃO ADICIONAR COMO REGRA.
+DD-SHIP-011 — Tempo exato de viagem ainda não está consolidado.
+ Status: PENDENTE.
+DD-SHIP-012 — Capacidade/regras exatas para carga marítima ainda precisam ser definidas.
+ Status: PENDENTE.
+________________
+
+
+CAPÍTULO 82 — CASAS, BASES E CASTELOS
+Agora chegamos a um sistema que já fazia parte da visão original do Elysia:
+O JOGADOR PODE POSSUIR UMA BASE.
+Essa propriedade pode variar desde algo mais pessoal, como uma casa, até estruturas maiores ligadas ao poder de grupos.
+A ideia original incluía explicitamente:
+🏠 CASA
+e:
+🏰 CASTELO.
+E existe uma característica que muda completamente esse sistema:
+BASES PODEM SER ATACADAS.
+Portanto housing no Elysia não foi pensado apenas como decoração.
+________________
+
+
+82.1 — CASA
+A casa representa o espaço pessoal do jogador.
+Pode funcionar como:
+lar;
+local de organização;
+armazenamento;
+expressão visual;
+ponto social.
+O importante é que ela exista:
+DENTRO DO MUNDO.
+Isso é diferente de abrir uma tela abstrata chamada “Minha Casa”.
+________________
+
+
+82.2 — CASTELO
+Castelo representa uma escala muito maior.
+Ele está naturalmente ligado a:
+guilds;
+território;
+poder;
+organização;
+PvP.
+Portanto não deve ser simplesmente:
+“uma casa maior que custa mais Gold”.
+Sua função dentro do mundo precisa justificar sua importância.
+________________
+
+
+82.3 — BASES PODEM SER RAIDED
+Esse é um princípio antigo do projeto:
+BASES/Castelos PODEM SER INVADIDOS.
+Isso significa que possuir patrimônio físico gera também:
+RISCO.
+O jogador não ganha apenas vantagens.
+Ele cria algo que precisa proteger.
+________________
+
+
+82.4 — MAS RAID NÃO PODE SIGNIFICAR DESTRUIR ANOS DE JOGO ÀS 4 DA MANHÃ
+Aqui entra um problema importante de implementação.
+Se qualquer jogador puder destruir completamente uma base enquanto o proprietário está offline:
+O SISTEMA INCENTIVA ATACAR QUANDO NINGUÉM PODE SE DEFENDER.
+Isso tende a transformar PvP estratégico em escolha de horário.
+As regras exatas de raid precisam, portanto, ser consolidadas com cuidado.
+Não vou inventar janela de guerra, escudo offline ou horário específico sem recuperar a decisão correspondente.
+________________
+
+
+82.5 — ARMAZENAMENTO
+Casas também conversam diretamente com:
+peso;
+loot;
+transporte;
+economia.
+O jogador precisa de locais onde possa:
+GUARDAR PATRIMÔNIO.
+Isso cria a diferença que já discutimos:
+ITEM GUARDADO
+     ≠
+ITEM SENDO TRANSPORTADO
+O segundo está exposto aos riscos do mundo.
+________________
+
+
+82.6 — CASA NÃO DEVE SER BANCO INFINITO
+Mesmo armazenamento precisa ser balanceado.
+Se uma casa armazenar literalmente quantidade infinita de:
+armas;
+materiais;
+consumíveis;
+loot,
+parte da pressão logística desaparece.
+Porém a capacidade exata ainda não está definida.
+________________
+
+
+82.7 — CASA COMO ESPAÇO SOCIAL
+Housing também pode funcionar como:
+local de reunião;
+exposição de troféus;
+organização;
+identidade do jogador.
+Isso é particularmente interessante em um servidor persistente porque propriedades passam a fazer parte da paisagem conhecida pelos jogadores.
+________________
+
+
+82.8 — PROPRIEDADE E ECONOMIA
+Casas e castelos podem criar novos Gold Sinks.
+Possíveis custos associados a propriedade podem ajudar a retirar moeda da economia.
+Mas novamente:
+TAXA, ALUGUEL E MANUTENÇÃO NÃO DEVEM SER DECLARADOS DEFINITIVOS SEM CONFIRMAÇÃO.
+O princípio econômico existe.
+O modelo específico ainda precisa ser fechado.
+________________
+
+
+82.9 — QUANTIDADE LIMITADA MUDA TUDO
+Existe uma decisão importante que precisará ser consolidada:
+AS CASAS EXISTEM FISICAMENTE EM QUANTIDADE LIMITADA?
+Se sim:
+localização passa a ter valor;
+casas próximas ao mercado podem valer mais;
+propriedade vira recurso escasso.
+Se não:
+o sistema precisa explicar como múltiplos jogadores possuem o mesmo espaço físico.
+Esse ponto não deve ser decidido silenciosamente.
+________________
+
+
+82.10 — CASTELO E GUILD
+Castelo combina naturalmente com:
+GUILD.
+Ele pode representar fisicamente a presença de uma guild no mundo.
+Isso abre espaço para:
+defesa;
+ataque;
+armazenamento coletivo;
+reunião;
+controle estratégico.
+Mas as vantagens concretas precisam ser cuidadosamente limitadas.
+________________
+
+
+82.11 — CASTELO NÃO PODE GARANTIR DOMINAÇÃO PERMANENTE
+Se a guild que possui castelo recebe:
+mais Gold;
+melhor equipamento;
+mais XP;
+mais recursos;
+mais poder militar
+e usa esse poder para nunca perder o castelo:
+CRIAMOS UM CICLO DE DOMINAÇÃO.
+O castelo precisa ser valioso sem tornar o vencedor permanentemente mais forte apenas por já ter vencido.
+________________
+
+
+82.12 — RAID PRECISA GERAR CONFLITO, NÃO ANIQUILAÇÃO
+A função de um raid é criar:
+HISTÓRIA ENTRE JOGADORES.
+Não necessariamente fazer alguém perder tudo e abandonar o servidor.
+Portanto existe uma diferença entre:
+roubar parte dos recursos;
+controlar território;
+capturar estrutura;
+danificar defesas;
+e:
+APAGAR TODO O PATRIMÔNIO DE UMA GUILD.
+A versão final precisa definir onde Elysia ficará nesse espectro.
+________________
+
+
+82.13 — CASAS E PvP
+Também precisamos separar:
+CASA INDIVIDUAL
+de:
+FORTIFICAÇÃO DE GUILD.
+Não existe necessidade de aplicar exatamente as mesmas regras de raid às duas.
+Um castelo militar pode naturalmente possuir risco muito maior que a residência pessoal de um jogador.
+________________
+
+
+82.14 — BASE CONSTRUÍDA PELO JOGADOR
+A visão original incluía a possibilidade de o jogador:
+CONSTRUIR UMA BASE.
+Isso é diferente de apenas comprar uma casa pré-fabricada de NPC.
+Porém ainda precisamos distinguir quanto dessa construção é:
+livre;
+por módulos;
+em terrenos determinados;
+ou baseada em estruturas preexistentes.
+Não devemos escolher uma dessas implementações sem confirmação.
+________________
+
+
+82.15 — CONSTRUÇÃO LIVRE TEM RISCOS TÉCNICOS
+Se cada jogador puder construir qualquer coisa em qualquer tile:
+estradas podem ser bloqueadas;
+entradas de dungeon podem ser fechadas;
+cidades podem ser cercadas;
+mapa pode ficar visualmente destruído.
+Portanto, mesmo se existir construção livre:
+PRECISARÁ DE REGRAS TERRITORIAIS.
+A forma dessas regras ainda não está fechada.
+________________
+
+
+82.16 — SERVIDOR COM ATÉ 500 JOGADORES
+A escala prevista de servidor também ajuda.
+Com aproximadamente:
+500 JOGADORES MÁXIMOS,
+é possível fazer propriedades físicas terem maior significado social do que em um servidor com dezenas de milhares de pessoas simultaneamente.
+Os jogadores podem realmente reconhecer:
+guilds;
+casas;
+castelos;
+nomes;
+territórios.
+________________
+
+
+82.17 — DESIGN DECISION LOG — HABITAÇÃO
+DD-HOUSE-001 — Jogadores podem possuir/construir bases.
+ Status: PARTE DA VISÃO ORIGINAL.
+DD-HOUSE-002 — Casas fazem parte do sistema.
+ Status: FECHADO EM CONCEITO.
+DD-HOUSE-003 — Castelos fazem parte do sistema.
+ Status: FECHADO EM CONCEITO.
+DD-HOUSE-004 — Propriedades existem como parte do mundo, não apenas como menu.
+ Status: PRINCÍPIO DO PROJETO.
+DD-HOUSE-005 — Bases podem sofrer raids.
+ Status: FECHADO EM CONCEITO.
+DD-HOUSE-006 — Armazenamento é uma função relevante da propriedade.
+ Status: COERENTE COM PESO/ECONOMIA.
+DD-HOUSE-007 — Regras exatas de raid ainda precisam ser consolidadas.
+ Status: PENDENTE.
+DD-HOUSE-008 — Proteção offline/janelas de ataque não estão confirmadas.
+ Status: PENDENTE.
+DD-HOUSE-009 — Casas e castelos não precisam necessariamente usar as mesmas regras de raid.
+ Status: QUESTÃO DE DESIGN.
+DD-HOUSE-010 — Capacidade de armazenamento ainda não está fechada.
+ Status: PENDENTE.
+DD-HOUSE-011 — Modelo de aquisição de terrenos/casas ainda precisa ser consolidado.
+ Status: PENDENTE.
+DD-HOUSE-012 — Construção totalmente livre não deve ser presumida.
+ Status: PENDENTE.
+________________
+
+
+
+
+ATUALIZAÇÃO — GUERRA DO IMPÉRIO
+83.17 — REGRAS ESPECIAIS DE PvP
+Durante uma Guerra do Império oficialmente ativa, o combate entre os participantes é tratado como guerra, e não como criminalidade comum.
+Portanto:
+não existe sistema de PK dentro da Guerra do Império;
+não existe Caveira por matar jogadores inimigos;
+kills não contam para punições criminais;
+não existe penalidade criminal por participar do combate.
+A Guerra do Império é uma zona oficial de conflito entre guildas.
+Terminada a guerra, as regras normais de PvP e PK do mundo voltam a valer.
+________________
+
+
+83.18 — MORTE DURANTE A GUERRA DO IMPÉRIO
+A Guerra do Império foi criada sabendo que os jogadores irão morrer repetidamente.
+Por isso, as penalidades normais de morte do Elysia não são aplicadas.
+O jogador morto durante uma Guerra do Império:
+não perde XP;
+não perde nível;
+não perde Skill/Proficiência;
+não pode dropar equipamentos equipados;
+não sofre as penalidades normais de morte do mundo aberto.
+Entretanto, a morte não é completamente gratuita.
+________________
+
+
+83.19 — PERDA PARCIAL DA BOLSA
+Ao morrer durante a Guerra do Império, o personagem pode perder:
+ATÉ 20% DO CONTEÚDO QUE ESTIVER CARREGANDO NA BOLSA.
+Essa perda existe principalmente para gerar desgaste de recursos durante a batalha.
+Pode atingir, por exemplo:
+poções;
+comidas;
+runas;
+munições;
+consumíveis;
+outros recursos transportados.
+A intenção não é esvaziar o jogador.
+Ele deve preservar boa parte dos recursos para conseguir:
+respawnar;
+se reorganizar;
+retornar ao combate;
+continuar participando da guerra.
+Portanto, morrer várias vezes vai gradualmente desgastando os suprimentos do personagem, mas uma única morte não deve deixá-lo incapaz de continuar.
+Regra-base
+MORTE NA GUERRA
+      ↓
+0% perda de XP
+0% perda de Skills
+0% chance de perder equipamento
+0 punição de PK
+      ↓
+até 20% dos recursos da bolsa podem ser perdidos
+      ↓
+RESPAWN
+      ↓
+RETORNO À GUERRA
+O cálculo exato de quais itens são elegíveis e como esses até 20% serão selecionados fica para o balanceamento técnico posterior.
+________________
+
+
+83.20 — EQUIPAMENTOS NÃO DROPAM
+Essa regra deve ser absoluta durante a Guerra do Império:
+EQUIPAMENTOS NÃO PODEM SER DROPADOS.
+Arma, armadura, escudo, capacete, botas, acessórios e demais equipamentos protegidos pelo sistema de guerra permanecem com o personagem.
+Isso vale porque a Guerra do Império é um conteúdo criado especificamente para provocar muitas mortes.
+Não faria sentido incentivar o jogador a participar de uma guerra de três horas e, ao mesmo tempo, colocar em risco equipamentos que podem ter levado meses para serem obtidos.
+O risco econômico da guerra está nos:
+RECURSOS E CONSUMÍVEIS.
+Não nos equipamentos.
+________________
+
+
+83.21 — PRIMEIRA CONQUISTA DOS CASTELOS
+Existe uma situação especial no início do servidor.
+Quando o mundo do Elysia for inaugurado:
+NENHUMA GUILDA POSSUI CASTELO.
+Portanto, a primeira Guerra do Império de cada castelo não funciona como ataque contra uma guilda defensora.
+Ela funciona como:
+DISPUTA DE CONQUISTA.
+Duas guildas elegíveis disputam diretamente a posse daquele castelo.
+________________
+
+
+83.22 — PRIMEIRA GUERRA: DUAS GUILDAS ATACANTES
+Na disputa inicial, nenhuma das duas guildas possui vantagem de defensora.
+Exemplo:
+               CASTELO
+                   │
+            ┌──────┴──────┐
+            │             │
+        ENTRADA OESTE  ENTRADA LESTE
+            ▲             ▲
+            │             │
+        GUILDA A       GUILDA B
+            │             │
+       SPAWN NORTE     SPAWN SUL
+Uma guilda surge em um ponto externo do castelo.
+A outra surge em outro ponto externo.
+Por exemplo:
+Guilda A → ponto norte.
+Guilda B → ponte sul.
+Os pontos precisam oferecer distâncias equivalentes até seus respectivos acessos ao castelo.
+Nenhuma guilda começa:
+dentro da fortaleza;
+próxima ao Núcleo;
+próxima ao Guardião;
+ou em posição defensiva privilegiada.
+AS DUAS COMEÇAM COMO INVASORAS.
+________________
+
+
+83.23 — ENTRADAS OPOSTAS
+As duas guildas não entram pelo mesmo portão.
+Uma avança por uma entrada do castelo e a outra por outra.
+Por exemplo:
+GUILDA A
+   ↓
+SPAWN NORTE
+   ↓
+ENTRADA OESTE
+   ↓
+        ┌─────────────────────┐
+        │                     │
+        │      CASTELO        │
+        │                     │
+        │         ↓           │
+        │      CENTRO         │
+        │         ↓           │
+        │ GUARDIÃO / NÚCLEO   │
+        │                     │
+        └─────────────────────┘
+                  ↑
+             ENTRADA LESTE
+                  ↑
+              PONTE SUL
+                  ↑
+               GUILDA B
+Apesar de entrarem por lados diferentes:
+TODAS AS ROTAS CONVERGEM PARA O CENTRO DO CASTELO.
+É ali que inevitavelmente as duas forças começam a disputar os mesmos corredores, acessos e objetivos.
+________________
+
+
+83.24 — A CORRIDA INICIAL
+Isso cria uma dinâmica diferente das guerras posteriores.
+No início:
+GUILDA A →→→→→
+               \
+                CASTELO
+                CENTRO
+               /
+GUILDA B →→→→→
+As duas precisam simultaneamente:
+avançar;
+derrotar as defesas NPC existentes;
+controlar corredores;
+impedir o avanço inimigo;
+chegar às áreas internas;
+alcançar o Guardião;
+e disputar o acesso ao Núcleo.
+Portanto não é apenas:
+“QUEM É MELHOR NO PvP?”
+Também existe:
+VELOCIDADE + ORGANIZAÇÃO + CONTROLE TERRITORIAL + ESTRATÉGIA.
+________________
+
+
+83.25 — CASTELO NEUTRO CONTINUA DEFENDIDO
+O fato de nenhuma guilda possuir o castelo não significa que ele esteja vazio.
+O castelo neutro ainda possui sua própria:
+GUARNIÇÃO NPC.
+Os soldados atacam ambas as guildas.
+Portanto a primeira conquista possui três forças simultâneas:
+GUILDA A
+   ↘
+    ⚔ GUILDA B
+   ↙
+GUARNIÇÃO DO CASTELO
+Nenhuma das guildas possui controle sobre os soldados enquanto o castelo permanecer neutro.
+________________
+
+
+83.26 — CONVERGÊNCIA PARA O CENTRO
+O desenho dos castelos deve seguir uma filosofia importante:
+MÚLTIPLAS ENTRADAS → UM OBJETIVO CENTRAL.
+O castelo pode possuir:
+Entrada A;
+Entrada B;
+Entrada C;
+Entrada D.
+Cada uma pode apresentar caminhos, gargalos e estruturas diferentes.
+Mas todas eventualmente convergem para a região mais importante da fortaleza:
+SALA DO GUARDIÃO → NÚCLEO DO CASTELO.
+Isso vale tanto para a primeira conquista quanto para futuras invasões.
+________________
+
+
+83.27 — GUERRA CONTRA CASTELO JÁ CONQUISTADO
+Depois que uma guilda conquista o castelo, a dinâmica muda completamente.
+Agora existe:
+ATACANTE × DEFENSOR.
+A guilda proprietária não aparece fora da fortaleza.
+Quando a Guerra do Império começa, seus participantes são transportados para:
+DENTRO DO PRÓPRIO CASTELO.
+A partir dali, podem ocupar suas posições defensivas.
+________________
+
+
+83.28 — PREPARAÇÃO DA DEFESA
+A guilda proprietária conhece antecipadamente os possíveis pontos de ataque.
+Por exemplo:
+                  ENTRADA A
+                       ↓
+                       ↓
+ENTRADA B →→→     [ CASTELO ]     ←←← ENTRADA C
+                       ↑
+                       ↑
+                   ENTRADA D
+Ela sabe que os atacantes podem surgir por esses acessos.
+Mas não basta defender apenas um portão.
+A guilda precisa decidir:
+quantos membros ficam em cada entrada;
+onde posicionar arqueiros e personagens de distância;
+onde colocar combatentes corpo a corpo;
+quais corredores abandonar;
+onde formar gargalos;
+quando recuar;
+quando concentrar todos os jogadores na região central.
+Isso transforma defesa em uma questão de estratégia territorial.
+________________
+
+
+83.29 — AS ENTRADAS CONVERGEM
+Apesar de existirem múltiplas rotas:
+TODAS LEVAM AO MESMO OBJETIVO.
+Assim, quanto mais os invasores avançam, mais as rotas começam a convergir.
+Algo como:
+A ────────╲
+           ╲
+B ──────────╲
+              SALÃO CENTRAL
+C ──────────╱       ↓
+           ╱    PORTA PRINCIPAL
+D ────────╱      DO GUARDIÃO
+                   ↓
+                GUARDIÃO
+                   ↓
+                 NÚCLEO
+Isso cria uma progressão natural da batalha.
+No começo:
+DEFESA ESPALHADA.
+No final:
+DEFESA CONCENTRADA.
+________________
+
+
+83.30 — A PORTA DO GUARDIÃO É O GRANDE GARGALO
+A região mais importante da defesa é:
+A ENTRADA DA SALA DO GUARDIÃO.
+Enquanto os invasores ainda estão do lado de fora, a guilda defensora pode:
+bloquear;
+recuar;
+contra-atacar;
+usar corredores;
+organizar linhas defensivas;
+tentar eliminar invasores.
+Mas se os atacantes conseguirem romper essa última defesa e entrar na Sala do Guardião, entra em vigor a regra já estabelecida:
+A SALA É SELADA.
+A partir daí os defensores não conseguem entrar para salvar o Guardião.
+Por isso, a defesa do castelo possui uma progressão clara:
+ENTRADAS
+   ↓
+PÁTIO / CORREDORES
+   ↓
+ÁREAS INTERNAS
+   ↓
+SALÃO CENTRAL
+   ↓
+PORTA DO GUARDIÃO
+   ↓
+══════════════════
+ÚLTIMA LINHA
+DE DEFESA DA GUILDA
+══════════════════
+   ↓
+SALA DO GUARDIÃO
+   ↓
+NÚCLEO
+A Porta do Guardião deve ser um dos lugares mais disputados de toda Guerra do Império.
+________________
+
+
+83.31 — DIFERENÇA ENTRE PRIMEIRA CONQUISTA E INVASÃO
+Agora ficam formalmente separados dois tipos de Guerra do Império:
+
+
+	PRIMEIRA CONQUISTA
+	INVASÃO POSTERIOR
+	Dono do castelo
+	Nenhum
+	Existe
+	Guildas
+	2 disputando
+	Atacante × Defensora
+	Spawn Guilda A
+	Exterior
+	Exterior se atacante
+	Spawn Guilda B
+	Exterior
+	Interior se defensora
+	Guarnição
+	Neutra
+	Serve ao castelo/defesa
+	Entradas
+	Opostas
+	Múltiplos pontos possíveis
+	Objetivo
+	Centro/Guardião/Núcleo
+	Invadir e alcançar o Núcleo
+	Vantagem defensiva
+	Nenhuma guilda
+	Proprietária
+	PK
+	Desativado
+	Desativado
+	Drop equipamento
+	Não
+	Não
+	Perda da bolsa
+	Até 20%
+	Até 20%
+	Essa distinção é importante para o código também. Primeira Conquista e Invasão de Castelo utilizam grande parte do mesmo sistema, mas não devem ser tratadas como exatamente o mesmo estado da guerra.
+________________
+
+
+83.32 — NOVO FLUXO DA PRIMEIRA CONQUISTA
+CASTELO AINDA NÃO POSSUI DONO
+              ↓
+      DUAS GUILDAS DISPUTAM
+              ↓
+
+
+     GUILDA A          GUILDA B
+        ↓                 ↓
+  SPAWN EXTERNO      SPAWN EXTERNO
+     NORTE              SUL
+        ↓                 ↓
+ ENTRADA OESTE      ENTRADA LESTE
+        ↓                 ↓
+       GUARNIÇÃO NPC NEUTRA
+        ↓                 ↓
+        └───────┬─────────┘
+                ↓
+          CONVERGÊNCIA
+                ↓
+       COMBATE ENTRE GUILDAS
+                ↓
+         ÁREA CENTRAL
+                ↓
+       PORTA DO GUARDIÃO
+                ↓
+            GUARDIÃO
+                ↓
+             NÚCLEO
+                ↓
+        PRIMEIRO DOMÍNIO
+________________
+
+
+83.33 — NOVO FLUXO DA DEFESA DE CASTELO
+CASTELO JÁ POSSUI GUILDA
+              ↓
+      GUERRA É DECLARADA
+              ↓
+      DEFENSORES ENTRAM
+        DENTRO DO CASTELO
+              ↓
+       ORGANIZAM DEFESA
+
+
+A ↓          B ↓          C ↓          D ↓
+│            │            │            │
+└────────────┴──────┬─────┴────────────┘
+                    ↓
+             ROTAS INTERNAS
+                    ↓
+            DEFESA RECUANDO
+                    ↓
+              ÁREA CENTRAL
+                    ↓
+           PORTA DO GUARDIÃO
+                    ↓
+            ÚLTIMA DEFESA
+                    ↓
+        ATACANTES CONSEGUIRAM
+               ENTRAR?
+             ↙       ↘
+           NÃO       SIM
+            ↓         ↓
+        DEFENDE     SALA SELA
+                      ↓
+                  GUARDIÃO
+                      ↓
+                   NÚCLEO
+________________
+
+
+ALTERAÇÕES OFICIAIS NO DESIGN DECISION LOG
+DD-WAR-008 — Morte durante a Guerra do Império não causa perda de XP, nível ou Skills.
+ Status: CONFIRMADO.
+DD-WAR-009 — Morte pode causar perda de até 20% dos recursos carregados na bolsa.
+ Status: NOVO / CONFIRMADO.
+DD-WAR-010 — Equipamentos não possuem chance de drop durante a Guerra do Império.
+ Status: NOVO / CONFIRMADO.
+DD-WAR-011 — Sistema de PK fica desativado dentro da Guerra do Império.
+ Status: NOVO / CONFIRMADO.
+DD-WAR-012 — Primeira conquista de um castelo ocorre entre duas guildas sem proprietária defensora.
+ Status: NOVO / CONFIRMADO.
+DD-WAR-013 — Na primeira conquista, ambas começam em pontos externos opostos.
+ Status: NOVO / CONFIRMADO.
+DD-WAR-014 — Ambas utilizam acessos diferentes que convergem para o centro do castelo.
+ Status: NOVO / CONFIRMADO.
+DD-WAR-015 — Castelo neutro possui guarnição NPC hostil às duas guildas.
+ Status: MANTIDO conforme sistema anterior.
+DD-WAR-016 — Em invasões posteriores, a guilda proprietária inicia dentro do castelo.
+ Status: NOVO / CONFIRMADO.
+DD-WAR-017 — O castelo possui múltiplos possíveis acessos de invasão.
+ Status: NOVO / CONFIRMADO.
+DD-WAR-018 — Todas as rotas convergem progressivamente para a região central/Guardião/Núcleo.
+ Status: NOVO / CONFIRMADO.
+DD-WAR-019 — A Porta/Sala do Guardião constitui a principal última linha defensiva.
+ Status: CONFIRMADO/REFINADO.
+Uma consequência boa dessa mudança é que agora temos três fases históricas diferentes para cada castelo: ele nasce Neutro, passa pela Guerra de Primeira Conquista e, depois que ganha proprietário, entra definitivamente no ciclo de Invasão → Defesa → duas derrotas consecutivas → possível transferência de domínio. Isso deixa o sistema bem mais fácil de documentar e posteriormente programar sem misturar as regras.
+83.34 — A SALA DO GUARDIÃO
+A Sala do Guardião representa o último obstáculo antes do Núcleo do Castelo.
+Durante a guerra, controlar essa sala é tão importante quanto controlar os corredores externos.
+Entretanto, o Guardião não é derrotado por toda a guilda ao mesmo tempo.
+Existe uma limitação proposital.
+________________
+
+
+83.35 — EQUIPE DE INVASÃO
+Quando:
+OS CINCO PRIMEIROS MEMBROS DA MESMA GUILDA
+atravessam a porta da Sala do Guardião,
+ela é imediatamente fechada.
+CORREDOR
+     │
+     ▼
+╔══════════════╗
+║ Guardião     ║
+║              ║
+║ 5 jogadores  ║
+╚══════════════╝
+A partir desse momento:
+* nenhum outro aliado consegue entrar;
+* nenhuma guilda adversária consegue entrar;
+* os defensores não conseguem reforçar a sala;
+* o combate torna-se exclusivamente PvE entre o Guardião e aquele grupo de cinco jogadores.
+________________
+
+
+83.36 — A GUERRA CONTINUA DO LADO DE FORA
+Enquanto o grupo enfrenta o Guardião:
+o restante dos membros continua lutando normalmente pelo castelo.
+Isso cria dois combates simultâneos:
+GUERRA PRINCIPAL
+↓
+
+
+Corredores
+Portões
+Pátios
+Torres
+Escadas
+
+
+      │
+
+
+      ▼
+
+
+SALA DO GUARDIÃO
+
+
+5 jogadores
+vs
+Guardião
+A guilda que entrou precisa confiar que seus companheiros conseguirão manter o controle das áreas externas.
+________________
+
+
+83.37 — SE O GRUPO MORRER
+Caso os cinco jogadores sejam derrotados:
+Guardião vence
+      ↓
+Porta reabre
+      ↓
+Outra equipe pode tentar
+Essa nova equipe pode ser:
+* a mesma guilda que falhou;
+* outra guilda participante da guerra.
+Isso faz com que controlar o castelo externamente continue sendo extremamente importante.
+Mesmo que uma guilda fracasse contra o Guardião, ela pode impedir que os adversários tenham uma nova tentativa.
+________________
+
+
+83.38 — O GUARDIÃO NÃO É APENAS UM BOSS
+O Guardião representa o próprio espírito do castelo.
+Cada fortaleza possui um Guardião diferente.
+Exemplos registrados no documento:
+* Castelo Vulcânico → Guardião de Magma.
+* Castelo Glacial → Guardião do Gelo.
+* Castelo da Floresta → Guardião Ancestral.
+* Castelo Sombrio → Guardião das Sombras.
+Isso faz com que conquistar um castelo nunca seja apenas repetir exatamente a mesma luta.
+Cada fortaleza possui personalidade própria.
+________________
+
+
+83.39 — O COMANDANTE DA GUARNIÇÃO
+Outro ponto muito interessante que apareceu no documento é o:
+COMANDANTE DA GUARNIÇÃO.
+Depois que uma guilda conquista um castelo, ela passa a conversar com esse NPC militar.
+Ele administra toda a defesa da fortaleza.
+A guilda não cria soldados infinitamente.
+Ela administra a distribuição dos soldados existentes.
+Por exemplo:
+* reforçar a Entrada Norte;
+* colocar mais arqueiros nas muralhas;
+* concentrar magos próximos ao Salão Central;
+* aumentar a defesa da Porta do Guardião.
+Ou seja:
+Quantidade de soldados
+      =
+      fixa
+
+
+Distribuição
+      =
+escolha da guilda
+Isso significa que duas guildas diferentes podem possuir exatamente o mesmo castelo, mas ele se comportar de maneira completamente diferente durante uma invasão.
+________________
+
+
+83.40 — O CASTELO EVOLUI JUNTO COM A GUILDA
+Outro ponto que merece entrar oficialmente na Bíblia.
+Quando uma guilda conquista um castelo, ela passa a possuir:
+* General/Guardião do Império;
+* Guarnição;
+* Coração do Castelo;
+* Guild XP;
+* Bênçãos;
+* Melhorias estruturais.
+À medida que a guilda evolui:
+Guild XP
+      ↓
+Guild Level
+      ↓
+Melhorias
+      ↓
+General mais forte
+Guarnição melhor
+Novas bênçãos
+Entretanto, se perder a primeira Guerra do Império:
+* perde Guild XP;
+* o General fica enfraquecido;
+* as defesas ficam mais fracas para a próxima guerra.
+E se perder a segunda guerra consecutiva para a mesma guilda:
+Castelo perdido
+      ↓
+General removido
+      ↓
+Melhorias resetadas
+      ↓
+Novo proprietário começa do nível básico
+Essa regra já estava consolidada e continua coerente com as novas alterações.
+________________
+
+
+Uma sugestão de design (não faz parte do documento ainda)
+Lendo todo o sistema, apareceu uma oportunidade de gameplay que acho que encaixa muito bem, mas não está no documento, então estou separando como proposta.
+Em vez de fechar a porta quando entram cinco jogadores, ela poderia fechar quando entram cinco jogadores da mesma guilda, mas permitir que esses cinco definam previamente uma composição estratégica.
+Exemplos:
+* 1 Warrior + 1 Druid + 2 Archers + 1 Sorcerer.
+* 2 Warriors + 2 Druids + 1 Assassin.
+* 3 Assassins + 1 Druid + 1 Sorcerer.
+Isso faria cada guilda estudar qual composição é mais eficiente contra cada tipo de Guardião.
+Como essa regra específica não está fechada no documento, eu deixaria marcada como:
+PENDENTE DE DECISÃO DE DESIGN, em vez de incorporá-la automaticamente ao GDD.
+
+
+83.41 — O GENERAL DO IMPÉRIO
+Cada castelo conquistado possui um NPC único:
+GENERAL DO IMPÉRIO
+Ele não é apenas um NPC forte.
+Ele representa a autoridade militar daquela fortaleza.
+Enquanto o castelo pertence a uma guilda:
+* o General permanece vivo;
+* protege o Coração do Castelo;
+* evolui junto com a guilda;
+* faz parte da última linha defensiva.
+A destruição do General é obrigatória para que os invasores consigam alcançar o Núcleo.
+________________
+
+
+83.42 — EVOLUÇÃO DO GENERAL
+Quando uma guilda conquista um castelo, seu General inicia no:
+NÍVEL 1.
+Conforme a guilda evolui através do Guild XP e das melhorias do castelo, o General também evolui.
+Exemplo estrutural:
+General Nível 1
+↓
+
+
+General Nível 5
+↓
+
+
+General Nível 10
+↓
+
+
+General Nível 20
+
+
+...
+
+
+General Nível Máximo
+Quanto maior seu nível:
+* maior vida;
+* maior dano;
+* novas habilidades;
+* melhor resistência;
+* IA mais inteligente.
+O objetivo é fazer com que um castelo antigo seja naturalmente mais difícil de conquistar do que um recém-dominado.
+Essa evolução foi discutida durante a definição do sistema de guildas.
+________________
+
+
+83.43 — O GENERAL NÃO LUTA SOZINHO
+O General nunca deve parecer um boss isolado.
+Ele sempre luta ao lado da própria fortaleza.
+Enquanto o combate acontece:
+* soldados permanecem ativos;
+* arqueiros continuam defendendo corredores;
+* magos lançam magias defensivas;
+* armadilhas continuam funcionando;
+* jogadores da guilda continuam combatendo.
+Assim, chegar ao General já representa vencer praticamente toda a guerra.
+________________
+
+
+83.44 — O GENERAL É DIFERENTE DO GUARDIÃO NEUTRO
+Existe uma diferença importante.
+Primeira Conquista
+O castelo ainda não possui dono.
+Existe apenas o:
+GUARDIÃO DO CASTELO.
+Ele representa o espírito da fortaleza.
+________________
+
+
+Castelo Conquistado
+Depois da primeira conquista existe:
+* General da Guilda;
+* Guarnição Militar;
+* Coração do Castelo.
+O General passa a representar a guilda proprietária.
+Portanto temos dois estados completamente diferentes:
+CASTELO NEUTRO
+
+
+↓
+
+
+Guardião
+
+
+═══════════════════
+
+
+CASTELO CONQUISTADO
+
+
+↓
+
+
+General
+
+
++
+Guarnição
+
+
++
+Guilda
+________________
+
+
+83.45 — O GENERAL PROTEGE O CORAÇÃO
+Mesmo derrotando todas as linhas defensivas:
+* muralhas;
+* corredores;
+* soldados;
+* jogadores;
+os invasores ainda precisam derrotar o General.
+Somente depois:
+General derrotado
+
+
+↓
+
+
+Sala do Coração aberta
+
+
+↓
+
+
+Núcleo vulnerável
+O Coração nunca fica acessível enquanto o General estiver vivo.
+________________
+
+
+83.46 — O CORAÇÃO DO CASTELO
+O verdadeiro objetivo da Guerra do Império nunca é matar jogadores.
+Também não é derrotar o General.
+O objetivo final é:
+O CORAÇÃO DO CASTELO.
+Ele representa a posse territorial daquela fortaleza.
+Quando destruído:
+* encerra a guerra;
+* registra o vencedor;
+* atualiza o proprietário;
+* inicia o processo de transição do castelo.
+________________
+
+
+83.47 — PRIMEIRA CONQUISTA
+Quando o castelo ainda não possui proprietário:
+Duas Guildas
+
+
+↓
+
+
+Entram simultaneamente
+
+
+↓
+
+
+Disputam corredores
+
+
+↓
+
+
+Enfrentam Guardião
+
+
+↓
+
+
+Destroem o Coração
+
+
+↓
+
+
+Primeira Guilda Proprietária
+Não existe defesa preparada.
+Existe apenas:
+* Guarnição Neutra;
+* Guardião;
+* outras guildas.
+________________
+
+
+83.48 — GUERRAS FUTURAS
+Depois que existe um proprietário:
+Guilda Defensora
+
+
+↓
+
+
+General
+
+
+↓
+
+
+Guarnição configurada
+
+
+↓
+
+
+Entradas protegidas
+
+
+↓
+
+
+Invasão
+
+
+↓
+
+
+General
+
+
+↓
+
+
+Coração
+Agora a fortaleza possui identidade própria.
+________________
+
+
+83.49 — ADMINISTRAÇÃO DO CASTELO
+Conquistar um castelo não significa apenas ganhar uma guerra.
+Também significa administrar uma fortaleza.
+A guilda passa a cuidar de:
+* evolução do General;
+* melhorias estruturais;
+* evolução da Guarnição;
+* Guild XP;
+* Cofre da Guilda;
+* Bênçãos;
+* distribuição de soldados;
+* preparação para futuras invasões.
+O castelo torna-se um projeto permanente da guilda.
+________________
+
+
+83.50 — DISTRIBUIÇÃO DA GUARNIÇÃO
+A quantidade total de soldados é limitada.
+O jogador não compra soldados infinitos.
+Em vez disso, escolhe como distribuir os existentes.
+Exemplo:
+50 Soldados
+
+
+↓
+
+
+10 Entrada Norte
+
+
+15 Entrada Sul
+
+
+10 Salão Central
+
+
+10 Sala do General
+
+
+5 Reserva
+Outra guilda pode usar exatamente os mesmos 50 soldados, mas distribuí-los de forma completamente diferente.
+Isso cria estilos distintos de defesa.
+________________
+
+
+83.51 — ESPECIALIZAÇÃO DA DEFESA
+A administração militar também permite escolher o perfil defensivo.
+Por exemplo:
+Defesa de Corredores
+Mais lanceiros.
+Mais escudos.
+Maior resistência.
+________________
+
+
+Defesa de Longa Distância
+Mais arqueiros.
+Mais torres.
+Maior pressão à distância.
+________________
+
+
+Defesa Mágica
+Mais magos.
+Maior controle.
+Mais debuffs.
+________________
+
+
+Defesa Balanceada
+Distribuição equilibrada entre todas as tropas.
+Essas escolhas fazem parte da estratégia da guilda antes mesmo da guerra começar.
+________________
+
+
+83.52 — O CASTELO É UM PERSONAGEM DO MUNDO
+Uma filosofia importante do Elysia é:
+O castelo não deve parecer um cenário parado.
+Ele possui:
+* soldados;
+* comandante;
+* General;
+* economia;
+* melhorias;
+* evolução;
+* história.
+Conforme guerras acontecem, aquele castelo muda.
+Quando muda de proprietário:
+* muda sua organização militar;
+* muda seu General;
+* muda sua estratégia defensiva.
+Assim, duas invasões ao mesmo castelo podem ser completamente diferentes.
+________________
+
+
+83.53 — A GUERRA NÃO TERMINA COM A CONQUISTA
+Mesmo após vencer:
+a guilda precisa investir recursos.
+Precisa reconstruir.
+Precisa fortalecer novamente:
+* General;
+* Guarnição;
+* melhorias.
+Um castelo recém-conquistado será naturalmente mais vulnerável durante algum tempo.
+Isso impede que uma guilda simplesmente domine o mapa inteiro em sequência.
+Ela conquista território.
+Depois precisa consolidar sua posição antes de expandir novamente.
+________________
+
+
+83.54 — CICLO COMPLETO DO CASTELO
+CASTELO NEUTRO
+        │
+        ▼
+Primeira Guerra
+        │
+        ▼
+Primeira Guilda Conquista
+        │
+        ▼
+General Nível 1
+        │
+        ▼
+Guild XP
+        │
+        ▼
+Melhorias
+        │
+        ▼
+Castelo Fortalecido
+        │
+        ▼
+Nova Guerra
+        │
+        ▼
+Primeira Derrota
+        │
+        ▼
+Perda de Guild XP
+General enfraquecido
+        │
+        ▼
+Revanche (15 dias)
+        │
+        ├───────────────► Defensor vence
+        │                     │
+        │                     ▼
+        │              Contador reiniciado
+        │
+        ▼
+Segunda derrota consecutiva
+        │
+        ▼
+Castelo conquistado
+        │
+        ▼
+Reset estrutural
+        │
+        ▼
+Nova Guilda
+        │
+        ▼
+General Nível 1 novamente
+________________
+
+
+83.55 — DESIGN DECISION LOG
+DD-WAR-020 — O General do Império protege o Coração do Castelo.
+ Status: CONFIRMADO.
+DD-WAR-021 — O General evolui junto com o progresso da guilda e do castelo.
+ Status: CONFIRMADO EM CONCEITO.
+DD-WAR-022 — O Coração do Castelo é o objetivo definitivo da Guerra do Império.
+ Status: CONFIRMADO.
+DD-WAR-023 — Castelos conquistados possuem General, Guarnição e administração própria.
+ Status: CONFIRMADO.
+DD-WAR-024 — A distribuição da Guarnição é configurável pela guilda proprietária.
+ Status: CONFIRMADO EM CONCEITO.
+DD-WAR-025 — Um castelo recém-conquistado reinicia sua evolução e precisa ser fortalecido novamente pela nova guilda.
+ Status: CONSOLIDAÇÃO DAS REGRAS EXISTENTES.
+Esse conjunto fecha praticamente toda a arquitetura da Guerra do Império. O próximo passo natural é detalhar o sistema de evolução dos castelos (níveis do castelo, melhorias, torres, muralhas, oficinas, quartéis, economia e upgrades), que é a camada que conecta Guild XP, recursos da guilda e preparação para guerras futuras.
+CAPÍTULO 84 — EVOLUÇÃO DOS CASTELOS
+Depois que uma guilda conquista um castelo, a guerra termina.
+Mas a administração da fortaleza:
+ESTÁ APENAS COMEÇANDO.
+Um castelo recém-conquistado é fraco.
+Uma guilda precisa investir tempo, recursos e Guild XP para transformá-lo em uma fortaleza realmente difícil de conquistar.
+________________
+
+
+84.1 — NÍVEL DO CASTELO
+Todo castelo possui um nível próprio.
+Ele é independente do nível dos jogadores.
+Também não é exatamente o nível da guilda.
+São três progressões diferentes.
+PERSONAGEM
+      ↓
+Level do personagem
+
+
+═══════════════════════
+
+
+GUILDA
+      ↓
+Guild XP
+
+
+═══════════════════════
+
+
+CASTELO
+      ↓
+Castle Level
+As três evoluem juntas, mas possuem funções diferentes.
+________________
+
+
+84.2 — COMO O CASTELO EVOLUI
+O castelo cresce através dos investimentos feitos pela guilda.
+Entre eles:
+* Gold da guilda;
+* Guild XP;
+* recursos especiais;
+* materiais obtidos em guerras;
+* materiais obtidos em bosses;
+* participação dos membros.
+O castelo não sobe de nível automaticamente apenas porque passou tempo.
+Ele precisa receber investimento constante.
+________________
+
+
+84.3 — O CASTELO NÍVEL 1
+Após a conquista:
+Castelo
+
+
+Nível 1
+Nesse estágio ele possui apenas sua estrutura básica.
+Exemplo:
+* General Nível 1;
+* guarnição básica;
+* muralhas básicas;
+* portões básicos;
+* poucos recursos defensivos.
+Isso cria uma janela natural onde uma guilda recém-vencedora ainda precisa consolidar sua posição.
+________________
+
+
+84.4 — MELHORIAS NÃO SÃO INSTANTÂNEAS
+Uma melhoria importante do design é evitar evolução imediata.
+Exemplo:
+Hoje:
+Guilda conquistou castelo.
+Hoje mesmo:
+"Vou colocar tudo no nível máximo."
+Não.
+As melhorias representam desenvolvimento da fortaleza.
+Elas precisam exigir:
+tempo;
+recursos;
+organização da guilda.
+Isso cria uma sensação de crescimento real.
+________________
+
+
+84.5 — ÁREAS EVOLUEM SEPARADAMENTE
+O castelo não possui apenas um número de nível.
+Ele é composto por vários sistemas.
+Por exemplo:
+CASTELO
+
+
+├── General
+├── Guarnição
+├── Muralhas
+├── Portões
+├── Torres
+├── Quartel
+├── Tesouro
+└── Bênçãos
+Cada um pode possuir evolução própria.
+Assim a guilda escolhe onde investir primeiro.
+________________
+
+
+84.6 — GENERAL
+Já definido anteriormente.
+O General evolui junto com o castelo.
+Quanto maior seu nível:
+* mais vida;
+* novas habilidades;
+* maior resistência;
+* IA mais eficiente.
+Ele continua sendo uma das principais barreiras antes do Coração do Castelo.
+________________
+
+
+84.7 — GUARNIÇÃO
+A guarnição representa os soldados NPC.
+Ela pode melhorar em:
+* resistência;
+* equipamentos;
+* organização;
+* especialização.
+Importante:
+A evolução aumenta a qualidade da defesa.
+Não necessariamente a quantidade de soldados.
+Isso impede que um castelo de nível alto simplesmente fique impossível por possuir centenas de NPCs.
+________________
+
+
+84.8 — MURALHAS
+As muralhas também podem receber melhorias.
+Por exemplo:
+* maior resistência;
+* maior durabilidade;
+* melhor posicionamento defensivo.
+A função não é impedir completamente a invasão.
+É aumentar o tempo necessário para rompimento das linhas externas.
+________________
+
+
+84.9 — PORTÕES
+Os portões representam o primeiro obstáculo físico da invasão.
+Um portão melhorado pode oferecer:
+* maior resistência;
+* maior tempo para destruição;
+* melhor proteção da entrada.
+Isso concede alguns minutos extras para reorganização da defesa.
+________________
+
+
+84.10 — TORRES
+As torres fazem parte da defesa permanente.
+Elas não substituem jogadores.
+Seu papel é complementar a defesa.
+Por exemplo:
+* arqueiros NPC;
+* magos defensivos;
+* vigias.
+Elas aumentam a pressão sobre invasores sem decidir a guerra sozinhas.
+________________
+
+
+84.11 — QUARTEL
+O Quartel representa a organização militar do castelo.
+Ele está diretamente relacionado à administração da guarnição.
+Quanto mais desenvolvido:
+* melhor treinamento;
+* melhor eficiência;
+* melhor organização das tropas.
+Não significa necessariamente mais soldados.
+________________
+
+
+84.12 — TESOURO
+O Tesouro da Guilda possui dupla função.
+Primeiro:
+armazenar os recursos institucionais da guilda.
+Segundo:
+servir como objetivo secundário durante a Guerra do Império.
+Já definimos anteriormente que o saque do Tesouro nunca retira patrimônio pessoal dos jogadores.
+Ele concede apenas recompensas geradas pelo próprio sistema da guerra.
+________________
+
+
+84.13 — BÊNÇÃOS
+As Bênçãos também evoluem.
+Conforme a guilda cresce:
+novas bênçãos podem ser desbloqueadas.
+Entre elas:
+* pequeno bônus de XP;
+* pequena regeneração;
+* pequena velocidade de movimento.
+Sempre respeitando o princípio já definido:
+BENEFÍCIOS MODERADOS.
+Nunca bônus absurdos que tornem uma guilda impossível de enfrentar.
+________________
+
+
+84.14 — ESCOLHAS DA GUILDA
+Duas guildas com exatamente o mesmo nível podem possuir castelos completamente diferentes.
+Exemplo:
+Guilda A investe principalmente no:
+* General;
+* Guarnição.
+Guilda B prefere investir em:
+* Torres;
+* Portões;
+* Bênçãos.
+As duas fortalezas passam a exigir estratégias diferentes de invasão.
+________________
+
+
+84.15 — CASTELOS DESENVOLVEM IDENTIDADE
+Depois de meses de servidor:
+os jogadores naturalmente começam a conhecer as fortalezas.
+Exemplo:
+"Aquele castelo é famoso pelas muralhas quase impenetráveis."
+Outro:
+"Aquela guilda sempre investe tudo no General."
+Outro:
+"Eles têm arqueiros fortíssimos nas torres."
+Isso cria personalidade para cada território.
+________________
+
+
+84.16 — DERROTA TAMBÉM TEM CONSEQUÊNCIA
+Quando a guilda sofre a primeira derrota:
+* perde Guild XP;
+* o General enfraquece;
+* parte das defesas perde eficiência temporariamente.
+Assim, mesmo mantendo o castelo, ela sente o impacto da derrota.
+Na segunda derrota consecutiva para a mesma guilda:
+todo esse desenvolvimento é perdido junto com a transferência da fortaleza, conforme já consolidado anteriormente.
+________________
+
+
+84.17 — O OBJETIVO DO SISTEMA
+O sistema de evolução dos castelos possui quatro objetivos principais:
+* dar utilidade ao Guild XP;
+* incentivar cooperação entre os membros;
+* criar fortalezas diferentes entre si;
+* fazer com que conquistar um castelo seja apenas o início de um novo ciclo de progressão.
+________________
+
+
+84.18 — DESIGN DECISION LOG
+DD-CASTLE-001 — Castelo possui progressão própria.
+ Status: CONSOLIDAÇÃO.
+DD-CASTLE-002 — Castelo inicia no nível básico após ser conquistado.
+ Status: CONFIRMADO pelas regras de reset da conquista.
+DD-CASTLE-003 — O desenvolvimento do castelo exige investimento contínuo da guilda.
+ Status: CONSOLIDAÇÃO.
+DD-CASTLE-004 — General, Guarnição e demais estruturas evoluem separadamente.
+ Status: CONSOLIDAÇÃO baseada nas decisões anteriores sobre General, Guarnição e administração do castelo.
+DD-CASTLE-005 — Bênçãos da Guilda permanecem benefícios moderados e desbloqueados pela evolução da guilda.
+ Status: CONFIRMADO.
+________________
+
+
+Observação importante
+Aqui eu fiz questão de não inventar níveis máximos, custos, tempo de construção ou árvores completas de upgrades, porque o documento não fecha esses números. Em vez disso, consolidei apenas a arquitetura do sistema e deixei os valores de balanceamento para uma etapa posterior, mantendo o GDD consistente com as decisões já registradas.
+CAPÍTULO 85 — CALABOUÇOS DO CASTELO
+Os castelos não são apenas fortalezas militares.
+Cada castelo controla um conjunto de calabouços exclusivos que podem ser utilizados pelos membros da guilda proprietária.
+Esses calabouços representam o principal benefício econômico de possuir um território.
+________________
+
+
+85.1 — ACESSO EXCLUSIVO
+Cada castelo possui sua própria entrada para o Calabouço do Castelo.
+O acesso é permitido apenas para:
+* membros da guilda proprietária;
+* jogadores autorizados pela guilda (caso esse sistema seja implementado futuramente).
+Enquanto uma guilda possuir aquele castelo, somente ela poderá utilizar aquele conteúdo.
+Quando perder o território, perde automaticamente o acesso ao calabouço.
+________________
+
+
+85.2 — OBJETIVOS DO CALABOUÇO
+O Calabouço do Castelo possui quatro objetivos principais.
+Progressão dos membros
+Permitir que jogadores novos da guilda consigam evoluir em um ambiente relativamente seguro.
+Economia
+Gerar materiais exclusivos daquele castelo.
+Cooperação
+Criar conteúdo permanente para pequenos grupos da guilda.
+Recompensa Territorial
+Fazer o castelo gerar benefícios concretos além da Guerra do Império.
+________________
+
+
+85.3 — INTEGRAÇÃO DE NOVOS MEMBROS
+Uma guilda sempre recebe jogadores iniciantes.
+O calabouço funciona como uma forma de integração.
+Exemplo:
+Jogador entra na guilda
+
+
+↓
+
+
+Guilda leva ao Calabouço
+
+
+↓
+
+
+Aprende mecânicas
+
+
+↓
+
+
+Evolui
+
+
+↓
+
+
+Participa das futuras guerras
+Isso fortalece o crescimento interno da própria guilda.
+________________
+
+
+85.4 — CONTEÚDO PARA TODOS
+O calabouço não foi criado apenas para personagens de nível alto.
+Ele deve permitir que:
+* iniciantes;
+* jogadores intermediários;
+* veteranos;
+tenham motivos para utilizá-lo.
+Cada região possui dificuldade diferente.
+________________
+
+
+85.5 — DEZ NÍVEIS DE CALABOUÇO
+Cada Calabouço do Castelo é dividido em:
+10 ANDARES
+Andar 1
+
+
+↓
+
+
+Andar 2
+
+
+↓
+
+
+Andar 3
+
+
+↓
+
+
+...
+
+
+↓
+
+
+Andar 10
+Cada andar aumenta:
+* dificuldade;
+* vida dos monstros;
+* dano;
+* qualidade do loot.
+________________
+
+
+85.6 — PROGRESSÃO NATURAL
+Os primeiros níveis possuem criaturas relativamente simples.
+Conforme o jogador desce:
+* monstros ficam mais perigosos;
+* aparecem novas habilidades;
+* aumenta a necessidade de grupo.
+Assim o próprio calabouço ensina progressivamente suas mecânicas.
+________________
+
+
+85.7 — MONSTROS EXCLUSIVOS
+Cada castelo possui identidade própria.
+Consequentemente, seu calabouço também.
+Exemplos:
+Castelo Vulcânico
+* Salamandras
+* Golems de Lava
+* Demônios Ígneos
+________________
+
+
+Castelo Glacial
+* Lobos do Gelo
+* Gigantes Congelados
+* Espíritos da Neve
+________________
+
+
+Castelo da Floresta
+* Ents
+* Aranhas Gigantes
+* Druidas Corrompidos
+Cada território gera materiais diferentes.
+________________
+
+
+85.8 — ECONOMIA TERRITORIAL
+Esse talvez seja o maior benefício do sistema.
+Cada castelo produz materiais específicos.
+Exemplo:
+Castelo Vulcânico
+
+
+↓
+
+
+Cristais de Magma
+
+
+Carapaças Incandescentes
+
+
+Minério Vulcânico
+
+
+Essência de Fogo
+Enquanto outro produz:
+Castelo Glacial
+
+
+↓
+
+
+Cristal de Gelo
+
+
+Pele Congelada
+
+
+Essência Glacial
+
+
+Madeira Congelada
+Isso faz com que:
+NENHUM CASTELO PRODUZA TUDO.
+Cada território gera recursos próprios.
+________________
+
+
+85.9 — MERCADO ENTRE GUILDAS
+Como cada castelo produz materiais diferentes:
+os jogadores naturalmente começam a negociar.
+Exemplo:
+Guilda do Norte possui muito minério.
+Guilda do Sul possui muitas essências.
+Resultado:
+trocas;
+comércio;
+mercado entre jogadores.
+O próprio sistema territorial passa a movimentar a economia do servidor.
+________________
+
+
+85.10 — LOOT EXCLUSIVO
+Cada calabouço também possui:
+* receitas próprias;
+* materiais próprios;
+* equipamentos específicos;
+* componentes para Craft.
+Isso incentiva o comércio mesmo entre guildas rivais.
+________________
+
+
+85.11 — MVPs ALEATÓRIOS
+A partir do:
+7º ANDAR
+passa a existir a possibilidade de surgir um:
+MVP ALEATÓRIO.
+Importante:
+O aparecimento não é garantido.
+Cada limpeza completa do andar pode ou não gerar um MVP.
+Isso mantém o fator surpresa.
+________________
+
+
+85.12 — COMO O MVP SURGE
+O sistema funciona da seguinte forma:
+Limpa completamente o Andar
+
+
+↓
+
+
+Todos os monstros derrotados
+
+
+↓
+
+
+Servidor realiza verificação
+
+
+↓
+
+
+MVP apareceu?
+
+
+↓
+
+
+SIM ou NÃO
+Caso apareça, ele surge em um ponto específico daquele andar.
+________________
+
+
+85.13 — CADA LIMPEZA É DIFERENTE
+Mesmo repetindo o mesmo calabouço:
+uma vez pode aparecer MVP.
+Na outra não.
+Na terceira pode surgir outro diferente.
+Isso impede que o conteúdo fique totalmente previsível.
+________________
+
+
+85.14 — MVPs PARA PEQUENOS GRUPOS OU SOLO
+Nem todos os MVPs precisam exigir uma raid.
+Alguns podem ser derrotados por:
+* um jogador muito forte;
+* uma dupla;
+* uma pequena party.
+Outros naturalmente exigirão grupos maiores.
+Isso aumenta a variedade do conteúdo.
+________________
+
+
+85.15 — RECOMPENSAS DOS MVPs
+Os MVPs podem conceder:
+* equipamentos raros;
+* materiais especiais;
+* receitas;
+* cartas;
+* cosméticos;
+* recursos exclusivos daquele castelo.
+Sempre respeitando a identidade daquele território.
+________________
+
+
+85.16 — O CALABOUÇO NUNCA SUBSTITUI O MUNDO
+Mesmo oferecendo boas recompensas:
+o Calabouço do Castelo não deve substituir:
+* mundo aberto;
+* dungeons globais;
+* bosses mundiais.
+Ele complementa o conteúdo.
+Não o substitui.
+________________
+
+
+85.17 — RISCO X RECOMPENSA
+Quanto mais profundo:
+maior o risco.
+Maior a recompensa.
+Isso incentiva a guilda a decidir até onde vale a pena avançar.
+________________
+
+
+85.18 — FILOSOFIA DO SISTEMA
+O castelo deixa de ser apenas um troféu.
+Ele passa a ser:
+* uma fortaleza;
+* um centro econômico;
+* uma área de progressão;
+* uma fonte de materiais exclusivos;
+* um local para integrar novos membros;
+* uma fonte de conteúdo PvE permanente.
+Assim, defender um castelo passa a fazer sentido mesmo para guildas que não gostam exclusivamente de PvP.
+________________
+
+
+Eu acrescentaria apenas uma regra para evitar exploração
+Os calabouços não deveriam ser infinitamente farmáveis sem custo.
+Em vez de limitar a entrada, eu limitaria o renascimento dos monstros.
+Por exemplo:
+* Depois que um andar é completamente limpo, ele entra em um período de regeneração antes que todos os monstros reapareçam.
+* O tempo pode variar conforme a profundidade do andar (os mais profundos demoram mais para ser repovoados).
+Isso cria uma consequência interessante: uma guilda que controla um castelo muito disputado precisa decidir como utilizar esse recurso. Ela pode levar iniciantes para os primeiros andares, organizar grupos para buscar materiais específicos ou montar expedições para procurar um MVP nos andares mais profundos, mas não consegue manter o mesmo andar sendo explorado continuamente 24 horas por dia.
+Esse sistema conversa muito bem com a economia que você está construindo: cada castelo gera uma identidade econômica própria, movimenta o mercado entre jogadores e ainda oferece uma recompensa permanente por todo o esforço de conquistar e defender um território.
+CAPÍTULO 86 — ECOSSISTEMA DOS CASTELOS
+O domínio de um castelo concede muito mais do que acesso a uma fortaleza.
+Cada território passa a representar um pequeno ecossistema controlado pela guilda.
+Esse ecossistema produz recursos, monstros, materiais, desafios e oportunidades econômicas exclusivas.
+________________
+
+
+86.1 — CADA CASTELO É ÚNICO
+Nenhum castelo do Elysia deve ser apenas uma cópia de outro com aparência diferente.
+Cada um possui:
+* arquitetura própria;
+* bioma próprio;
+* calabouço exclusivo;
+* materiais exclusivos;
+* monstros exclusivos;
+* possíveis MVPs exclusivos.
+Assim, conquistar um novo território muda realmente o tipo de conteúdo disponível para a guilda.
+________________
+
+
+86.2 — ESPECIALIZAÇÃO TERRITORIAL
+Exemplo:
+Castelo Vulcânico
+Produz:
+* Minério Vulcânico;
+* Essência de Fogo;
+* Cristais Incandescentes.
+Criaturas:
+* Salamandras;
+* Demônios de Lava;
+* Golems.
+________________
+
+
+Castelo Glacial
+Produz:
+* Cristais de Gelo;
+* Núcleos Congelados;
+* Couros Invernais.
+Criaturas:
+* Lobos;
+* Gigantes;
+* Espíritos.
+________________
+
+
+Castelo da Floresta
+Produz:
+* Madeira Antiga;
+* Resinas;
+* Sementes Místicas.
+Criaturas:
+* Ents;
+* Aranhas;
+* Druidas Corrompidos.
+Cada castelo se torna conhecido por determinado tipo de recurso.
+________________
+
+
+86.3 — O MERCADO COMEÇA A SE FORMAR
+Imagine o servidor depois de alguns meses.
+Guilda A domina:
+Castelo Vulcânico.
+Guilda B domina:
+Castelo Glacial.
+Guilda C:
+não possui castelo.
+Naturalmente o comércio começa.
+Guilda A
+
+
+vende
+
+
+Cristais de Magma
+
+
+↓
+
+
+Mercado
+
+
+↓
+
+
+Guilda B
+
+
+vende
+
+
+Cristais de Gelo
+
+
+↓
+
+
+Mercado
+
+
+↓
+
+
+Guilda C compra
+Nenhuma guilda consegue produzir todos os materiais do jogo.
+Isso obriga o servidor inteiro a negociar.
+________________
+
+
+86.4 — PROFISSÕES TAMBÉM SE BENEFICIAM
+O sistema conversa diretamente com o Craft.
+Exemplo:
+Um Ferreiro pode precisar de:
+* Minério Vulcânico;
+* Madeira Ancestral;
+* Essência Glacial.
+Nenhum castelo fornece tudo.
+Consequentemente:
+* jogadores viajam;
+* compram;
+* vendem;
+* negociam.
+A economia permanece viva.
+________________
+
+
+86.5 — CALABOUÇOS NÃO SÃO LINEARES
+Embora existam 10 andares, eles não precisam ser corredores retos.
+Cada nível pode possuir:
+* salas opcionais;
+* bifurcações;
+* passagens escondidas;
+* pequenas áreas secretas.
+Assim, explorar continua interessante mesmo após dezenas de visitas.
+________________
+
+
+86.6 — EVENTOS ALEATÓRIOS
+Durante uma exploração podem ocorrer eventos inesperados.
+Exemplos:
+* invasão de monstros;
+* sala infestada;
+* baú protegido;
+* NPC perdido;
+* elite patrulhando.
+Esses eventos não substituem os MVPs.
+Eles tornam cada exploração diferente.
+________________
+
+
+86.7 — MVPs NÃO POSSUEM HORÁRIO FIXO
+Os MVPs dos Calabouços do Castelo não devem possuir horário conhecido.
+Eles aparecem apenas quando determinadas condições forem cumpridas.
+No momento, a regra definida é:
+* limpar completamente um andar;
+* a partir do 7º nível;
+* existe chance de surgir um MVP.
+Isso evita camping permanente.
+Também impede que o servidor inteiro saiba exatamente quando um boss irá aparecer.
+________________
+
+
+86.8 — DIFERENTES CATEGORIAS DE MVP
+Nem todo MVP precisa ser igual.
+Exemplo:
+MVP de Combate
+Grande quantidade de vida.
+Ataques especiais.
+Loot raro.
+________________
+
+
+MVP de Evento
+Mais fraco.
+Pouca vida.
+Grande chance de materiais.
+________________
+
+
+MVP Lendário
+Muito raro.
+Extremamente difícil.
+Chance muito pequena de recompensas excepcionais.
+________________
+
+
+86.9 — O MVP PERTENCE À GUILDA
+Como o Calabouço pertence ao castelo:
+somente os membros da guilda podem enfrentá-lo.
+Isso cria um benefício permanente para manter o território.
+Mas também cria responsabilidade.
+Se a guilda perder o castelo:
+perde imediatamente acesso aos seus MVPs exclusivos.
+________________
+
+
+86.10 — O CASTELO GERA ROTINA
+Mesmo quando não existe Guerra do Império, os membros continuam tendo motivos para entrar.
+Exemplo de rotina semanal:
+Segunda
+Farmar materiais.
+________________
+
+
+Terça
+Craft.
+________________
+
+
+Quarta
+Explorar os andares profundos.
+________________
+
+
+Quinta
+Procurar MVP.
+________________
+
+
+Sexta
+Preparar equipamentos.
+________________
+
+
+Sábado
+Guerra do Império.
+________________
+
+
+Domingo
+Reconstrução e organização.
+O castelo permanece útil durante toda a semana.
+________________
+
+
+86.11 — DESENVOLVIMENTO DA GUILDA
+O ciclo fica completo.
+Guilda conquista castelo
+
+
+↓
+
+
+Calabouço exclusivo
+
+
+↓
+
+
+Materiais
+
+
+↓
+
+
+Craft
+
+
+↓
+
+
+Economia
+
+
+↓
+
+
+Guild XP
+
+
+↓
+
+
+Melhorias
+
+
+↓
+
+
+Castelo mais forte
+
+
+↓
+
+
+Nova Guerra
+
+
+↓
+
+
+Mais territórios
+Nenhuma parte do sistema fica isolada.
+Tudo alimenta o restante do jogo.
+________________
+
+
+86.12 — A VIDA DENTRO DA GUILDA
+Outro benefício indireto é social.
+Jogadores novos entram na guilda e imediatamente possuem atividades para fazer.
+Não ficam apenas esperando a próxima guerra.
+Eles podem:
+* ajudar a limpar andares;
+* coletar materiais;
+* procurar MVPs;
+* aprender as mecânicas do jogo;
+* conhecer os veteranos.
+O castelo se torna o ponto de encontro natural da guilda.
+________________
+
+
+86.13 — FILOSOFIA DO SISTEMA
+A maior diferença do Elysia em relação a muitos MMORPGs é que o castelo não representa apenas PvP.
+Ele representa:
+* progressão;
+* economia;
+* PvE;
+* exploração;
+* integração de jogadores;
+* produção de materiais;
+* fortalecimento da guilda.
+Mesmo uma guilda que passe um mês sem participar de guerras ainda terá motivos para administrar seu território.
+________________
+
+
+86.14 — DESIGN DECISION LOG
+DD-CASTLE-006 — Cada castelo possui um calabouço exclusivo para a guilda proprietária.
+ Status: CONFIRMADO (decisão atual).
+DD-CASTLE-007 — Os calabouços possuem 10 andares de progressão.
+ Status: CONFIRMADO (decisão atual).
+DD-CASTLE-008 — Apenas a partir do 7º andar existe chance de surgir um MVP aleatório após a limpeza completa do andar.
+ Status: CONFIRMADO (decisão atual).
+DD-CASTLE-009 — Cada castelo produz materiais, monstros e recursos exclusivos, fomentando o mercado entre jogadores.
+ Status: CONFIRMADO (decisão atual).
+DD-CASTLE-010 — O calabouço serve tanto para evolução de novos membros quanto para conteúdo avançado da guilda.
+ Status: CONFIRMADO (decisão atual).
+________________
+
+
+Uma ideia que acho que elevaria ainda mais esse sistema
+Existe uma mecânica muito usada em jogos como Diablo, Path of Exile e Last Epoch que poderia ser adaptada ao Elysia: afixos aleatórios por expedição.
+Por exemplo, quando a guilda entra no calabouço, naquele dia ele pode receber modificadores como:
+* Monstros causam +20% de dano de fogo.
+* Chefes têm +50% de vida.
+* Monstros concedem +15% de experiência.
+* Chance dobrada de materiais específicos.
+Esses modificadores valeriam apenas até o próximo reset do calabouço, tornando cada expedição um pouco diferente sem alterar permanentemente o conteúdo. Isso daria variedade ao PvE de guilda sem exigir a criação de dezenas de novos mapas ou monstros. Como essa ideia não apareceu no documento nem foi definida por você, eu a manteria separada como proposta de design futura, e não como uma regra oficial da Bíblia.
+CAPÍTULO 87 — ECONOMIA TERRITORIAL
+No Elysia Online, possuir um castelo não representa apenas força militar.
+Representa também influência econômica.
+Cada território produz riquezas diferentes.
+Nenhuma guilda consegue produzir tudo sozinha.
+Essa decisão foi tomada para incentivar o comércio entre jogadores e manter a economia do servidor ativa durante toda a vida útil do jogo.
+________________
+
+
+87.1 — RECURSOS REGIONAIS
+Cada castelo controla uma região específica do continente.
+Essa região determina:
+* tipos de monstros;
+* minérios;
+* plantas;
+* madeiras;
+* cristais;
+* essências;
+* ingredientes alquímicos.
+Exemplo:
+CASTELO VULCÂNICO
+
+
+↓
+
+
+Minério Vulcânico
+Cristal de Lava
+Essência Ígnea
+Enquanto outro território produz:
+CASTELO GLACIAL
+
+
+↓
+
+
+Cristal de Gelo
+Madeira Congelada
+Essência Invernal
+O objetivo é fazer com que cada região tenha uma identidade econômica própria.
+________________
+
+
+87.2 — MATERIAIS EXCLUSIVOS
+Existem materiais encontrados apenas dentro do Calabouço do Castelo.
+Esses materiais podem ser utilizados para:
+* Craft;
+* melhorias da guilda;
+* evolução do castelo;
+* fabricação de equipamentos;
+* consumíveis especiais.
+Como consequência, controlar um castelo oferece vantagens econômicas, mas não elimina a necessidade de comércio.
+________________
+
+
+87.3 — RECURSOS RENOVÁVEIS
+Os recursos produzidos pelo castelo não são infinitos.
+Os monstros precisam reaparecer.
+Os materiais precisam ser coletados novamente.
+Os MVPs precisam surgir outra vez.
+O castelo gera riqueza continuamente, porém exige exploração constante dos seus membros.
+________________
+
+
+87.4 — O VALOR DA GUILDA
+Quanto mais ativa for a guilda:
+* maior produção de materiais;
+* maior circulação de Gold;
+* maior evolução do castelo.
+Uma guilda que abandona seu território deixa de aproveitar praticamente todos esses benefícios.
+________________
+
+
+87.5 — A ECONOMIA NÃO DEPENDE APENAS DA GUERRA
+Mesmo em semanas sem Guerra do Império, o castelo continua sendo útil.
+Durante esse período, os membros podem:
+* explorar o calabouço;
+* procurar MVPs;
+* coletar materiais;
+* produzir equipamentos;
+* abastecer o mercado.
+Assim, a posse territorial continua gerando valor diariamente.
+________________
+
+
+87.6 — CADEIA PRODUTIVA
+O sistema cria uma cadeia natural de produção.
+Calabouço
+
+
+↓
+
+
+Materiais
+
+
+↓
+
+
+Profissões
+
+
+↓
+
+
+Equipamentos
+
+
+↓
+
+
+Mercado
+
+
+↓
+
+
+Gold
+
+
+↓
+
+
+Guilda
+
+
+↓
+
+
+Melhorias
+
+
+↓
+
+
+Castelo
+Cada etapa fortalece a seguinte.
+________________
+
+
+87.7 — ESPECIALIZAÇÃO DAS GUILDAS
+Naturalmente, algumas guildas passarão a ser conhecidas por determinados recursos.
+Exemplos:
+"Se precisar de minério vulcânico, compra da Guilda Phoenix."
+"Os melhores cristais glaciais sempre vêm do Castelo Boreal."
+Essa reputação surge organicamente.
+O servidor cria sua própria economia.
+________________
+
+
+87.8 — COMÉRCIO ENTRE RIVAIS
+Uma característica interessante do sistema é que rivais militares podem continuar negociando.
+Durante a semana:
+* compram materiais;
+* vendem equipamentos;
+* negociam ingredientes.
+No sábado:
+lutam pelo controle do território.
+Essa convivência ajuda a tornar o mundo mais crível.
+________________
+
+
+87.9 — O CASTELO COMO INVESTIMENTO
+Conquistar um castelo gera despesas.
+É preciso investir em:
+* General;
+* Guarnição;
+* melhorias;
+* Guerra do Império;
+* Bênçãos.
+Em compensação, o território gera recursos suficientes para ajudar a sustentar esse investimento.
+O castelo deixa de ser apenas um custo e passa a funcionar como um patrimônio produtivo.
+________________
+
+
+87.10 — BENEFÍCIO PARA TODA A GUILDA
+O objetivo nunca foi beneficiar apenas o líder.
+Os ganhos do território devem alcançar todos os integrantes.
+Por isso, o castelo oferece:
+* local de evolução;
+* materiais;
+* conteúdo PvE;
+* possibilidade de Craft;
+* integração entre veteranos e iniciantes.
+Quanto mais forte a guilda se torna, mais seus próprios membros também evoluem.
+________________
+
+
+87.11 — FILOSOFIA ECONÔMICA
+O Elysia não pretende criar uma economia centralizada em NPCs.
+Grande parte da circulação de riqueza deve ocorrer entre jogadores.
+Os castelos são um dos pilares desse sistema.
+Eles produzem recursos que alimentam:
+* profissões;
+* comércio;
+* guerras;
+* evolução das guildas.
+________________
+
+
+CAPÍTULO 88 — EXPEDIÇÕES DA GUILDA
+Uma mecânica interessante para complementar os Calabouços do Castelo é transformar sua exploração em verdadeiras expedições.
+Em vez de simplesmente entrar para matar monstros, os membros passam a organizar incursões.
+________________
+
+
+88.1 — EXPEDIÇÕES
+Uma expedição consiste na exploração completa de um ou mais andares do Calabouço do Castelo.
+Os objetivos podem variar.
+Exemplo:
+* obter materiais específicos;
+* procurar um MVP;
+* ajudar jogadores iniciantes;
+* reunir componentes para Craft;
+* fortalecer o estoque da guilda.
+Cada grupo escolhe seu objetivo antes de entrar.
+________________
+
+
+88.2 — DIFERENTES PAPÉIS
+Uma mesma expedição pode reunir jogadores com funções diferentes.
+Exemplo:
+Grupo A
+Desce até o 3º andar para ajudar iniciantes.
+Grupo B
+Segue para os andares intermediários em busca de materiais.
+Grupo C
+Avança até os últimos andares tentando encontrar um MVP.
+Assim, todos os níveis da guilda permanecem úteis ao mesmo tempo.
+________________
+
+
+88.3 — REFORÇO DOS ESTOQUES
+Parte dos materiais obtidos durante as expedições pode ser destinada voluntariamente ao Cofre da Guilda.
+Esses recursos ajudam a financiar:
+* Bênçãos;
+* melhorias do castelo;
+* futuras Guerras do Império.
+A contribuição dos membros fortalece diretamente o território.
+________________
+
+
+88.4 — O CASTELO COMO PONTO DE ENCONTRO
+Com todas essas mecânicas reunidas, o castelo deixa de ser apenas um cenário visitado uma vez por semana.
+Ele se torna a base de operações da guilda.
+Durante a semana, os jogadores retornam ao castelo para:
+* organizar grupos;
+* preparar expedições;
+* armazenar recursos;
+* conversar;
+* planejar guerras;
+* receber novos integrantes.
+O castelo passa a representar o verdadeiro lar da guilda.
+________________
+
+
+88.5 — CICLO COMPLETO DA GUILDA
+Entrar na Guilda
+        │
+        ▼
+Conhecer o Castelo
+        │
+        ▼
+Explorar o Calabouço
+        │
+        ▼
+Obter Materiais
+        │
+        ▼
+Craft
+        │
+        ▼
+Fortalecer a Guilda
+        │
+        ▼
+Melhorar o Castelo
+        │
+        ▼
+Participar da Guerra do Império
+        │
+        ▼
+Defender o Território
+        │
+        ▼
+Recomeçar o Ciclo
+________________
+
+
+DESIGN DECISION LOG
+DD-CASTLE-011 — Os castelos funcionam como centros econômicos permanentes, e não apenas como objetivos de PvP.
+ Status: CONFIRMADO.
+DD-CASTLE-012 — Cada território produz recursos exclusivos que alimentam Craft, profissões e comércio entre jogadores.
+ Status: CONFIRMADO.
+DD-CASTLE-013 — Os Calabouços do Castelo servem simultaneamente para progressão de iniciantes, farm de materiais, expedições e caça a MVPs.
+ Status: CONFIRMADO.
+DD-CASTLE-014 — O castelo é a base operacional da guilda, concentrando preparação, organização e desenvolvimento coletivo.
+ Status: CONFIRMADO.
+________________
+
+
+Uma ideia que acho que se encaixa muito bem
+Acho que podemos dar um passo além e fazer com que cada castelo tenha uma cadeia de produção própria, não apenas materiais.
+Por exemplo:
+* O Castelo Vulcânico poderia ser conhecido pela produção de ligas metálicas raras para Ferreiros.
+* O Castelo da Floresta produziria ingredientes únicos para Alquimistas e Druidas.
+* O Castelo Glacial forneceria cristais e essências para encantamentos.
+* O Castelo Sombrio produziria materiais ligados a maldições, venenos e equipamentos de Assassinos.
+Assim, o território deixa de fornecer apenas "itens diferentes" e passa a abastecer profissões específicas, tornando cada castelo valioso para diferentes perfis de jogadores e fortalecendo ainda mais a economia do servidor sem que um único território concentre todos os recursos. Isso também cria motivos estratégicos para disputar castelos específicos, e não apenas "qualquer castelo".
+Perfeito. Agora eu começaria a consolidar um sistema que nasce naturalmente de tudo o que construímos até aqui: a administração interna da guilda.
+Até agora definimos que a guilda possui:
+* Castelo;
+* General;
+* Guarnição;
+* Calabouços;
+* Guild XP;
+* Cofre;
+* Bênçãos;
+* Guerra do Império.
+Agora falta responder uma pergunta:
+Quem administra tudo isso?
+________________
+
+
+CAPÍTULO 89 — ADMINISTRAÇÃO DA GUILDA
+Uma guilda no Elysia Online não é apenas uma lista de jogadores.
+Ela é uma organização permanente.
+Quanto maior ela se torna, maior também é sua responsabilidade administrativa.
+O objetivo deste sistema é distribuir responsabilidades entre os membros, sem retirar do Líder a autoridade final sobre a guilda.
+________________
+
+
+89.1 — FUNDADOR
+Toda guilda nasce com um:
+FUNDADOR
+O Fundador é o criador da guilda.
+Inicialmente ele também ocupa automaticamente o cargo de:
+LÍDER.
+Caso o comando da guilda seja transferido, o cargo de Líder muda normalmente.
+O título de Fundador permanece apenas como informação histórica.
+________________
+
+
+89.2 — LÍDER
+Existe apenas:
+UM LÍDER
+por guilda.
+O Líder possui autoridade máxima.
+Entre suas responsabilidades estão:
+* convidar membros;
+* expulsar membros;
+* promover cargos;
+* alterar permissões;
+* administrar o Cofre;
+* administrar o Castelo;
+* declarar Guerra do Império;
+* aceitar novos membros;
+* nomear sucessores.
+________________
+
+
+89.3 — VICE-LÍDER
+Cada guilda pode possuir um ou mais Vice-Líderes.
+Sua principal função é substituir o Líder quando necessário.
+Dependendo das permissões concedidas, o Vice-Líder pode:
+* recrutar jogadores;
+* organizar expedições;
+* organizar guerras;
+* administrar o Cofre;
+* ativar Bênçãos.
+O Líder decide exatamente quais poderes cada Vice possui.
+________________
+
+
+89.4 — OFICIAIS
+Os Oficiais representam a liderança intermediária.
+Eles ajudam a organizar o dia a dia da guilda.
+Exemplos de funções:
+* organizar Parties;
+* liderar caçadas;
+* orientar iniciantes;
+* coordenar grupos durante guerras.
+Não precisam possuir poderes administrativos.
+________________
+
+
+89.5 — RECRUTADORES
+Algumas pessoas gostam mais da parte social do jogo.
+O cargo de Recrutador existe para isso.
+Seu papel principal é:
+* convidar novos jogadores;
+* explicar o funcionamento da guilda;
+* acompanhar jogadores recém-chegados.
+________________
+
+
+89.6 — MEMBROS
+Os membros representam a base da guilda.
+Eles participam normalmente de:
+* guerras;
+* expedições;
+* calabouços;
+* Craft;
+* coleta de materiais.
+Conforme demonstram participação, podem futuramente assumir cargos maiores.
+________________
+
+
+89.7 — CARGOS PERSONALIZADOS
+Além dos cargos básicos, o Líder pode criar cargos personalizados.
+Exemplos:
+Mestre Ferreiro
+Responsável pelo Craft.
+________________
+
+
+Mestre Alquimista
+Responsável por poções.
+________________
+
+
+Capitão da Guerra
+Coordena estratégias da Guerra do Império.
+________________
+
+
+Instrutor
+Ajuda novos jogadores.
+________________
+
+
+Tesoureiro
+Auxilia na administração dos recursos da guilda.
+Os nomes podem ser completamente personalizados.
+O importante são as permissões.
+________________
+
+
+89.8 — PERMISSÕES
+O sistema trabalha por permissões.
+Cada cargo pode possuir diferentes autorizações.
+Exemplos:
+✔ Convidar membros.
+✔ Expulsar membros.
+✔ Administrar Cofre.
+✔ Ativar Bênçãos.
+✔ Declarar Guerra.
+✔ Organizar Expedições.
+✔ Configurar Guarnição.
+✔ Alterar distribuição de soldados.
+✔ Gerenciar melhorias do castelo.
+Assim, duas guildas podem utilizar cargos completamente diferentes mantendo a mesma estrutura técnica.
+________________
+
+
+89.9 — O COFRE DA GUILDA
+O Cofre pertence:
+À GUILDA.
+Nunca ao Líder.
+Todo recurso armazenado nele representa patrimônio coletivo.
+Pode conter:
+* Gold;
+* materiais;
+* itens institucionais;
+* recompensas da Guerra do Império;
+* recompensas dos MVPs do Castelo.
+Esse patrimônio existe para financiar a evolução da guilda.
+________________
+
+
+89.10 — CONTRIBUIÇÕES
+Os membros podem contribuir voluntariamente.
+Exemplos:
+* Gold;
+* materiais;
+* equipamentos destinados ao Craft;
+* recursos das expedições.
+Esses recursos fortalecem a guilda inteira.
+________________
+
+
+89.11 — TRANSPARÊNCIA
+Uma funcionalidade que considero muito importante é o:
+HISTÓRICO DO COFRE.
+Toda movimentação relevante deve ficar registrada.
+Exemplo:
+Frank depositou:
+
+
+12 Minérios Vulcânicos.
+
+
+────────────
+
+
+Arthur retirou:
+
+
+500 Gold.
+
+
+────────────
+
+
+Bênção ativada.
+
+
+Custo:
+
+
+3.000 Gold.
+Isso evita conflitos internos e facilita a administração.
+________________
+
+
+89.12 — PARTICIPAÇÃO
+Uma guilda forte depende de participação constante.
+Não apenas do Líder.
+Quanto maior a colaboração dos membros:
+* mais materiais;
+* mais Guild XP;
+* melhores Bênçãos;
+* castelo mais forte;
+* Guarnição melhor.
+Todo o sistema recompensa cooperação.
+________________
+
+
+89.13 — A GUILDA COMO COMUNIDADE
+O objetivo final nunca foi criar apenas uma organização para PvP.
+A guilda representa uma comunidade.
+Durante a semana seus membros podem:
+* explorar Calabouços;
+* produzir Craft;
+* ajudar iniciantes;
+* organizar expedições;
+* preparar guerras;
+* fortalecer o castelo.
+A Guerra do Império passa a ser apenas um dos momentos dessa convivência.
+________________
+
+
+89.14 — DESIGN DECISION LOG
+DD-GUILD-020 — O Fundador é permanente como registro histórico, enquanto a liderança pode ser transferida.
+ Status: NOVO / CONFIRMADO.
+DD-GUILD-021 — A guilda possui cargos configuráveis baseados em permissões.
+ Status: CONSOLIDAÇÃO.
+DD-GUILD-022 — O Cofre da Guilda representa patrimônio coletivo e financia a evolução da guilda e do castelo.
+ Status: CONSOLIDAÇÃO.
+DD-GUILD-023 — O histórico de movimentações do Cofre deve ser registrado para garantir transparência administrativa.
+ Status: NOVO / CONFIRMADO.
+DD-GUILD-024 — A administração da guilda deve distribuir responsabilidades sem concentrar todas as funções no Líder.
+ Status: NOVO / CONFIRMADO.
+________________
+
+
+Uma ideia que acho que encaixa perfeitamente no Elysia
+Existe um ponto que ainda não abordamos: a reputação individual dentro da própria guilda.
+Não seria um sistema de "nível de guilda", mas de mérito.
+Por exemplo, toda contribuição poderia gerar uma pontuação interna:
+* participar da Guerra do Império;
+* ajudar a derrotar um MVP do castelo;
+* doar materiais ao Cofre;
+* concluir expedições da guilda;
+* recrutar um novo membro ativo.
+Essa pontuação não daria atributos ou poder de combate, mas serviria para mostrar quem realmente participa da vida da guilda. O Líder poderia usá-la como critério para promoções, distribuição de responsabilidades ou até para decidir quem receberá determinados recursos institucionais. Ela também reduziria decisões baseadas apenas em favoritismo.
+Como essa mecânica ainda não apareceu nas decisões anteriores, eu a manteria como proposta de design, separada das regras oficiais da Bíblia até que você decida se quer incorporá-la.
+CAPÍTULO 90 — VIDA DENTRO DO CASTELO
+O castelo pertence à guilda durante todo o tempo em que ela mantiver sua posse.
+Ele não deve ser apenas um mapa vazio utilizado uma vez por semana.
+Durante todos os dias, o castelo funciona como a sede da guilda.
+________________
+
+
+90.1 — A SEDE DA GUILDA
+Ao entrar no castelo, os membros encontram um ambiente vivo.
+Entre as principais estruturas estão:
+* Salão Principal;
+* Cofre da Guilda;
+* Sala do Conselho;
+* Quartel;
+* Arsenal;
+* Portal para o Calabouço;
+* Pátio de Treinamento;
+* Estábulos;
+* Armazéns;
+* Torre de Vigia.
+Cada estrutura possui uma função dentro da rotina da guilda.
+________________
+
+
+90.2 — SALÃO PRINCIPAL
+O Salão Principal representa o centro político da guilda.
+É nele que normalmente os jogadores:
+* se reúnem;
+* organizam grupos;
+* recebem novos membros;
+* planejam guerras;
+* realizam reuniões.
+Também é onde ficam:
+* Líder;
+* Vice-Líderes;
+* Oficiais.
+________________
+
+
+90.3 — SALA DO CONSELHO
+A Sala do Conselho é reservada para administração.
+Nela podem ser realizadas funções como:
+* configurar Bênçãos;
+* administrar a Guarnição;
+* distribuir soldados;
+* acompanhar melhorias do castelo;
+* consultar Guild XP;
+* verificar histórico da guilda.
+Ela representa o "centro administrativo" do território.
+________________
+
+
+90.4 — QUARTEL
+O Quartel abriga a guarnição NPC do castelo.
+É nele que a guilda administra:
+* soldados;
+* arqueiros;
+* magos;
+* patrulhas.
+A quantidade e a qualidade dessas tropas dependem do desenvolvimento do castelo.
+________________
+
+
+90.5 — ARSENAL
+O Arsenal armazena equipamentos destinados exclusivamente à defesa do castelo.
+Exemplos:
+* lanças;
+* escudos;
+* munições;
+* equipamentos utilizados pela guarnição.
+Esses recursos pertencem ao castelo, e não aos jogadores.
+________________
+
+
+90.6 — PORTAL DO CALABOUÇO
+Dentro do castelo existe o acesso oficial ao Calabouço Territorial.
+Apenas membros autorizados da guilda podem utilizá-lo.
+É por esse portal que começam as expedições PvE da guilda.
+________________
+
+
+90.7 — PÁTIO DE TREINAMENTO
+O Pátio de Treinamento serve como espaço para organização dos membros.
+Pode ser utilizado para:
+* testar formações;
+* reunir grupos;
+* preparar expedições;
+* organizar equipes para a Guerra do Império.
+Não concede experiência nem evolução de atributos; sua função é social e estratégica.
+________________
+
+
+90.8 — ESTÁBULOS
+Os Estábulos guardam as montarias dos membros enquanto estiverem dentro da fortaleza.
+Como já definido anteriormente para o mundo do Elysia:
+* montarias servem principalmente para transporte e carga;
+* não acompanham o jogador dentro dos calabouços.
+________________
+
+
+90.9 — ARMAZÉNS
+Além do Cofre da Guilda, o castelo possui áreas destinadas ao armazenamento institucional.
+Esses espaços podem concentrar:
+* materiais de construção;
+* recursos coletados nos calabouços;
+* componentes destinados às melhorias do castelo.
+Isso reforça a ideia de que uma fortaleza precisa de infraestrutura para ser mantida.
+________________
+
+
+90.10 — TORRE DE VIGIA
+A Torre de Vigia permite acompanhar informações sobre o território.
+Ela pode exibir:
+* situação do castelo;
+* próximas guerras agendadas;
+* estado das defesas;
+* progresso das melhorias.
+Seu objetivo é fornecer informações estratégicas aos administradores da guilda.
+________________
+
+
+90.11 — NPCs DO CASTELO
+O castelo possui NPCs próprios.
+Entre eles:
+* Comandante da Guarnição;
+* Ferreiro Militar;
+* Intendente;
+* Mestre de Expedições;
+* Administrador do Cofre.
+Esses NPCs não substituem jogadores, mas facilitam a administração do território.
+________________
+
+
+90.12 — O CASTELO COMO CENTRO SOCIAL
+Mesmo jogadores que não desejam participar da Guerra do Império encontram motivos para frequentar o castelo.
+Durante a semana eles podem:
+* participar de expedições;
+* ajudar no Craft;
+* coletar materiais;
+* organizar grupos;
+* ensinar iniciantes;
+* contribuir para o crescimento da guilda.
+O castelo passa a concentrar boa parte da vida social da organização.
+________________
+
+
+90.13 — EVOLUÇÃO VISUAL
+Uma ideia importante é que o castelo reflita visualmente seu progresso.
+Conforme evolui:
+* muralhas tornam-se mais imponentes;
+* bandeiras mudam para representar a guilda;
+* o quartel ganha novas estruturas;
+* o salão principal recebe melhorias;
+* as torres demonstram maior capacidade defensiva.
+Assim, os jogadores conseguem perceber o desenvolvimento do território sem precisar abrir menus.
+________________
+
+
+90.14 — IDENTIDADE DA GUILDA
+Cada guilda deixa sua marca no castelo.
+Não apenas pela bandeira hasteada, mas pela forma como administra o território, organiza sua defesa e utiliza seus recursos.
+Com o tempo, os jogadores do servidor passam a reconhecer determinados castelos pela maneira como são conduzidos por seus proprietários.
+________________
+
+
+90.15 — DESIGN DECISION LOG
+DD-CASTLE-015 — O castelo funciona como sede permanente da guilda e permanece ativo durante toda a semana.
+ Status: CONFIRMADO.
+DD-CASTLE-016 — O castelo possui estruturas administrativas, militares e sociais que apoiam a rotina da guilda.
+ Status: CONFIRMADO.
+DD-CASTLE-017 — O Calabouço Territorial é acessado diretamente pelo interior do castelo.
+ Status: CONFIRMADO.
+DD-CASTLE-018 — A evolução do castelo deve ser percebida visualmente pelos jogadores.
+ Status: CONFIRMADO.
+________________
+
+
+Proposta de expansão futura (não oficial)
+Há um sistema que poderia enriquecer ainda mais essa ideia sem alterar o equilíbrio do jogo: Salas de Troféus.
+A guilda poderia exibir conquistas obtidas ao longo da vida do servidor, como:
+* Primeira conquista do castelo.
+* Derrota de um MVP lendário exclusivo do castelo.
+* Maior sequência de defesas bem-sucedidas.
+* Itens históricos ou relíquias conquistadas em eventos.
+Esses troféus não concederiam bônus de atributos ou vantagens em combate. Sua função seria preservar a história da guilda e dar personalidade ao castelo, permitindo que visitantes conheçam suas principais conquistas. Como essa mecânica ainda não foi definida anteriormente, ela permanece como uma proposta de design, separada das regras oficiais da Bíblia.
+CAPÍTULO 91 — INFRAESTRUTURA DO CASTELO
+Depois de conquistado, o castelo deixa de ser apenas um objetivo militar.
+Ele passa a oferecer uma infraestrutura permanente para seus membros.
+Essa infraestrutura existe para facilitar a organização da guilda, reduzir deslocamentos e fortalecer a identidade territorial.
+Ela não deve tornar cidades ou o mundo aberto obsoletos.
+________________
+
+
+91.1 — BANCO DA GUILDA
+Todo castelo possui um Banco da Guilda.
+Ele é diferente do Cofre.
+Cofre
+Armazena recursos institucionais.
+Pertence à guilda.
+É utilizado para:
+* melhorias;
+* Bênçãos;
+* manutenção;
+* Guerra do Império.
+________________
+
+
+Banco
+Funciona como armazenamento dos próprios jogadores.
+Cada membro acessa apenas seus próprios compartimentos.
+O Banco da Guilda oferece comodidade.
+Não substitui o banco das grandes cidades.
+________________
+
+
+91.2 — OFICINA DA GUILDA
+Cada castelo possui uma Oficina.
+Ela reúne NPCs especializados.
+Exemplo:
+* Ferreiro;
+* Armeiro;
+* Carpinteiro;
+* Engenheiro.
+A Oficina facilita o trabalho dos membros sem eliminar a importância das capitais.
+Já havia sido proposta como uma das recompensas da conquista do castelo.
+________________
+
+
+91.3 — BIBLIOTECA
+A Biblioteca concentra conhecimento da guilda.
+Ela pode disponibilizar:
+* registros históricos;
+* informações sobre guerras;
+* evolução do castelo;
+* registros de antigos líderes.
+Não concede atributos.
+Seu papel é preservar a memória da guilda.
+________________
+
+
+91.4 — HOSPITAL
+Após guerras ou expedições, os membros podem utilizar o Hospital do Castelo.
+Sua função é:
+* recuperação;
+* reorganização;
+* preparação para novas atividades.
+Ele evita que toda recuperação precise acontecer nas cidades.
+________________
+
+
+91.5 — ARMAZÉM
+O Armazém guarda recursos destinados exclusivamente ao desenvolvimento do castelo.
+Exemplo:
+* pedra;
+* madeira;
+* minérios;
+* componentes estruturais.
+Esses materiais não pertencem a um jogador específico.
+Eles pertencem à fortaleza.
+________________
+
+
+91.6 — OFICINA DE GUERRA
+A Oficina Militar fabrica recursos utilizados pela própria defesa.
+Exemplos:
+* munições;
+* barricadas;
+* peças de reposição;
+* equipamentos para a guarnição.
+Ela não produz equipamentos lendários para jogadores.
+Seu foco é exclusivamente militar.
+________________
+
+
+91.7 — HOSPITAL MILITAR
+Além do Hospital comum, existe uma área destinada à própria guarnição.
+Ali são administrados:
+* soldados feridos;
+* reorganização das tropas;
+* recuperação após guerras.
+Isso reforça a sensação de que a fortaleza possui vida própria.
+________________
+
+
+91.8 — PORTAL INTERNO
+O Portal do Castelo permite acesso rápido apenas às áreas pertencentes ao território da guilda.
+Por exemplo:
+Castelo
+
+
+↓
+
+
+Calabouço
+
+
+↓
+
+
+Área Administrativa
+Ele não serve como sistema de teleporte global.
+Isso preserva a importância da exploração do mundo.
+________________
+
+
+91.9 — SALA DOS REGISTROS
+Cada castelo possui um Livro de Registros.
+Conforme já discutido anteriormente, ele preserva acontecimentos importantes.
+Exemplo:
+Primeira Guilda Proprietária
+
+
+↓
+
+
+Primeiro Líder
+
+
+↓
+
+
+Data da Conquista
+
+
+↓
+
+
+Tempo necessário
+
+
+↓
+
+
+Lista cronológica de todos os proprietários
+Esse histórico permanece mesmo após inúmeras mudanças de domínio.
+________________
+
+
+91.10 — OFICINA EXCLUSIVA
+Uma vantagem interessante da posse territorial é a existência de uma Oficina exclusiva da guilda.
+Ela oferece:
+* maior praticidade;
+* organização;
+* redução de deslocamentos.
+Porém, itens raros, materiais especiais e receitas continuam dependendo da exploração do mundo, mantendo o equilíbrio entre conveniência e progressão.
+________________
+
+
+91.11 — BENEFÍCIOS SEM PODER EXAGERADO
+Uma diretriz importante já estabelecida é evitar vantagens excessivas para quem possui castelos.
+Os benefícios devem ser voltados para:
+* conveniência;
+* administração;
+* economia;
+* organização.
+Evita-se bônus elevados de dano, defesa ou atributos permanentes para não tornar obrigatória a participação em grandes guildas.
+________________
+
+
+91.12 — O CASTELO CONTINUA DEPENDENDO DO MUNDO
+Mesmo totalmente desenvolvido, um castelo não produz tudo.
+Os membros ainda precisam sair para:
+* explorar continentes;
+* enfrentar MVPs globais;
+* participar de eventos;
+* concluir grandes dungeons;
+* coletar recursos exclusivos do mundo aberto.
+Essa decisão mantém vivo todo o restante do mapa do Elysia.
+________________
+
+
+91.13 — CICLO DA INFRAESTRUTURA
+Conquista do Castelo
+        │
+        ▼
+Liberação da Infraestrutura
+        │
+        ▼
+Banco
+Oficina
+Hospital
+Biblioteca
+Armazém
+Portal
+        │
+        ▼
+Melhor organização da Guilda
+        │
+        ▼
+Expedições
+Craft
+Guerras
+        │
+        ▼
+Evolução do Castelo
+________________
+
+
+91.14 — DESIGN DECISION LOG
+DD-CASTLE-019 — O castelo concede infraestrutura permanente aos seus membros.
+ Status: CONFIRMADO.
+DD-CASTLE-020 — O Banco da Guilda e o Cofre possuem funções distintas.
+ Status: CONSOLIDAÇÃO.
+DD-CASTLE-021 — A infraestrutura do castelo prioriza conveniência e administração, não bônus diretos de combate.
+ Status: CONFIRMADO.
+DD-CASTLE-022 — O mundo aberto continua sendo a principal fonte de progressão de alto nível e recompensas raras.
+ Status: CONFIRMADO.
+________________
+
+
+Um ajuste que eu faria ao conceito do calabouço
+Nas últimas mensagens desta conversa, você ampliou bastante o papel do Calabouço do Castelo, adicionando materiais exclusivos e MVPs aleatórios nos andares finais. Eu manteria essa evolução, mas preservaria a filosofia registrada anteriormente: o endgame continua pertencendo ao mundo aberto.
+Uma forma de conciliar as duas ideias seria dividir as recompensas em categorias:
+* Andares 1–6: foco em experiência para iniciantes da guilda, materiais básicos e integração de novos membros.
+* Andares 7–10: materiais exclusivos do território, chance de MVP aleatório e componentes valiosos para a economia da guilda.
+* Mundo aberto: cartas mais raras, equipamentos míticos, grandes chefes globais e desafios de maior escala.
+Assim, conquistar um castelo continua sendo extremamente valioso, mas ele complementa o restante do jogo em vez de substituir todas as outras formas de progressão.
+CAPÍTULO 92 — DOMÍNIO TERRITORIAL
+Conquistar um castelo significa conquistar uma região.
+O castelo não existe isoladamente.
+Ele administra um território ao seu redor.
+Esse território influencia:
+* economia;
+* exploração;
+* recursos;
+* guildas;
+* jogadores.
+A fortaleza passa a ser o centro administrativo daquela região.
+________________
+
+
+92.1 — A REGIÃO DO CASTELO
+Todo castelo possui uma área de influência.
+          Floresta
+
+
+      Mina         Lago
+
+
+             ▼
+
+
+        CASTELO
+
+
+     Vila      Campos
+
+
+          Calabouço
+Essa área pertence ao mundo aberto.
+Ela continua sendo acessível para todos os jogadores.
+O castelo apenas administra aquele território.
+________________
+
+
+92.2 — O TERRITÓRIO NÃO É FECHADO
+Uma regra importante:
+Nenhuma guilda pode impedir outros jogadores de explorar a região.
+Exemplo:
+Um jogador sem guilda continua podendo:
+* caçar;
+* explorar;
+* fazer missões;
+* coletar recursos comuns;
+* atravessar a região.
+O mundo continua sendo público.
+O privilégio da guilda está na infraestrutura e nos conteúdos exclusivos do castelo, não em bloquear mapas inteiros.
+________________
+
+
+92.3 — RECURSOS EXCLUSIVOS
+Existem dois tipos de recursos.
+Recursos Públicos
+Disponíveis para todos.
+Exemplos:
+* madeira comum;
+* pedra;
+* ferro;
+* plantas simples.
+________________
+
+
+Recursos Territoriais
+Relacionados ao castelo.
+Exemplos:
+* Cristal Vulcânico;
+* Madeira Ancestral;
+* Essência Sombria;
+* Minério Glacial.
+Esses recursos aparecem principalmente dentro do Calabouço Territorial e em atividades ligadas ao domínio do castelo.
+________________
+
+
+92.4 — VILAS AO REDOR
+Cada castelo pode possuir pequenas vilas próximas.
+Essas vilas continuam pertencendo ao mundo.
+Os jogadores:
+* compram;
+* vendem;
+* aceitam missões;
+* utilizam serviços.
+A diferença é que a presença do castelo influencia a vida daquela região.
+________________
+
+
+92.5 — A IDENTIDADE DO TERRITÓRIO
+Cada região do continente desenvolve sua própria identidade.
+Exemplo:
+Território Vulcânico
+
+
+↓
+
+
+Mineração
+
+
+Metalurgia
+
+
+Ferreiros
+
+
+Cristais
+Enquanto outro território é conhecido por:
+Florestas
+
+
+↓
+
+
+Madeira
+
+
+Resinas
+
+
+Herbalismo
+
+
+Animais
+Isso conversa diretamente com a economia que já definimos.
+________________
+
+
+92.6 — EVENTOS REGIONAIS
+O território pode receber eventos naturais.
+Exemplos:
+* invasão de monstros;
+* migração de criaturas;
+* tempestades;
+* aparecimento de cavernas temporárias;
+* caravanas.
+Esses eventos pertencem ao mundo.
+Não apenas à guilda.
+Assim toda a comunidade continua visitando aquela região.
+________________
+
+
+92.7 — O CASTELO NÃO ISOLA A GUILDA
+Uma preocupação importante durante o design foi evitar que o castelo se tornasse um "MMORPG dentro do MMORPG".
+Por isso:
+* o calabouço possui limite natural de progressão;
+* o melhor endgame continua fora dele;
+* os grandes chefes continuam espalhados pelo mundo;
+* as melhores dungeons continuam públicas.
+Essa filosofia já havia sido discutida anteriormente.
+________________
+
+
+92.8 — O TERRITÓRIO COMO CENTRO ECONÔMICO
+O castelo funciona como ponto de organização.
+O território continua sendo o local onde a economia acontece.
+Calabouço
+
+
+↓
+
+
+Materiais
+
+
+↓
+
+
+Craft
+
+
+↓
+
+
+Mercado
+
+
+↓
+
+
+Jogadores
+
+
+↓
+
+
+Economia
+Toda essa riqueza volta para o servidor.
+Não fica presa apenas dentro da guilda.
+________________
+
+
+92.9 — MOTIVOS PARA DISPUTAR CASTELOS DIFERENTES
+Nem todo castelo será interessante pelos mesmos motivos.
+Alguns serão disputados porque:
+* produzem materiais importantes para Ferreiros;
+* possuem excelentes ingredientes para Alquimistas;
+* facilitam determinadas profissões.
+Essa ideia já apareceu nas discussões anteriores sobre dar identidade própria a cada castelo.
+________________
+
+
+92.10 — O SERVIDOR ESCREVE SUA PRÓPRIA HISTÓRIA
+Depois de alguns meses:
+os jogadores naturalmente lembrarão:
+"A Guilda Eclipse controla Frosthelm há quase um ano."
+Ou:
+"O Castelo Vulcânico mudou de dono três vezes nesta temporada."
+Esse tipo de memória coletiva é um dos objetivos do sistema territorial.
+________________
+
+
+92.11 — DESIGN DECISION LOG
+DD-TERRITORY-001 — Cada castelo administra uma região do continente, mas não restringe o acesso ao mundo aberto.
+ Status: CONFIRMADO.
+DD-TERRITORY-002 — Recursos exclusivos do castelo coexistem com recursos públicos da região.
+ Status: CONSOLIDAÇÃO.
+DD-TERRITORY-003 — O melhor conteúdo de progressão continua distribuído pelo mundo aberto, preservando a exploração.
+ Status: CONFIRMADO.
+DD-TERRITORY-004 — Cada território possui identidade econômica e incentiva disputas estratégicas entre guildas.
+ Status: CONSOLIDAÇÃO.
+________________
+
+
+Uma observação de design
+Analisando tudo o que já reconstruímos da Bíblia do Elysia Online, acho que o sistema de castelos já atingiu um nível de detalhamento suficiente para ser considerado um dos pilares centrais do jogo. A partir deste ponto, em vez de continuar expandindo apenas castelos, eu passaria para outro grande bloco do GDD, como:
+1. Profissões e Craft (Ferreiro, Armeiro, Alquimista, Carpinteiro etc.), conectando diretamente os materiais exclusivos dos castelos.
+2. Sistema de Economia (mercado, leilão, comerciantes e circulação de recursos).
+3. Grandes Dungeons do Mundo e MVPs Globais, que seriam o verdadeiro endgame PvE e complementariam os Calabouços do Castelo, mantendo a filosofia já definida de que o castelo é importante, mas não substitui o restante do mundo.
+PARTE VIII — PROFISSÕES E CRAFT
+Até este ponto, os jogadores já conseguem:
+* explorar o mundo;
+* conquistar castelos;
+* obter materiais;
+* derrotar MVPs;
+* participar da economia.
+Agora precisamos definir como esses materiais retornam para o jogo.
+________________
+
+
+CAPÍTULO 93 — FILOSOFIA DO CRAFT
+O Craft do Elysia Online não existe apenas para fabricar equipamentos.
+Ele é um dos pilares da economia do servidor.
+Grande parte dos equipamentos, consumíveis e melhorias circula entre jogadores.
+Quanto menos o jogo depender de NPCs vendendo equipamentos prontos, mais importante se torna a interação entre os próprios jogadores.
+________________
+
+
+93.1 — OBJETIVOS
+O Craft possui cinco objetivos principais:
+* transformar materiais em itens úteis;
+* incentivar profissões diferentes;
+* movimentar a economia;
+* criar especialização entre jogadores;
+* dar utilidade permanente aos recursos coletados.
+________________
+
+
+93.2 — TODA PROFISSÃO TEM VALOR
+Nenhuma profissão deve existir apenas para fabricar itens de níveis baixos.
+Todas permanecem úteis durante toda a progressão do personagem.
+Isso evita que determinadas profissões fiquem obsoletas após algumas semanas de servidor.
+________________
+
+
+93.3 — O MUNDO PRODUZ O CRAFT
+Os materiais vêm de diferentes lugares.
+4. Monstros
+5.       │
+6.       ▼
+7.  Minérios
+8. 9.  Plantas
+10. 11.  Madeiras
+12. 13.  Cristais
+14. 15.  Essências
+16. 17.  Couros
+18. 19.  Ossos
+20.  Tecidos
+Todos esses materiais retornam ao sistema de Craft.
+________________
+
+
+93.4 — O CASTELO PARTICIPA
+Os castelos complementam esse sistema.
+Eles oferecem:
+* materiais exclusivos;
+* ingredientes territoriais;
+* componentes especiais.
+Mas não produzem tudo.
+O restante continua espalhado pelo mundo.
+Isso preserva a importância da exploração.
+________________
+
+
+93.5 — O MELHOR EQUIPAMENTO NÃO SURGE DO NADA
+Itens extremamente poderosos exigem uma combinação de fontes.
+Exemplo:
+21. MVP Mundial
+22. 23. ↓
+24. 25. Coração de Dragão
+26. 27. +
+28. 29. Castelo Vulcânico
+30. 31. ↓
+32. 33. Liga Ígnea
+34. 35. +
+36. 37. Dungeon Antiga
+38. 39. ↓
+40. 41. Runa Perdida
+42. 43. ↓
+44. Espada Lendária
+Nenhuma atividade sozinha fornece tudo.
+________________
+
+
+93.6 — ESPECIALIZAÇÃO
+Cada jogador escolhe sua profissão principal.
+Isso cria identidade.
+Exemplo:
+"A melhor espada do servidor foi feita pelo Ferreiro Arkon."
+O equipamento passa a carregar também a reputação de quem o produziu.
+________________
+
+
+93.7 — ECONOMIA ENTRE JOGADORES
+Nem todo jogador deseja fabricar.
+Nem todo jogador deseja minerar.
+Nem todo jogador deseja explorar.
+Por isso surge naturalmente o comércio.
+45. Minerador
+46. 47. ↓
+48. 49. Ferreiro
+50. 51. ↓
+52. 53. Mercador
+54. 55. ↓
+56. Guerreiro
+Cada jogador participa de uma etapa diferente.
+________________
+
+
+93.8 — PROFISSÕES NÃO SUBSTITUEM COMBATE
+É possível viver principalmente da fabricação.
+Mas ainda será necessário obter materiais.
+Isso mantém PvE, exploração e Craft conectados.
+________________
+
+
+93.9 — QUALIDADE DOS ITENS
+O mesmo equipamento pode existir em diferentes qualidades.
+Exemplo:
+57. Espada Longa
+58. 59. ↓
+60. 61. Comum
+62. 63. ↓
+64. 65. Boa
+66. 67. ↓
+68. 69. Excelente
+70. 71. ↓
+72. Obra-Prima
+A qualidade depende:
+* habilidade do artesão;
+* qualidade dos materiais;
+* receitas utilizadas.
+Isso valoriza o profissional, e não apenas a receita.
+________________
+
+
+93.10 — ASSINATURA DO ARTESÃO
+Itens produzidos por jogadores registram seu criador.
+Exemplo:
+73. Espada Longa
+74. 75. Forjada por:
+76. Frank Murtes
+Essa assinatura permanece no item enquanto ele existir.
+Ela cria reputação para artesãos experientes.
+________________
+
+
+93.11 — REPAROS
+Equipamentos podem precisar de manutenção.
+Ferreiros e Armeiros podem realizar reparos.
+Isso mantém essas profissões relevantes mesmo quando a demanda por novos equipamentos diminui.
+PENDENTE: ainda não definimos se equipamentos terão durabilidade permanente, desgaste temporário ou outro sistema. Essa mecânica deve ser especificada antes de ser considerada oficial.
+________________
+
+
+93.12 — O CRAFT COMO ECONOMIA
+Todo o sistema forma um ciclo.
+77. Exploração
+78. 79. ↓
+80. 81. Materiais
+82. 83. ↓
+84. 85. Profissões
+86. 87. ↓
+88. 89. Craft
+90. 91. ↓
+92. 93. Mercado
+94. 95. ↓
+96. 97. Gold
+98. 99. ↓
+100. Nova Exploração
+Esse ciclo mantém a economia ativa continuamente.
+________________
+
+
+93.13 — PRINCÍPIOS DO SISTEMA
+O Craft do Elysia Online segue quatro princípios:
+* depende da exploração;
+* incentiva a cooperação;
+* fortalece a economia entre jogadores;
+* mantém todas as profissões relevantes durante toda a vida do servidor.
+________________
+
+
+93.14 — DESIGN DECISION LOG
+DD-CRA-001 — O Craft é um dos pilares da economia do jogo.
+ Status: CONFIRMADO.
+DD-CRA-002 — Os melhores equipamentos exigem materiais provenientes de diferentes conteúdos do jogo.
+ Status: CONFIRMADO.
+DD-CRA-003 — Os castelos complementam o sistema de Craft, mas não substituem o mundo aberto.
+ Status: CONSOLIDAÇÃO.
+DD-CRA-004 — Itens produzidos por jogadores registram permanentemente o nome do artesão.
+ Status: NOVO / CONFIRMADO.
+DD-CRA-005 — O sistema de reparos permanece PENDENTE até a definição da mecânica de durabilidade dos equipamentos.
+ Status: PENDENTE.
+________________
+
+
+Próximo capítulo
+O próximo passo lógico é detalhar cada profissão individualmente, em vez de falar do Craft de forma genérica. Eu começaria por:
+* Capítulo 94 — Ferreiro
+* Capítulo 95 — Armeiro
+* Capítulo 96 — Alquimista
+* Capítulo 97 — Carpinteiro
+* Capítulo 98 — Alfaiate
+* Capítulo 99 — Joalheiro
+* Capítulo 100 — Encantador
+Assim, cada profissão teria sua própria árvore de progressão, receitas, materiais, especializações e papel na economia do Elysia.
+PARTE VIII — PROFISSÕES E CRAFT
+Até este ponto, os jogadores já conseguem:
+* explorar o mundo;
+* conquistar castelos;
+* obter materiais;
+* derrotar MVPs;
+* participar da economia.
+Agora precisamos definir como esses materiais retornam para o jogo.
+________________
+
+
+CAPÍTULO 93 — FILOSOFIA DO CRAFT
+O Craft do Elysia Online não existe apenas para fabricar equipamentos.
+Ele é um dos pilares da economia do servidor.
+Grande parte dos equipamentos, consumíveis e melhorias circula entre jogadores.
+Quanto menos o jogo depender de NPCs vendendo equipamentos prontos, mais importante se torna a interação entre os próprios jogadores.
+________________
+
+
+93.1 — OBJETIVOS
+O Craft possui cinco objetivos principais:
+* transformar materiais em itens úteis;
+* incentivar profissões diferentes;
+* movimentar a economia;
+* criar especialização entre jogadores;
+* dar utilidade permanente aos recursos coletados.
+________________
+
+
+93.2 — TODA PROFISSÃO TEM VALOR
+Nenhuma profissão deve existir apenas para fabricar itens de níveis baixos.
+Todas permanecem úteis durante toda a progressão do personagem.
+Isso evita que determinadas profissões fiquem obsoletas após algumas semanas de servidor.
+________________
+
+
+93.3 — O MUNDO PRODUZ O CRAFT
+Os materiais vêm de diferentes lugares.
+Monstros
+      │
+      ▼
+ Minérios
+
+
+ Plantas
+
+
+ Madeiras
+
+
+ Cristais
+
+
+ Essências
+
+
+ Couros
+
+
+ Ossos
+
+
+ Tecidos
+Todos esses materiais retornam ao sistema de Craft.
+________________
+
+
+93.4 — O CASTELO PARTICIPA
+Os castelos complementam esse sistema.
+Eles oferecem:
+* materiais exclusivos;
+* ingredientes territoriais;
+* componentes especiais.
+Mas não produzem tudo.
+O restante continua espalhado pelo mundo.
+Isso preserva a importância da exploração.
+________________
+
+
+93.5 — O MELHOR EQUIPAMENTO NÃO SURGE DO NADA
+Itens extremamente poderosos exigem uma combinação de fontes.
+Exemplo:
+MVP Mundial
+
+
+↓
+
+
+Coração de Dragão
+
+
++
+
+
+Castelo Vulcânico
+
+
+↓
+
+
+Liga Ígnea
+
+
++
+
+
+Dungeon Antiga
+
+
+↓
+
+
+Runa Perdida
+
+
+↓
+
+
+Espada Lendária
+Nenhuma atividade sozinha fornece tudo.
+________________
+
+
+93.6 — ESPECIALIZAÇÃO
+Cada jogador escolhe sua profissão principal.
+Isso cria identidade.
+Exemplo:
+"A melhor espada do servidor foi feita pelo Ferreiro Arkon."
+O equipamento passa a carregar também a reputação de quem o produziu.
+________________
+
+
+93.7 — ECONOMIA ENTRE JOGADORES
+Nem todo jogador deseja fabricar.
+Nem todo jogador deseja minerar.
+Nem todo jogador deseja explorar.
+Por isso surge naturalmente o comércio.
+Minerador
+
+
+↓
+
+
+Ferreiro
+
+
+↓
+
+
+Mercador
+
+
+↓
+
+
+Guerreiro
+Cada jogador participa de uma etapa diferente.
+________________
+
+
+93.8 — PROFISSÕES NÃO SUBSTITUEM COMBATE
+É possível viver principalmente da fabricação.
+Mas ainda será necessário obter materiais.
+Isso mantém PvE, exploração e Craft conectados.
+________________
+
+
+93.9 — QUALIDADE DOS ITENS
+O mesmo equipamento pode existir em diferentes qualidades.
+Exemplo:
+Espada Longa
+
+
+↓
+
+
+Comum
+
+
+↓
+
+
+Boa
+
+
+↓
+
+
+Excelente
+
+
+↓
+
+
+Obra-Prima
+A qualidade depende:
+* habilidade do artesão;
+* qualidade dos materiais;
+* receitas utilizadas.
+Isso valoriza o profissional, e não apenas a receita.
+________________
+
+
+93.10 — ASSINATURA DO ARTESÃO
+Itens produzidos por jogadores registram seu criador.
+Exemplo:
+Espada Longa
+
+
+Forjada por:
+
+
+Frank Murtes
+Essa assinatura permanece no item enquanto ele existir.
+Ela cria reputação para artesãos experientes.
+________________
+
+
+93.11 — REPAROS
+Equipamentos podem precisar de manutenção.
+Ferreiros e Armeiros podem realizar reparos.
+Isso mantém essas profissões relevantes mesmo quando a demanda por novos equipamentos diminui.
+PENDENTE: ainda não definimos se equipamentos terão durabilidade permanente, desgaste temporário ou outro sistema. Essa mecânica deve ser especificada antes de ser considerada oficial.
+________________
+
+
+93.12 — O CRAFT COMO ECONOMIA
+Todo o sistema forma um ciclo.
+Exploração
+
+
+↓
+
+
+Materiais
+
+
+↓
+
+
+Profissões
+
+
+↓
+
+
+Craft
+
+
+↓
+
+
+Mercado
+
+
+↓
+
+
+Gold
+
+
+↓
+
+
+Nova Exploração
+Esse ciclo mantém a economia ativa continuamente.
+________________
+
+
+93.13 — PRINCÍPIOS DO SISTEMA
+O Craft do Elysia Online segue quatro princípios:
+* depende da exploração;
+* incentiva a cooperação;
+* fortalece a economia entre jogadores;
+* mantém todas as profissões relevantes durante toda a vida do servidor.
+________________
+
+
+93.14 — DESIGN DECISION LOG
+DD-CRA-001 — O Craft é um dos pilares da economia do jogo.
+ Status: CONFIRMADO.
+DD-CRA-002 — Os melhores equipamentos exigem materiais provenientes de diferentes conteúdos do jogo.
+ Status: CONFIRMADO.
+DD-CRA-003 — Os castelos complementam o sistema de Craft, mas não substituem o mundo aberto.
+ Status: CONSOLIDAÇÃO.
+DD-CRA-004 — Itens produzidos por jogadores registram permanentemente o nome do artesão.
+ Status: NOVO / CONFIRMADO.
+DD-CRA-005 — O sistema de reparos permanece PENDENTE até a definição da mecânica de durabilidade dos equipamentos.
+ Status: PENDENTE.
+________________
+
+
+Próximo capítulo
+O próximo passo lógico é detalhar cada profissão individualmente, em vez de falar do Craft de forma genérica. Eu começaria por:
+* Capítulo 94 — Ferreiro
+* Capítulo 95 — Armeiro
+* Capítulo 96 — Alquimista
+* Capítulo 97 — Carpinteiro
+* Capítulo 98 — Alfaiate
+* Capítulo 99 — Joalheiro
+* Capítulo 100 — Encantador
+Assim, cada profissão teria sua própria árvore de progressão, receitas, materiais, especializações e papel na economia do Elysia.
+CAPÍTULO 95 — SISTEMA DE PROFISSÕES
+O Sistema de Profissões define como um personagem aprende, evolui e utiliza atividades de produção ao longo de sua jornada.
+As profissões não são uma classe de combate.
+Elas representam uma especialização econômica.
+Todo personagem pode exercer uma ou mais profissões, respeitando as regras estabelecidas neste sistema.
+________________
+
+
+95.1 — OBJETIVOS
+O sistema possui cinco objetivos:
+* fortalecer a economia entre jogadores;
+* incentivar especialização;
+* criar dependência comercial;
+* manter todas as profissões úteis;
+* evitar que um único personagem produza absolutamente tudo.
+________________
+
+
+95.2 — APRENDIZADO
+Cada profissão deve ser aprendida através de um Mestre da Profissão.
+Exemplo:
+Cidade
+
+
+↓
+
+
+Mestre Ferreiro
+
+
+↓
+
+
+Aprender Ferreiro
+Após o aprendizado, o personagem passa a evoluir naquela profissão.
+________________
+
+
+95.3 — EVOLUÇÃO
+As profissões possuem progressão própria.
+Ela é independente do nível de combate.
+Exemplo:
+Nível do Personagem
+
+
+125
+
+
+↓
+
+
+Ferreiro
+
+
+42
+
+
+↓
+
+
+Alquimista
+
+
+15
+Um personagem pode ser extremamente poderoso em combate e ainda ser um artesão iniciante.
+Da mesma forma, um jogador focado na economia pode atingir alto nível profissional mesmo sem buscar os maiores níveis de combate.
+________________
+
+
+95.4 — EXPERIÊNCIA DA PROFISSÃO
+As profissões evoluem através da prática.
+Exemplo:
+Fabricar
+
+
+↓
+
+
+Receber XP Profissional
+
+
+↓
+
+
+Subir nível da profissão
+
+
+↓
+
+
+Desbloquear novas receitas
+A progressão é baseada na atividade exercida, e não apenas no nível do personagem.
+________________
+
+
+95.5 — ESPECIALIZAÇÃO
+À medida que evolui, o personagem desbloqueia técnicas mais complexas.
+Essa progressão amplia suas possibilidades dentro da profissão.
+Exemplo:
+Ferreiro
+
+
+↓
+
+
+Equipamentos Simples
+
+
+↓
+
+
+Equipamentos Avançados
+
+
+↓
+
+
+Equipamentos Raros
+
+
+↓
+
+
+Equipamentos Lendários
+O acesso continua condicionado às receitas e aos materiais necessários.
+________________
+
+
+95.6 — PROFISSÕES PRINCIPAIS
+PENDENTE
+Ainda não definimos uma regra para o número de profissões por personagem.
+As alternativas são:
+Modelo A
+Um personagem aprende todas as profissões.
+Vantagens
+* menos dependência entre jogadores.
+Desvantagens
+* reduz significativamente a economia.
+________________
+
+
+Modelo B
+Cada personagem possui um número limitado de profissões principais.
+Vantagens
+* fortalece o comércio;
+* incentiva cooperação;
+* aumenta a especialização.
+________________
+
+
+Modelo C
+Profissões principais e secundárias.
+Exemplo:
+* 2 principais;
+* profissões secundárias de suporte.
+________________
+
+
+Status: PENDENTE.
+________________
+
+
+95.7 — TROCA DE PROFISSÃO
+PENDENTE
+Ainda não foi definido:
+* se uma profissão pode ser abandonada;
+* se a experiência profissional é perdida;
+* se existe algum custo para reaprendizá-la.
+Essa decisão influencia diretamente a economia.
+________________
+
+
+95.8 — RECEITAS
+Receitas são aprendidas separadamente da profissão.
+Um Ferreiro de alto nível não conhece automaticamente todas as receitas.
+Ele pode descobri-las através de:
+* exploração;
+* missões;
+* dungeons;
+* MVPs;
+* comerciantes;
+* eventos.
+Isso mantém a exploração relevante mesmo para artesãos experientes.
+________________
+
+
+95.9 — COOPERAÇÃO ENTRE PROFISSÕES
+Diversos itens exigem materiais produzidos por outras profissões.
+Exemplo:
+Ferreiro
+
+
+↓
+
+
+Espada
+
+
+↓
+
+
+Necessita
+
+
+↓
+
+
+Madeira (Carpinteiro)
+
+
+↓
+
+
+Couro (Curtidor)
+
+
+↓
+
+
+Liga Metálica (Ferreiro)
+Isso cria uma cadeia produtiva entre jogadores.
+________________
+
+
+95.10 — IDENTIDADE PROFISSIONAL
+Com o tempo, jogadores passam a ser conhecidos por seu trabalho.
+Exemplo:
+"Precisamos de um Ferreiro especializado em armas pesadas."
+ou
+"A melhor Alquimista do servidor está online."
+Essa reputação surge naturalmente pela qualidade dos itens produzidos.
+________________
+
+
+95.11 — MERCADO
+As profissões movimentam continuamente a economia.
+Exploração
+
+
+↓
+
+
+Coleta
+
+
+↓
+
+
+Profissões
+
+
+↓
+
+
+Craft
+
+
+↓
+
+
+Mercado
+
+
+↓
+
+
+Jogadores
+
+
+↓
+
+
+Nova Exploração
+Esse ciclo nunca se encerra enquanto houver jogadores ativos.
+________________
+
+
+95.12 — EQUILÍBRIO
+Nenhuma profissão deve dominar completamente outra.
+Todas devem possuir:
+* função própria;
+* mercado próprio;
+* importância própria.
+Assim, cada profissão permanece economicamente relevante.
+________________
+
+
+95.13 — DESIGN DECISION LOG
+DD-PROF-001 — Profissões possuem progressão independente do nível de combate.
+ Status: CONFIRMADO.
+DD-PROF-002 — Profissões evoluem através da prática e concedem acesso a novas receitas e técnicas.
+ Status: CONFIRMADO.
+DD-PROF-003 — Receitas são adquiridas separadamente do nível da profissão.
+ Status: CONFIRMADO.
+DD-PROF-004 — O limite de profissões por personagem permanece indefinido e deve ser decidido antes da implementação das profissões individuais.
+ Status: PENDENTE.
+DD-PROF-005 — As regras para abandonar ou trocar de profissão permanecem indefinidas.
+ Status: PENDENTE.
+________________
+
+
+Ponto que precisa de uma decisão antes de prosseguir
+Ao revisar toda a Bíblia reconstruída até agora, este é o principal ponto em aberto desse sistema:
+Quantas profissões um personagem pode ter ao mesmo tempo?
+Essa decisão impacta diretamente:
+* a economia entre jogadores;
+* o valor das profissões;
+* o comércio;
+* a importância das guildas;
+* o mercado do servidor.
+Vale a pena definir essa regra antes de escrever capítulos como Armeiro, Alquimista, Carpinteiro, Joalheiro e as demais, porque todas herdarão esse mesmo sistema.
+CAPÍTULO 96 — ÁRVORE DE PROFISSÕES
+As profissões do Elysia Online são divididas em diferentes áreas de atuação.
+Cada profissão possui um papel específico dentro da economia e nenhuma substitui completamente outra.
+O objetivo é criar uma cadeia produtiva onde jogadores dependem uns dos outros para fabricar os melhores equipamentos e consumíveis.
+________________
+
+
+96.1 — GRANDES CATEGORIAS
+As profissões podem ser organizadas em quatro grandes grupos.
+Profissões
+
+
+├── Coleta
+├── Transformação
+├── Produção
+└── Serviços
+Essa divisão facilita o entendimento da economia.
+________________
+
+
+96.2 — PROFISSÕES DE COLETA
+São responsáveis por obter matérias-primas diretamente do mundo.
+Exemplos:
+* Minerador;
+* Lenhador;
+* Herbalista;
+* Pescador;
+* Caçador.
+Essas profissões praticamente não fabricam equipamentos.
+Sua função é abastecer o restante da economia.
+________________
+
+
+96.3 — PROFISSÕES DE TRANSFORMAÇÃO
+Recebem matérias-primas e produzem componentes.
+Exemplo:
+Minério
+
+
+↓
+
+
+Barra de Ferro
+
+
+↓
+
+
+Liga Metálica
+Ou:
+Madeira Bruta
+
+
+↓
+
+
+Tábuas
+
+
+↓
+
+
+Cabos
+
+
+↓
+
+
+Componentes
+Esses componentes serão utilizados por outras profissões.
+________________
+
+
+96.4 — PROFISSÕES DE PRODUÇÃO
+São responsáveis pelos equipamentos finais.
+Exemplos:
+* Ferreiro;
+* Armeiro;
+* Carpinteiro;
+* Alfaiate;
+* Joalheiro.
+São elas que fabricam:
+* armas;
+* armaduras;
+* acessórios;
+* ferramentas.
+________________
+
+
+96.5 — PROFISSÕES DE SERVIÇO
+Não necessariamente criam equipamentos.
+Prestam serviços para outros jogadores.
+Exemplos:
+* Alquimista;
+* Encantador;
+* Cozinheiro.
+Essas profissões fabricam consumíveis ou melhoram equipamentos existentes.
+________________
+
+
+96.6 — DEPENDÊNCIA ENTRE PROFISSÕES
+Nenhuma profissão funciona completamente sozinha.
+Exemplo:
+Minerador
+
+
+↓
+
+
+Ferreiro
+
+
+↓
+
+
+Armeiro
+
+
+↓
+
+
+Guerreiro
+Outro exemplo:
+Herbalista
+
+
+↓
+
+
+Alquimista
+
+
+↓
+
+
+Poções
+
+
+↓
+
+
+Mercado
+Essa interdependência fortalece o comércio.
+________________
+
+
+96.7 — ESPECIALIZAÇÃO NATURAL
+Mesmo dois Ferreiros de alto nível podem seguir caminhos diferentes.
+Exemplo:
+Ferreiro
+
+
+├── Espadas
+├── Machados
+├── Lanças
+└── Escudos
+Ou:
+Alquimista
+
+
+├── Cura
+├── Buffs
+├── Venenos
+└── Utilidades
+PENDENTE: ainda não foi definido se essas especializações serão permanentes ou poderão ser alteradas.
+________________
+
+
+96.8 — ECONOMIA CIRCULAR
+Toda profissão alimenta outra.
+Coleta
+
+
+↓
+
+
+Transformação
+
+
+↓
+
+
+Produção
+
+
+↓
+
+
+Mercado
+
+
+↓
+
+
+Jogadores
+
+
+↓
+
+
+Nova Exploração
+Enquanto houver exploração, a economia permanece ativa.
+________________
+
+
+96.9 — PROFISSÕES E GUILDAS
+As guildas tornam-se centros naturais de produção.
+Um mesmo grupo pode reunir:
+* Mineradores;
+* Ferreiros;
+* Alquimistas;
+* Carpinteiros;
+* Joalheiros.
+Mesmo assim, nenhuma guilda consegue produzir tudo sem explorar o mundo ou negociar com outros jogadores.
+________________
+
+
+96.10 — O VALOR DO ARTESÃO
+A profissão representa investimento de longo prazo.
+Com o tempo:
+* receitas raras;
+* materiais exclusivos;
+* reputação;
+fazem determinados artesãos tornarem-se conhecidos em todo o servidor.
+O personagem passa a ser procurado não apenas pelo nível de combate, mas pela qualidade do seu trabalho.
+________________
+
+
+96.11 — DESIGN DECISION LOG
+DD-PROF-006 — As profissões são organizadas em quatro grupos: Coleta, Transformação, Produção e Serviços.
+ Status: NOVO.
+DD-PROF-007 — Nenhuma profissão é completamente autossuficiente.
+ Status: CONFIRMADO.
+DD-PROF-008 — O sistema econômico é baseado na cooperação entre profissões.
+ Status: CONFIRMADO.
+DD-PROF-009 — Especializações internas das profissões permanecem PENDENTES até definição das árvores de progressão.
+ Status: PENDENTE.
+________________
+
+
+Observação importante de design
+Ao reconstruir a Bíblia até este ponto, percebo uma oportunidade de melhorar a organização do GDD.
+Até agora usamos "Ferreiro" como exemplo de profissão, mas ainda não definimos oficialmente quais profissões existirão no Elysia Online. Antes de escrever capítulos específicos para Armeiro, Alquimista ou Carpinteiro, eu criaria um capítulo de referência contendo apenas a lista oficial de profissões do jogo.
+Esse capítulo serviria como índice do sistema de Craft e evitaria que novas profissões fossem surgindo sem planejamento.
+Por exemplo:
+* Minerador
+* Lenhador
+* Herbalista
+* Pescador
+* Caçador
+* Ferreiro
+* Armeiro
+* Carpinteiro
+* Alfaiate
+* Joalheiro
+* Alquimista
+* Encantador
+* Cozinheiro
+Depois disso, cada uma ganharia seu próprio capítulo detalhado, mantendo a Bíblia consistente e fácil de expandir.
+CAPÍTULO 97 — CATÁLOGO OFICIAL DE PROFISSÕES
+As profissões representam a base da economia do Elysia Online.
+Cada uma possui uma função específica dentro da cadeia produtiva.
+Nenhuma profissão existe apenas para gerar lucro individual.
+Todas participam da circulação de recursos entre jogadores.
+________________
+
+
+97.1 — ORGANIZAÇÃO DAS PROFISSÕES
+As profissões são divididas em quatro categorias.
+Profissões
+
+
+├── Coleta
+├── Transformação
+├── Produção
+└── Serviços
+Essa divisão facilita a compreensão do sistema econômico.
+________________
+
+
+97.2 — PROFISSÕES DE COLETA
+São responsáveis por retirar recursos diretamente do mundo.
+Minerador
+Especializado em:
+* ferro;
+* cobre;
+* prata;
+* ouro;
+* mithril;
+* minérios raros;
+* cristais minerais.
+Fornece matéria-prima principalmente para Ferreiros e Joalheiros.
+________________
+
+
+Lenhador
+Especializado em:
+* madeira;
+* troncos;
+* galhos especiais;
+* madeiras ancestrais.
+Abastece principalmente Carpinteiros.
+________________
+
+
+Herbalista
+Especializado em:
+* ervas;
+* flores;
+* cogumelos;
+* raízes;
+* plantas medicinais.
+Principal fornecedor dos Alquimistas.
+________________
+
+
+Pescador
+Obtém:
+* peixes;
+* frutos do mar;
+* algas;
+* ingredientes culinários.
+Fornece recursos para Cozinheiros e algumas receitas alquímicas.
+________________
+
+
+Caçador
+Obtém recursos de criaturas.
+Exemplos:
+* couro;
+* ossos;
+* presas;
+* escamas;
+* penas;
+* chifres;
+* órgãos especiais.
+Esses materiais abastecem diversas profissões.
+________________
+
+
+97.3 — PROFISSÕES DE TRANSFORMAÇÃO
+Recebem matérias-primas e produzem componentes.
+Fundidor
+Especializado em:
+* barras;
+* ligas metálicas;
+* metais refinados.
+Abastece Ferreiros.
+________________
+
+
+Curtidor
+Transforma:
+* couro bruto;
+* peles;
+* escamas.
+Produz componentes para Alfaiates e Armeiros.
+________________
+
+
+Serralheiro da Madeira
+Processa:
+* tábuas;
+* cabos;
+* estruturas de madeira.
+Fornece componentes para Carpinteiros.
+________________
+
+
+97.4 — PROFISSÕES DE PRODUÇÃO
+Fabricam equipamentos permanentes.
+Ferreiro
+Produz:
+* espadas;
+* machados;
+* lanças;
+* maças;
+* escudos metálicos;
+* ferramentas.
+________________
+
+
+Armeiro
+Especializado em:
+* armaduras pesadas;
+* elmos;
+* grevas;
+* manoplas.
+________________
+
+
+Carpinteiro
+Produz:
+* arcos;
+* bestas;
+* cajados;
+* escudos leves;
+* móveis;
+* estruturas de madeira.
+________________
+
+
+Alfaiate
+Produz:
+* roupas;
+* mantos;
+* vestimentas mágicas;
+* bolsas;
+* mochilas.
+________________
+
+
+Joalheiro
+Produz:
+* anéis;
+* amuletos;
+* colares;
+* engastes.
+Também trabalha com gemas.
+________________
+
+
+97.5 — PROFISSÕES DE SERVIÇO
+Produzem itens consumíveis ou aprimoram equipamentos.
+Alquimista
+Produz:
+* poções;
+* elixires;
+* venenos;
+* reagentes.
+________________
+
+
+Encantador
+Especializado em:
+* encantamentos;
+* melhorias mágicas;
+* runas.
+Seu trabalho complementa equipamentos produzidos por outras profissões.
+________________
+
+
+Cozinheiro
+Produz:
+* alimentos;
+* refeições;
+* bebidas não alcoólicas;
+* buffs alimentares.
+________________
+
+
+97.6 — INTERAÇÃO ENTRE PROFISSÕES
+Nenhuma profissão trabalha isoladamente.
+Minerador
+      │
+      ▼
+Fundidor
+      │
+      ▼
+Ferreiro
+      │
+      ▼
+Encantador
+      │
+      ▼
+Jogador
+Outro exemplo:
+Caçador
+      │
+      ▼
+Curtidor
+      │
+      ▼
+Alfaiate
+      │
+      ▼
+Mercado
+Esse fluxo cria dependência econômica saudável entre os jogadores.
+________________
+
+
+97.7 — PROFISSÕES E EXPLORAÇÃO
+Todas as profissões dependem da exploração do mundo.
+Os melhores materiais continuam sendo obtidos em:
+* continentes;
+* dungeons;
+* castelos;
+* MVPs;
+* eventos;
+* chefes mundiais.
+Assim, o Craft permanece conectado ao restante do jogo.
+________________
+
+
+97.8 — EXPANSÃO FUTURA
+A lista oficial de profissões poderá crescer com futuras expansões.
+Novas profissões deverão integrar-se à cadeia produtiva existente, evitando funções redundantes.
+________________
+
+
+97.9 — DESIGN DECISION LOG
+DD-PROF-010 — As profissões oficiais são organizadas em quatro categorias: Coleta, Transformação, Produção e Serviços.
+ Status: NOVO.
+DD-PROF-011 — Cada profissão possui uma função específica dentro da cadeia produtiva.
+ Status: CONFIRMADO.
+DD-PROF-012 — Nenhuma profissão substitui completamente outra; a economia depende da cooperação entre elas.
+ Status: CONFIRMADO.
+DD-PROF-013 — A obtenção dos melhores materiais continua ligada à exploração do mundo, castelos, dungeons e eventos.
+ Status: CONFIRMADO.
+________________
+
+
+Observação importante (PENDENTE)
+Ao revisar todo o sistema reconstruído até aqui, existe um ponto que ainda não foi definido nas conversas anteriores e que precisa ser decidido antes da implementação:
+Quem pode exercer cada profissão?
+Ainda faltam respostas para perguntas como:
+* Um personagem pode aprender profissões de coleta e de produção simultaneamente?
+* A profissão de Fundidor deve existir separadamente ou ser uma habilidade do Ferreiro?
+* O Curtidor deve ser uma profissão independente ou uma especialização do Alfaiate?
+* O Serralheiro da Madeira deve existir ou esse processamento pertence ao Carpinteiro?
+Como essas decisões não aparecem definidas no material reconstruído até agora, elas permanecem PENDENTES. O ideal é resolvê-las antes de escrever os capítulos individuais das profissões, para evitar retrabalho e manter toda a Bíblia consistente
+
+
+Atualização da Bíblia
+DD-PROF-004 — Limite de Profissões
+Status: CONFIRMADO
+Todo personagem pode aprender todas as profissões do jogo.
+Não existe limite de profissões por personagem.
+A limitação é o tempo necessário para evoluir cada uma delas, obter receitas raras e reunir os materiais exigidos.
+________________
+
+
+DD-PROF-014 — Especialização Natural
+Status: CONFIRMADO
+Embora qualquer personagem possa aprender qualquer profissão, a escolha da classe influencia naturalmente quais profissões o jogador tende a desenvolver primeiro, devido aos equipamentos específicos de cada classe.
+________________
+
+
+DD-PROF-015 — Profissões Autossuficientes
+Status: CONFIRMADO
+Cada profissão principal executa todo o seu processo de produção, desde o refinamento básico das matérias-primas até a fabricação do item final. Etapas intermediárias, como fundição de metais ou processamento inicial da madeira, fazem parte da própria profissão e não exigem uma profissão separada.
+________________
+
+
+Na prática, isso também reduz a quantidade de NPCs mestres, diminui a complexidade do sistema e mantém a economia forte, porque o verdadeiro gargalo continuará sendo conseguir materiais raros, receitas, tempo de evolução e experiência profissional, e não uma limitação artificial de profissões.
+DECISÕES OFICIAIS
+1. Gemas
+Status: REMOVIDO
+O Elysia Online não possui sistema de gemas.
+Não existem:
+* Rubi
+* Safira
+* Diamante
+* Esmeralda
+* Slots para gemas
+A personalização dos equipamentos será feita através de:
+* atributos naturais do item;
+* encantamentos;
+* qualidade da forja;
+* raridades.
+Isso reduz a complexidade e evita um sistema que acaba parecendo obrigatório em muitos MMORPGs.
+________________
+
+
+2. Durabilidade
+Status: CONFIRMADO
+Todo equipamento abaixo da raridade Lendária possui durabilidade.
+Quando a durabilidade chega a zero:
+* o item não quebra;
+* o item permanece equipado;
+* o item perde sua eficiência até ser reparado.
+Após o reparo:
+* volta a 100% de eficiência;
+* recupera toda a durabilidade.
+O reparo não reduz a durabilidade máxima.
+________________
+
+
+Equipamentos Lendários
+Equipamentos Lendários:
+* não perdem durabilidade;
+* nunca precisam de reparo.
+Isso reforça o valor de possuir um item lendário sem torná-lo necessariamente o mais forte em todos os aspectos.
+________________
+
+
+3. Encantamentos
+Status: CONFIRMADO
+Cada equipamento pode possuir apenas um encantamento elemental.
+Exemplos:
+* Fogo
+* Gelo
+* Raio
+* Terra
+* Luz
+* Sombras
+Características:
+* apenas um encantamento por item;
+* pode ser removido;
+* remover custa caro;
+* aplicar custa caro.
+Assim o jogador pensa bem antes de alterar um equipamento.
+________________
+
+
+4. Craft Lendário
+Aqui eu acho que encontramos uma ideia muito interessante.
+Ao invés do boss simplesmente dropar uma Espada Lendária pronta...
+...ele pode dropar:
+Fragmentos Lendários.
+Exemplo:
+Dragão Ancestral
+
+
+↓
+
+
+Fragmento Lendário
+
+
+(baixa chance)
+Quando o jogador reúne a quantidade necessária:
+100 Fragmentos
+
+
+↓
+
+
+Forja Lendária
+
+
+↓
+
+
+Equipamento Lendário Aleatório
+O equipamento gerado pode ser:
+* espada;
+* arco;
+* machado;
+* cajado;
+* lança;
+* armadura;
+* escudo;
+* etc.
+Além disso, ele nasce com características aleatórias:
+* com ou sem slot;
+* com ou sem atributo;
+* qualidade variável;
+* aparência variável dentro do mesmo modelo.
+Isso evita que todos os jogadores "farmem exatamente a mesma espada" e adiciona expectativa ao processo.
+________________
+
+
+Uma sugestão para evitar frustração
+Em vez de "100 Fragmentos de Espada", eu usaria apenas Fragmentos Lendários Universais.
+Assim:
+Fragmento Lendário
+
+
+↓
+
+
+100 Fragmentos
+
+
+↓
+
+
+Escolhe a categoria
+
+
+↓
+
+
+Espada
+
+
+↓
+
+
+Forja
+
+
+↓
+
+
+Espada Lendária Aleatória
+O jogador escolhe a categoria (espada, arco, armadura...), mas os atributos específicos continuam aleatórios. Isso reduz a sensação de desperdício para quem joga sempre com a mesma classe.
+________________
+
+
+5. Sistema de Correio
+Também gostei da direção.
+O correio teria apenas três funções:
+* transferências de ouro;
+* entrega de compras do Marketplace;
+* envio de pacotes entre jogadores.
+Nada de armazenar equipamentos indefinidamente.
+________________
+
+
+6. Banco (Depósito)
+Aqui eu faria uma pequena alteração.
+Você quer que a casa tenha utilidade.
+Concordo.
+Então:
+Banco
+* espaço pequeno;
+* expansível pagando muito ouro;
+* pensado para itens importantes;
+* não substitui uma casa.
+Casa
+* armazenamento praticamente ilimitado;
+* baús;
+* organização;
+* decoração.
+Se o aluguel vencer:
+A casa fecha.
+Os itens não são perdidos.
+Eles entram em um estado chamado:
+Armazenamento Lacrado.
+O jogador não consegue retirar absolutamente nada até pagar novamente o aluguel ou adquirir outra residência.
+Isso resolve vários problemas:
+* ninguém perde anos de progresso;
+* continua existindo o incentivo para manter uma casa;
+* evita abusos.
+________________
+
+
+7. Mochilas
+Eu manteria algo assim.
+Cada mochila possui:
+* capacidade em peso;
+* quantidade de compartimentos.
+Exemplo:
+Mochila
+	Peso
+	Compartimentos
+	Pequena
+	200
+	20
+	Média
+	500
+	40
+	Grande
+	1000
+	60
+	Viajante
+	1500
+	80
+	Mochilas especiais podem existir.
+Exemplo:
+Bolsa de Runas
+Bolsa de Minérios
+Bolsa de Ervas
+Elas reduzem o peso efetivo daquele tipo de item ou permitem uma organização melhor, sem aumentar a capacidade universal.
+________________
+
+
+8. Pesca
+Acho que ela pode ser simples e divertida.
+Categorias:
+* Peixes comuns
+* Peixes incomuns
+* Peixes raros
+* Peixes épicos
+* Peixes lendários
+Os peixes podem servir para:
+* culinária;
+* missões;
+* coleções;
+* venda.
+E ocasionalmente o jogador pode pescar itens curiosos, como:
+* baús;
+* garrafas;
+* mapas;
+* chaves antigas;
+* materiais.
+Isso torna a pesca interessante mesmo para quem não cozinha.
+________________
+
+
+9. Culinária
+Concordo com os buffs.
+Eles nunca substituem poções.
+Exemplos:
+* Vida máxima
+* Mana máxima
+* Regeneração
+* Ataque
+* Defesa
+* Velocidade de ataque
+* Velocidade de movimento
+* Resistência elemental
+A comida fornece bônus duradouros, enquanto as poções oferecem efeitos imediatos.
+________________
+
+
+10. Montarias
+Essa ideia ficou excelente.
+A raridade determina principalmente:
+* velocidade;
+* aparência;
+* valor.
+Exemplo:
+Comum
+↓
+Rara
+↓
+Épica
+↓
+Lendária
+Até a raridade Épica podem existir vendedores especializados. As montarias Lendárias, por outro lado, só podem ser obtidas por conteúdos especiais, como chefes, eventos ou conquistas raras. Isso faz com que encontrá-las no mundo seja algo memorável.
+________________
+
+
+O que sobra como prioridade
+Depois dessa conversa, a Bíblia praticamente encerrou todos os sistemas econômicos.
+Na minha opinião, restam três blocos gigantes:
+1. Mapa do mundo (continentes, cidades, biomas, rotas, castelos, dungeons).
+2. Lore completa (cronologia, história das guerras, reinos, deuses, facções e personagens importantes).
+3. Combate (habilidades, magias, armas, elementos, efeitos de status e balanceamento).
+Esses três blocos provavelmente representarão a maior parte da Bíblia do Elysia Online. A partir deles, poderemos construir praticamente todo o conteúdo restante do jogo de forma consistente.
+
+
+Essa é provavelmente a decisão mais importante do jogo inteiro.
+O mapa define o ritmo do MMORPG pelos próximos anos. Se ele for pequeno, em seis meses todo mundo conhece tudo. Se for gigantesco, o servidor fica vazio e os jogadores nunca se encontram.
+Para um servidor de 500 jogadores simultâneos, eu não faria um mapa do tamanho do Tibia atual. Também não faria algo pequeno como Ragnarok. Eu ficaria em um meio-termo, onde sempre existe algo novo para explorar, mas os jogadores ainda se cruzam com frequência.

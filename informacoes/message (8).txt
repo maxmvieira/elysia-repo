@@ -1,0 +1,347 @@
+ELYSIA ONLINE
+COMBAT & BALANCE BIBLE v1.0
+Filosofia
+
+O nível representa experiência.
+
+Mas experiência não vence sozinha.
+
+O resultado de uma luta depende de:
+
+Classe
+Atributos
+Equipamentos
+Cartas
+Talentos
+Proficiência
+Conhecimento do jogador
+Posicionamento
+
+Nunca apenas do nível.
+
+O QUE O NÍVEL REPRESENTA
+
+Cada nível concede apenas:
+
+5 pontos de atributo
+1 ponto de vida
+pequena quantidade de mana
+progresso para talentos
+
+O nível não multiplica dano diretamente.
+
+Isso evita que um personagem fique absurdamente forte apenas porque ganhou níveis.
+
+Curva de Poder
+
+A força cresce de forma desacelerada.
+
+Exemplo ilustrativo:
+
+Nível	Poder aproximado
+1	1
+10	3
+25	8
+50	18
+100	40
+200	75
+500	170
+1000	300
+
+Veja que o nível 100 não é quatro vezes mais forte que o 50.
+
+Ele é cerca de duas vezes.
+
+Isso mantém o PvP saudável.
+
+Regra de Ouro
+
+Um jogador extremamente habilidoso deve conseguir vencer alguém alguns níveis acima.
+
+Mas...
+
+Nunca alguém centenas de níveis acima.
+
+Relações Esperadas
+
+Esse seria o alvo do balanceamento.
+
+PvP
+
+Nível 25
+
+≈
+
+50% de um nível 50
+
+Dois nível 25
+
+↓
+
+Conseguem enfrentar
+
+↓
+
+Um nível 50.
+
+Nível 50
+
+↓
+
+≈
+
+50% de um nível 100.
+
+Dois nível 50
+
+↓
+
+Conseguem enfrentar
+
+↓
+
+Um nível 100.
+
+Quatro nível 25
+
+↓
+
+Conseguem enfrentar
+
+↓
+
+Um nível 100.
+
+Esse é exatamente o exemplo que você citou, e eu acho um excelente objetivo de design.
+
+Combate em Grupo
+
+O jogo deve favorecer cooperação.
+
+Cinco jogadores organizados devem derrotar um jogador muito superior se ele cometer erros.
+
+Isso impede que um personagem se torne "invencível".
+
+Soft Cap de Atributos
+
+Outro ponto importante.
+
+Não faria atributos crescerem infinitamente.
+
+Exemplo:
+
+Strength
+
+0 → 100
+
+ganho excelente.
+
+100 → 200
+
+ganho bom.
+
+200 → 300
+
+ganho menor.
+
+300+
+
+ganho pequeno.
+
+Não é um limite.
+
+É retorno decrescente.
+
+Assim ninguém coloca tudo em força e vira um "monstro".
+
+Crítico
+
+Também teria retorno decrescente.
+
+Exemplo:
+
+0%
+
+↓
+
+30%
+
+ganho normal.
+
+30%
+
+↓
+
+50%
+
+mais difícil.
+
+50%
+
+↓
+
+70%
+
+muito caro.
+
+Nunca permitir:
+
+100% crítico.
+
+Esquiva
+
+Mesmo princípio.
+
+Jamais permitir um personagem impossível de acertar.
+
+Sempre existe chance de ser atingido.
+
+Defesa
+
+Jamais reduz dano a zero.
+
+Exemplo:
+
+Mesmo a melhor armadura do jogo nunca impede completamente o dano.
+
+Sempre existe um dano mínimo.
+
+Isso evita personagens imortais.
+
+Resistências
+
+Mesmo conceito.
+
+Nenhuma resistência chega a:
+
+100%.
+
+Máximo prático:
+
+75~80%.
+
+Assim magias continuam relevantes.
+
+Velocidade
+
+Outro erro comum.
+
+Nunca deixar velocidade crescer indefinidamente.
+
+Existe um limite de animação e movimentação.
+
+Depois disso, investir em velocidade rende benefícios menores.
+
+Build Diversificada
+
+O jogador nunca conseguirá maximizar tudo.
+
+Exemplo:
+
+Você quer:
+
+muito dano;
+muita defesa;
+muita velocidade;
+muito crítico;
+muita vida.
+
+Não será possível.
+
+Será necessário abrir mão de alguma coisa.
+
+Pedra, Papel e Tesoura
+
+Nenhuma classe vence todas.
+
+Guerreiro
+
+Vantagens:
+
+Alta resistência.
+Controle de área.
+Bom contra Assassinos.
+
+Desvantagens:
+
+Sofre para Arqueiros bem posicionados.
+Pode ser controlado por Feiticeiros.
+Arqueiro
+
+Vantagens:
+
+Excelente dano à distância.
+Mobilidade.
+
+Desvantagens:
+
+Sofre quando encurralado.
+Depende de espaço.
+Assassino
+
+Vantagens:
+
+Elimina rapidamente alvos frágeis.
+Grande mobilidade.
+
+Desvantagens:
+
+Morre rapidamente se errar a execução.
+Feiticeiro
+
+Vantagens:
+
+Alto dano em área.
+Controle.
+
+Desvantagens:
+
+Baixa resistência.
+Dependência de mana e posicionamento.
+Equipamentos
+
+Os equipamentos aumentam o potencial.
+
+Nunca multiplicam absurdamente o personagem.
+
+Exemplo:
+
+Uma espada lendária não pode dobrar o dano.
+
+Ela deve oferecer algo como:
+
++12% dano
++5% crítico
+habilidade única
+um slot extra de carta
+
+O conjunto do personagem faz a diferença, não um único item.
+
+O maior problema dos MMORPGs
+
+A maioria cria uma situação onde:
+
+O nível 500 derrota vinte jogadores nível 100 sem esforço.
+
+Eu evitaria isso.
+
+No Elysia, um personagem extremamente evoluído é uma ameaça enorme, mas ainda precisa respeitar grupos organizados, controle de terreno, posicionamento e gerenciamento de recursos.
+
+Sistema de Poder Alvo (Target Power)
+
+Em vez de balancear "nível por nível", eu criaria uma métrica interna invisível chamada Poder Efetivo.
+
+Ela considera simultaneamente:
+
+atributos;
+qualidade dos equipamentos;
+cartas equipadas;
+talentos;
+proficiências;
+nível de maestria das magias.
+
+Ela não aparece para o jogador. É uma ferramenta para os desenvolvedores.
+
+Sempre que uma nova magia, equipamento ou carta for criada, ela será simulada contra milhares de combinações. Se uma única build ultrapassar o limite de poder esperado para sua faixa, ela será ajustada antes de chegar ao jogo.
+
+Esse tipo de balanceamento preventivo é muito mais eficiente do que depender apenas de feedback da comunidade e reduz bastante o risco de surgir um "personagem quebrado". Acho que esse pode ser um dos maiores diferenciais do Elysia: um sistema em que quase todas as builds são viáveis, mas nenhuma domina todas as outras.

@@ -1,0 +1,36 @@
+jul. 23, 2026
+Reunião em 23 de jul. de 2026 às 18:53 GMT-03:00
+
+
+Resumo
+Reunião definiu mecânicas de moradia e sistemas de guilda para o desenvolvimento do jogo sandbox.
+
+Sistemas de Moradia Dinâmicos
+Implementação confirmada de residências fortificáveis para 500 jogadores, permitindo aluguel, defesa com guardas e pontos de respawn personalizados. Invasões bem-sucedidas permitirão roubo de bandeiras de propriedade e saques limitados.
+
+Infraestrutura de Guildas
+Castelos de guildas funcionarão como mini-cidades seguras, exceto durante dias de guerra agendados. Guardas regionais protegerão membros, mas negarão refúgio a jogadores marcados como assassinos.
+
+Design e Filosofia Alpha
+O design sandbox de Elise Online prioriza economia gerida por jogadores sem resets sazonais. O sistema inclui penalidades severas por morte, classes fixas e progressão baseada em atributos.
+
+
+Próximas etapas
+[Frank Murtes] Enviar TXT: Enviar o arquivo TXT com o resumo das ideias sobre o jogo para o Max através do Discord.
+[Max] Enviar Transcrição: Enviar a transcrição desta reunião por e-mail para o Frank Murtes assim que o processamento for concluído.
+[Frank Murtes] Analisar Ideias: Analisar e compilar as ideias do documento de design com as novas sugestões sobre o sistema de moradia e guildas enviando tudo para o GPT.
+[Max] Salvar Documento: Salvar o documento atualizado na pasta compartilhada após a edição final.
+
+
+Detalhes
+Sistema de Moradias (Raid e Fortificação): O jogo contará com casas distribuídas aleatoriamente pelo mundo, em servidores com capacidade para 500 jogadores. Os jogadores poderão alugar essas residências e fortificá-las para impedir invasões, com níveis de proteção variando de 1 a 5, exigindo ouro para a melhoria. É possível alocar até três guardas por casa para defesa, e, caso sejam derrotados, eles concedem experiência e itens ao invasor. O PvP é ativado automaticamente assim que o invasor desfere o primeiro golpe na estrutura, sendo que, ao matar o guarda, isso não será contabilizado como uma morte injustificada, mas o combate permanece ativo durante a tentativa de invasão.
+Mecânicas de Invasão e Bandeiras de Propriedade: Durante uma invasão bem-sucedida, o atacante terá um tempo limitado — sugerido como uma hora — para coletar itens antes que o conteúdo da casa seja limpo e ela fique disponível para um novo aluguel. Max e Frank Murtes discutiram a implementação de uma "bandeira" de propriedade, inspirada no jogo *SCUM*, que funcionaria como um item chave que o jogador deve manter em um baú; caso um invasor roube essa bandeira, eles poderiam vender o item ou usá-lo para tomar acesso à moradia.
+Gestão de Armazenamento e Respawn: As casas servirão como o principal local de armazenamento para equipamentos e materiais, enquanto o banco (DP) será destinado a itens essenciais, garantindo que o jogador não fique desamparado caso perca a casa. Foi sugerida a necessidade de quebrar cada baú individualmente dentro da residência para acessar os itens. Além disso, a casa funcionará como um ponto de respawn personalizado, permitindo que, ao morrer, o jogador renasça em sua residência em vez do templo, com a opção de selecionar qual casa utilizar caso possuam mais de uma.
+Processo de Aluguel e Manutenção: A localização das casas será marcada no mapa após o aluguel, que deve ser realizado em prefeituras ou áreas designadas das cidades. O valor do aluguel será deduzido automaticamente do banco do jogador. Caso o pagamento não seja efetuado, a casa poderá ficar aberta para outros jogadores ou disponível para novo aluguel, reforçando a necessidade de manter a moradia regularizada.
+Funcionalidades de Ofício e Segurança: Para evitar a necessidade de deslocamento constante às cidades, o grupo discutiu a adição de estações de ofício, como forjas, dentro das casas para que os jogadores possam fortificar equipamentos no local. Adicionalmente, foi considerada a criação de um sistema de alerta para o proprietário — via e-mail, SMS ou notificação no celular — no momento em que a residência estiver sendo atacada, permitindo que o jogador se conecte ao jogo para defender sua propriedade.
+Sistema de Guildas e Castelos: Cada guilda terá um castelo funcionando como uma mini-cidade, contendo ferreiros, bancos e áreas seguras para treinamento e desenvolvimento de jogadores iniciantes. Essas regiões serão zonas de paz, com exceção dos dias de guerra entre guildas, que ocorrerão de dois a três dias por semana. Os guardas dos castelos protegerão os membros da guilda, mas ignorarão qualquer jogador que esteja marcado como PK (Player Killer), impedindo que infratores utilizem a área como proteção.
+Revisão da Filosofia e Design de "Elise Online": Max realizou a leitura do documento de design (Alpha) de *Elise Online*, confirmando que o jogo será um MMORPG sandbox sem telas de carregamento, temporadas ou resets, com economia gerida por jogadores. O mundo contará com biomas variados, classes fixas (guerreiro, arqueiro, assassino, feiticeiro) e um sistema de evolução onde cada nível concede pontos de atributo e talentos. O documento estabelece penalidades severas de morte, incluindo perda de experiência, níveis, atributos e itens, bem como um sistema de reputação e missões de caça opcionais que não bloqueiam a progressão do jogador.
+
+
+Revise as anotações do Gemini para checar se estão corretas. Confira dicas e saiba como o Gemini faz anotações
+Como está a qualidade de destas observações? Responda a uma breve pesquisa para nos dar seu feedback, incluindo o quanto as observações foram úteis para o que você precisa.

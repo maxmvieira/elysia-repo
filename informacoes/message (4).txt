@@ -1,0 +1,487 @@
+ELYSIA ONLINE
+RPG SYSTEM BIBLE v1.0
+FILOSOFIA
+
+O personagem não é definido apenas pelo nível.
+
+O poder do jogador é resultado da combinação de:
+
+Classe
+Atributos
+Equipamentos
+Cartas
+Talentos
+Proficiência em armas
+Conhecimento do jogador
+
+Dois personagens de mesmo nível podem ser completamente diferentes.
+
+CLASSES
+
+Existem apenas quatro classes permanentes.
+
+Não existem subclasses.
+
+A personalização vem da árvore de talentos.
+
+Guerreiro
+
+Especialidade
+
+Combate corpo a corpo
+Defesa
+Escudos
+Espadas
+Machados
+Maças
+
+Função
+
+Tank / DPS
+
+Equipamentos
+
+Armadura Pesada
+Armadura Média
+Escudos
+Espadas
+Machados
+Maças
+Arqueiro
+
+Especialidade
+
+Ataque à distância
+Armadilhas
+Mobilidade
+
+Equipamentos
+
+Arcos
+Bestas
+Adagas
+
+Armaduras
+
+Leves
+Médias
+Assassino
+
+Especialidade
+
+Dano explosivo
+Crítico
+Veneno
+Invisibilidade
+
+Equipamentos
+
+Adagas
+Espadas Curtas
+
+Armaduras
+
+Leves
+
+Feiticeiro
+
+Especialidade
+
+Magias
+Controle
+Invocações
+
+Equipamentos
+
+Cajados
+Varinhas
+Grimórios
+
+Armaduras
+
+Roupas Mágicas
+
+ATRIBUTOS
+
+Todo nível concede:
+
+5 Pontos de Atributo
+Strength
+
+Aumenta
+
+Dano físico
+Capacidade de carga
+Dano com espadas
+Dano com machados
+Dano com maças
+Dexterity
+
+Aumenta
+
+Precisão
+Crítico
+Arcos
+Bestas
+Adagas
+Vitality
+
+Aumenta
+
+Vida
+Defesa
+Resistência
+Intelligence
+
+Aumenta
+
+Dano mágico
+Mana
+Aprendizado mágico
+Wisdom
+
+Aumenta
+
+Regeneração de Mana
+Resistências Mágicas
+Cura
+Agility
+
+Aumenta
+
+Velocidade
+Esquiva
+Ataque
+PROFICIÊNCIAS
+
+Sobem usando a arma.
+
+Nunca treinando parado.
+
+Espada
+
+0–200
+
+Machado
+
+0–200
+
+Maça
+
+0–200
+
+Adaga
+
+0–200
+
+Arco
+
+0–200
+
+Besta
+
+0–200
+
+Punhos
+
+0–200
+
+Magia
+
+0–200
+
+Quanto maior a proficiência:
+
+mais dano
+mais precisão
+novas técnicas passivas
+menor consumo de stamina para ataques especiais
+NÍVEIS
+
+Sem limite máximo.
+
+Após determinado ponto, a experiência cresce exponencialmente.
+
+Exemplo:
+
+1
+
+10 XP
+
+2
+
+30 XP
+
+3
+
+60 XP
+
+...
+
+100
+
+milhões
+
+500
+
+bilhões
+
+1000
+
+quase inalcançável
+
+Assim, sempre há evolução, mas alcançar níveis extremos é um feito histórico.
+
+TALENTOS
+
+Cada 5 níveis:
+
+1 Talent Point
+
+Cada classe possui três especializações principais.
+
+Guerreiro
+Guardião
+Berserker
+Duelista
+Arqueiro
+Caçador
+Atirador de Elite
+Patrulheiro
+Assassino
+Sombras
+Veneno
+Executor
+Feiticeiro
+Elemental
+Arcano
+Invocador
+
+As árvores podem ser combinadas livremente.
+
+MAGIAS
+
+As magias não são aprendidas automaticamente.
+
+Elas são obtidas por:
+
+Livros
+NPCs
+Missões
+Chefes
+Exploração
+Eventos
+Raridade
+
+Comum
+
+Incomum
+
+Rara
+
+Épica
+
+Lendária
+
+Proibida
+
+Escolas
+
+Fogo
+
+Gelo
+
+Terra
+
+Ar
+
+Raio
+
+Luz
+
+Trevas
+
+Natureza
+
+Arcana
+
+Invocação
+
+Cada escola possui dezenas de feitiços, permitindo que dois feiticeiros sigam caminhos completamente diferentes.
+
+EQUIPAMENTOS
+Qualidade
+
+Comum
+
+Incomum
+
+Raro
+
+Épico
+
+Lendário
+
+Mítico
+
+Relíquia
+
+Slots
+
+Capacete
+
+Armadura
+
+Calças
+
+Botas
+
+Luvas
+
+Cinto
+
+Amuleto
+
+Anel 1
+
+Anel 2
+
+Brinco 1
+
+Brinco 2
+
+Capa
+
+Arma Principal
+
+Arma Secundária
+
+Escudo (quando aplicável)
+
+Total: 15 slots de equipamento, oferecendo bastante espaço para personalização sem tornar a interface excessivamente complexa.
+
+CARTAS
+
+Somente Chefes derrubam cartas.
+
+Cada chefe possui exatamente uma carta exclusiva.
+
+Slots de cartas
+
+Arma
+
+2
+
+Capacete
+
+1
+
+Peitoral
+
+2
+
+Calças
+
+1
+
+Botas
+
+1
+
+Escudo
+
+1
+
+Total
+
+8 cartas equipadas
+
+Exemplos
+
+Carta do Rei Escorpião
+
++15% dano contra insetos
+
+Carta do Conde Draven
+
++5% roubo de vida
+
+Carta do Dragão Ancião
+
++8% dano de fogo
+
+Carta da Rainha Aracnídea
+
+Imunidade parcial a veneno
+
+Carta do Kraken
+
++20% velocidade na água
+
+As cartas devem alterar o estilo de jogo, não apenas fornecer aumento de atributos.
+
+ENCANTAMENTOS
+
+Todo equipamento raro ou superior pode receber encantamentos.
+
+Exemplos:
+
++Vitalidade
++Mana
++Ataque
++Velocidade
++Chance Crítica
++Resistência ao Gelo
++Resistência ao Fogo
++Geração de Ameaça
++Dano contra Mortos-vivos
++Eficiência de Cura
+DURABILIDADE
+
+Os itens perdem durabilidade com o uso.
+
+Ao chegar a 0:
+
+não desaparecem;
+têm seus atributos reduzidos até serem reparados.
+
+Isso mantém profissões como ferreiro relevantes e evita a frustração de perder um equipamento raro.
+
+ECONOMIA
+
+Os melhores equipamentos são produzidos por jogadores.
+
+Chefes fornecem:
+
+materiais raros;
+cartas;
+componentes lendários.
+
+Isso mantém a economia girando entre aventureiros, artesãos e comerciantes.
+
+SISTEMA DE SETS
+
+Alguns equipamentos pertencem a conjuntos temáticos.
+
+Exemplo:
+
+Conjunto do Caçador das Sombras
+
+2 peças: +5% velocidade de ataque
+4 peças: +10% dano crítico
+6 peças: habilidade exclusiva "Passos Silenciosos"
+
+Os bônus nunca devem tornar um conjunto obrigatório; eles oferecem estilos de jogo diferentes, não um único caminho ideal.
+
+FILOSOFIA DE BALANCEAMENTO
+
+Nenhuma classe deve dominar todas as situações.
+
+O Guerreiro resiste mais, mas sofre contra inimigos que exigem mobilidade.
+O Arqueiro controla distância, mas depende de posicionamento.
+O Assassino elimina alvos rapidamente, porém é vulnerável em confrontos prolongados.
+O Feiticeiro possui grande poder mágico, mas requer gerenciamento de mana e proteção.
+
+O objetivo é que o jogador escolha sua classe por afinidade com seu estilo de jogo, e não porque ela é numericamente superior às demais.
+
+Esse documento servirá como a base para praticamente todos os sistemas de combate e progressão do Elysia. A partir dele, o próximo passo natural é elaborar um Combat Bible, detalhando fórmulas de dano, cura, crítico, esquiva, ameaças, IA dos monstros, PvP e habilidades específicas de cada classe. Esse documento fecharia o núcleo de gameplay do jogo.

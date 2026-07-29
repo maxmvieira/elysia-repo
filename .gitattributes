@@ -1,0 +1,27 @@
+# Normaliza finais de linha. Sem isto, duas máquinas Windows com configurações
+# diferentes de core.autocrlf produzem diffs de ARQUIVO INTEIRO em cada commit,
+# e todo merge vira conflito — o problema clássico de trabalhar em dupla.
+#
+# Regra: no repositório tudo é LF; no disco cada um recebe o que sua plataforma
+# espera.
+* text=auto eol=lf
+
+# Binários: nunca converter, nunca tentar fazer diff de texto.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.mp3 binary
+*.ogg binary
+*.wav binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.db  binary
+
+# Gerado pelo npm: marcar como gerado deixa o diff recolhido na revisão.
+package-lock.json linguist-generated=true

@@ -1,0 +1,146 @@
+/**
+ * Catálogo de itens e modelo de inventário (compartilhado cliente/servidor).
+ *
+ * "Nada é lixo": todo drop tem uso. O servidor é a autoridade do inventário;
+ * o cliente só exibe e envia intenções (comprar, usar, equipar, depositar).
+ */
+
+/**
+ * Slots do paperdoll clássico do Tibia. `container` é a MOCHILA equipada (um
+ * item-container que define quantos slots a mochila tem). `ring` é decorativo
+ * por ora (sem anéis no catálogo ainda).
+ */
+export type EquipSlot =
+  | 'necklace' | 'helmet' | 'container'
+  | 'weapon' | 'armor' | 'shield'
+  | 'ring' | 'pants' | 'boots';
+
+export const EQUIP_SLOTS: EquipSlot[] = [
+  'necklace', 'helmet', 'container', 'weapon', 'armor', 'shield', 'ring', 'pants', 'boots',
+];
+
+/** Rótulo PT de cada slot (para tooltips/UI). */
+export const EQUIP_SLOT_LABEL: Record<EquipSlot, string> = {
+  necklace: 'Colar',
+  helmet: 'Capacete',
+  container: 'Mochila',
+  weapon: 'Arma',
+  armor: 'Armadura',
+  shield: 'Escudo',
+  ring: 'Anel',
+  pants: 'Calça',
+  boots: 'Botas',
+};
+
+import type { ItemRoll, WeaponType } from './weapons.js';
+
+export type ItemCategory = 'currency' | 'consumable' | 'equip' | 'loot';
+
+export interface ItemDef {
+  kind: string;
+  name: string;
+  category: ItemCategory;
+  /** Empilha no mesmo slot da mochila? (moedas, poções e loot sim; equip não.) */
+  stackable: boolean;
+  /** Preço de compra no NPC (0 = não vendido). */
+  buyPrice: number;
+  /** Slot ocupado quando category === 'equip'. */
+  slot?: EquipSlot;
+  /** Efeito de consumível. */
+  healHp?: number;
+  healMana?: number;
+  /** Bônus de EQUIPAMENTO (entram no cálculo de dano/defesa, estilo Tibia). */
+  atk?: number;
+  def?: number;
+  /** Tipo da arma (só para slot 'weapon'): define identidade e proficiência. */
+  weaponType?: WeaponType;
+  /** Nível de personagem sugerido — usado para calibrar drops e loja. */
+  tier?: number;
+  /** Para containers (slot 'container'): quantos slots de mochila ele oferece. */
+  capacity?: number;
+  /** Valor em ouro (para moedas: gold=1, silver=100, blue=10000, white=1e6). */
+  value?: number;
+  /** Cor base para o ícone desenhado por código no cliente. */
+  color: number;
+}
+
+export const ITEMS: Record<string, ItemDef> = {
+  // Moedas: 100 de uma viram 1 da próxima (gold -> silver -> blue -> white).
+  gold: { kind: 'gold', name: 'Moeda de Ouro', category: 'currency', stackable: true, buyPrice: 0, value: 1, color: 0xf2c14e },
+  gold_silver: { kind: 'gold_silver', name: 'Ouro Prateado', category: 'currency', stackable: true, buyPrice: 0, value: 100, color: 0xcdd3da },
+  gold_blue: { kind: 'gold_blue', name: 'Ouro Azul', category: 'currency', stackable: true, buyPrice: 0, value: 10000, color: 0x4a86d8 },
+  gold_white: { kind: 'gold_white', name: 'Ouro Branco', category: 'currency', stackable: true, buyPrice: 0, value: 1000000, color: 0xeef1f6 },
+  health_potion: {
+    kind: 'health_potion', name: 'Poção de Vida', category: 'consumable',
+    stackable: true, buyPrice: 15, healHp: 75, color: 0xcf3b2e,
+  },
+  mana_potion: {
+    kind: 'mana_potion', name: 'Poção de Mana', category: 'consumable',
+    stackable: true, buyPrice: 20, healMana: 60, color: 0x4a86d8,
+  },
+  torch: { kind: 'torch', name: 'Tocha (fonte de luz)', category: 'loot', stackable: true, buyPrice: 8, color: 0xff9a3c },
+  slime_gel: { kind: 'slime_gel', name: 'Gosma de Slime', category: 'loot', stackable: true, buyPrice: 0, color: 0x5fae5f },
+  snake_skin: { kind: 'snake_skin', name: 'Pele de Serpente', category: 'loot', stackable: true, buyPrice: 0, color: 0x6f9a4a },
+  // Armas: o `atk` é o dano-base, e o TIPO define identidade (velocidade,
+  // alcance, uma/duas mãos) e qual proficiência sobe ao usar.
+  short_sword: { kind: 'short_sword', name: 'Espada Curta', category: 'equip', stackable: false, buyPrice: 50, slot: 'weapon', atk: 8, weaponType: 'sword', tier: 1, color: 0xc9d0d8 },
+  hand_axe: { kind: 'hand_axe', name: 'Machadinha', category: 'equip', stackable: false, buyPrice: 55, slot: 'weapon', atk: 8, weaponType: 'axe', tier: 1, color: 0x9a8878 },
+  club: { kind: 'club', name: 'Clava', category: 'equip', stackable: false, buyPrice: 45, slot: 'weapon', atk: 8, weaponType: 'mace', tier: 1, color: 0x8a6a3a },
+  dagger: { kind: 'dagger', name: 'Adaga', category: 'equip', stackable: false, buyPrice: 40, slot: 'weapon', atk: 8, weaponType: 'dagger', tier: 1, color: 0xb8c2cc },
+  spear: { kind: 'spear', name: 'Lança', category: 'equip', stackable: false, buyPrice: 65, slot: 'weapon', atk: 9, weaponType: 'spear', tier: 1, color: 0xa08858 },
+  short_bow: { kind: 'short_bow', name: 'Arco Curto', category: 'equip', stackable: false, buyPrice: 70, slot: 'weapon', atk: 8, weaponType: 'bow', tier: 1, color: 0x9a7a4a },
+  light_crossbow: { kind: 'light_crossbow', name: 'Besta Leve', category: 'equip', stackable: false, buyPrice: 85, slot: 'weapon', atk: 9, weaponType: 'crossbow', tier: 1, color: 0x7a6a5a },
+  apprentice_staff: { kind: 'apprentice_staff', name: 'Cajado de Aprendiz', category: 'equip', stackable: false, buyPrice: 75, slot: 'weapon', atk: 6, weaponType: 'staff', tier: 1, color: 0x6a5aa0 },
+  // Demais equipamentos (compráveis / loot). def soma na defesa.
+  wooden_shield: { kind: 'wooden_shield', name: 'Escudo de Madeira', category: 'equip', stackable: false, buyPrice: 40, slot: 'shield', def: 4, color: 0x8a5a2f },
+  leather_helmet: { kind: 'leather_helmet', name: 'Elmo de Couro', category: 'equip', stackable: false, buyPrice: 30, slot: 'helmet', def: 2, color: 0x8a6a3a },
+  leather_armor: { kind: 'leather_armor', name: 'Armadura de Couro', category: 'equip', stackable: false, buyPrice: 60, slot: 'armor', def: 5, color: 0x7a5230 },
+  leather_pants: { kind: 'leather_pants', name: 'Calça de Couro', category: 'equip', stackable: false, buyPrice: 35, slot: 'pants', def: 3, color: 0x6e4a2a },
+  leather_boots: { kind: 'leather_boots', name: 'Botas de Couro', category: 'equip', stackable: false, buyPrice: 25, slot: 'boots', def: 2, color: 0x5a3a20 },
+  copper_necklace: { kind: 'copper_necklace', name: 'Colar de Cobre', category: 'equip', stackable: false, buyPrice: 45, slot: 'necklace', atk: 2, def: 1, color: 0xb87333 },
+  // Containers de mochila: cada um define a capacidade de slots.
+  bag: { kind: 'bag', name: 'Bolsa', category: 'equip', stackable: false, buyPrice: 20, slot: 'container', capacity: 10, color: 0x9a6a3a },
+  backpack: { kind: 'backpack', name: 'Mochila', category: 'equip', stackable: false, buyPrice: 40, slot: 'container', capacity: 20, color: 0x8a4a6a },
+};
+
+/** Capacidade de mochila quando nenhum container está equipado (segurança). */
+export const NO_CONTAINER_SLOTS = 0;
+
+/**
+ * Uma pilha de item na mochila/depósito.
+ *
+ * `roll` é o que diferencia DUAS espadas curtas: raridade, passivos sorteados e
+ * slots de carta. Só equipamentos têm; empilháveis (poções, moedas) não.
+ */
+export interface ItemStack {
+  kind: string;
+  amount: number;
+  roll?: ItemRoll;
+}
+
+/** Itens vendidos pelo NPC comerciante (na ordem exibida). */
+export const VENDOR_STOCK: string[] = [
+  'health_potion', 'mana_potion', 'torch', 'bag', 'backpack',
+  'short_sword', 'hand_axe', 'club', 'dagger', 'spear', 'short_bow', 'light_crossbow',
+  'apprentice_staff', 'wooden_shield',
+  'leather_helmet', 'leather_armor', 'leather_pants', 'leather_boots', 'copper_necklace',
+];
+
+export const BACKPACK_SIZE = 20;
+export const DEPOT_SIZE = 40;
+
+export function getItem(kind: string): ItemDef | undefined {
+  return ITEMS[kind];
+}
+
+/** Denominações de moeda da maior para a menor (para normalizar o ouro). */
+export const GOLD_TIERS: { kind: string; value: number }[] = [
+  { kind: 'gold_white', value: 1000000 },
+  { kind: 'gold_blue', value: 10000 },
+  { kind: 'gold_silver', value: 100 },
+  { kind: 'gold', value: 1 },
+];
+
+export function isGold(kind: string): boolean {
+  return GOLD_TIERS.some((t) => t.kind === kind);
+}

@@ -1,0 +1,572 @@
+<title>Elysia Online — Guia de Identidade Visual</title>
+<style>
+  :root {
+    color-scheme: dark;
+    /* Grounds */
+    --ground: #0d0b09;
+    --ground-2: #100d0a;
+    --panel: #15110b;
+    --panel-2: #1b160e;
+    --slot: #0f0c08;
+    /* Metal */
+    --bronze-lo: #4a3823;
+    --bronze: #8a6a3a;
+    --gold: #d9b26a;
+    --gold-bright: #f0d492;
+    /* Ink */
+    --parchment: #e2d6bd;
+    --muted: #9a8c72;
+    --faint: #6f6553;
+    /* Vitals */
+    --hp: #cf3b2e;
+    --hp-lo: #3a1512;
+    --mana: #4a86d8;
+    --mana-lo: #10233f;
+    --vigor: #d9a441;
+    --vigor-lo: #3a2a10;
+    --xp: #6fb84a;
+    --xp-lo: #16240f;
+    /* Combat semantics */
+    --c-monster: #e0473a;
+    --c-player: #5fd15f;
+    --c-npc: #e8c24a;
+    --c-crit: #ff9a3c;
+
+    --serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, "Times New Roman", serif;
+    --sans: "Segoe UI", system-ui, "Helvetica Neue", sans-serif;
+
+    --r: 5px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(120% 80% at 50% -10%, #1a140d 0%, var(--ground) 55%),
+      var(--ground);
+    color: var(--parchment);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 40px 24px 96px;
+  }
+
+  /* ------------------------------------------------------------------ Frame */
+  /* Painel ornamentado: moldura bronze + hairline dourada interna + cantos. */
+  .frame {
+    position: relative;
+    background:
+      linear-gradient(180deg, rgba(255,225,170,.05), transparent 42px),
+      linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--bronze);
+    border-radius: var(--r);
+    box-shadow:
+      inset 0 0 0 1px #000000cc,
+      inset 0 1px 0 rgba(255,225,170,.10),
+      0 10px 30px #000000a8;
+  }
+  .frame::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border: 1px solid rgba(217,178,106,.20);
+    border-radius: 3px;
+    pointer-events: none;
+  }
+  .cnr { position: absolute; width: 9px; height: 9px; border: 1.5px solid var(--gold); opacity: .55; z-index: 2; }
+  .cnr.tl { top: 4px; left: 4px; border-right: 0; border-bottom: 0; }
+  .cnr.tr { top: 4px; right: 4px; border-left: 0; border-bottom: 0; }
+  .cnr.bl { bottom: 4px; left: 4px; border-right: 0; border-top: 0; }
+  .cnr.br { bottom: 4px; right: 4px; border-left: 0; border-top: 0; }
+
+  .frame__title {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px;
+    font-family: var(--serif);
+    font-size: 14px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: var(--gold-bright);
+    border-bottom: 1px solid var(--bronze-lo);
+    background: linear-gradient(180deg, rgba(217,178,106,.08), transparent);
+  }
+  .frame__title .x { margin-left: auto; color: var(--faint); font-family: var(--sans); font-weight: 400; cursor: default; }
+  .frame__title .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+  .frame__body { padding: 14px; position: relative; z-index: 1; }
+
+  /* ------------------------------------------------------------------ Header */
+  .brand {
+    position: relative;
+    text-align: center;
+    padding: 46px 24px 40px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .brand::before {
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(70% 120% at 50% 0%, rgba(217,178,106,.16), transparent 60%);
+    pointer-events: none;
+  }
+  .wordmark {
+    font-family: var(--serif);
+    font-size: clamp(40px, 8vw, 78px);
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    margin: 0;
+    background: linear-gradient(180deg, #f7e6c2 0%, var(--gold) 46%, #9c7838 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-wrap: balance;
+    filter: drop-shadow(0 2px 0 #000) drop-shadow(0 0 22px rgba(217,178,106,.25));
+  }
+  .wordmark-sub {
+    font-family: var(--serif);
+    letter-spacing: .62em;
+    text-transform: uppercase;
+    font-size: 13px;
+    color: var(--muted);
+    margin: 2px 0 0 .62em;
+  }
+  .rule {
+    width: 260px; height: 1px; margin: 20px auto 0;
+    background: linear-gradient(90deg, transparent, var(--bronze) 20%, var(--gold) 50%, var(--bronze) 80%, transparent);
+    position: relative;
+  }
+  .rule::after {
+    content: "◆"; color: var(--gold); font-size: 10px;
+    position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+    background: var(--ground); padding: 0 8px;
+  }
+  .tagline { color: var(--muted); max-width: 62ch; margin: 18px auto 0; font-size: 15.5px; text-wrap: pretty; }
+  .tagline strong { color: var(--parchment); font-weight: 600; }
+
+  /* ------------------------------------------------------------------ Sections */
+  section { margin-top: 48px; }
+  .eyebrow {
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--serif);
+    text-transform: uppercase; letter-spacing: .22em;
+    font-size: 12px; color: var(--gold);
+    margin: 0 0 4px;
+  }
+  .eyebrow .no { color: var(--faint); font-variant-numeric: tabular-nums; }
+  .eyebrow::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--bronze-lo), transparent); }
+  .sec-title { font-family: var(--serif); font-size: 26px; font-weight: 700; margin: 0 0 6px; color: var(--parchment); letter-spacing: .01em; }
+  .sec-note { color: var(--muted); max-width: 66ch; margin: 0 0 20px; }
+  code.tok { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12.5px; color: var(--gold-bright); background: #00000055; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--bronze-lo); }
+
+  .grid { display: grid; gap: 16px; }
+  .cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .cols-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 820px) { .cols-2, .cols-3 { grid-template-columns: 1fr; } }
+
+  /* ------------------------------------------------------------------ Swatches */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .sw { border: 1px solid var(--bronze-lo); border-radius: var(--r); overflow: hidden; background: var(--panel); }
+  .sw .chip { height: 58px; border-bottom: 1px solid #0008; }
+  .sw .meta { padding: 8px 10px; }
+  .sw .role { font-size: 12.5px; color: var(--parchment); font-weight: 600; }
+  .sw .hex { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: var(--muted); text-transform: uppercase; }
+
+  /* ------------------------------------------------------------------ Type scale */
+  .type-row { display: flex; align-items: baseline; gap: 18px; padding: 12px 0; border-bottom: 1px solid #ffffff0d; }
+  .type-row:last-child { border-bottom: 0; }
+  .type-row .lbl { width: 128px; flex: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
+  .t-display { font-family: var(--serif); font-size: 40px; font-weight: 700; letter-spacing: .04em; color: var(--gold-bright); }
+  .t-h { font-family: var(--serif); font-size: 24px; font-weight: 700; color: var(--parchment); }
+  .t-body { font-size: 15px; color: var(--parchment); max-width: 60ch; }
+  .t-label { font-size: 12px; text-transform: uppercase; letter-spacing: .16em; color: var(--muted); }
+  .t-num { font-size: 22px; font-variant-numeric: tabular-nums; color: var(--parchment); font-weight: 600; }
+
+  /* ------------------------------------------------------------------ Vitals card */
+  .vitals { display: flex; gap: 14px; align-items: center; }
+  .orb {
+    position: relative; width: 74px; height: 74px; flex: none; border-radius: 50%;
+    background:
+      radial-gradient(60% 60% at 40% 32%, #6a5334, #2a2013 70%, #171008);
+    border: 2px solid var(--bronze);
+    box-shadow: inset 0 0 12px #000, 0 0 0 1px #000, 0 2px 10px #000a;
+    display: grid; place-items: center;
+    overflow: visible;
+  }
+  .orb .face { font-size: 30px; filter: grayscale(.2) saturate(.9); }
+  .orb .lvl {
+    position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(180deg, #2a2013, #120c06);
+    border: 1.5px solid var(--gold); color: var(--gold-bright);
+    font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+    padding: 1px 7px; border-radius: 9px; box-shadow: 0 2px 6px #000a;
+  }
+  .vitals .who { flex: 1; min-width: 0; }
+  .vitals .name { font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--parchment); }
+  .vitals .meta { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .vitals .meta b { color: var(--gold); font-weight: 600; }
+
+  .bar { position: relative; height: 16px; border-radius: 3px; border: 1px solid #000; background: #0a0806; overflow: hidden; margin-top: 5px; box-shadow: inset 0 0 0 1px #ffffff0a; }
+  .bar > i { position: absolute; inset: 0; display: block; border-radius: 2px; }
+  .bar > i::after { content: ""; position: absolute; inset: 0 0 auto 0; height: 45%; background: linear-gradient(180deg, #ffffff40, transparent); }
+  .bar > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; color: #fff; text-shadow: 0 1px 2px #000, 0 0 2px #000; letter-spacing: .02em; }
+  .bar.hp > i { background: linear-gradient(180deg, #e5584a, var(--hp) 55%, #97261c); }
+  .bar.mana > i { background: linear-gradient(180deg, #67a0e8, var(--mana) 55%, #285a97); }
+  .bar.vigor { height: 11px; }
+  .bar.vigor > i { background: linear-gradient(180deg, #f0c766, var(--vigor) 55%, #a2721f); }
+
+  .mini-icons { display: flex; gap: 4px; margin-top: 8px; }
+  .mini-icons .mi { width: 22px; height: 22px; border-radius: 4px; background: var(--slot); border: 1px solid var(--bronze-lo); display: grid; place-items: center; font-size: 12px; }
+
+  /* ------------------------------------------------------------------ Proficiencies */
+  .prof { display: grid; gap: 9px; }
+  .prof .row { display: grid; grid-template-columns: 84px 1fr 30px; align-items: center; gap: 10px; }
+  .prof .k { font-size: 13px; color: var(--parchment); }
+  .prof .v { font-size: 13px; text-align: right; color: var(--gold); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .pbar { height: 7px; border-radius: 4px; background: var(--xp-lo); border: 1px solid #000; overflow: hidden; }
+  .pbar > i { display: block; height: 100%; background: linear-gradient(180deg, #8fd66a, var(--xp)); box-shadow: 0 0 6px #6fb84a66; }
+
+  /* ------------------------------------------------------------------ Buttons */
+  .btns { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn {
+    font-family: var(--sans); font-size: 13px; font-weight: 600; letter-spacing: .03em;
+    color: #241a0c; cursor: pointer;
+    padding: 9px 20px; border-radius: 4px;
+    border: 1px solid #d8b877;
+    background: linear-gradient(180deg, #f0d089, #cba24f 55%, #a37b31);
+    box-shadow: inset 0 1px 0 #fff6, 0 2px 8px #000a;
+    transition: filter .12s ease, transform .06s ease;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(1px); }
+  .btn.ghost {
+    color: var(--gold); background: linear-gradient(180deg, #201911, #171009);
+    border: 1px solid var(--bronze); box-shadow: inset 0 1px 0 #ffffff12;
+  }
+  .btn.ghost:hover { border-color: var(--gold); color: var(--gold-bright); }
+  .icon-btn { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; font-size: 15px; }
+  .tabset { display: flex; gap: 2px; }
+  .tab { font-size: 12.5px; color: var(--muted); padding: 6px 14px; border: 1px solid transparent; border-bottom: 0; border-radius: 4px 4px 0 0; cursor: pointer; }
+  .tab.on { color: var(--gold-bright); background: linear-gradient(180deg, #201911, #15100a); border-color: var(--bronze-lo); }
+  .tab:hover:not(.on) { color: var(--parchment); }
+
+  /* ------------------------------------------------------------------ Slots / inventory */
+  .slot {
+    width: 46px; height: 46px; border-radius: 5px; position: relative;
+    background: radial-gradient(80% 80% at 50% 30%, #1a140d, var(--slot));
+    border: 1px solid var(--bronze-lo);
+    box-shadow: inset 0 2px 6px #000, inset 0 0 0 1px #ffffff08;
+    display: grid; place-items: center; font-size: 20px;
+  }
+  .slot.eq { border-color: var(--bronze); box-shadow: inset 0 2px 6px #000, 0 0 0 1px #000, 0 0 8px #d9b26a33; }
+  .slot .qty { position: absolute; right: 3px; bottom: 1px; font-size: 10.5px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #000; font-variant-numeric: tabular-nums; }
+  .slot .key { position: absolute; left: 3px; top: 1px; font-size: 9px; color: var(--gold); opacity: .8; }
+  .grid-slots { display: grid; grid-template-columns: repeat(4, 46px); gap: 6px; }
+
+  /* ------------------------------------------------------------------ Loot */
+  .loot-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid #ffffff0a; }
+  .loot-row:last-of-type { border-bottom: 0; }
+  .loot-row .nm { flex: 1; font-size: 13.5px; color: var(--parchment); }
+  .loot-row .ct { font-size: 12.5px; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .loot-ic { width: 30px; height: 30px; border-radius: 4px; background: var(--slot); border: 1px solid var(--bronze-lo); display: grid; place-items: center; font-size: 15px; }
+
+  /* ------------------------------------------------------------------ Chat */
+  .chat-lines { font-size: 13px; line-height: 1.7; padding: 8px 4px 0; }
+  .chat-lines .t { color: var(--faint); font-variant-numeric: tabular-nums; margin-right: 6px; }
+  .c-exp { color: #b7e08a; } .c-loot { color: var(--parchment); } .c-sys { color: var(--gold); }
+  .c-name-g { color: var(--c-player); font-weight: 600; }
+
+  /* ------------------------------------------------------------------ Hotbar */
+  .hotbar { display: flex; gap: 5px; padding: 8px; align-items: center; }
+  .hslot {
+    width: 46px; height: 46px; border-radius: 5px; position: relative;
+    background: radial-gradient(80% 80% at 50% 30%, #1a140d, var(--slot));
+    border: 1px solid var(--bronze-lo); box-shadow: inset 0 2px 6px #000;
+    display: grid; place-items: center; font-size: 19px;
+  }
+  .hslot .f { position: absolute; left: 3px; bottom: 1px; font-size: 9px; color: var(--gold); }
+  .hslot .cd { position: absolute; inset: 0; background: conic-gradient(#000a var(--cd, 0deg), transparent 0); border-radius: 4px; }
+  .hslot .qty { position: absolute; right: 3px; top: 1px; font-size: 10px; font-weight: 700; color:#fff; text-shadow: 0 1px 2px #000; }
+
+  /* ------------------------------------------------------------------ Combat legend */
+  .legend { display: grid; gap: 12px; }
+  .nametag { font-weight: 700; font-size: 13px; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
+  .float { font-family: var(--serif); font-weight: 700; text-shadow: 0 2px 0 #000, 0 0 6px #000; line-height: 1; }
+  .hpbar-sm { width: 88px; height: 5px; border-radius: 3px; background: #000; border: 1px solid #00000080; overflow: hidden; box-shadow: 0 0 0 1px #ffffff12; }
+  .hpbar-sm > i { display: block; height: 100%; }
+
+  .callout { font-size: 13px; color: var(--muted); border-left: 2px solid var(--bronze); padding: 2px 0 2px 14px; margin-top: 10px; }
+  .callout b { color: var(--gold); }
+
+  :focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header class="frame brand">
+    <span class="cnr tl"></span><span class="cnr tr"></span><span class="cnr bl"></span><span class="cnr br"></span>
+    <h1 class="wordmark">Elysia</h1>
+    <div class="wordmark-sub">Online</div>
+    <div class="rule"></div>
+    <p class="tagline">Guia de identidade visual — a <strong>constituição estética</strong> da interface. Toda tela nova nasce daqui: mesma paleta, mesma moldura, mesma tipografia. O alvo é a sensação de um MMORPG de estúdio, pronto pra Steam — não protótipo de hobby.</p>
+  </header>
+
+  <!-- PALETTE -->
+  <section>
+    <p class="eyebrow"><span class="no">01</span> Paleta</p>
+    <h2 class="sec-title">Preto fosco, bronze e ouro</h2>
+    <p class="sec-note">Fundos escuros e quentes deixam o gameplay respirar; o metal (bronze→ouro) é reservado para molduras, títulos e ações — nunca para grandes áreas. As cores semânticas de vitais e de combate são fixas e não se misturam com o dourado de marca.</p>
+
+    <div class="grid cols-3">
+      <div class="frame"><div class="frame__body">
+        <p class="t-label" style="margin:0 0 10px">Grounds &amp; metal</p>
+        <div class="swatches">
+          <div class="sw"><div class="chip" style="background:#0d0b09"></div><div class="meta"><div class="role">Ground</div><div class="hex">#0D0B09</div></div></div>
+          <div class="sw"><div class="chip" style="background:#15110b"></div><div class="meta"><div class="role">Painel</div><div class="hex">#15110B</div></div></div>
+          <div class="sw"><div class="chip" style="background:#8a6a3a"></div><div class="meta"><div class="role">Bronze</div><div class="hex">#8A6A3A</div></div></div>
+          <div class="sw"><div class="chip" style="background:#d9b26a"></div><div class="meta"><div class="role">Ouro</div><div class="hex">#D9B26A</div></div></div>
+          <div class="sw"><div class="chip" style="background:#f0d492"></div><div class="meta"><div class="role">Ouro claro</div><div class="hex">#F0D492</div></div></div>
+          <div class="sw"><div class="chip" style="background:#e2d6bd"></div><div class="meta"><div class="role">Pergaminho</div><div class="hex">#E2D6BD</div></div></div>
+        </div>
+      </div></div>
+
+      <div class="frame"><div class="frame__body">
+        <p class="t-label" style="margin:0 0 10px">Vitais</p>
+        <div class="swatches">
+          <div class="sw"><div class="chip" style="background:#cf3b2e"></div><div class="meta"><div class="role">HP</div><div class="hex">#CF3B2E</div></div></div>
+          <div class="sw"><div class="chip" style="background:#4a86d8"></div><div class="meta"><div class="role">Mana</div><div class="hex">#4A86D8</div></div></div>
+          <div class="sw"><div class="chip" style="background:#d9a441"></div><div class="meta"><div class="role">Vigor</div><div class="hex">#D9A441</div></div></div>
+          <div class="sw"><div class="chip" style="background:#6fb84a"></div><div class="meta"><div class="role">Proficiência</div><div class="hex">#6FB84A</div></div></div>
+        </div>
+      </div></div>
+
+      <div class="frame"><div class="frame__body">
+        <p class="t-label" style="margin:0 0 10px">Combate (nomes &amp; dano)</p>
+        <div class="swatches">
+          <div class="sw"><div class="chip" style="background:#e0473a"></div><div class="meta"><div class="role">Monstro</div><div class="hex">#E0473A</div></div></div>
+          <div class="sw"><div class="chip" style="background:#5fd15f"></div><div class="meta"><div class="role">Jogador</div><div class="hex">#5FD15F</div></div></div>
+          <div class="sw"><div class="chip" style="background:#e8c24a"></div><div class="meta"><div class="role">NPC</div><div class="hex">#E8C24A</div></div></div>
+          <div class="sw"><div class="chip" style="background:#ff9a3c"></div><div class="meta"><div class="role">Crítico</div><div class="hex">#FF9A3C</div></div></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- TYPE -->
+  <section>
+    <p class="eyebrow"><span class="no">02</span> Tipografia</p>
+    <h2 class="sec-title">Serifa clássica + sans limpa</h2>
+    <p class="sec-note">A serifa carrega o tom medieval em títulos, nomes e marca (caixa-alta com tracking generoso). A sans humanista garante legibilidade em rótulos e diálogos. Números sempre em <code class="tok">tabular-nums</code> pra alinhar em colunas de HP, ouro e proficiência.</p>
+    <div class="frame"><div class="frame__body">
+      <div class="type-row"><div class="lbl">Display / Marca</div><div class="t-display">Floresta de Arden</div></div>
+      <div class="type-row"><div class="lbl">Título</div><div class="t-h">Diário de Missões</div></div>
+      <div class="type-row"><div class="lbl">Corpo</div><div class="t-body">Há relatos sobre uma passagem secreta nas ruínas ao norte. Explore com cuidado — dizem que algo antigo ainda respira lá embaixo.</div></div>
+      <div class="type-row"><div class="lbl">Rótulo</div><div class="t-label">Strength · Dexterity · Vitality</div></div>
+      <div class="type-row"><div class="lbl">Números</div><div class="t-num">2.845 / 3.120&nbsp;&nbsp;·&nbsp;&nbsp;1.284 ouro</div></div>
+    </div></div>
+  </section>
+
+  <!-- PANEL ANATOMY -->
+  <section>
+    <p class="eyebrow"><span class="no">03</span> Anatomia do painel</p>
+    <h2 class="sec-title">A moldura que se repete em tudo</h2>
+    <p class="sec-note">Todo painel do HUD compartilha a mesma construção: fundo escuro translúcido, moldura de bronze com uma hairline dourada interna, cantos em colchete e uma barra de título em serifa dourada com ícone e fecho. É isso que dá o acabamento "metálico" e evita o visual de "quadrado sem borda".</p>
+    <div class="grid cols-2">
+      <div class="frame">
+        <span class="cnr tl"></span><span class="cnr tr"></span><span class="cnr bl"></span><span class="cnr br"></span>
+        <div class="frame__title"><span class="dot"></span> Habilidades <span class="x">✕</span></div>
+        <div class="frame__body">
+          <div class="prof">
+            <div class="row"><span class="k">Nível</span><div></div><span class="v">52</span></div>
+            <div class="row"><span class="k">Sword</span><div class="pbar"><i style="width:78%"></i></div><span class="v">78</span></div>
+            <div class="row"><span class="k">Shield</span><div class="pbar"><i style="width:65%"></i></div><span class="v">65</span></div>
+            <div class="row"><span class="k">Magic Level</span><div class="pbar"><i style="width:32%"></i></div><span class="v">8</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame"><div class="frame__body" style="display:flex;flex-direction:column;gap:10px;justify-content:center">
+        <div class="callout"><b>1.</b> Fundo: gradiente escuro quente translúcido.</div>
+        <div class="callout"><b>2.</b> Moldura: 1px bronze + hairline dourada interna (o "bisel").</div>
+        <div class="callout"><b>3.</b> Cantos: colchetes dourados a 55% de opacidade.</div>
+        <div class="callout"><b>4.</b> Título: serifa em caixa-alta, ícone à esquerda, ✕ à direita.</div>
+        <div class="callout"><b>5.</b> Sombra externa profunda pra destacar do mundo.</div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- VITALS -->
+  <section>
+    <p class="eyebrow"><span class="no">04</span> Vitais &amp; retrato</p>
+    <h2 class="sec-title">Cartão do personagem</h2>
+    <p class="sec-note">Retrato em orbe com anel de bronze e selo de nível; nome em serifa, com classe e guilda em dourado discreto. Três barras: HP (vermelho), Mana (azul) e Vigor (âmbar, mais fina). Abaixo, fileira de ícones de equipamento/buffs.</p>
+    <div class="grid cols-2">
+      <div class="frame">
+        <span class="cnr tl"></span><span class="cnr tr"></span><span class="cnr bl"></span><span class="cnr br"></span>
+        <div class="frame__body">
+          <div class="vitals">
+            <div class="orb"><span class="face">🧔</span><span class="lvl">52</span></div>
+            <div class="who">
+              <div class="name">Frank Murtes</div>
+              <div class="meta"><b>Guardião</b> · Guilda <b>Vanguarda</b></div>
+              <div class="bar hp"><i style="width:91%"></i><span>2.845 / 3.120</span></div>
+              <div class="bar mana"><i style="width:72%"></i><span>812 / 1.120</span></div>
+              <div class="bar vigor"><i style="width:60%"></i></div>
+              <div class="mini-icons"><span class="mi">🗡️</span><span class="mi">🛡️</span><span class="mi">💍</span><span class="mi">🧪</span><span class="mi">✨</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame"><div class="frame__body">
+        <p class="t-label" style="margin:0 0 12px">Proficiências</p>
+        <div class="prof">
+          <div class="row"><span class="k">Sword</span><div class="pbar"><i style="width:78%"></i></div><span class="v">78</span></div>
+          <div class="row"><span class="k">Axe</span><div class="pbar"><i style="width:14%"></i></div><span class="v">12</span></div>
+          <div class="row"><span class="k">Distance</span><div class="pbar"><i style="width:11%"></i></div><span class="v">10</span></div>
+          <div class="row"><span class="k">Magic Level</span><div class="pbar"><i style="width:32%"></i></div><span class="v">8</span></div>
+          <div class="row"><span class="k">Defense</span><div class="pbar"><i style="width:65%"></i></div><span class="v">65</span></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- CONTROLS -->
+  <section>
+    <p class="eyebrow"><span class="no">05</span> Controles</p>
+    <h2 class="sec-title">Botões, abas &amp; ações</h2>
+    <p class="sec-note">Ação primária em bronze polido (ouro sobre metal); ação secundária "fantasma" em metal escuro com texto dourado. Abas para chat e janelas. Estados de hover e foco visíveis sempre.</p>
+    <div class="frame"><div class="frame__body">
+      <div class="btns">
+        <button class="btn">Pegar Tudo</button>
+        <button class="btn ghost">Cancelar</button>
+        <button class="btn ghost icon-btn" aria-label="Fechar">✕</button>
+        <button class="btn ghost icon-btn" aria-label="Configurar">⚙</button>
+        <div class="tabset" style="margin-left:8px">
+          <span class="tab on">Padrão</span><span class="tab">Servidor</span><span class="tab">Grupo</span><span class="tab">Guilda</span>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- INVENTORY -->
+  <section>
+    <p class="eyebrow"><span class="no">06</span> Slots &amp; inventário</p>
+    <h2 class="sec-title">Grades de itens</h2>
+    <p class="sec-note">Slots com fundo côncavo e moldura de bronze; equipado ganha brilho dourado. Quantidade no canto inferior-direito; tecla de atalho no superior-esquerdo. A mesma célula serve para paperdoll, mochila e hotbar.</p>
+    <div class="grid cols-2">
+      <div class="frame">
+        <span class="cnr tl"></span><span class="cnr tr"></span><span class="cnr bl"></span><span class="cnr br"></span>
+        <div class="frame__title"><span class="dot"></span> Mochila <span class="x">✕</span></div>
+        <div class="frame__body">
+          <div class="grid-slots">
+            <div class="slot">💎<span class="qty">25</span></div>
+            <div class="slot">📦<span class="qty">18</span></div>
+            <div class="slot">🧪<span class="qty">42</span></div>
+            <div class="slot">🍖<span class="qty">15</span></div>
+            <div class="slot">🪵<span class="qty">37</span></div>
+            <div class="slot">🐺<span class="qty">6</span></div>
+            <div class="slot">🧶<span class="qty">6</span></div>
+            <div class="slot">🪙<span class="qty">1.284</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame">
+        <span class="cnr tl"></span><span class="cnr tr"></span><span class="cnr bl"></span><span class="cnr br"></span>
+        <div class="frame__title"><span class="dot"></span> Equipamento <span class="x">✕</span></div>
+        <div class="frame__body">
+          <div class="grid-slots" style="grid-template-columns:repeat(3,46px)">
+            <div class="slot eq">🎒</div><div class="slot eq">⛑️</div><div class="slot">◯</div>
+            <div class="slot eq">🗡️</div><div class="slot eq">🥋</div><div class="slot eq">🛡️</div>
+            <div class="slot eq">💍</div><div class="slot eq">🥾</div><div class="slot eq">📿</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOOT -->
+  <section>
+    <p class="eyebrow"><span class="no">07</span> Loot</p>
+    <h2 class="sec-title">Janela de despojos</h2>
+    <p class="sec-note">Ao clicar num corpo, abre uma janela compacta com o nome do inimigo em serifa, linhas de item (ícone · nome · quantidade) e o botão <b>Pegar Tudo</b>. O corpo some após alguns minutos se ninguém saquear.</p>
+    <div class="grid cols-2">
+      <div class="frame" style="max-width:340px">
+        <span class="cnr tl"></span><span class="cnr tr"></span><span class="cnr bl"></span><span class="cnr br"></span>
+        <div class="frame__title"><span class="dot"></span> Loot de Lobo Sombrio <span class="x">✕</span></div>
+        <div class="frame__body">
+          <div class="loot-row"><span class="loot-ic">🟫</span><span class="nm">Pele Grossa</span><span class="ct">2x</span></div>
+          <div class="loot-row"><span class="loot-ic">⛏️</span><span class="nm">Presa Afiada</span><span class="ct">1x</span></div>
+          <div class="loot-row"><span class="loot-ic">🍖</span><span class="nm">Carne de Lobo</span><span class="ct">3x</span></div>
+          <div class="loot-row"><span class="loot-ic">🪝</span><span class="nm">Garra de Lobo</span><span class="ct">1x</span></div>
+          <button class="btn" style="width:100%;margin-top:12px">Pegar Tudo</button>
+        </div>
+      </div>
+      <div class="frame"><div class="frame__body" style="display:flex;flex-direction:column;gap:10px;justify-content:center">
+        <div class="callout">Nome do inimigo herda a cor de <b style="color:var(--c-monster)">monstro</b>.</div>
+        <div class="callout">Linhas clicáveis individualmente ou <b>Pegar Tudo</b> de uma vez.</div>
+        <div class="callout">Timer de decomposição some com o corpo — sem loot preso pra sempre.</div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- CHAT + HOTBAR -->
+  <section>
+    <p class="eyebrow"><span class="no">08</span> Rodapé</p>
+    <h2 class="sec-title">Chat em abas &amp; hotbar</h2>
+    <p class="sec-note">Canto inferior-esquerdo: chat com abas (Local, Global, Guilda, Grupo, Comércio, Sistema) e linhas coloridas por tipo. Centro inferior: hotbar de 12 slots F1–F12 com cooldown radial e contadores de consumíveis.</p>
+    <div class="frame" style="margin-bottom:16px">
+      <div class="frame__body" style="padding-top:10px">
+        <div class="tabset"><span class="tab on">Padrão</span><span class="tab">Servidor</span><span class="tab">Grupo</span><span class="tab">Guilda</span></div>
+        <div class="chat-lines">
+          <div><span class="t">14:24</span><span class="c-exp">Você ganhou 154 de experiência.</span></div>
+          <div><span class="t">14:25</span><span class="c-loot">Você lootou: 1x Garra de Lobo.</span></div>
+          <div><span class="t">14:25</span><span class="c-name-g">MaxBoladao:</span> <span class="c-loot">cuidado com o respawn aqui!</span></div>
+          <div><span class="t">14:26</span><span class="c-sys">Você subiu para o nível 52!</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="hotbar">
+        <div class="hslot">🗡️<span class="f">F1</span></div>
+        <div class="hslot">🏹<span class="f">F2</span></div>
+        <div class="hslot">🛡️<span class="f">F3</span></div>
+        <div class="hslot" style="--cd:120deg">🔥<span class="f">F4</span><span class="cd"></span></div>
+        <div class="hslot">⚔️<span class="f">F5</span></div>
+        <div class="hslot">✨<span class="f">F6</span></div>
+        <div class="hslot">❄️<span class="f">F7</span></div>
+        <div class="hslot">🥾<span class="f">F8</span></div>
+        <div class="hslot" style="--cd:250deg">💥<span class="f">F9</span><span class="cd"></span></div>
+        <div class="hslot">🧪<span class="f">F10</span><span class="qty">42</span></div>
+        <div class="hslot">🧪<span class="f">F11</span><span class="qty">23</span></div>
+        <div class="hslot">📜<span class="f">F12</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMBAT -->
+  <section>
+    <p class="eyebrow"><span class="no">09</span> Combate</p>
+    <h2 class="sec-title">Cores no mundo &amp; números de dano</h2>
+    <p class="sec-note">A cor identifica a entidade num relance: <b style="color:var(--c-monster)">monstro em vermelho</b>, <b style="color:var(--c-player)">jogador em verde</b>, <b style="color:var(--c-npc)">NPC em amarelo</b>. Barras de vida discretas sobre a cabeça; números de dano em serifa com contorno, crítico em laranja e maior.</p>
+    <div class="grid cols-2">
+      <div class="frame"><div class="frame__body">
+        <div class="legend">
+          <div style="display:flex;align-items:center;gap:12px"><span class="nametag" style="color:var(--c-monster)">Lobo Sombrio</span><div class="hpbar-sm"><i style="width:40%;background:var(--hp)"></i></div></div>
+          <div style="display:flex;align-items:center;gap:12px"><span class="nametag" style="color:var(--c-player)">Frank Murtes</span><div class="hpbar-sm"><i style="width:91%;background:var(--c-player)"></i></div></div>
+          <div style="display:flex;align-items:center;gap:12px"><span class="nametag" style="color:var(--c-npc)">Mestre Ferreiro</span><span class="t-label">interação</span></div>
+        </div>
+      </div></div>
+      <div class="frame"><div class="frame__body" style="display:flex;align-items:center;justify-content:center;gap:28px;min-height:120px">
+        <span class="float" style="font-size:26px;color:#f5efe0">128</span>
+        <span class="float" style="font-size:40px;color:var(--c-crit)">312</span>
+        <span class="float" style="font-size:22px;color:var(--c-player)">+96</span>
+      </div></div>
+    </div>
+  </section>
+
+</div>

@@ -1,0 +1,172 @@
+Reino de Asteria
+Cidade Inicial: Vila de Elden
+
+População NPC: 15
+
+Elden não é uma cidade. É uma pequena vila agrícola na fronteira do Reino de Asteria.
+
+Ela existe para abastecer Arcádia e servir como ponto de partida para aventureiros.
+
+Ao redor existem plantações, um riacho, um moinho e a primeira estrada real.
+
+Não existe tutorial separado.
+
+O jogador já entra no mundo.
+
+NPCs da Vila (15)
+Administração
+Ancião da Vila (Missões principais)
+Comércio
+Ferreiro
+Comerciante Geral
+Padeiro
+Estalajadeiro
+Banqueiro
+Serviços
+Curandeira
+Treinador de Combate
+Mensageiro Real
+Segurança
+Capitão da Guarda
+Guarda Norte
+Guarda Sul
+Guarda Leste
+Guarda Oeste
+Especial
+Barqueiro
+
+Responsável por levar jogadores para pequenas ilhas próximas quando estas forem desbloqueadas.
+
+Observe que praticamente todos têm uma função importante. Não existem NPCs apenas para "encher espaço".
+
+Estrutura da Vila
+
+Pequena praça central.
+
+Ao redor dela:
+
+Estalagem
+Banco
+Mercado
+Ferreiro
+Igreja
+Quartel
+
+Nos arredores:
+
+Moinho
+Fazenda
+Pomar
+Rio
+Ponte de madeira
+
+A vila inteira pode ser atravessada em aproximadamente 40 segundos caminhando.
+
+Isso faz o jogador sair rapidamente para explorar o mundo.
+
+Arcádia
+Capital do Reino
+
+Máximo: 60 NPCs
+
+Mesmo sendo a maior cidade do jogo.
+
+Organização dos NPCs
+Governo
+Rei
+Conselheiro
+General
+Escrivão
+Juiz
+Banco
+Banqueiro Chefe
+Assistente
+Mercado
+Comerciante Geral
+Armeiro
+Ferreiro
+Carpinteiro
+Alquimista
+Joalheiro
+Costureira
+Cozinheiro
+Pescador
+Mercador de Animais
+Mercador de Ferramentas
+Guildas
+Mestre Guerreiro
+Mestre Arqueiro
+Mestre Assassino
+Arquimago
+Mestre Ferreiro
+Mestre Alquimista
+Religião
+Sumo Sacerdote
+Sacerdotisa
+Porto
+Capitão do Porto
+Marinheiro
+Barqueiro
+Biblioteca
+Bibliotecário
+Historiador
+Arena
+Mestre da Arena
+Organizador de Torneios
+Estalagem
+Estalajadeiro
+Cozinheira
+Serviços
+Leiloeiro
+Cartógrafo
+Mensageiro
+Correio
+Veterinário
+Guardas
+
+41–60
+
+20 guardas distribuídos entre:
+
+Portões
+Castelo
+Mercado
+Porto
+Banco
+Arena
+
+Total:
+
+60 NPCs.
+
+Filosofia das cidades
+
+Eu adotaria uma regra para todo o projeto:
+
+Os NPCs não fazem o mundo parecer vivo. Os jogadores fazem.
+
+As cidades devem parecer cheias porque:
+
+existem centenas de jogadores circulando;
+há casas de jogadores;
+há barracas de comércio;
+pessoas organizando grupos para dungeons;
+guildas recrutando membros;
+artesãos negociando equipamentos.
+
+Os NPCs existem apenas para fornecer os serviços essenciais e reforçar a identidade da cidade.
+
+Outra ideia que acho que combina muito com o Elysia
+
+Em vez de colocar todos os serviços em Arcádia, eu faria cada cidade ter uma especialização econômica.
+
+Por exemplo:
+
+Arcádia: banco mundial, leilão, arena e governo.
+Kazdur: melhor ferreiro, mineração, fundição e fabricação de armaduras.
+Valen: caça, couro, arcos, flechas e madeira.
+Zahir: alquimia, venenos, especiarias e montarias do deserto.
+Skald: navegação, pesca oceânica, navios e equipamentos para regiões geladas.
+Illara: magia natural, encantamentos e ervas raras.
+
+Assim, mesmo um jogador de nível muito alto continuará viajando pelo mundo para utilizar determinados serviços, mantendo todas as cidades relevantes e movimentadas em vez de concentrar toda a atividade em um único ponto.

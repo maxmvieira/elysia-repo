@@ -1,0 +1,310 @@
+ELYSIA ONLINE
+LIVING WORLD SYSTEM v1.0
+Filosofia
+
+O mundo nunca deve parecer previsível.
+
+O jogador deve pensar:
+
+"O que será que aconteceu hoje?"
+
+e não
+
+"Vou repetir a mesma rota de ontem."
+
+O objetivo é que duas pessoas entrando na mesma dungeon em dias diferentes possam viver experiências completamente distintas.
+
+Sistema de Dia e Noite
+Duração
+
+Um dia completo dura 2 horas reais:
+
+Amanhecer: 15 min
+Dia: 45 min
+Entardecer: 15 min
+Noite: 45 min
+
+Isso garante que jogadores que entram em horários diferentes experimentem todos os períodos ao longo da semana.
+
+Durante o Dia
+
+O mundo é mais seguro.
+
+NPCs trabalham.
+Mercadores viajam.
+Fazendas produzem recursos.
+Alguns monstros dormem.
+Animais aparecem em maior quantidade.
+
+Exemplos:
+
+Cervos
+Coelhos
+Javalis
+Fazendeiros
+Caravanas
+Durante a Noite
+
+O mundo muda completamente.
+
+Não é apenas um filtro escuro.
+
+O comportamento das criaturas muda.
+
+Exemplos:
+
+Lobos começam a caçar em alcateia.
+Fantasmas aparecem em cemitérios.
+Vampiros deixam seus castelos.
+Lobisomens se transformam.
+Bandidos montam emboscadas.
+Aranhas gigantes deixam suas cavernas.
+Fortalecimento Noturno
+
+À noite, monstros recebem modificadores moderados, por exemplo:
+
+Vida: +15%
+Dano: +10%
+Velocidade: +5%
+
+O objetivo não é tornar a noite injusta, mas fazer o jogador sentir que está assumindo um risco maior.
+
+Bônus de Recompensas
+
+Em compensação:
+
++20% experiência
++25% chance de itens raros
++15% ouro
+maior chance de materiais especiais
+
+Jogadores escolhem conscientemente entre segurança e recompensa.
+
+Criaturas Exclusivas da Noite
+
+Alguns monstros simplesmente não existem durante o dia.
+
+Exemplos:
+
+Cavaleiro Sem Cabeça
+Banshee
+Ceifador
+Vampiro Ancião
+Lobo Espectral
+Espírito da Floresta
+Coruja Corrompida
+Bruxa da Lua
+Sistema de Lua
+
+Cada noite possui uma fase da lua.
+
+Lua Nova
+Mais corrupção
+Fantasmas fortalecidos
+Lua Crescente
+Magias de natureza mais fortes
+Lua Cheia
+Lobisomens muito mais perigosos
+Chance maior de aparecer o Rei dos Lobisomens
+Lua Minguante
+Mortos-vivos recebem bônus
+
+Isso cria um calendário natural sem exigir eventos artificiais.
+
+Sistema de Clima
+
+O clima também altera o mundo.
+
+Chuva
+Rios enchem.
+Alguns caminhos inundam.
+Sapos aparecem.
+Peixes raros ficam ativos.
+Tempestade
+Raios atingem árvores.
+Elementais surgem.
+Chefes elétricos podem aparecer.
+Neve
+Congela lagos.
+Abre caminhos temporários.
+Nevoeiro
+Visão reduzida.
+Fantasmas surgem.
+Emboscadas tornam-se mais frequentes.
+Sistema de Eventos Dinâmicos
+
+O mundo possui eventos sem aviso.
+
+Exemplos:
+
+"Uma caravana foi atacada."
+
+Os jogadores podem:
+
+defender;
+ignorar;
+saquear.
+
+Cada escolha altera o resultado.
+
+Sistema de Invasões
+
+Monstros não ficam presos às suas áreas.
+
+Exemplo:
+
+Se muitos goblins sobreviverem:
+
+eles constroem acampamentos;
+atacam fazendas;
+fecham estradas.
+
+Se ninguém reagir:
+
+o acampamento cresce.
+
+Depois:
+
+vira um forte.
+
+Depois:
+
+uma fortaleza.
+
+O mundo muda visualmente.
+
+Chefes Dinâmicos (World Bosses)
+
+Esta é, na minha opinião, a mecânica que mais pode diferenciar o Elysia.
+
+Os chefes não ficam esperando em um ponto fixo.
+
+Eles possuem IA própria.
+
+Exemplo:
+
+O Dragão Ancião:
+
+pode dormir por dias;
+pode sair para caçar;
+pode atacar uma cidade;
+pode destruir uma ponte;
+pode voar para outra montanha.
+
+Os jogadores precisam encontrá-lo.
+
+Chefes Ocultos
+
+Cada dungeon possui:
+
+chefe principal (garantido);
+chefes raros;
+chefes secretos.
+
+Exemplo:
+
+Castelo dos Vampiros
+
+99% das vezes:
+
+Conde Draven.
+
+0,8%:
+
+Conde Carmesim.
+
+0,2%:
+
+Drácula, Primeiro Vampiro.
+
+Pouquíssimos jogadores verão este último.
+
+Sistema de Variantes
+
+Toda criatura possui pequenas chances de nascer em versões especiais.
+
+Exemplo:
+
+Lobo
+
+↓
+
+Lobo Alfa
+
+↓
+
+Lobo Negro
+
+↓
+
+Lobo Corrompido
+
+↓
+
+Lobo Ancestral
+
+Cada variante muda:
+
+aparência;
+IA;
+habilidades;
+loot.
+Dungeons Mutáveis
+
+As dungeons nunca são exatamente iguais.
+
+Ao entrar, o jogo escolhe diferentes configurações.
+
+Pode mudar:
+
+salas abertas ou fechadas;
+pontes destruídas;
+portas secretas;
+armadilhas;
+baús;
+atalhos;
+presença de mini-chefes.
+
+O mapa continua reconhecível, mas cada exploração exige atenção.
+
+Sistema "Ecos do Mundo"
+
+Algumas ações dos jogadores deixam consequências.
+
+Exemplo:
+
+Milhares de jogadores mataram muitos lobos.
+
+Resultado:
+
+Os cervos aumentam.
+
+Os javalis diminuem.
+
+As plantações são atacadas.
+
+Os comerciantes sobem os preços da carne.
+
+Nada disso precisa acontecer imediatamente, mas ao longo do tempo o mundo reage às ações da comunidade.
+
+Eventos Lendários
+
+Uma camada ainda mais rara pode ser adicionada: eventos globais que acontecem poucas vezes por ano, sem calendário fixo.
+
+Exemplos:
+
+Um eclipse cobre Elysia por uma hora.
+Um cometa cai em uma região, abrindo uma nova dungeon temporária.
+O Coração do Mundo libera uma onda de Aether que fortalece todos os jogadores e desperta criaturas ancestrais.
+Um castelo perdido emerge de um lago e permanece acessível apenas por algumas horas.
+Uma fenda da Corrupção se abre em um bioma aleatório, transformando monstros comuns em versões corrompidas e podendo atrair um chefe inédito.
+
+Esses eventos não devem ser anunciados com antecedência. A descoberta deve vir da exploração e da comunicação entre os próprios jogadores.
+
+A regra que pode definir a identidade do Elysia
+
+Nada importante deve parecer um cronograma.
+
+Se um jogador souber exatamente onde um chefe estará às 20h de toda sexta-feira, a sensação de aventura desaparece. Em vez disso, o mundo deve seguir regras próprias: clima, ciclo de dia e noite, fases da lua, estado das regiões e probabilidade influenciam o que acontece, mas nunca determinam completamente o resultado.
+
+Assim, entrar em uma dungeon pode ser uma rotina... ou pode ser o dia em que um chefe lendário aparece pela primeira vez naquele servidor, criando histórias que os jogadores vão compartilhar por muito tempo.

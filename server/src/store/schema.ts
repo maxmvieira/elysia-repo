@@ -1,0 +1,122 @@
+/**
+ * Schema do banco (etapa 7 — persistência e contas).
+ *
+ * A DECISÃO ESTRUTURAL desta etapa é a separação CONTA × PERSONAGEM, que vem
+ * direto do cap. 40 do GDD (`DD-MAP-009` / `DD-MAP-010`):
+ *
+ *   CONTA      -> geografia descoberta, marcadores, anotações
+ *   PERSONAGEM -> nível, quest, chave, item, PONTO DE RESPAWN
+ *
+ * É por isso que `account_discovery` pende da conta e `character_town` pende do
+ * personagem: um Lv.300 revela o mapa para a conta inteira, mas o Lv.15 que ele
+ * criar depois ainda precisa ANDAR até a cidade para poder renascer lá
+ * (regra do dono, 2026-07-28 + `40.21`).
+ *
+ * Migrações: `user_version` do SQLite. Cada versão é um passo idempotente.
+ */
+
+export const SCHEMA_VERSION = 1;
+
+export const SCHEMA_V1 = `
+-- ---------------------------------------------------------------- CONTA ----
+CREATE TABLE IF NOT EXISTS account (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  username      TEXT    NOT NULL,
+  username_key  TEXT    NOT NULL UNIQUE,   -- minúsculo, para login case-insensitive
+  pass_hash     TEXT    NOT NULL,
+  pass_salt     TEXT    NOT NULL,
+  created_at    INTEGER NOT NULL,
+  last_login_at INTEGER
+);
+
+-- Geografia descoberta. PERTENCE À CONTA (DD-MAP-009).
+-- Um registro por (andar, chunk); "bits" é um bitmap dos tiles revelados.
+CREATE TABLE IF NOT EXISTS account_discovery (
+  account_id INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
+  floor      INTEGER NOT NULL,
+  chunk_x    INTEGER NOT NULL,
+  chunk_y    INTEGER NOT NULL,
+  bits       BLOB    NOT NULL,
+  PRIMARY KEY (account_id, floor, chunk_x, chunk_y)
+);
+
+-- Marcadores pessoais. Também da CONTA (DD-MAP-014) — e NÃO acompanham
+-- mapas vendidos a outro jogador (DD-MAP-015).
+CREATE TABLE IF NOT EXISTS account_marker (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
+  floor      INTEGER NOT NULL,
+  x          INTEGER NOT NULL,
+  y          INTEGER NOT NULL,
+  icon       TEXT    NOT NULL,   -- perigo | hunt | dungeon | minerio | mvp
+  note       TEXT    NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS ix_marker_account ON account_marker(account_id);
+
+-- ----------------------------------------------------------- PERSONAGEM ----
+CREATE TABLE IF NOT EXISTS character (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id     INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
+  name           TEXT    NOT NULL,
+  name_key       TEXT    NOT NULL UNIQUE,  -- sem acento/espaço/caixa: unicidade
+  class          TEXT    NOT NULL,
+  gender         TEXT    NOT NULL,
+
+  level          INTEGER NOT NULL,
+  xp             INTEGER NOT NULL,
+  unspent_points INTEGER NOT NULL,
+  talent_points  INTEGER NOT NULL,
+  attributes     TEXT    NOT NULL,         -- JSON {str,vit,agi,dex,int,wis,luk}
+
+  skill_kind     TEXT    NOT NULL,
+  skill_level    INTEGER NOT NULL,
+  skill_progress INTEGER NOT NULL,
+
+  hp             REAL    NOT NULL,
+  mana           REAL    NOT NULL,
+  gold           INTEGER NOT NULL,
+
+  tile_x         INTEGER NOT NULL,
+  tile_y         INTEGER NOT NULL,
+  floor          INTEGER NOT NULL,
+
+  -- Ponto de renascimento ATUAL. Começa no vilarejo; só vira a cidade grande
+  -- depois de o personagem visitá-la fisicamente (regra do dono).
+  respawn_town   TEXT    NOT NULL,
+
+  skill_points   INTEGER NOT NULL,
+  skill_resets   INTEGER NOT NULL,
+  skill_levels   TEXT    NOT NULL,         -- JSON
+  proficiencies  TEXT    NOT NULL,         -- JSON
+  bestiary       TEXT    NOT NULL,         -- JSON
+
+  created_at     INTEGER NOT NULL,
+  last_played_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_character_account ON character(account_id);
+
+-- Itens: mochila, depósito e equipamento na MESMA tabela, separados pela
+-- coluna "container". Evita três tabelas quase idênticas.
+--   backpack/depot -> slot = índice numérico
+--   equipment      -> slot = -1 e a coluna "equip_slot" diz qual peça
+CREATE TABLE IF NOT EXISTS character_item (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  character_id INTEGER NOT NULL REFERENCES character(id) ON DELETE CASCADE,
+  container    TEXT    NOT NULL,           -- backpack | depot | equipment
+  slot         INTEGER NOT NULL,
+  equip_slot   TEXT,
+  item_kind    TEXT    NOT NULL,
+  amount       INTEGER NOT NULL,
+  roll         TEXT                        -- JSON do ItemRoll (raridade/passivos)
+);
+CREATE INDEX IF NOT EXISTS ix_item_character ON character_item(character_id);
+
+-- Cidades/vilarejos que ESTE personagem já visitou fisicamente. É o que
+-- desbloqueia o respawn (progressão do personagem, não da conta — 40.21).
+CREATE TABLE IF NOT EXISTS character_town (
+  character_id INTEGER NOT NULL REFERENCES character(id) ON DELETE CASCADE,
+  town         TEXT    NOT NULL,
+  visited_at   INTEGER NOT NULL,
+  PRIMARY KEY (character_id, town)
+);
+`;

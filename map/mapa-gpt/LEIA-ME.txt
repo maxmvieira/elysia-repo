@@ -1,0 +1,23 @@
+MAPA GENÉRICO — VILA INICIAL + ÁREA DE SLIMES
+
+Abra o arquivo vila_inicial.tmx no Tiled.
+
+Configuração:
+- Ortogonal
+- Tiles 32 x 32 px
+- 64 x 48 tiles
+- Camadas em CSV
+
+Camadas:
+Ground, Paths, Water, Buildings, Nature_Decoration, Collision,
+NPCs, MonsterSpawns e Zones.
+
+Inclui:
+- 4 construções provisórias
+- lago e ponte
+- comerciante
+- 9 spawns de slime
+- SafeZone da vila
+- área de caça
+
+Os gráficos são provisórios e servem para testar a importação e a estrutura.

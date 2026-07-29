@@ -1,0 +1,31 @@
+{
+    "activeFile": "mapa-gpt/vila_inicial.tmx",
+    "expandedProjectPaths": [
+        ".",
+        "mapa-gpt"
+    ],
+    "fileStates": {
+        "mapa-gpt/starter_tileset.tsx": {
+            "scaleInDock": 1
+        },
+        "mapa-gpt/vila_inicial.tmx": {
+            "scale": 0.75,
+            "selectedLayer": 6,
+            "viewCenter": {
+                "x": 1077.3333333333333,
+                "y": 768
+            }
+        },
+        "mapa-gpt/vila_inicial.tmx#starter_tileset": {
+            "scaleInDock": 1
+        }
+    },
+    "map.fixedSize": false,
+    "openFiles": [
+        "mapa-gpt/vila_inicial.tmx"
+    ],
+    "project": "Mapa-elysia.tiled-project",
+    "recentFiles": [
+        "mapa-gpt/vila_inicial.tmx"
+    ]
+}

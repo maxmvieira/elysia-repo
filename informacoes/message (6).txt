@@ -1,0 +1,210 @@
+Mundo Persistente
+
+Elysia não utiliza geração procedural.
+
+As cidades, estradas, cavernas, dungeons, castelos, montanhas e florestas sempre existem no mesmo lugar.
+
+O jogador aprende o mundo através da exploração.
+
+Conhecer um atalho, uma passagem secreta ou uma caverna rara é um conhecimento valioso que pode ser compartilhado com outros jogadores.
+
+O mundo deve transmitir a sensação de ser um lugar real e permanente.
+
+Dungeons Persistentes
+
+As dungeons nunca mudam de layout.
+
+Uma dungeon descoberta hoje continuará igual daqui a dez anos.
+
+Os jogadores podem memorizar:
+
+corredores;
+salas;
+atalhos;
+locais de caça;
+rotas de fuga;
+áreas perigosas.
+
+Esse conhecimento faz parte da progressão do jogador.
+
+O Mundo Muda por Consequências
+
+Embora o mapa seja permanente, o estado do mundo muda constantemente.
+
+Essas mudanças acontecem por causa de:
+
+ações dos jogadores;
+invasões;
+eventos globais;
+corrupção;
+clima;
+ciclos de dia e noite.
+
+O cenário permanece o mesmo, mas o que acontece nele pode ser completamente diferente.
+
+Exemplo 1
+
+A Caverna dos Lobos sempre será a Caverna dos Lobos.
+
+Porém...
+
+Durante uma noite de Lua Cheia:
+
+aparecem mais Lobos Alfa;
+os Lobisomens podem sair das profundezas;
+o Rei dos Lobisomens pode decidir caçar naquela região.
+
+Nenhum corredor muda.
+
+A experiência muda.
+
+Exemplo 2
+
+A Mina Abandonada sempre terá o mesmo layout.
+
+Entretanto...
+
+Após semanas sem jogadores eliminando os monstros:
+
+goblins ocupam entradas;
+barricadas aparecem;
+novos arqueiros defendem posições;
+um Chefe Goblin pode assumir o controle da mina.
+
+Quando os jogadores retomarem a mina:
+
+as barricadas desaparecem.
+
+Os goblins recuam.
+
+A mina volta ao normal.
+
+Exemplo 3
+
+O Castelo dos Vampiros sempre terá o mesmo mapa.
+
+Mas...
+
+Durante uma Noite Escarlate:
+
+o Conde Draven desperta;
+os salões ficam cheios de vampiros nobres;
+novos baús podem surgir;
+aumenta a chance de encontrar um vampiro ancestral.
+
+Quando o evento termina:
+
+o castelo retorna ao estado habitual.
+
+Eventos Regionais
+
+Cada região possui um "estado".
+
+Exemplo:
+
+Floresta de Arden
+
+Estado Normal
+
+Lobos
+Javalis
+Goblins
+
+Estado Invadido
+
+Orcs
+Acampamentos
+Patrulhas
+
+Estado Corrompido
+
+Árvores mortas
+Espíritos
+Criaturas corrompidas
+
+Estado Recuperado
+
+NPCs reconstruindo
+Novos comerciantes
+Flora renascendo
+
+O mapa continua igual.
+
+A vida dentro dele muda.
+
+Chefes Dinâmicos
+
+Os chefes não aparecem em horários fixos.
+
+Eles também não ficam presos a um único ponto.
+
+Cada chefe possui uma área de influência.
+
+Exemplo:
+
+O Dragão Ancião vive nas Montanhas de Ferro.
+
+Ele pode ser encontrado:
+
+dormindo em sua caverna;
+caçando perto dos penhascos;
+atacando uma fortaleza anã;
+sobrevoando o vale.
+
+Ele nunca aparecerá no deserto.
+
+Ele pertence àquela região.
+
+Sistema de Ecossistema
+
+As criaturas possuem territórios.
+
+Exemplo:
+
+Se muitos lobos forem mortos:
+
+aumenta a população de javalis;
+veados se espalham;
+algumas plantas deixam de ser consumidas.
+
+Se os jogadores ignorarem os lobos por semanas:
+
+surgem novas alcateias;
+elas se aproximam das estradas;
+caravanas começam a ser atacadas;
+NPCs contratam aventureiros para resolver o problema.
+
+Nada muda de lugar.
+
+O mundo apenas reage.
+
+Filosofia do Mundo
+
+Os jogadores não entram em instâncias. Eles entram em um mundo vivo.
+
+Tudo o que existe pode ser encontrado por qualquer jogador.
+
+Uma dungeon descoberta por um novato é a mesma que um veterano visitará anos depois.
+
+As histórias nascem porque o mundo é compartilhado, persistente e reage às ações da comunidade.
+
+Uma ideia que acho que combina perfeitamente com o Elysia
+
+Em vez de eventos "ligados e desligados" pelo servidor, criaria um sistema chamado Estado do Mundo.
+
+Cada região teria uma variável invisível, por exemplo:
+
+Segurança
+Corrupção
+Prosperidade
+Influência Monstruosa
+
+Esses valores seriam alterados pelas ações coletivas dos jogadores.
+
+Por exemplo:
+
+Muitos jogadores limpam a Floresta de Arden → a segurança aumenta, comerciantes voltam, estradas ficam movimentadas.
+A região é ignorada por vários dias → monstros se multiplicam, surgem acampamentos, ataques a vilas tornam-se frequentes.
+Uma fissura da Corrupção permanece aberta → a influência monstruosa cresce, criaturas corrompidas começam a substituir a fauna normal.
+
+Assim, todos os jogadores veem exatamente o mesmo mundo, mas esse mundo evolui organicamente conforme a comunidade interage com ele. Essa abordagem preserva a sensação de um universo persistente, que é uma das características que fizeram jogos como Tibia serem memoráveis.

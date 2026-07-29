@@ -1,0 +1,449 @@
+ELYSIA ONLINE
+PROGRESSÃO INFINITA
+Filosofia
+
+O jogador nunca termina seu personagem.
+
+Mas também nunca sente que está preso em um grind infinito sem recompensa.
+
+A evolução deixa de ser apenas "upar nível".
+
+Ela passa a ser uma coleção de pequenas evoluções permanentes.
+
+Sistema de Nível
+
+Não existe nível máximo.
+
+Exemplo
+
+1
+
+10
+
+50
+
+100
+
+250
+
+500
+
+1000
+
+2000
+
+Todos são possíveis.
+
+Porém...
+
+A experiência cresce exponencialmente.
+
+Do nível 1 ao 100:
+
+rápido.
+
+100 ao 250:
+
+mais lento.
+
+250 ao 500:
+
+bem lento.
+
+500+:
+
+leva meses.
+
+1000+:
+
+anos.
+
+Mas isso não é um problema.
+
+Porque o nível deixa de ser o principal objetivo.
+
+O VERDADEIRO PROGRESSO
+
+O nível apenas desbloqueia potencial.
+
+O que realmente deixa o personagem forte são:
+
+atributos
+talentos
+magias
+equipamentos
+cartas
+reputação
+profissões
+conquistas
+títulos
+conhecimento
+MAGIAS
+
+Aqui está uma ideia que considero muito melhor do que árvores tradicionais.
+
+Nenhuma magia depende de nível.
+
+Você pode aprender qualquer magia.
+
+Desde que cumpra seus requisitos.
+
+Exemplo
+
+Livro:
+
+"Bola de Fogo"
+
+Requisitos
+
+Inteligência 18
+Magia 12
+
+Pronto.
+
+Você aprende.
+
+Outra magia
+
+"Meteorito"
+
+Requisitos
+
+Inteligência 90
+Magia 80
+Encontrar o Grimório Perdido
+Derrotar o Senhor do Magma
+
+Ou seja...
+
+Você evolui porque conquistou algo.
+
+Não porque chegou ao nível 50.
+
+Escolas de Magia
+
+Todas as classes possuem escolas próprias.
+
+Guerreiro
+
+Não lança feitiços tradicionais.
+
+Sua "magia" vem da energia vital (Aether Marcial).
+
+Exemplos
+
+Provocar
+
+Fúria
+
+Golpe Giratório
+
+Salto
+
+Investida
+
+Muralha
+
+Reflexo
+
+Proteção Divina
+
+Última Resistência
+
+Ele escolhe quais aprender.
+
+Arqueiro
+
+Magias de suporte.
+
+Exemplos
+
+Flecha Explosiva
+
+Flecha Congelante
+
+Flecha Envenenada
+
+Chuva de Flechas
+
+Marca do Caçador
+
+Camuflagem
+
+Olho de Águia
+
+Armadilha
+
+Companheiro Animal
+
+Assassino
+
+Sombras.
+
+Venenos.
+
+Mobilidade.
+
+Exemplos
+
+Passo Sombrio
+
+Invisibilidade
+
+Golpe nas Costas
+
+Bomba de Fumaça
+
+Veneno Mortal
+
+Marca da Morte
+
+Clone Sombrio
+
+Sangramento
+
+Silêncio
+
+Feiticeiro
+
+Aqui o sistema muda completamente.
+
+O feiticeiro não possui uma árvore fixa.
+
+Ele aprende escolas.
+
+Escolas
+
+Fogo
+
+Gelo
+
+Terra
+
+Ar
+
+Natureza
+
+Luz
+
+Trevas
+
+Arcana
+
+Invocação
+
+Tempo
+
+Espaço
+
+Sangue
+
+Cada escola possui cerca de 20 a 40 magias.
+
+Exemplo
+
+Você pode criar um mago focado apenas em gelo.
+
+Outro apenas em fogo.
+
+Outro apenas em invocações.
+
+Outro em magia de sangue.
+
+Outro misturando tudo.
+
+Livro de Magias
+
+O jogador possui um grimório.
+
+Nele ficam registradas todas as magias descobertas.
+
+Aprendeu uma magia?
+
+Ela fica registrada para sempre.
+
+EVOLUÇÃO DAS MAGIAS
+
+Essa é uma ideia que acho excelente.
+
+As magias também evoluem.
+
+Exemplo
+
+Fireball
+
+Nível da magia
+
+1
+
+↓
+
+2
+
+↓
+
+3
+
+↓
+
+...
+
+↓
+
+100
+
+Quanto mais usada
+
+mais forte fica.
+
+Sem grind artificial: a magia evolui naturalmente com o uso.
+
+Exemplo
+
+Fireball 100
+
+tem animação diferente.
+
+Som diferente.
+
+Maior alcance.
+
+Maior dano.
+
+MESTRIA
+
+Depois da magia atingir o nível máximo de maestria (por exemplo, 100), o jogador pode escolher uma evolução permanente.
+
+Fireball
+
+↓
+
+Escolha:
+
+🔥 Explosão Maior
+
+ou
+
+🔥 Menor custo de mana
+
+ou
+
+🔥 Chance de incendiar
+
+ou
+
+🔥 Alcance maior
+
+Essa escolha diferencia dois personagens que usam a mesma magia.
+
+TALENTOS
+
+Cada classe possui cerca de 150 talentos.
+
+Mas ninguém consegue aprender todos.
+
+Cada ponto investido é permanente (com possibilidade de reset por um custo alto).
+
+SISTEMA DE DESCOBERTAS
+
+As magias mais fortes não possuem NPC.
+
+Elas são descobertas.
+
+Exemplo
+
+Um jogador encontra um templo escondido.
+
+Resolve um puzzle.
+
+Recebe uma magia inédita.
+
+Durante semanas
+
+ele pode ser o único jogador do servidor que possui aquela magia.
+
+Isso cria histórias.
+
+EQUIPAMENTOS
+
+Os melhores equipamentos nunca vêm prontos.
+
+Exemplo
+
+Espada Lendária
+
+↓
+
+Pode receber:
+
+Runas
+
+Cartas
+
+Encantamentos
+
+Forjamento
+
+Aprimoramentos
+
+Personalizações
+
+A espada continua evoluindo junto com o jogador.
+
+O QUE MANTÉM O JOGADOR ATIVO?
+
+Essa é a pergunta de ouro.
+
+Eu criaria várias progressões paralelas, para que sempre exista algo interessante a perseguir.
+
+Maestria de Armas
+
+Cada tipo de arma evolui conforme o uso e libera técnicas passivas.
+
+Maestria de Magias
+
+As magias evoluem e permitem especializações.
+
+Coleção de Cartas
+
+Completar coleções concede títulos, cosméticos e pequenos bônus situacionais.
+
+Exploração
+
+Descobrir locais secretos, ruínas e passagens rende reconhecimento e recompensas.
+
+Profissões
+
+Ferreiro, alquimista, pescador, cozinheiro e outras têm progressão própria.
+
+Reputação
+
+Cada cidade e facção possui níveis de confiança que desbloqueiam missões, receitas e comerciantes exclusivos.
+
+Habitação e Guildas
+
+Casas, fortalezas e territórios exigem manutenção, expansão e defesa.
+
+Economia
+
+O jogador pode se tornar um comerciante conhecido, controlando rotas ou especializando-se em determinados itens.
+
+Eventos do Mundo
+
+Invasões, reconstruções de cidades, abertura de minas e crises de recursos criam objetivos coletivos.
+
+Um sistema que pode se tornar a assinatura do Elysia
+
+Eu criaria um Sistema de Legado.
+
+Depois de centenas ou milhares de horas, o personagem deixa marcas permanentes no mundo.
+
+Exemplos:
+
+O primeiro jogador a derrotar um chefe lendário fica registrado na história do servidor.
+Um artesão que forja uma arma excepcional tem seu nome gravado nela para sempre.
+Um explorador que descobre uma ruína importante passa a ser citado por NPCs ligados àquela região.
+Guildas que fundam ou defendem cidades têm monumentos e registros históricos.
+Grandes eventos (como derrotar uma invasão que ameaçava uma capital) entram na crônica do mundo.
+
+Essas recompensas não aumentam apenas números; elas criam prestígio. Em um MMORPG persistente, muitos jogadores continuam ativos não porque precisam de mais níveis, mas porque querem construir uma história que outros jogadores reconheçam anos depois. Acho que esse tipo de objetivo combina muito bem com a visão que estamos construindo para o Elysia.
