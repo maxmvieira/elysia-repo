@@ -502,6 +502,31 @@ Primeira família do bestiário com ficha oficial. Encerra a primeira etapa do
    na linha 3155 diz Tier I. Implementado como **Tier I** (a ficha é mais
    específica e traz os números).
 
+## Zumbi vira Tier III — `DD-BAL-055` (2026-07-29)
+
+O Doc 3 responde onde o Zumbi se encaixa, e não é no início do jogo. A linha
+4427 põe a progressão dos mortos-vivos como **Esqueleto (Tier II) → Zumbi,
+Esqueleto Guerreiro, Esqueleto Arqueiro e Múmia (Tier III)**.
+
+| | Antes | Canônico |
+|---|---|---|
+| HP | 160 | **340** |
+| Dano | ~15 | **20–28** |
+| DEF | 6 | **8** |
+| DEF Mágica | — | **4** |
+| XP | 40 | **95** |
+
+Identidade oficial: *"lento; extremamente resistente; pressão constante"* — que
+é exatamente o que o passo de 2000 ms já entregava. A lentidão virou teste: o
+Zumbi tem que continuar sendo a criatura mais lenta do jogo.
+
+🔴 **Ele ficou muito mais perigoso e continua nascendo fora da muralha**, a 9
+pontos do mapa. O de `(20,34)` está em linha reta ao sul do nascimento e hoje é
+um encontro provavelmente fatal para personagem recém-criado. Isso é
+**permitido** por `DD-BAL-039` (Tier não é bloqueio de acesso), então não é bug —
+mas merece decisão consciente. Opções em `DOC3-TRIAGEM.md`. O spawn **não** foi
+alterado: mapa é decisão do dono.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os

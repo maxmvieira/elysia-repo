@@ -251,14 +251,25 @@ export const CREATURES: Record<string, CreatureDef> = {
     // Lore (cap. 9): morto-vivo é ALMA QUE NÃO CONSEGUIU VOLTAR AO HEART
     // (`DD-LOR-074`) — família própria, NÃO é demônio nem criatura corrompida.
     behavior: 'hostile',
-    maxHp: 160,
-    strength: 15,
-    defense: 6,
+    // 🔴 `DD-BAL-055` — "Mortos-Vivos Iniciais", APROVADO. O Zumbi é **Tier III**,
+    // não conteúdo inicial: a linha 4427 do Doc 3 põe a progressão como Esqueleto
+    // (Tier II) → Zumbi, Esqueleto Guerreiro, Esqueleto Arqueiro e Múmia (Tier III).
+    //
+    // Identidade oficial: "lento; extremamente resistente; pressão constante" —
+    // que é exatamente o que o passo de 2000 ms já entregava.
+    //
+    // ⚠️ **Isto o torna MUITO mais perigoso**: mais que o dobro de vida e quase o
+    // dobro de dano. Ver o aviso sobre spawn em `docs/DOC3-TRIAGEM.md` — ele nasce
+    // hoje na vila inicial, ao lado de um Slime Verde de Tier I.
+    maxHp: 340,
+    strength: 24, // doc: dano 20–28
+    defense: 8,
+    magicDefense: 4,
     aggroRange: 4,
     attackCooldownMs: 1600,
     // ~2 s por passo: o mais lento do mapa. Slime anda a 1500.
     moveCooldownMs: 2000,
-    xpReward: 40,
+    xpReward: 95,
     goldMin: 3,
     goldMax: 12,
     // Primeira fraqueza elemental do jogo, e ela vem do lore, não de gosto:

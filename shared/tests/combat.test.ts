@@ -62,6 +62,28 @@ test('o Zumbi é fraco a Sagrado — e a fraqueza vem do lore, não de gosto', (
   assert.equal(r!.poison, undefined);
 });
 
+test('DD-BAL-055: o Zumbi é Tier III — muito acima da âncora do Tier I', () => {
+  const z = CREATURES.zombie!;
+  assert.equal(z.maxHp, 340);
+  assert.equal(z.defense, 8);
+  assert.equal(z.magicDefense, 4);
+  assert.equal(z.xpReward, 95);
+  // "lento; extremamente resistente; pressão constante" — a lentidão é a
+  // identidade da espécie, então ele tem que continuar sendo o mais lento.
+  for (const [tipo, def] of Object.entries(CREATURES)) {
+    if (tipo === 'zombie') continue;
+    assert.equal(
+      z.moveCooldownMs >= def.moveCooldownMs,
+      true,
+      `${tipo} não pode ser mais lento que o Zumbi`,
+    );
+  }
+  // O salto de Tier é real: quase 7x o HP e 9,5x a XP do Slime Verde.
+  const ancora = CREATURES.slime!;
+  assert.equal(z.maxHp > ancora.maxHp * 5, true);
+  assert.equal(z.xpReward > ancora.xpReward * 5, true);
+});
+
 test('nenhuma criatura nasce imune: resistência sempre abaixo do teto', () => {
   for (const [tipo, def] of Object.entries(CREATURES)) {
     for (const [elem, v] of Object.entries(def.resistances ?? {})) {

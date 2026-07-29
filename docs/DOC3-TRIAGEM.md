@@ -126,8 +126,34 @@ recente no documento e traz os números. Precisa de confirmação.
 
 1. ✅ **`DD-BAL-027`** — Slime Verde como âncora *(feito)*
 2. ✅ **`DD-BAL-033` a `036`** — família Slime inteira *(feito)*
-3. **Decidir o Tier do Zumbi** — é a única criatura ativa ainda fora de escala
+3. ✅ **`DD-BAL-055`** — Zumbi é Tier III *(feito)*
 4. **Rebalancear o resto do Tier I** contra a âncora (`DD-BAL-038`)
+
+## 🔴 Aviso de dificuldade: o Zumbi na vila inicial
+
+`DD-BAL-055` põe o Zumbi no **Tier III** (340 HP · dano 20–28 · XP 95). Ele
+continua nascendo onde nascia: **fora da muralha**, em 9 pontos, longe da zona
+segura do centro. Isso não mudou.
+
+O que mudou é o que acontece quando um personagem novo encontra um. Antes eram
+160 HP e ~15 de dano; agora é mais que o dobro de vida e quase o dobro de dano,
+contra um nível 1 que tem entre 100 e 200 de vida.
+
+⚠️ **O zumbi de `(20,34)` está em linha reta ao sul do nascimento em `(20,20)`.**
+Ele foi posto ali de propósito como alvo de teste. Hoje é um encontro
+provavelmente fatal para quem acabou de criar personagem.
+
+`DD-BAL-039` **permite** isto — "uma mesma região pode conter criaturas de
+diferentes Tiers quando isso fizer sentido para o ambiente", e Tier não é
+bloqueio de acesso. Então não é bug. Mas é uma decisão de design que vale ser
+tomada de propósito:
+
+- **manter** — sair da muralha é perigoso, e o jogo comunica isso pela dor
+- **afastar** os spawns do eixo sul do nascimento
+- **substituir** os zumbis próximos por um morto-vivo de Tier menor: o Doc 3 tem
+  **Esqueleto no Tier II** (`DD-BAL-051D`, linha 3918)
+
+O código **não** foi alterado — spawn é decisão do dono e do mapa.
 3. **Lore no código** — Asteria em `shared/src/towns.ts`, calendário, reinos.
    Destrava a Etapa 16
 4. **Crafting por fragmentos** (Bloco 01) — encaixa na Etapa 12
