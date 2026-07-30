@@ -66,6 +66,7 @@ import {
   type ServerMessage,
   affixDamageType,
   composeItemName,
+  getMaterial,
   rarityChances,
   ARMOR_CLASS_AFFINITY,
   WEAPON_CLASS_AFFINITY,
@@ -1178,6 +1179,138 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   const itemIconCache = new Map<string, string>();
+  /**
+   * Ícone de item de LOOT, por identidade — fragmento, receita ou material.
+   *
+   * 🔴 Antes, todo `loot` era a MESMA elipse mudando só de cor. Com os 38 itens
+   * novos (7 fragmentos + 7 receitas + 24 materiais), a mochila virou uma parede
+   * de bolinhas coloridas: Fragmento Comum, Gosma de Slime e Receita Rara eram
+   * visualmente a mesma coisa.
+   *
+   * Cor sozinha não resolve — é o mesmo motivo dos ícones de condição: ninguém
+   * memoriza 38 tons, e quem tem daltonismo não distingue nenhum. A FORMA é o que
+   * carrega a identidade, e a cor passa a ser o detalhe.
+   */
+  function drawLootShape(g: CanvasRenderingContext2D, kind: string, color: number): void {
+    const c = hx(color);
+    const escuro = hx(shade(color, 0.5));
+    const meio = S / 2;
+    const contorno = (): void => { g.lineWidth = 1.4; g.strokeStyle = escuro; g.stroke(); };
+    const brilho = (x: number, y: number): void => {
+      g.fillStyle = 'rgba(255,255,255,0.28)';
+      g.beginPath(); g.ellipse(x, y, 2.2, 1.5, 0, 0, Math.PI * 2); g.fill();
+    };
+
+    // FRAGMENTO: lasca angular. É "pedaço de equipamento quebrado", então tem que
+    // parecer quebrado — arestas retas e irregulares, nada de curva orgânica.
+    if (kind.startsWith('fragment_')) {
+      g.beginPath();
+      g.moveTo(meio - 6, meio + 6); g.lineTo(meio - 3, meio - 6);
+      g.lineTo(meio + 5, meio - 3); g.lineTo(meio + 2, meio + 2);
+      g.lineTo(meio + 6, meio + 6); g.closePath();
+      g.fillStyle = c; g.fill(); contorno();
+      brilho(meio - 2, meio - 2);
+      return;
+    }
+
+    // RECEITA: pergaminho enrolado. Retângulo claro com dois rolos nas pontas e
+    // linhas de escrita — lê como "papel" mesmo a 24 px.
+    if (kind.startsWith('recipe_')) {
+      g.fillStyle = '#e8dcc0';
+      g.fillRect(meio - 6, 5, 12, S - 10);
+      g.lineWidth = 1.2; g.strokeStyle = '#8a7a5a';
+      g.strokeRect(meio - 6, 5, 12, S - 10);
+      // Rolos: a cor da raridade fica aqui, e não no papel, para o papel
+      // continuar reconhecível como papel.
+      g.fillStyle = c;
+      g.fillRect(meio - 7, 3, 14, 3);
+      g.fillRect(meio - 7, S - 6, 14, 3);
+      g.fillStyle = '#8a7a5a';
+      for (let i = 0; i < 3; i++) g.fillRect(meio - 4, 9 + i * 3, 8, 1);
+      return;
+    }
+
+    // MATERIAL: forma por FAMÍLIA. A taxonomia do cap. 44 já classifica tudo, e
+    // usá-la aqui é o que faz o ícone dizer "isto é osso" e não só "isto é loot".
+    const fam = getMaterial(kind)?.family;
+    switch (fam) {
+      case 'osso': // dois nós e uma haste
+        g.fillStyle = c;
+        g.beginPath(); g.arc(meio - 5, meio - 4, 3, 0, Math.PI * 2); g.fill();
+        g.beginPath(); g.arc(meio + 5, meio + 4, 3, 0, Math.PI * 2); g.fill();
+        g.lineWidth = 3.5; g.strokeStyle = c;
+        g.beginPath(); g.moveTo(meio - 4, meio - 3); g.lineTo(meio + 4, meio + 3); g.stroke();
+        break;
+
+      case 'couro': // pele esticada, quadrilátero irregular
+        g.beginPath();
+        g.moveTo(meio - 7, meio - 4); g.lineTo(meio + 5, meio - 6);
+        g.lineTo(meio + 7, meio + 5); g.lineTo(meio - 5, meio + 6);
+        g.closePath();
+        g.fillStyle = c; g.fill(); contorno();
+        brilho(meio - 2, meio - 1);
+        break;
+
+      case 'tecido': // pano dobrado
+        g.fillStyle = c;
+        g.beginPath();
+        g.moveTo(meio - 7, meio + 5); g.lineTo(meio - 7, meio - 3);
+        g.quadraticCurveTo(meio, meio - 8, meio + 7, meio - 3);
+        g.lineTo(meio + 7, meio + 5);
+        g.quadraticCurveTo(meio, meio + 1, meio - 7, meio + 5);
+        g.closePath();
+        g.fill(); contorno();
+        break;
+
+      case 'escama': // três escamas sobrepostas
+        g.fillStyle = c;
+        for (const [ox, oy] of [[-4, 1], [4, 1], [0, -4]] as const) {
+          g.beginPath();
+          g.arc(meio + ox, meio + oy + 2, 4, Math.PI, 0);
+          g.closePath(); g.fill();
+          g.lineWidth = 1; g.strokeStyle = escuro; g.stroke();
+        }
+        break;
+
+      case 'presa':
+      case 'garra':
+      case 'chifre': // ponta curva
+        g.beginPath();
+        g.moveTo(meio - 5, meio + 7);
+        g.quadraticCurveTo(meio - 2, meio - 5, meio + 6, meio - 7);
+        g.quadraticCurveTo(meio + 1, meio + 1, meio - 1, meio + 7);
+        g.closePath();
+        g.fillStyle = c; g.fill(); contorno();
+        break;
+
+      case 'sangue': // frasco com líquido
+        g.fillStyle = '#cfc8b6'; g.fillRect(meio - 2, 3, 4, 3); // tampa
+        g.beginPath();
+        g.moveTo(meio - 5, 7); g.lineTo(meio + 5, 7);
+        g.lineTo(meio + 5, S - 4); g.lineTo(meio - 5, S - 4); g.closePath();
+        g.fillStyle = hx(shade(color, 0.4)); g.fill();
+        g.fillStyle = c; g.fillRect(meio - 5, 12, 10, S - 16);
+        g.lineWidth = 1.2; g.strokeStyle = '#0a0908'; g.stroke();
+        break;
+
+      case 'essencia': // orbe com faísca — o que é mágico brilha
+        g.beginPath(); g.arc(meio, meio, 6.5, 0, Math.PI * 2);
+        g.fillStyle = c; g.fill();
+        g.lineWidth = 1.2; g.strokeStyle = escuro; g.stroke();
+        g.strokeStyle = 'rgba(255,255,255,0.75)'; g.lineWidth = 1.4;
+        g.beginPath();
+        g.moveTo(meio, meio - 8); g.lineTo(meio, meio + 8);
+        g.moveTo(meio - 8, meio); g.lineTo(meio + 8, meio);
+        g.stroke();
+        break;
+
+      default: // blob orgânico — o antigo, para o que não é material catalogado
+        g.beginPath(); g.ellipse(meio, meio + 1, 8, 7, 0, 0, Math.PI * 2);
+        g.fillStyle = c; g.fill(); contorno();
+        brilho(meio - 2, meio - 2);
+    }
+  }
+
   function itemIconUrl(kind: string): string {
     const c = itemIconCache.get(kind);
     if (c) return c;
@@ -1209,12 +1342,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       drawEquipShape(g, def.slot, hx(color), hx(shade(color, 0.5)));
       g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(6, 6, S - 12, 2); // brilho topo
     } else {
-      // Loot: blob orgânico.
-      g.beginPath(); g.ellipse(S / 2, S / 2 + 1, 8, 7, 0, 0, Math.PI * 2);
-      g.fillStyle = hx(color); g.fill();
-      g.lineWidth = 1.4; g.strokeStyle = hx(shade(color, 0.5)); g.stroke();
-      g.fillStyle = 'rgba(255,255,255,0.25)';
-      g.beginPath(); g.ellipse(S / 2 - 2, S / 2 - 2, 2.5, 1.8, 0, 0, Math.PI * 2); g.fill();
+      drawLootShape(g, kind, color);
     }
     const url = cv.toDataURL();
     itemIconCache.set(kind, url);
