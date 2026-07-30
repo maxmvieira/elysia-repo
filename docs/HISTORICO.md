@@ -839,6 +839,58 @@ Os 41 modelos que exigem `EquipSlot` novo no paperdoll (cap. 28–29, 32–34:
 luvas, capas, braceletes, cintos, broches) · anéis e colares, que esperam bônus
 fixo de equipamento · fonte de obtenção para os três artefatos únicos.
 
+## Etapa 9 (parte 1) — as regras de Party, sem fiação (2026-07-30)
+
+**Arquivos:** `shared/src/party.ts` (novo)
+**Testes:** `shared/tests/party.test.ts` (novo)
+
+Só as regras: nada de rede, nada de estado de servidor. É o que permite testar
+"um Lv.300 não rouba XP de um Lv.20" sem subir servidor e conectar dois clientes.
+
+### As duas decisões que o documento deixou em aberto
+
+1. **A faixa de nível é RELATIVA, não fixa.** `DD-PARTY-003/004` diz "faixa de
+   aproximadamente 10 níveis", o que comporta as duas leituras. A fixa (1–10,
+   11–20) cria um penhasco absurdo: um Lv.10 e um Lv.11 não poderiam jogar
+   juntos, enquanto um Lv.1 e um Lv.10 poderiam. ⚠️ Interpretação registrada no
+   código.
+2. **`partyXpBonus = 1 + 0,10 × (n−1)`.** `DD-PARTY-010` deixa o percentual para
+   balanceamento, mas o número não é livre — o roadmap fecha duas pontas que
+   puxam em direções opostas: *"solo rende mais por monstro"* exige `bonus(n) <
+   n`, e *"party rende mais no total"* exige `bonus(n) > 1`. Há teste conferindo
+   as duas para grupos de 2 a 10.
+
+### 🔴 A referência da faixa é o membro de MENOR nível
+
+É o que faz `DD-PARTY-007` funcionar (*"um Lv.300 pode ajudar um Lv.20, mas não
+divide XP com ele"*). Se a referência fosse o de maior nível, o **Lv.20** é que
+ficaria de fora — o oposto do que o documento quer.
+
+E o teste trava a outra metade da regra, que é fácil de perder: a parte do novato
+**não diminui** por o veterano estar junto. Ajudar continua sendo ajudar, e nunca
+vira roubo.
+
+### O resto que entrou
+
+Ordem do `DD-PARTY-009` (bônus **antes** da divisão) · participação e proximidade
+como condições separadas (`DD-PARTY-008` — dá para bater e fugir) · os três modos
+de loot · votação com maioria simples, empate mantendo e abstenção **não** valendo
+como voto contra · trava da regra durante boss (`DD-PARTY-019`, anti-golpe:
+sem ela o líder propõe "Loot do Líder" no instante antes de o chefe cair) ·
+sorteio de loot de boss ponderado por dano, com **last hit valendo nada**
+(`DD-PARTY-022`) e contribuição mínima de 5 % (⚠️ REFERÊNCIA, o doc adia).
+
+### O que falta da Etapa 9
+
+**Nada disto está ligado ao jogo ainda.** Faltam os dois commits seguintes:
+
+- **Protocolo e servidor** — convite/aceite/saída/expulsão, estado da party, e a
+  peça que a base não tem: **contribuição de dano por jogador na criatura** (hoje
+  só existe `targetId`). Ela é pré-requisito de `DD-PARTY-008` e `021`.
+- **Cliente** — painel de party, regra de loot sempre visível (`DD-PARTY-014`),
+  prompt de votação, e um `/party` nos comandos de teste, porque validar isso
+  sozinho exige dois clientes.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os
