@@ -79,7 +79,9 @@ import {
   MODEL_INDEX,
   craftableModel,
   LOOT_RULE_LABEL,
+  PHASE_LABEL,
   type AffixId,
+  type DayPhase,
   type Professions,
   type Rarity,
   PARTY_MAX,
@@ -995,7 +997,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           onTowns(msg.visited, msg.respawn);
           break;
         case 'snapshot':
-          updateDayNight(msg.hour, msg.night);
+          updateDayNight(msg.hour, msg.night, msg.phase);
           syncEntities(msg.entities);
           updateBattleList(msg.entities);
           drawMinimap();
@@ -2050,13 +2052,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   // ---- Ciclo dia/noite + relógio -----------------------------------------
-  function updateDayNight(hour: number, night: boolean): void {
+  function updateDayNight(hour: number, night: boolean, phase?: DayPhase): void {
     nightMode = night;
     const h = Math.floor(hour) % 24;
     const m = Math.floor((hour - Math.floor(hour)) * 60);
-    const icon = night ? '🌙' : '☀️';
+    // 🔴 A tarde tem ícone PRÓPRIO. Ela é curta (30 min reais) e é o aviso de
+    // que a noite vem — sem marca visível, o jogador só percebe quando já está
+    // escuro e as criaturas já estão mais fortes.
+    //
+    // `phase` é opcional no protocolo (cliente antigo contra servidor novo), daí
+    // o fallback pelo booleano de sempre.
+    const icon = phase === 'dusk' ? '🌇' : night ? '🌙' : '☀️';
     clockEl.textContent = `${icon} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     clockEl.classList.toggle('night', night); // pisca no menu à noite
+    clockEl.title = phase ? PHASE_LABEL[phase] : night ? 'Noite' : 'Dia';
     // Escuridão-alvo: máxima à meia-noite, nula ao meio-dia. Bem escuro à noite.
     const darkness = (1 + Math.cos((hour / 24) * Math.PI * 2)) / 2;
     nightDarkness = darkness * 0.92;

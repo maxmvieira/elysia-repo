@@ -178,8 +178,12 @@ import {
   tallyLootVote,
   LOOT_RULES,
   LOOT_RULE_LABEL,
+  worldTimeAt,
+  phaseStartMs,
+  PHASE_LABEL,
   type AffixId,
   type LootRule,
+  type DayPhase,
 } from '@dominion/shared';
 import { openStore } from './store/store.js';
 import { fromStored, rowsToItems, toStored } from './store/serialize.js';
@@ -205,11 +209,19 @@ function inCenterSafeZone(x: number, y: number): boolean {
   return chebyshev(x, y, map.spawn.x, map.spawn.y) <= CENTER_SAFE_RADIUS;
 }
 
-// Ciclo dia/noite: acelerado (~2 min o dia inteiro) para o usuário testar já.
-// Ajuste DAY_CYCLE_MS para deixar mais lento depois. Noite: 18h..6h.
-const DAY_CYCLE_MS = 120000;
+/**
+ * Ciclo dia/noite. As durações e o mapa de horas vivem em
+ * `shared/src/daynight.ts` — 1 h de dia, 30 min de tarde, 1 h de noite.
+ *
+ * 🔴 **`cycleOffset` é o que os comandos de teste movem.** Forçar uma fase não
+ * congela o relógio: desloca a ORIGEM do ciclo, e o mundo segue andando dali. É
+ * o que faz `/noite` e depois esperar amanhecer sozinho — congelar esconderia
+ * justamente os bugs de transição, que é o que se quer testar.
+ */
+let cycleOffset = 0;
 let worldHour = 8; // 0..24
 let isNight = false;
+let worldPhase: DayPhase = 'day';
 /** À noite os monstros ficam mais fortes/rápidos. Multiplicadores. */
 const NIGHT_DMG_MULT = 1.5;
 // NIGHT_SPEED_MULT mora em `shared` porque o cliente também depende dele para
@@ -2840,6 +2852,35 @@ function handleDevCommand(player: Player, text: string): boolean {
       player.conditions = [];
       return aviso('condições limpas.'), true;
     }
+
+    // --- Ciclo dia/noite -----------------------------------------------------
+    //
+    // 🔴 Estes NÃO congelam o relógio: deslocam a origem do ciclo, e o mundo
+    // segue andando dali. Forçar `/noite` e esperar faz amanhecer sozinho —
+    // congelar esconderia justamente os bugs de transição, que é o que se quer
+    // ver. E o efeito é GLOBAL: o mundo é um só, então quem está jogando junto
+    // vê a mesma coisa.
+    case 'dia':
+    case 'tarde':
+    case 'noite': {
+      const fase: DayPhase = cmd === 'dia' ? 'day' : cmd === 'tarde' ? 'dusk' : 'night';
+      // A origem passa a ser "agora menos o quanto desta fase já deveria ter
+      // corrido", ou seja: a fase começa exatamente neste instante.
+      cycleOffset = phaseStartMs(fase) - Date.now();
+      const t = worldTimeAt(Date.now() + cycleOffset);
+      for (const p of players.values()) {
+        if (!p.joined) continue;
+        send(p, {
+          t: 'chat', from: 'Mundo',
+          text: `${PHASE_LABEL[fase]} agora (${String(Math.floor(t.hour)).padStart(2, '0')}h).`,
+        });
+      }
+      return true;
+    }
+    case 'ciclo': {
+      cycleOffset = 0;
+      return aviso('ciclo dia/noite de volta ao horário natural.'), true;
+    }
     case 'level': {
       if (!Number.isFinite(n) || n < 1 || n > 500) return aviso('uso: /level <1..500>'), true;
       // Reconstrói a ficha do nível 1 até `n`, concedendo tudo que seria ganho.
@@ -4123,9 +4164,11 @@ function gameTick(): void {
   const now = Date.now();
   expireCorpses(now);
   expireGroundItems(now);
-  // Relógio do mundo (0..24). Noite entre 18h e 6h.
-  worldHour = ((now % DAY_CYCLE_MS) / DAY_CYCLE_MS) * 24;
-  isNight = worldHour < 6 || worldHour >= 18;
+  // Relógio do mundo. As três fases e o mapa de horas moram no shared.
+  const t = worldTimeAt(now + cycleOffset);
+  worldHour = t.hour;
+  isNight = t.night;
+  worldPhase = t.phase;
   updateCreatures(now);
   updatePlayers(now);
   expirePartyInvites(now);
@@ -4145,7 +4188,7 @@ function gameTick(): void {
     if (!player.joined) continue;
     send(player, {
       t: 'snapshot', tick, entities: buildSnapshotFor(player), ackSeq: player.lastAckSeq,
-      hour: worldHour, night: isNight,
+      hour: worldHour, night: isNight, phase: worldPhase,
     });
     sendStats(player);
   }

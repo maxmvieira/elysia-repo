@@ -1080,6 +1080,53 @@ fora a proficiência de todo mundo), e o próprio cap. 42 se apresenta como
 `proficiencyMatchesIdentity` trava as duas tabelas juntas, com a **lança** como
 caso de fronteira: ela alcança dois tiles, não o outro lado da tela.
 
+## Ciclo dia/noite — três fases de tempo real (2026-07-30)
+
+**Arquivos:** `shared/src/daynight.ts` (novo) · `protocol.ts` · servidor · cliente
+**Testes:** `shared/tests/daynight.test.ts` (novo)
+
+O ciclo dava a volta inteira em **2 minutos**. Era deliberado — o comentário
+dizia *"acelerado para o usuário testar já"* — mas transformava a noite em
+piscada e esvaziava o `NIGHT_DMG_MULT`: não dava tempo de a escolha de sair à
+noite significar nada.
+
+Decisão do dono: **1 h de dia · 30 min de tarde · 1 h de noite**, em tempo real.
+
+### O mapa das fases na hora do relógio
+
+```
+ fase    tempo real     hora no jogo
+ dia      1 h           06:00 → 17:00
+ tarde   30 min         17:00 → 19:00
+ noite    1 h           19:00 → 06:00
+```
+
+⚠️ **As faixas de hora não são proporcionais ao tempo real, de propósito.** A
+tarde corre rápido (2 horas de relógio em 30 minutos) porque é transição — o
+valor dela é o céu mudando de cor, não a duração. Dia e noite ficam com 11 horas
+de relógio cada, o que mantém meio-dia e meia-noite nos extremos da curva de
+escuridão que o cliente **já** desenhava por cosseno: nenhuma mudança foi
+necessária no render.
+
+### 🔴 A TARDE não conta como noite
+
+É `night: boolean` que liga `NIGHT_DMG_MULT` e `NIGHT_SPEED_MULT` — criaturas
+mais fortes e mais rápidas. Se a tarde valesse como noite seriam **1h30 de
+perigo contra 1h de segurança**, e a tarde deixaria de ser o aviso que ela é: o
+momento de decidir se volta para a vila ou encara. Teste trava isso.
+
+A tarde ganhou **ícone próprio** no relógio (🌇). Sem marca visível, o jogador só
+percebe a mudança quando já está escuro e as criaturas já estão mais fortes.
+
+### Os comandos: `/dia` · `/tarde` · `/noite` · `/ciclo`
+
+🔴 **Não congelam o relógio — deslocam a ORIGEM do ciclo.** Forçar `/noite` e
+esperar faz amanhecer sozinho. Congelar esconderia justamente os bugs de
+transição, que é o que se quer testar.
+
+O efeito é **global**: o mundo é um só, então quem estiver jogando junto vê a
+mesma coisa. `/ciclo` devolve ao horário natural.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os

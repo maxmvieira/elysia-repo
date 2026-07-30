@@ -15,6 +15,7 @@ import type { DamageType } from './elements.js';
 import type { ConditionId } from './conditions.js';
 import type { SkullKind } from './pvp.js';
 import type { LootRule } from './party.js';
+import type { DayPhase } from './daynight.js';
 import type { Rarity } from './weapons.js';
 import type { Professions } from './crafting.js';
 import type { NpcRole } from './tiles.js';
@@ -397,6 +398,13 @@ export interface S2C_Snapshot {
   ackSeq: number;
   /** Hora do mundo 0..24 (ciclo dia/noite). Cliente deriva relógio e escuridão. */
   hour: number;
+  /**
+   * Fase do ciclo. `night` continua vindo à parte porque é o que liga os
+   * multiplicadores de combate — e a **tarde não conta como noite**.
+   *
+   * Opcional para o cliente antigo não quebrar durante um deploy parcial.
+   */
+  phase?: DayPhase;
   /** True quando é noite (monstros ficam mais fortes/rápidos e avermelhados). */
   night: boolean;
 }

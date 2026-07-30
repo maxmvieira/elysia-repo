@@ -1,4 +1,5 @@
 export * from './constants.js';
+export * from './daynight.js';
 export * from './protocol.js';
 export * from './tiles.js';
 export * from './worldgen.js';

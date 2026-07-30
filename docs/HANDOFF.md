@@ -634,6 +634,13 @@ No chat do jogo:
 | `/hp <n>` · `/heal` · `/tp <x> <y>` | vida e posição |
 | `/cond <id>` | aplica condição (`freeze`, `poison`, `silence`, `slow`, …) |
 | `/uncond` | limpa todas as condições |
+| `/dia` · `/tarde` · `/noite` | força a fase do ciclo — **efeito global**, todo mundo vê |
+| `/ciclo` | devolve o ciclo ao horário natural |
+
+🔴 **Os comandos de fase NÃO congelam o relógio.** Eles deslocam a origem do
+ciclo, e o mundo segue andando dali: forçar `/noite` e esperar faz amanhecer
+sozinho. Congelar esconderia justamente os bugs de transição, que é o que se
+quer ver.
 
 ## Comandos de GRUPO — estes valem em produção, não são de teste
 
