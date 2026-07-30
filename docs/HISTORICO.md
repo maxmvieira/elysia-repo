@@ -977,6 +977,58 @@ equipamento só enchia a mochila de repetição. Com 177 modelos escalonados por
 nível, cada peça que cai pode ser melhor que a atual — a mesma frequência viraria
 progressão de graça.
 
+## Bônus fixo de equipamento — cap. 30 e 31 destravados (2026-07-30)
+
+**Arquivos:** `shared/src/items.ts` (`ItemDef.bonus`) · `equipcurve.ts` ·
+`models.ts` · `catalog.ts` · `server/src/index.ts` · `client/src/main.ts`
+**Testes:** `shared/tests/catalog.test.ts`
+
+O catálogo foi a **205 modelos** com os 18 anéis e 10 colares. Mas o que
+importa é o mecanismo, porque ele resolveu **três** pendências que esperavam a
+mesma coisa.
+
+### 🔴 `ItemDef.bonus` reusa o vocabulário de `AFFIXES`
+
+A alternativa era inventar campos (`hpBonus`, `manaBonus`, `critBonus`…) e, com
+eles, uma segunda escala paralela à dos passivos rolados — duas tabelas dizendo
+quanto vale +10 de vida, livres para se contradizer. Aqui a grandeza é a mesma; o
+que muda é só a **origem**: passivo é sorteado quando o item nasce, bônus fixo é
+característica do modelo e vem sempre igual.
+
+**A magnitude também não é inventada:** `fixedBonusFor` interpola a faixa do
+próprio passivo em `AFFIXES`. Lv.1 entrega o mínimo que aquele passivo pode
+rolar, Lv.100 o máximo. Um anel de topo vale exatamente o que um passivo bem
+rolado vale.
+
+⚠️ **A raridade NÃO multiplica o bônus fixo.** `statMult` já multiplica
+`atk`/`def`; aplicá-lo também aqui faria a raridade contar duas vezes num
+acessório, cujo valor é quase todo bônus.
+
+`somaAffix` no servidor virou fonte única da tradução "quais passivos são
+percentuais e quais são absolutos" — duplicar isso era o caminho mais curto para
+um bônus de velocidade virar +8 em vez de +8 %.
+
+### As três pendências que caíram juntas
+
+1. **Anéis (cap. 30).** Eram 18 nomes que sairiam todos com `def: 1` — itens
+   mecanicamente idênticos, o que `DD-MAT-001` proíbe. Agora cada um faz o que o
+   nome diz, que é a única mecânica que o capítulo oferece.
+2. **Vestes.** Antes eram só armadura pior (robe multiplica a defesa por 0,75 e
+   nada vinha em troca). Agora dão mana — o cap. 38 põe "Vestes" e "Mana" na
+   mesma linha do Sorcerer.
+3. **Livro Arcano.** Mesmo problema, mesma solução.
+
+⚠️ **Dois nomes não tinham mecânica óbvia, e o encaixe é interpretação:**
+**Fortuna → `crit_chance`** (fortuna é sorte, e neste jogo sorte tem endereço:
+LUK dá crítico) e **Precisão → `armor_pen`** (acertar onde dói — é o encaixe
+mais frouxo dos dezoito). O Anel do Crítico ficou com `crit_damage` para não
+repetir a Fortuna: um dá a chance, o outro o tamanho do golpe.
+
+### No tooltip, o bônus fixo vem ANTES e sem indentação
+
+Num anel ele é a peça inteira, não um extra. Escondê-lo deixaria o Anel da Vida
+indistinguível do Anel da Mana na mochila.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os

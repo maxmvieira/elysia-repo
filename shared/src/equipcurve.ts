@@ -287,6 +287,35 @@ export function modelBuyPrice(level: number): number {
 }
 
 // ---------------------------------------------------------------------------
+// Bônus fixo
+// ---------------------------------------------------------------------------
+
+/**
+ * Quanto de um bônus fixo uma peça deste nível entrega.
+ *
+ * 🔴 **A escala não é inventada: é a faixa do próprio passivo em `AFFIXES`.** Um
+ * modelo de Lv.1 entrega o mínimo que aquele passivo pode rolar, e um de Lv.100
+ * entrega o máximo. Assim o bônus fixo e o passivo sorteado vivem na mesma
+ * régua — um anel de topo vale o que um passivo bem rolado vale, nem mais nem
+ * menos, e ninguém precisa manter duas tabelas em acordo.
+ *
+ * A progressão acompanha a curva de ataque (a mais generosa das duas), porque
+ * bônus fixo é a identidade da peça: é o que a torna interessante o bastante
+ * para competir com `def`, e uma curva rasa apagaria a diferença entre o Anel de
+ * Bronze e o Primordial.
+ */
+export function fixedBonusFor(
+  range: { min: number; max: number },
+  level: number,
+): number {
+  const alcance = equipPower(LEVEL_TOP) - CURVE_BASE;
+  const progresso = alcance > 0
+    ? Math.min(1, Math.max(0, (equipPower(level) - CURVE_BASE) / alcance))
+    : 0;
+  return Math.max(range.min, Math.round(range.min + (range.max - range.min) * progresso));
+}
+
+// ---------------------------------------------------------------------------
 // `kind` a partir do nome canônico
 // ---------------------------------------------------------------------------
 

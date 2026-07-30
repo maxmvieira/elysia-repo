@@ -31,7 +31,7 @@
  * transforma modelo em item jogável está em `catalog.ts`.
  */
 
-import type { ArmorClass, WeaponType } from './weapons.js';
+import type { AffixId, ArmorClass, WeaponType } from './weapons.js';
 import type { EquipSlot } from './items.js';
 
 /**
@@ -61,6 +61,14 @@ export interface EquipModel {
   kind?: string;
   /** Sobrepõe a classe de armadura da família (o cap. 25 mistura as quatro). */
   armorClass?: ArmorClass;
+  /**
+   * Bônus fixo que este modelo carrega, além de `atk`/`def`. Sobrepõe o da
+   * família — é o que faz "Anel da Vida" e "Anel da Mana" serem coisas
+   * diferentes, já que o nome do modelo é a única mecânica que o cap. 30 dá.
+   *
+   * A MAGNITUDE não vem daqui: vem do nível, por `fixedBonusFor`.
+   */
+  bonusId?: AffixId;
   /** Artefato Único do cap. 40 — um só modelo, sem versões por raridade. */
   unique?: boolean;
 }
@@ -76,6 +84,8 @@ export interface ModelFamily {
   weaponType?: WeaponType;
   /** Classe padrão da família, quando o modelo não diz outra. */
   armorClass?: ArmorClass;
+  /** Bônus fixo padrão da família, quando o modelo não diz outro. */
+  bonusId?: AffixId;
   /** Cor-base do ícone desenhado por código no cliente. */
   color: number;
   models: EquipModel[];
@@ -244,7 +254,7 @@ const OFFHAND_FAMILIES: ModelFamily[] = [
      * bônus mágico de equipamento é decisão do dono e mexeria em `equipBonus`.
      */
     id: 'livro', name: 'Livros Arcanos', chapter: 22,
-    slot: 'shield', armorClass: 'robe', color: 0x4a5a9a,
+    slot: 'shield', armorClass: 'robe', bonusId: 'mana_bonus', color: 0x4a5a9a,
     models: [
       i('Grimório do Aprendiz'), i('Grimório Arcano'),
       m('Livro dos Elementos'), m('Livro da Vida'), m('Livro das Sombras'),
@@ -336,8 +346,11 @@ const ARMOR_FAMILIES: ModelFamily[] = [
     ],
   },
   {
+    // 🔴 A Veste finalmente TROCA alguma coisa. Antes ela era só uma armadura
+    // pior — classe robe multiplica a defesa por 0,75 e nada vinha em troca. O
+    // cap. 38 dá "Vestes" e "Mana" na mesma linha para o Sorcerer; é isso.
     id: 'veste', name: 'Vestes Mágicas', chapter: 25,
-    slot: 'armor', armorClass: 'robe', color: 0x6a5a9a,
+    slot: 'armor', armorClass: 'robe', bonusId: 'mana_bonus', color: 0x6a5a9a,
     models: [
       i('Vestes do Aprendiz'), i('Vestes do Mago'),
       m('Vestes Arcanas'), m('Vestes do Sábio'),
@@ -374,11 +387,80 @@ const ARMOR_FAMILIES: ModelFamily[] = [
   },
 ];
 
+/**
+ * Acessórios — cap. 30 e 31.
+ *
+ * 🔴 **Acessório não é peça de proteção: a graça dele é o que FAZ.** Os nomes do
+ * cap. 30 são inteiramente sobre efeito — da Vida, da Mana, do Crítico, da
+ * Precisão, da Fortuna — e um anel para cada classe. Enquanto `ItemDef` só sabia
+ * dizer `atk` e `def`, os 18 sairiam todos com `def: 1` e nomes diferentes: 18
+ * itens mecanicamente idênticos, que é o que `DD-MAT-001` proíbe. `bonusId`
+ * resolveu isso, e é por isso que eles entram agora e não antes.
+ *
+ * ⚠️ **Dois nomes não tinham mecânica óbvia, e o encaixe é interpretação:**
+ *
+ * - **Fortuna** → `crit_chance`. Fortuna é sorte, e neste jogo sorte tem
+ *   endereço: LUK é o atributo que dá chance de crítico (`stats.ts`).
+ * - **Precisão** → `armor_pen`. Precisão é acertar onde dói — achar a brecha da
+ *   armadura. É o encaixe mais frouxo dos dezoito.
+ *
+ * O Anel do Crítico ficou com `crit_damage` para não repetir a Fortuna: um dá a
+ * chance, o outro o tamanho do golpe.
+ */
+const ACCESSORY_FAMILIES: ModelFamily[] = [
+  {
+    id: 'anel', name: 'Anéis', chapter: 30,
+    slot: 'ring', color: 0xc8a83c,
+    models: [
+      // Os quatro de material são a escada neutra: defesa, sem identidade.
+      { ...i('Anel de Bronze'), bonusId: 'defense' },
+      { ...i('Anel de Ferro'), bonusId: 'defense' },
+      { ...i('Anel de Prata'), bonusId: 'hp_bonus' },
+      { ...i('Anel de Ouro'), bonusId: 'hp_bonus' },
+      { ...m('Anel Arcano'), bonusId: 'mana_bonus' },
+      // Os de classe carregam o que a classe quer (cap. 38).
+      { ...m('Anel do Guerreiro'), bonusId: 'phys_damage' },
+      { ...m('Anel do Arqueiro'), bonusId: 'atk_speed' },
+      { ...m('Anel do Assassino'), bonusId: 'crit_chance' },
+      { ...m('Anel do Druida'), bonusId: 'hp_bonus' },
+      { ...m('Anel do Feiticeiro'), bonusId: 'mana_bonus' },
+      // Os de efeito dizem o que fazem no próprio nome.
+      { ...m('Anel da Vida'), bonusId: 'hp_bonus' },
+      { ...m('Anel da Mana'), bonusId: 'mana_bonus' },
+      { ...m('Anel do Crítico'), bonusId: 'crit_damage' },
+      { ...m('Anel da Precisão'), bonusId: 'armor_pen' },
+      { ...m('Anel da Resistência'), bonusId: 'defense' },
+      { ...m('Anel da Fortuna'), bonusId: 'crit_chance' },
+      { ...a('Anel Celestial'), bonusId: 'hp_bonus' },
+      { ...a('Anel Primordial'), bonusId: 'life_steal' },
+    ],
+  },
+  {
+    // ⚠️ O Colar de Cobre continua escrito à mão e FORA desta família: ele não
+    // tem equivalente no cap. 31, que começa em Colar de Couro.
+    id: 'colar', name: 'Colares', chapter: 31,
+    slot: 'necklace', color: 0xb87333,
+    models: [
+      { ...i('Colar de Couro'), bonusId: 'defense' },
+      { ...i('Amuleto de Pedra'), bonusId: 'defense' },
+      { ...i('Colar de Prata'), bonusId: 'hp_bonus' },
+      { ...m('Colar de Ouro'), bonusId: 'hp_bonus' },
+      { ...m('Amuleto Arcano'), bonusId: 'mana_bonus' },
+      { ...m('Amuleto Sagrado'), bonusId: 'hp_bonus' },
+      { ...m('Amuleto Sombrio'), bonusId: 'life_steal' },
+      { ...m('Amuleto Dracônico'), bonusId: 'phys_damage' },
+      { ...a('Amuleto Celestial'), bonusId: 'mana_bonus' },
+      { ...a('Relicário Primordial'), bonusId: 'crit_damage' },
+    ],
+  },
+];
+
 /** Todas as famílias do catálogo, na ordem dos capítulos. */
 export const MODEL_FAMILIES: ModelFamily[] = [
   ...WEAPON_FAMILIES,
   ...OFFHAND_FAMILIES,
   ...ARMOR_FAMILIES,
+  ...ACCESSORY_FAMILIES,
 ];
 
 // ---------------------------------------------------------------------------
@@ -410,39 +492,6 @@ export const WEAPON_MODELS: Record<WeaponType, EquipModel[]> = (() => {
  * viraram famílias de verdade acima.
  */
 export const PENDING_MODEL_CATEGORIES = {
-  /**
-   * 🔴 **Cap. 30–31. O slot existe; o que falta é o EFEITO.**
-   *
-   * Acessório não é peça de proteção — a graça dele é o que faz, não quanto
-   * apara. E os nomes do documento são inteiramente sobre efeito: Anel da Vida,
-   * da Mana, do Crítico, da Precisão, da Fortuna, e um anel para cada classe.
-   *
-   * `ItemDef` só sabe expressar `atk` e `def`, e a curva de defesa é rasa de
-   * propósito — então os 18 anéis sairiam todos com **`def: 1`**, dezoito itens
-   * mecanicamente idênticos com nomes diferentes. É exatamente o problema que a
-   * sessão de 30/07 já teve com os 38 ícones iguais, e o que `DD-MAT-001` proíbe:
-   * item que "existe apenas para ocupar espaço".
-   *
-   * O que destrava: bônus fixo de equipamento (vida, mana, crítico) em
-   * `ItemDef`, somado por `equipBonus` no servidor. É a mesma peça que falta
-   * para a Veste valer a troca e para o Livro Arcano ter identidade — os três
-   * esperam a mesma coisa.
-   *
-   * O Colar de Cobre continua escrito à mão: ele não tem equivalente canônico no
-   * cap. 31, que começa em Colar de Couro.
-   */
-  aneis: [
-    'Anel de Bronze', 'Anel de Ferro', 'Anel de Prata', 'Anel de Ouro',
-    'Anel Arcano', 'Anel do Guerreiro', 'Anel do Arqueiro', 'Anel do Assassino',
-    'Anel do Druida', 'Anel do Feiticeiro', 'Anel da Vida', 'Anel da Mana',
-    'Anel do Crítico', 'Anel da Precisão', 'Anel da Resistência',
-    'Anel da Fortuna', 'Anel Celestial', 'Anel Primordial',
-  ],
-  colares: [
-    'Colar de Couro', 'Amuleto de Pedra', 'Colar de Prata', 'Colar de Ouro',
-    'Amuleto Arcano', 'Amuleto Sagrado', 'Amuleto Sombrio', 'Amuleto Dracônico',
-    'Amuleto Celestial', 'Relicário Primordial',
-  ],
   /**
    * Cap. 28–29 e 32–34. Os cinco exigem **`EquipSlot` novo**, e slot novo não é
    * só um campo: é mexer no paperdoll da interface. Decisão do dono.

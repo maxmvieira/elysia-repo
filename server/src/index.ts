@@ -59,6 +59,7 @@ import {
   sharesXp,
   tallyLootVote,
   LOOT_RULE_LABEL,
+  type AffixId,
   type LootRule,
   FRAGMENTS_PER_CRAFT,
   MIN_FRAGMENTS_FOR_CHANCE,
@@ -604,6 +605,28 @@ interface EquipBonus {
   moveSpeed: number;
 }
 
+/**
+ * Soma um passivo ao acumulador, na unidade certa.
+ *
+ * 🔴 Fonte única para as duas origens de passivo — o rolado e o fixo do modelo.
+ * Duplicar esta tradução (quais são percentuais e quais são absolutos) era o
+ * caminho mais curto para o bônus fixo de velocidade virar +8 em vez de +8 %.
+ */
+function somaAffix(b: EquipBonus, id: AffixId, valor: number): void {
+  switch (id) {
+    case 'hp_bonus': b.hp += valor; break;
+    case 'mana_bonus': b.mana += valor; break;
+    case 'defense': b.def += valor; break;
+    case 'atk_speed': b.atkSpeed += valor / 100; break;
+    case 'crit_chance': b.critChance += valor / 100; break;
+    case 'crit_damage': b.critDamage += valor / 100; break;
+    case 'phys_damage': b.physDamage += valor / 100; break;
+    case 'armor_pen': b.armorPen += valor / 100; break;
+    case 'life_steal': b.lifeSteal += valor / 100; break;
+    case 'move_speed': b.moveSpeed += valor / 100; break;
+  }
+}
+
 function equipBonus(player: Player): EquipBonus {
   const b: EquipBonus = {
     atk: 0, def: 0, hp: 0, mana: 0, atkSpeed: 0, critChance: 0,
@@ -618,6 +641,16 @@ function equipBonus(player: Player): EquipBonus {
     const mult = eq.roll ? RARITY[eq.roll.rarity].statMult : 1;
     b.atk += (def0.atk ?? 0) * mult;
     b.def += (def0.def ?? 0) * mult;
+    // Bônus FIXO do modelo (cap. 30 e 31, Vestes e Livros Arcanos). Entra pelo
+    // mesmo caminho do passivo rolado porque é a mesma grandeza — o que muda é a
+    // origem: este é característica da peça e vem sempre igual.
+    //
+    // ⚠️ A raridade NÃO multiplica o bônus fixo. Ele é a identidade do modelo, e
+    // `statMult` já multiplica `atk`/`def`; aplicá-lo aqui também faria a
+    // raridade contar duas vezes num acessório, cujo valor é quase todo bônus.
+    for (const [id, valor] of Object.entries(def0.bonus ?? {})) {
+      somaAffix(b, id as AffixId, valor);
+    }
     const a = eq.roll?.affixes;
     b.hp += affixValue(a, 'hp_bonus');
     b.mana += affixValue(a, 'mana_bonus');

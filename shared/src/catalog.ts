@@ -30,12 +30,14 @@ import {
 } from './models.js';
 import {
   armorDefFor,
+  fixedBonusFor,
   modelBuyPrice,
   modelKind,
   modelLevel,
   weaponAtkFor,
 } from './equipcurve.js';
-import type { ArmorClass, Rarity, WeaponType } from './weapons.js';
+import { AFFIXES } from './weapons.js';
+import type { AffixId, ArmorClass, Rarity, WeaponType } from './weapons.js';
 import type { EquipSlot, ItemDef } from './items.js';
 
 /** Um modelo já resolvido: com `kind`, nível e tudo que o item precisa. */
@@ -50,6 +52,8 @@ export interface ModelEntry {
   slot: EquipSlot;
   weaponType?: WeaponType;
   armorClass?: ArmorClass;
+  /** Passivo fixo que o modelo carrega. A magnitude sai de `fixedBonusFor`. */
+  bonusId?: AffixId;
   unique?: boolean;
   /**
    * `false` = o item vem escrito à mão de `items.ts`, e este registro existe só
@@ -98,6 +102,9 @@ function resolveFamily(fam: ModelFamily): ModelEntry[] {
         ...(fam.weaponType ? { weaponType: fam.weaponType } : {}),
         ...(mod.armorClass ?? fam.armorClass
           ? { armorClass: (mod.armorClass ?? fam.armorClass)! }
+          : {}),
+        ...(mod.bonusId ?? fam.bonusId
+          ? { bonusId: (mod.bonusId ?? fam.bonusId)! }
           : {}),
         ...(mod.unique ? { unique: true } : {}),
         generated: !mod.kind,
@@ -189,6 +196,9 @@ function toItemDef(e: ModelEntry, color: number): ItemDef {
       ? { atk: weaponAtkFor(e.weaponType, e.level), weaponType: e.weaponType }
       : { def: armorDefFor(e.slot, e.level, e.armorClass) }),
     ...(e.armorClass ? { armorClass: e.armorClass } : {}),
+    ...(e.bonusId
+      ? { bonus: { [e.bonusId]: fixedBonusFor(AFFIXES[e.bonusId], e.level) } }
+      : {}),
     ...(e.unique ? { unique: true } : {}),
     tier: e.level,
     color,

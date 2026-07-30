@@ -9,11 +9,11 @@ regras de Party).
 
 ---
 
-## 🆕 A sessão mais recente, em quatro linhas
+## 🆕 A sessão mais recente, em cinco linhas
 
-1. **Os 177 modelos canônicos do Doc 4 viraram itens jogáveis** — `atk`, `def`,
-   nível recomendado e preço saem de **cinco constantes** em `equipcurve.ts`, não
-   de 178 números escritos à mão.
+1. **Os 205 modelos canônicos do Doc 4 viraram itens jogáveis** — `atk`, `def`,
+   bônus fixo, nível recomendado e preço saem de **cinco constantes** em
+   `equipcurve.ts`, não de centenas de números escritos à mão.
 2. **Varinha, Livro Arcano e Escudo foram decididos** e saíram do pendente. O
    Livro é **foco de mão secundária**, no slot do escudo.
 3. **A Etapa 9 está COMPLETA** — party, shared XP, três regras de loot com
@@ -21,6 +21,8 @@ regras de Party).
    (`/convidar`, `/loot`, `/grupo`) com painel na barra lateral.
 4. **Passe de balanceamento** — a armadura ganhou teto e o drop de equipamento
    caiu para menos da metade.
+5. **`ItemDef.bonus`** — bônus fixo de equipamento. Destravou os anéis, os
+   colares, a Veste e o Livro Arcano de uma vez só.
 
 🔴 **Se você for mexer em equipamento ou defesa, leia as seções "curva" e
 "armadura ganha teto" do [`HISTORICO.md`](./HISTORICO.md) antes.** Ataque e
@@ -40,11 +42,11 @@ bruto derruba o golpe ao piso e o jogador vira intocável.
 git pull
 npm install          # confere; nenhuma dependência nova foi adicionada
 npm run typecheck    # tem que sair limpo nos 3 pacotes
-npm test             # tem que dar 331 passando, 0 falhando
+npm test             # tem que dar 334 passando, 0 falhando
 npm run dev:test     # sobe com os comandos de teste ligados
 ```
 
-Se o `npm test` não der 329, **não continue** — algo se perdeu no merge.
+Se o `npm test` não der 334, **não continue** — algo se perdeu no merge.
 
 ### O que mudou por baixo de você (30/07 à noite)
 
@@ -74,13 +76,13 @@ Corrigido: `backpackSizeFor()` é a fonte única, usada no carregamento **e** ao
 
 | | 30/07 manhã | 30/07 noite | **30/07 madrugada** |
 |---|---|---|---|
-| Testes | 237 | 298 | **331** (319 shared + 12 server) |
+| Testes | 237 | 298 | **334** (322 shared + 12 server) |
 | Typecheck | limpo | limpo | limpo nos 3 pacotes |
 | Criaturas vivas no mapa | 32 | 32 | 32 |
 | Espécies definidas | 23 | 23 | 23 |
 | Schema do banco | v3 | v3 | v3 |
-| Itens no catálogo | ~32 | ~85 | **~250** |
-| Modelos canônicos registrados | — | 113 (só 8 são itens) | **177 — todos jogáveis** |
+| Itens no catálogo | ~32 | ~85 | **~256** |
+| Modelos canônicos registrados | — | 113 (só 8 são itens) | **205 — todos jogáveis** |
 
 `npm run dev:test` sobe tudo com os comandos de teste ligados.
 
@@ -532,11 +534,15 @@ está pela metade.
    que `/grupo` responde e que o convite a um nome inexistente é negado, mas
    convite→aceite→XP dividida exige duas janelas. É a primeira coisa a fazer
    quando houver dois.
-6. **Bônus fixo de equipamento em `ItemDef`** (vida, mana, poder mágico, somado
-   por `equipBonus`). É a peça que destrava **três coisas de uma vez**: os 18
-   anéis do cap. 30, que hoje sairiam todos com `def: 1` e nomes diferentes; a
-   Veste, que troca defesa por nada; e o Livro Arcano, cuja identidade está fina
-   pelo mesmo motivo.
+6. ✅ ~~Bônus fixo de equipamento em `ItemDef`~~ — **feito**, e destravou as três
+   coisas de uma vez: os 18 anéis do cap. 30, os 10 colares do cap. 31, a Veste
+   (que agora troca proteção por mana) e o Livro Arcano.
+7. **Etapa 10 — Cartas**, se quiser seguir o roadmap. ⚠️ Mas o
+   [`INVENTARIO-DE-ARTE.md`](./INVENTARIO-DE-ARTE.md) avisa para **não desenhar
+   cartas ainda**: o formato depende de decisões não tomadas.
+8. **Os 41 modelos que exigem `EquipSlot` novo** (luvas, capas, braceletes,
+   cintos, broches — cap. 28–29 e 32–34). Slot novo não é só um campo: é mexer no
+   paperdoll da interface. Decisão do dono.
 
 O que **não** vale a pena agora:
 

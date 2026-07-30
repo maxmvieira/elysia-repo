@@ -77,8 +77,9 @@ test('cada FAMÍLIA começa no tier inicial e termina no mais alto', () => {
 test('todo modelo do catálogo virou item jogável', () => {
   const { total, implemented } = modelCoverage();
   // 90 de arma (cap. 13–20) + 6 Varinhas + 7 Livros + 10 Escudos = 113, mais 64
-  // de proteção (21 capacetes, 23 peitorais, 10 calças, 10 botas) = 177.
-  assert.equal(total, 177, `o doc fixa 177 nomes, contei ${total}`);
+  // de proteção (21 capacetes, 23 peitorais, 10 calças, 10 botas) = 177, mais 28
+  // de acessório (18 anéis, 10 colares) = 205.
+  assert.equal(total, 205, `o doc fixa 205 nomes, contei ${total}`);
   // `implemented` conta só o que está escrito à mão em items.ts — as peças
   // âncora. O resto é gerado, e a cobertura de verdade se confere em ITEMS.
   assert.equal(implemented, 13, 'as 13 peças âncora deveriam estar mapeadas');

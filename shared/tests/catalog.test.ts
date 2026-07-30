@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  AFFIXES,
   ARMOR_CLASS_AFFINITY,
   CREATURES,
   ITEMS,
@@ -14,6 +15,7 @@ import {
   craftableModels,
   equipDefPower,
   equipPower,
+  fixedBonusFor,
   modelKind,
   modelLevelOf,
   weaponAtkFor,
@@ -44,8 +46,9 @@ test('todo modelo virou item, e nenhum kind colidiu', () => {
     assert.equal(ITEMS[e.kind]!.name, e.name, `${e.kind} tem nome divergente`);
     assert.equal(ITEMS[e.kind]!.category, 'equip');
   }
-  // 113 de arma/mão-secundária (cap. 13–23) + 64 de proteção (cap. 24–27).
-  assert.equal(MODEL_ENTRIES.length, 177);
+  // 113 de arma/mão-secundária (cap. 13–23) + 64 de proteção (cap. 24–27)
+  // + 28 de acessório (cap. 30–31).
+  assert.equal(MODEL_ENTRIES.length, 205);
 });
 
 test('o kind sobrevive aos acentos do português', () => {
@@ -268,6 +271,52 @@ test('matar coisa mais forte muda o que cai', () => {
     tetoZumbi > tetoSlime * 3,
     `o Zumbi larga até Lv.${tetoZumbi} e o Slime até Lv.${tetoSlime} — pouca diferença`,
   );
+});
+
+test('🔴 cap. 30: os anéis são 18 coisas DIFERENTES, não 18 nomes', () => {
+  // A razão de eles não existirem até agora: `ItemDef` só sabia dizer `atk` e
+  // `def`, e a curva de defesa é rasa de propósito — os 18 sairiam todos com
+  // `def: 1`. Item mecanicamente idêntico com nome diferente é o que
+  // `DD-MAT-001` proíbe.
+  const aneis = MODEL_ENTRIES.filter((e) => e.familyId === 'anel');
+  assert.equal(aneis.length, 18);
+  const efeitos = new Set(aneis.map((e) => e.bonusId));
+  assert.ok(efeitos.size >= 7, `só ${efeitos.size} efeitos distintos entre 18 anéis`);
+  // O nome tem que bater com o que a peça faz — é a única mecânica que o cap. 30
+  // oferece, então trair isso seria mentir para o jogador.
+  assert.equal(MODEL_INDEX.anel_da_vida!.bonusId, 'hp_bonus');
+  assert.equal(MODEL_INDEX.anel_da_mana!.bonusId, 'mana_bonus');
+  assert.equal(MODEL_INDEX.anel_da_resistencia!.bonusId, 'defense');
+  assert.equal(ITEMS.anel_da_vida!.bonus?.hp_bonus! > 0, true);
+});
+
+test('o bônus fixo vive na mesma régua do passivo sorteado', () => {
+  // 🔴 A escala não é inventada: é a faixa do próprio passivo em AFFIXES. Lv.1
+  // entrega o mínimo que aquele passivo pode rolar, Lv.100 o máximo. Sem isso
+  // seriam duas tabelas dizendo quanto vale +10 de vida, livres para divergir.
+  const faixa = AFFIXES.hp_bonus;
+  assert.equal(fixedBonusFor(faixa, 1), faixa.min);
+  assert.equal(fixedBonusFor(faixa, 100), faixa.max);
+  assert.ok(fixedBonusFor(faixa, 50) > faixa.min);
+  assert.ok(fixedBonusFor(faixa, 50) < faixa.max);
+  // E nunca abaixo do mínimo, nem para nível inventado.
+  assert.equal(fixedBonusFor(faixa, 0), faixa.min);
+});
+
+test('a Veste finalmente TROCA alguma coisa', () => {
+  // Antes ela era só uma armadura pior: robe multiplica a defesa por 0,75 e nada
+  // vinha em troca. O cap. 38 põe "Vestes" e "Mana" na mesma linha do Sorcerer.
+  for (const e of MODEL_ENTRIES.filter((x) => x.familyId === 'veste')) {
+    assert.equal(e.bonusId, 'mana_bonus', `${e.name} deveria dar mana`);
+    assert.ok(ITEMS[e.kind]!.bonus?.mana_bonus! > 0);
+  }
+  // E o Livro Arcano, que tinha o mesmo problema pelo mesmo motivo.
+  for (const e of MODEL_ENTRIES.filter((x) => x.familyId === 'livro')) {
+    assert.equal(e.bonusId, 'mana_bonus');
+  }
+  // A peça pesada equivalente continua sem bônus: quem troca proteção por poder
+  // é a Veste, não o contrário.
+  assert.equal(MODEL_INDEX.armadura_celestial!.bonusId, undefined);
 });
 
 test('modelLevelOf conhece as peças do catálogo e ignora o resto', () => {

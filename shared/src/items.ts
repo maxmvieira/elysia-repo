@@ -33,7 +33,7 @@ export const EQUIP_SLOT_LABEL: Record<EquipSlot, string> = {
 };
 
 import { RARITY } from './weapons.js';
-import type { ArmorClass, ItemRoll, WeaponType } from './weapons.js';
+import type { AffixId, ArmorClass, ItemRoll, WeaponType } from './weapons.js';
 import { GENERATED_EQUIP } from './catalog.js';
 
 export type ItemCategory = 'currency' | 'consumable' | 'equip' | 'loot';
@@ -63,6 +63,22 @@ export interface ItemDef {
   /** Bônus de EQUIPAMENTO (entram no cálculo de dano/defesa, estilo Tibia). */
   atk?: number;
   def?: number;
+  /**
+   * Bônus FIXO da peça, além de `atk`/`def`.
+   *
+   * 🔴 **Reusa o vocabulário de `AFFIXES` de propósito.** A alternativa seria
+   * inventar campos (`hpBonus`, `manaBonus`, `critBonus`…) e, com eles, uma
+   * segunda escala paralela à dos passivos rolados — duas tabelas dizendo quanto
+   * vale +10 de vida, livres para se contradizer. Aqui a grandeza é a mesma; o
+   * que muda é só a origem: passivo é sorteado quando o item nasce, isto é
+   * característica do MODELO e vem sempre igual.
+   *
+   * É o que dá função ao que o catálogo do Doc 4 pede e `atk`/`def` não sabiam
+   * dizer: a Veste que troca proteção por mana, o Livro Arcano, e os anéis do
+   * cap. 30, cujos nomes são inteiramente sobre efeito (da Vida, da Mana, do
+   * Crítico, da Fortuna).
+   */
+  bonus?: Partial<Record<AffixId, number>>;
   /** Tipo da arma (só para slot 'weapon'): define identidade e proficiência. */
   weaponType?: WeaponType;
   /**

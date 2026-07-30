@@ -78,6 +78,7 @@ import {
   MODEL_INDEX,
   craftableModel,
   LOOT_RULE_LABEL,
+  type AffixId,
   type S2C_Party,
   type Professions,
   type Rarity,
@@ -1422,6 +1423,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const mult = rar ? rar.statMult : 1;
     if (def.atk) linhas.push(`Ataque ${Math.round(def.atk * mult)}`);
     if (def.def) linhas.push(`Defesa ${Math.round(def.def * mult)}`);
+    // 🔴 O bônus FIXO do modelo vem antes dos sorteados, e sem indentação: num
+    // anel ele é a peça inteira, não um extra. Esconder isso deixaria o Anel da
+    // Vida indistinguível do Anel da Mana na mochila.
+    //
+    // ⚠️ Sem `mult`: a raridade não multiplica o bônus fixo (ver `equipBonus` no
+    // servidor). Mostrar multiplicado aqui prometeria o que o cálculo não entrega.
+    for (const [id, valor] of Object.entries(def.bonus ?? {})) {
+      linhas.push(affixText({ id: id as AffixId, value: valor }));
+    }
     for (const a of stack.roll?.affixes ?? []) linhas.push(`  ${affixText(a)}`);
     if (stack.roll) linhas.push(`Slots de carta: ${stack.roll.slots}`);
     return linhas.join('\n');
