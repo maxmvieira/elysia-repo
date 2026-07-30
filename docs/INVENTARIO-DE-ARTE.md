@@ -10,6 +10,11 @@ de desenho. Gerado em **2026-07-29**, com o jogo em 59 criaturas vivas no mapa.
 
 ## 🐉 Monstros — 21 de 23 sem arte
 
+> 📐 **Para desenhar, use a [`SPEC-SPRITES-MONSTROS.md`](./SPEC-SPRITES-MONSTROS.md)**:
+> tem a pasta de cada monstro (já criadas), o nome de cada arquivo, o formato da
+> folha e **quais animações cada um precisa**. Esta seção aqui é a visão geral;
+> aquela é a de execução.
+
 O cliente escolhe o desenho por `creatureType` e cai no blob genérico para tipo
 desconhecido. Hoje cada espécie tem **cor própria + nome sobre a cabeça**
 (`CREATURE_PLACEHOLDER_COLORS`), o que dá para jogar mas não para admirar.
