@@ -102,6 +102,7 @@ import {
 } from './sprites.js';
 import {
   classIconCss, loadClassAnims, loadNpcAnim, loadSlimeAnim, loadZombieAnim, loadZombieIdleAnim,
+  CREATURE_SHEETS, loadCreatureSheets, type CreatureSheets,
   type DirAnim,
 } from './miniworld.js';
 import { loadKnightSprites, knightIconCss, type KnightArt } from './knight.js';
@@ -487,6 +488,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // Zumbi: folha LPC 64px, fora do padrão MiniWorld (ver miniworld.ts).
   const zombieAnim = await loadZombieAnim();
   const zombieIdleAnim = await loadZombieIdleAnim();
+  // Folhas de monstro no formato de SPEC-SPRITES-MONSTROS.md: 4 direções com
+  // andar/parado/ataque/dano/morte. Só carrega as espécies listadas em
+  // `CREATURE_SHEETS` — as outras seguem no blob placeholder e nem tentam
+  // requisitar arquivo. Ver o comentário da lista para o porquê.
+  const creatureSheets = new Map<string, CreatureSheets>();
+  for (const [type, cell] of Object.entries(CREATURE_SHEETS)) {
+    const sheets = await loadCreatureSheets(type, cell);
+    if (sheets) creatureSheets.set(type, sheets);
+  }
   // Knight em arte HD (masculino/feminino) — sobrepõe o MiniWorld p/ knight.
   const knightArt = await loadKnightSprites();
   // Sprite do NPC comerciante.
@@ -1005,6 +1015,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
             const iAmTarget = msg.targetId === myId;
             if (msg.dodged) {
               spawnFloater(view.container.x, view.container.y - 12, 'esquiva', 0xbfbfbf, false);
+            } else if (msg.fatal) {
+              // Golpe fatal toca MORTE, não dano. Piscar de dor e cair ao mesmo
+              // tempo lê como bug; e a morte é terminal, então não faz sentido
+              // gastar a animação de dano antes dela.
+              view.playDeath?.();
+              const elemento = msg.element && msg.element !== 'physical'
+                ? ELEMENT_INFO[msg.element].color
+                : undefined;
+              spawnFloater(
+                view.container.x, view.container.y - 12, String(msg.amount),
+                msg.crit ? 0xffcf3f : elemento ?? 0xffffff, msg.crit,
+              );
             } else {
               if (!msg.dot) view.playHurt?.();
               // Cor: crítico manda em tudo; depois o elemento (Etapa 8); e o
@@ -2409,7 +2431,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       let view = sprites.get(e.id);
       if (!view) {
         view = makeEntity(e, isSelf, isSelf ? selfTex : otherTex, anims, setTarget, {
-          classAnims, slimeAnim, slimeVariants, zombieAnim, zombieIdleAnim, knightArt, npcAnim,
+          classAnims, slimeAnim, slimeVariants, zombieAnim, zombieIdleAnim, creatureSheets,
+          knightArt, npcAnim,
           selfClass: charClass, selfGender: gender, openShop, openBank, openCraft, openCorpse,
         });
         sprites.set(e.id, view);
@@ -2814,6 +2837,13 @@ interface EntityView {
   playAttack?: () => void;
   /** Toca a animação de dano uma vez. */
   playHurt?: () => void;
+  /**
+   * Toca a animação de morte. **Terminal:** o sprite fica no último quadro, que
+   * é a pose de morto — não volta a andar.
+   *
+   * O gatilho é a mensagem `hit` com `fatal: true`, que o servidor já manda.
+   */
+  playDeath?: () => void;
 }
 
 /** Barra de vida flutuante sobre uma entidade. */
@@ -3075,6 +3105,11 @@ interface MiniAssets {
   slimeVariants: Record<string, AnimSet> | null;
   zombieAnim: DirAnim | null;
   zombieIdleAnim: DirAnim | null;
+  /**
+   * Folhas no formato de `SPEC-SPRITES-MONSTROS.md`, por `creatureType`. Vazio
+   * enquanto a arte não chega — quem não está no mapa cai no blob placeholder.
+   */
+  creatureSheets: Map<string, CreatureSheets>;
   knightArt: Record<Gender, KnightArt> | null;
   npcAnim: DirAnim | null;
   selfClass: PlayerClass;
@@ -3193,6 +3228,22 @@ interface MiniActorOpts {
   idleAnim?: DirAnim;
   /** Velocidade do idle. Bem mais lenta que a caminhada. */
   idleSpeed?: number;
+  /**
+   * Animações de DISPARO ÚNICO, por direção (`SPEC-SPRITES-MONSTROS.md`).
+   *
+   * 🔴 Era o gargalo que o handoff apontava como item #1: até aqui **nenhum
+   * monstro conseguia ter 4 direções E animação de ataque**. `makeMiniActor`
+   * tinha as direções mas só andar/parado (`playAttack` dava um pulinho e
+   * `playHurt` piscava vermelho); `makeSpriteActor` tinha ataque/dano/morte mas
+   * era vista frontal única, espelhada.
+   *
+   * Todas opcionais: a spec permite entrega em partes, e sem a folha o motor cai
+   * no comportamento antigo. Quem tem `attackAnim` ganha o golpe animado; quem
+   * não tem continua com o pulinho.
+   */
+  attackAnim?: DirAnim;
+  hurtAnim?: DirAnim;
+  deathAnim?: DirAnim;
   onClick?: (id: string) => void;
 }
 
@@ -3253,7 +3304,32 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   function framesFor(d: Direction, set: DirAnim): Texture[] {
     return d === 'up' ? set.up : d === 'left' ? set.left : d === 'right' ? set.right : set.down;
   }
+  /**
+   * Estado de DISPARO ÚNICO ativo, se houver. Tem precedência sobre andar/parado
+   * e volta sozinho ao terminar — exceto `death`, que é terminal: o bicho morreu,
+   * não volta a andar.
+   */
+  type OneShot = 'attack' | 'hurt' | 'death';
+  let oneShot: OneShot | null = null;
+
+  function oneShotAnim(k: OneShot): DirAnim | undefined {
+    return k === 'attack' ? opts.attackAnim : k === 'hurt' ? opts.hurtAnim : opts.deathAnim;
+  }
+
   function applyState(): void {
+    // Disparo único vence tudo: quem está no meio do golpe não volta a andar
+    // antes de o golpe terminar.
+    if (oneShot) {
+      const a = oneShotAnim(oneShot);
+      if (a) {
+        sprite.textures = framesFor(dir, a);
+        // Mais rápido que a caminhada: golpe é um evento, não um ciclo.
+        sprite.animationSpeed = oneShot === 'death' ? 0.14 : 0.22;
+        sprite.loop = false;
+        sprite.gotoAndPlay(0);
+        return;
+      }
+    }
     if (base === 'walk' || alwaysAnimate) {
       sprite.textures = framesFor(dir, anim);
       sprite.animationSpeed = opts.animSpeed ?? 0.18;
@@ -3271,7 +3347,29 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     sprite.textures = framesFor(dir, anim);
     sprite.gotoAndStop(0);
   }
+
+  // Fim do disparo único: volta ao estado-base. `death` não volta — o sprite fica
+  // no último quadro, que é a pose de morto.
+  sprite.onComplete = (): void => {
+    if (!oneShot || oneShot === 'death') return;
+    oneShot = null;
+    applyState();
+  };
+
   applyState();
+
+  /**
+   * Começa um disparo único. `hurt` NÃO interrompe `attack`: um monstro que
+   * apanha no meio do golpe continua golpeando, senão bastaria bater sem parar
+   * para desarmar qualquer inimigo — e a morte, sim, interrompe tudo.
+   */
+  function startOneShot(k: OneShot): void {
+    if (oneShot === 'death') return;
+    if (k === 'hurt' && oneShot === 'attack') return;
+    if (!oneShotAnim(k)) return; // sem folha: o chamador cai no efeito antigo
+    oneShot = k;
+    applyState();
+  }
 
   function setDirection(d: Direction): void {
     if (d === dir) return;
@@ -3281,7 +3379,9 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   function setBase(next: 'idle' | 'walk'): void {
     if (next === base) return;
     base = next;
-    applyState();
+    // Trocar de base no meio de um golpe só guarda a intenção: `applyState`
+    // continua mostrando o golpe, e o `onComplete` resolve depois.
+    if (!oneShot) applyState();
   }
 
   function setTarget(x: number, y: number): void {
@@ -3343,8 +3443,18 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     setTarget,
     setHp: hpbar.set,
     update,
-    playAttack: () => { attackUntil = performance.now() + 140; },
-    playHurt: () => { hurtUntil = performance.now() + 220; },
+    // Com folha de ataque, toca a animação; sem ela, cai no pulinho de sempre.
+    // Os dois efeitos coexistem de propósito: o pulinho continua dando peso ao
+    // golpe mesmo quando há animação.
+    playAttack: () => {
+      attackUntil = performance.now() + 140;
+      startOneShot('attack');
+    },
+    playHurt: () => {
+      hurtUntil = performance.now() + 220;
+      startOneShot('hurt');
+    },
+    playDeath: () => { startOneShot('death'); },
   };
 }
 
@@ -3598,6 +3708,25 @@ function makeCreatureView(
   onTargetClick: (id: string) => void,
   mini: MiniAssets,
 ): EntityView {
+  // Folha completa no formato de `SPEC-SPRITES-MONSTROS.md`: 4 direções COM
+  // ataque, dano e morte. É o caminho que a arte nova usa, e vem primeiro porque
+  // tem precedência sobre tudo — se a espécie foi desenhada, é assim que aparece.
+  const folhas = e.creatureType ? mini.creatureSheets.get(e.creatureType) : undefined;
+  if (folhas) {
+    return makeMiniActor({
+      e,
+      anim: folhas.walk,
+      scale: 2,
+      nameColor: lighten(CREATURE_PLACEHOLDER_COLORS[e.creatureType!] ?? 0xa0e0a0, 0.45),
+      creatureTint: true,
+      idleAnim: folhas.idle,
+      attackAnim: folhas.attack,
+      hurtAnim: folhas.hurt,
+      deathAnim: folhas.death,
+      onClick: onTargetClick,
+    });
+  }
+
   // CHEFE Super Slime: mesmo sprite do Slime, porém MAIOR e com tonalidade roxa
   // (e nome roxo) para não confundir com os Slimes comuns.
   const isBoss = e.creatureType === 'super_slime';

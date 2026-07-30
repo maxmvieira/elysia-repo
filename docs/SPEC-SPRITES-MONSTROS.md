@@ -79,27 +79,58 @@ chute. Só avise o tamanho da célula quando mandar; o resto eu meço.
 
 ## 4. O que o motor toca hoje — leia antes de desenhar
 
-Existem dois caminhos de render, e **nenhum dos dois faz as duas coisas**:
+> ✅ **RESOLVIDO em 2026-07-30 à noite.** O bloqueio que esta seção descrevia não
+> existe mais: `makeMiniActor` aceita `attack`/`hurt`/`death` **por direção**.
+> Pode desenhar exatamente como está especificado aqui.
 
 | Caminho | Direções | Animações |
 |---|---|---|
-| `makeMiniActor` (Zumbi) | ✅ 4 de verdade | 🔴 só `walk` + `idle` |
+| `makeMiniActor` | ✅ 4 de verdade | ✅ walk · idle · **attack · hurt · death** |
 | `makeSpriteActor` (Slime) | 🔴 frontal única, espelhada | ✅ idle/walk/attack/hurt/death |
 
-Ou seja: **hoje não há como um monstro ter 4 direções E animação de ataque.**
+O caminho novo tem **precedência**: espécie com folha desenhada usa ele, e o blob
+placeholder deixa de aparecer para ela.
 
-Isso é trabalho meu, não seu: vou estender o `makeMiniActor` para aceitar
-`attack`/`hurt`/`death`/`cast` por direção. **Desenhe como está especificado
-aqui** — o gatilho de cada animação já existe no servidor:
-
-| Animação | Gatilho que já existe | Ligado? |
+| Animação | Gatilho | Ligado? |
 |---|---|---|
 | walk / idle | movimento do servidor | ✅ sim |
-| attack | mensagem `hit` (`playAttack`) | ⚠️ só no caminho frontal |
-| hurt | mensagem `hit` no alvo (`playHurt`) | ⚠️ só no caminho frontal |
-| death | `hit.fatal = true` | 🔴 nunca ligado (nem no Slime) |
-| cast | mensagem `projectile` | 🔴 nunca ligado |
-| slam (MVP) | mensagem `fx` + `slam` da def | 🔴 nunca ligado |
+| attack | mensagem `hit` (`playAttack`) | ✅ **sim, por direção** |
+| hurt | mensagem `hit` no alvo (`playHurt`) | ✅ **sim, por direção** |
+| death | `hit.fatal = true` (`playDeath`) | ✅ **sim, por direção** |
+| cast | mensagem `projectile` | 🔴 ainda não |
+| slam (MVP) | mensagem `fx` + `slam` da def | 🔴 ainda não |
+
+### 🔴 Ao entregar arte, avise o TAMANHO DA CÉLULA
+
+É a única coisa que o código não consegue adivinhar: uma folha de 4×4 células de
+32 px tem exatamente as mesmas dimensões de uma de 2×2 de 64 px.
+
+Quem liga a espécie no motor acrescenta uma linha em **`CREATURE_SHEETS`**
+(`client/src/miniworld.ts`), assim:
+
+```ts
+export const CREATURE_SHEETS: Record<string, number> = {
+  forest_spider: 32,   // nome da pasta: lado da célula em px
+};
+```
+
+Espécie que não está nessa lista **nem tenta carregar arquivo** — segue no blob.
+É de propósito: sem a lista, o cliente dispararia 23 espécies × 5 arquivos = 115
+requisições no boot, quase todas 404.
+
+### Detalhes de comportamento que valem saber ao desenhar
+
+- **Golpe não é interrompido por dano.** Um monstro que apanha no meio do ataque
+  continua atacando — senão bastaria bater sem parar para desarmar qualquer
+  inimigo. Só a morte interrompe tudo.
+- **Morte é terminal:** o sprite para no último quadro, que é a pose de morto.
+  Desenhe o último quadro pensando nisso.
+- **O golpe fatal toca MORTE, não dano.** Piscar de dor e cair ao mesmo tempo lê
+  como bug.
+- **Ataque e dano tocam mais rápido** que a caminhada (são eventos, não ciclos), e
+  a morte um pouco mais lenta.
+- O **pulinho de investida** continua acontecendo junto da animação de ataque, de
+  propósito: ele dá peso ao golpe.
 
 ---
 

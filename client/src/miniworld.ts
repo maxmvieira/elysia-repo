@@ -245,6 +245,144 @@ export async function loadZombieIdleAnim(): Promise<DirAnim | null> {
 }
 
 /** Animação de hop do Slime (linha 0, 6 quadros) — direção não importa. */
+// ---------------------------------------------------------------------------
+// Folhas de monstro no formato de SPEC-SPRITES-MONSTROS.md
+// ---------------------------------------------------------------------------
+
+/**
+ * Ordem das linhas na folha, conforme a spec: 0 baixo · 1 cima · 2 direita ·
+ * 3 esquerda.
+ */
+const SHEET_ROW = { down: 0, up: 1, right: 2, left: 3 } as const;
+
+/**
+ * Conjunto completo de animações de uma criatura, por direção.
+ *
+ * `walk` é o único obrigatório — sem ele não há o que desenhar. Os outros são
+ * opcionais porque a spec permite entregar em partes, e o motor cai no que tem:
+ * sem `idle` congela no quadro 0, sem `attack` volta ao pulinho do placeholder.
+ */
+export interface CreatureSheets {
+  walk: DirAnim;
+  idle?: DirAnim;
+  attack?: DirAnim;
+  hurt?: DirAnim;
+  death?: DirAnim;
+}
+
+/**
+ * Recorta uma folha de 4 linhas (ou 3, espelhando) em `DirAnim`.
+ *
+ * 🔴 A spec permite entregar **3 linhas** quando a esquerda é espelho exato da
+ * direita — "não invente uma 4ª linha duplicada". Aqui isso é detectado pela
+ * ALTURA da imagem: 3 linhas de célula quadrada dão altura = 3 × célula. Nesse
+ * caso a esquerda reusa os quadros da direita, e quem espelha é o `scale.x`
+ * negativo do ator, como já acontece com o sprite frontal.
+ */
+function sliceDirSheet(sheet: Texture, cell: number): { anim: DirAnim; mirrored: boolean } {
+  sheet.source.scaleMode = 'nearest';
+  const cols = Math.max(1, Math.floor(sheet.width / cell));
+  const rows = Math.max(1, Math.floor(sheet.height / cell));
+  const mirrored = rows < 4;
+
+  const row = (r: number): Texture[] =>
+    Array.from({ length: cols }, (_, i) =>
+      new Texture({
+        source: sheet.source,
+        frame: new Rectangle(i * cell, r * cell, cell, cell),
+      }),
+    );
+
+  const direita = row(SHEET_ROW.right);
+  return {
+    anim: {
+      down: row(SHEET_ROW.down),
+      up: row(SHEET_ROW.up),
+      right: direita,
+      // Folha de 3 linhas: a esquerda é a direita espelhada pelo ator.
+      left: mirrored ? direita : row(SHEET_ROW.left),
+    },
+    mirrored,
+  };
+}
+
+/**
+ * 🔴 **Criaturas que JÁ TÊM folha desenhada, e o lado da célula de cada uma.**
+ *
+ * Esta lista é o interruptor: espécie que não está aqui continua no blob
+ * placeholder colorido, e nem tenta carregar arquivo.
+ *
+ * **Ao entregar arte, acrescente a espécie aqui** — é a única mudança de código
+ * necessária. As pastas em `client/public/assets/monsters/` já existem todas.
+ *
+ * Por que uma lista explícita em vez de tentar carregar tudo: sem ela, o cliente
+ * dispararia 23 espécies × 5 arquivos = 115 requisições no boot, quase todas
+ * 404. E o tamanho da célula **não dá para adivinhar** — uma folha de 4×4 células
+ * de 32px tem exatamente as mesmas dimensões de uma de 2×2 de 64px.
+ *
+ * ⚠️ O Zumbi NÃO está aqui: ele usa `Zombie-alfa.png` na raiz, no formato LPC
+ * antigo, com loader próprio (`loadZombieAnim`). Quando for redesenhado no
+ * formato da spec, entra nesta lista e o loader antigo pode sair.
+ */
+export const CREATURE_SHEETS: Record<string, number> = {
+  // Nada ainda. Exemplo de como fica: `forest_spider: 32,`
+};
+
+/**
+ * Carrega as folhas de uma criatura de `assets/monsters/<tipo>/`.
+ *
+ * Devolve `null` quando não há nem `walk.png` — é o sinal de "esta espécie
+ * continua no placeholder", e é o caso de 18 das 23 hoje. Arquivo ausente
+ * individualmente (só `attack.png`, por exemplo) não é erro: a spec permite
+ * entrega em partes, e o motor usa o que existe.
+ *
+ * `cell` é o lado da célula em pixels. A spec pede que quem desenha informe —
+ * não há como adivinhar com segurança, porque uma folha de 4×4 células de 32px
+ * tem as mesmas dimensões de uma de 2×2 de 64px.
+ */
+export async function loadCreatureSheets(
+  type: string,
+  cell: number,
+): Promise<CreatureSheets | null> {
+  const base = `/assets/monsters/${type}`;
+
+  async function tenta(nome: string): Promise<{ anim: DirAnim; mirrored: boolean } | null> {
+    try {
+      const tex = await Assets.load<Texture>(`${base}/${nome}.png`);
+      return sliceDirSheet(tex, cell);
+    } catch {
+      // Ausente é o caso NORMAL enquanto a arte não chega. Sem warn para não
+      // encher o console de 18 espécies × 5 arquivos a cada carregamento.
+      return null;
+    }
+  }
+
+  const walk = await tenta('walk');
+  if (!walk) return null;
+
+  const [idle, attack, hurt, death] = await Promise.all([
+    tenta('idle'), tenta('attack'), tenta('hurt'), tenta('death'),
+  ]);
+
+  const partes = ['walk'];
+  if (idle) partes.push('idle');
+  if (attack) partes.push('attack');
+  if (hurt) partes.push('hurt');
+  if (death) partes.push('death');
+  console.log(
+    `[monsters] ${type}: ${partes.join(', ')}`
+    + `${walk.mirrored ? ' (3 linhas, esquerda espelhada)' : ''}`,
+  );
+
+  return {
+    walk: walk.anim,
+    ...(idle ? { idle: idle.anim } : {}),
+    ...(attack ? { attack: attack.anim } : {}),
+    ...(hurt ? { hurt: hurt.anim } : {}),
+    ...(death ? { death: death.anim } : {}),
+  };
+}
+
 export async function loadSlimeAnim(): Promise<Texture[] | null> {
   try {
     const sheet = await Assets.load<Texture>(`${CHARS}/Monsters/Slimes/Slime.png`);
