@@ -161,6 +161,137 @@ export interface CreatureSummon {
 
 import type { Behavior } from './bestiary.js';
 
+/**
+ * Famílias de criatura. O bestiário já organizava por família nos comentários;
+ * `DD-DROP-006` transforma isso em dado, porque é a família — não a espécie —
+ * que define o material característico.
+ */
+export type CreatureFamily =
+  | 'slime' | 'aranha' | 'formiga' | 'goblin' | 'lobo' | 'orc'
+  | 'morto-vivo' | 'minotauro' | 'urso' | 'kobold' | 'troll'
+  | 'serpente' | 'fauna';
+
+/**
+ * 🔴 `DD-DROP-006` — material característico por FAMÍLIA.
+ *
+ * *"Cada família de criaturas deverá possuir materiais característicos... Essa
+ * identidade facilita o aprendizado do jogador e cria rotas de farm previsíveis."*
+ *
+ * Ficar por família e não por espécie é o que faz a regra valer: matar qualquer
+ * lobo dá couro, presa e pelo, então o jogador aprende UMA vez e a lição serve
+ * para o Lobo Cinzento e para o Lobo Negro.
+ *
+ * ⚠️ As chances são REFERÊNCIA — nenhum doc dá número. Escalonadas pela raridade
+ * do material: o comum sai quase sempre (é a "renda constante" que o
+ * `DD-DROP-002` descreve), o raro é evento.
+ */
+export const FAMILY_MATERIALS: Record<CreatureFamily, Array<{ kind: string; chance: number }>> = {
+  slime: [{ kind: 'slime_gel', chance: 0.7 }],
+  // Os três que o doc cita literalmente para aranhas: teias, veneno, olhos.
+  aranha: [
+    { kind: 'spider_web', chance: 0.6 },
+    { kind: 'spider_venom', chance: 0.25 },
+    { kind: 'spider_eye', chance: 0.2 },
+  ],
+  formiga: [
+    { kind: 'chitin', chance: 0.65 },
+    { kind: 'acid_gland', chance: 0.2 },
+  ],
+  goblin: [
+    { kind: 'goblin_rag', chance: 0.6 },
+    { kind: 'goblin_tooth', chance: 0.4 },
+  ],
+  // Idem: couros, presas, pelos.
+  lobo: [
+    { kind: 'wolf_hide', chance: 0.6 },
+    { kind: 'wolf_fur', chance: 0.5 },
+    { kind: 'wolf_fang', chance: 0.25 },
+  ],
+  orc: [
+    { kind: 'thick_hide', chance: 0.45 },
+    { kind: 'broken_tusk', chance: 0.5 },
+  ],
+  // Idem: ossos, cinzas, fragmentos espirituais.
+  'morto-vivo': [
+    { kind: 'bone', chance: 0.7 },
+    { kind: 'ashes', chance: 0.3 },
+    { kind: 'spirit_fragment', chance: 0.08 },
+  ],
+  minotauro: [
+    { kind: 'horn', chance: 0.35 },
+    { kind: 'heavy_hide', chance: 0.4 },
+  ],
+  urso: [
+    { kind: 'bear_pelt', chance: 0.5 },
+    { kind: 'bear_claw', chance: 0.45 },
+  ],
+  kobold: [
+    { kind: 'small_scale', chance: 0.6 },
+    { kind: 'fine_claw', chance: 0.3 },
+  ],
+  troll: [
+    { kind: 'troll_skin', chance: 0.4 },
+    { kind: 'troll_blood', chance: 0.25 },
+  ],
+  serpente: [{ kind: 'snake_skin', chance: 0.6 }],
+  // Fauna sem material próprio ainda (Coelho, Javali). Estão DORMENTES, então
+  // não quebram o `DD-DROP-001` na prática — mas a lista vazia é um lembrete.
+  fauna: [],
+};
+
+/**
+ * Família de cada espécie. Fica numa tabela própria, e não num campo dentro de
+ * cada `CreatureDef`, por dois motivos: o mapa inteiro cabe numa tela — o que
+ * torna óbvio se uma família está desbalanceada em número de espécies — e
+ * acrescentar espécie sem família é pego por teste, então não há risco de
+ * esquecer.
+ */
+export const CREATURE_FAMILY: Record<string, CreatureFamily> = {
+  // Slimes: a família-âncora do Tier I, mais o MVP.
+  slime: 'slime',
+  slime_blue: 'slime',
+  slime_red: 'slime',
+  super_slime: 'slime',
+  // Aranhas, dos três Tiers.
+  spider: 'aranha',
+  forest_spider: 'aranha',
+  web_spider: 'aranha',
+  giant_spider: 'aranha',
+  // Formigas.
+  soldier_ant: 'formiga',
+  spitter_ant: 'formiga',
+  mystic_ant: 'formiga',
+  // Goblins e Orcs — humanoides.
+  goblin_warrior: 'goblin',
+  goblin_archer: 'goblin',
+  young_orc: 'orc',
+  orc_warrior: 'orc',
+  // Lobos, dos dois Tiers.
+  grey_wolf: 'lobo',
+  black_wolf: 'lobo',
+  // Mortos-vivos. O Rotworm entra aqui por afinidade temática (verme de
+  // carniça), não por decisão do doc — está DORMENTE, então não afeta o jogo.
+  zombie: 'morto-vivo',
+  skeleton_warrior: 'morto-vivo',
+  skeleton_archer: 'morto-vivo',
+  rotworm: 'morto-vivo',
+  // Um de cada.
+  minotaur: 'minotauro',
+  brown_bear: 'urso',
+  kobold_hunter: 'kobold',
+  troll: 'troll',
+  snake: 'serpente',
+  // Fauna sem material próprio ainda — as duas estão DORMENTES.
+  rabbit: 'fauna',
+  boar: 'fauna',
+};
+
+/** Materiais característicos que esta espécie pode largar (`DD-DROP-006`). */
+export function materialsOf(creatureType: string): Array<{ kind: string; chance: number }> {
+  const fam = CREATURE_FAMILY[creatureType];
+  return fam ? FAMILY_MATERIALS[fam] : [];
+}
+
 /** Definição de um tipo de criatura (dados versionados). */
 export interface CreatureDef {
   /** Como ela reage a jogadores. Sem isso, todo bicho vira agressivo. */

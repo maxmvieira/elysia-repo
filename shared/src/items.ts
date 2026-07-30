@@ -174,6 +174,44 @@ export const ITEMS: Record<string, ItemDef> = {
   // porque a Serpente é criatura bem mais difícil que o Slime Verde.
   slime_gel: { kind: 'slime_gel', name: 'Gosma de Slime', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 2, color: 0x5fae5f },
   snake_skin: { kind: 'snake_skin', name: 'Pele de Serpente', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0x6f9a4a },
+
+  // --- Materiais característicos de família (Doc 4, cap. 44 e `DD-DROP-006`) ---
+  // 🔴 `DD-DROP-001`: *"o jogador nunca deve derrotar um monstro apenas pela
+  // experiência."* Antes destes, 21 das 23 espécies eram exatamente isso — só
+  // Slime e Serpente largavam material próprio. Cada família ganhou o seu, e é o
+  // que cria rota de farm reconhecível.
+  //
+  // A taxonomia (família, origem, uso, afinidade) vive em `materials.ts`; aqui
+  // fica só o lado "objeto de inventário". Teste garante que as duas tabelas não
+  // se separem.
+  //
+  // ⚠️ REFERÊNCIA em todo `sellPrice`: nenhum doc dá preço de material. Ancorados
+  // na faixa de valor do `44.9` — muito-baixo 2 · baixo 5 · médio 15 · alto 50 ·
+  // muito-alto 150 — com o Fragmento Comum (`buyPrice: 2`) como piso do sistema.
+  spider_web: { kind: 'spider_web', name: 'Teia de Aranha', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0xdfe7f2 },
+  spider_venom: { kind: 'spider_venom', name: 'Veneno de Aranha', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0x7ad13a },
+  spider_eye: { kind: 'spider_eye', name: 'Olho de Aranha', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0x8a6a9a },
+  chitin: { kind: 'chitin', name: 'Quitina', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0xa06a3a },
+  acid_gland: { kind: 'acid_gland', name: 'Glândula Ácida', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0x8aa03a },
+  goblin_rag: { kind: 'goblin_rag', name: 'Trapo de Goblin', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 2, color: 0x7a8a5a },
+  goblin_tooth: { kind: 'goblin_tooth', name: 'Dente de Goblin', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0xd8d0a8 },
+  wolf_hide: { kind: 'wolf_hide', name: 'Couro de Lobo', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0x9a9a9a },
+  wolf_fang: { kind: 'wolf_fang', name: 'Presa de Lobo', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0xeee8d8 },
+  wolf_fur: { kind: 'wolf_fur', name: 'Pelo de Lobo', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0x8a8a92 },
+  thick_hide: { kind: 'thick_hide', name: 'Couro Grosso', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0x6a8a4a },
+  broken_tusk: { kind: 'broken_tusk', name: 'Presa Quebrada', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0xd8cfae },
+  bone: { kind: 'bone', name: 'Osso', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0xd8d0b8 },
+  ashes: { kind: 'ashes', name: 'Cinzas', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0xb8b0a8 },
+  spirit_fragment: { kind: 'spirit_fragment', name: 'Fragmento Espiritual', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 50, color: 0x9a5ad1 },
+  horn: { kind: 'horn', name: 'Chifre', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 50, color: 0x8a4a3a },
+  heavy_hide: { kind: 'heavy_hide', name: 'Couro Pesado', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 50, color: 0x7a5a4a },
+  bear_pelt: { kind: 'bear_pelt', name: 'Pelego de Urso', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0x7a5a3a },
+  bear_claw: { kind: 'bear_claw', name: 'Garra de Urso', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0xe0d8c8 },
+  small_scale: { kind: 'small_scale', name: 'Escama Pequena', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0xb08a4a },
+  fine_claw: { kind: 'fine_claw', name: 'Garra Fina', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0xc8b898 },
+  troll_skin: { kind: 'troll_skin', name: 'Pele de Troll', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 50, color: 0x5a7a5a },
+  troll_blood: { kind: 'troll_blood', name: 'Sangue de Troll', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 150, color: 0x8a2a2a },
+
   // Armas: o `atk` é o dano-base, e o TIPO define identidade (velocidade,
   // alcance, uma/duas mãos) e qual proficiência sobe ao usar.
   short_sword: { kind: 'short_sword', name: 'Espada Curta', category: 'equip', stackable: false, buyPrice: 50, slot: 'weapon', atk: 8, weaponType: 'sword', tier: 1, color: 0xc9d0d8 },

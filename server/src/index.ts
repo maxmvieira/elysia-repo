@@ -41,6 +41,7 @@ import {
   DAMAGE_TYPES,
   resolveDamage,
   affixDamageType,
+  materialsOf,
   rollAffixNames,
   FRAGMENT_ITEM,
   RECIPE_ITEM,
@@ -916,6 +917,20 @@ function dropLoot(c: Creature): void {
 
   for (const entry of LOOT_TABLE[c.def.type] ?? []) {
     if (Math.random() < entry.chance) dropItem(entry.kind, 1, c.tileX, c.tileY, c.floor);
+  }
+
+  // 🔴 `DD-DROP-001`: "o jogador nunca deve derrotar um monstro apenas pela
+  // experiência". O material característico da FAMÍLIA (`DD-DROP-006`) é o que
+  // cumpre isso — e por ser da família, não da espécie, o jogador aprende uma
+  // vez e a lição serve para todo o grupo.
+  //
+  // Chefe larga o dobro de tentativas: `DD-DROP-010` pede "maior quantidade de
+  // materiais" para boss, e é o que faz valer organizar grupo.
+  const tentativasMat = c.def.boss ? 2 : 1;
+  for (const entry of materialsOf(c.def.type)) {
+    for (let i = 0; i < tentativasMat; i++) {
+      if (Math.random() < entry.chance) dropItem(entry.kind, 1, c.tileX, c.tileY, c.floor);
+    }
   }
   // Equipamento com raridade e passivos rolados. Chefe empurra a curva de
   // raridade para cima — mas Lendário+ segue sendo evento raro.

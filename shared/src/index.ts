@@ -12,6 +12,7 @@ export * from './items.js';
 export * from './skills.js';
 export * from './weapons.js';
 export * from './affixes.js';
+export * from './materials.js';
 export * from './crafting.js';
 export * from './death.js';
 export * from './bestiary.js';

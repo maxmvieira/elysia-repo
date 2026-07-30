@@ -46,9 +46,77 @@ existe** e destrava o que está pela metade, em vez de construir endgame antes d
 o meio de jogo existir:
 
 1. ✅ **Item Affix Bible (cap. 46)** *(feito)*
-2. **Material Bible + Monster Drop Bible (cap. 44–45)**
+2. ✅ **Material Bible + Monster Drop Bible (cap. 44–45)** *(feito)*
 3. **Fechar a fabricação** — protocolo e handler
 4. **Catálogo de equipamentos (cap. 13–43)**
+
+## ✅ Cap. 44–45 — Material Bible e Monster Drop Bible (implementados)
+
+**A primeira surpresa:** nenhum dos dois capítulos tem conteúdo. O cap. 44 é
+**puro esquema de classificação** (19 famílias, 11 origens, 12 usos, 6
+qualidades, 7 estados, cadastro de ~25 campos) e não lista **nenhum material**.
+O cap. 45 é **filosofia + identidade de família**, sem tabela de drop.
+
+**A acusação que o cap. 45 faz ao jogo:**
+
+> `DD-DROP-001`: *"O jogador nunca deve derrotar um monstro apenas pela
+> experiência."*
+
+Antes disto, **21 das 23 espécies eram exatamente isso** — só Slime e Serpente
+largavam material próprio. Um Minotauro, um Troll, um Esqueleto Guerreiro: todos
+davam ouro, fragmento genérico e nada que os identificasse.
+
+### O que entrou
+
+- **`shared/src/materials.ts`** — a taxonomia do cap. 44 e o cadastro do `44.13`,
+  com **núcleo obrigatório** (o que o jogo usa) e o resto opcional. Tornar os ~25
+  campos obrigatórios faria cada material ocupar vinte linhas sem ganho.
+- **24 materiais novos**, um conjunto por família de criatura, seguindo os
+  exemplos literais do `DD-DROP-006`.
+- **`CREATURE_FAMILY`** — as 28 espécies mapeadas para 13 famílias.
+- **`FAMILY_MATERIALS`** — o material característico **por família, não por
+  espécie**. É o que faz a lição valer para o grupo: matar Lobo Cinzento ou Lobo
+  Negro dá o mesmo tipo de couro, então o jogador aprende uma vez.
+
+**Duas tabelas, um `kind`:** `ITEMS` diz o que a coisa é como objeto de
+inventário (nome, preço, empilha); `MATERIALS` diz o que ela é como matéria-prima
+(família, origem, profissão). Teste garante que não se separem.
+
+### 🔴 Decisão do dono: afinidade usa os SETE tipos de dano
+
+O `44.11` lista **onze** afinidades — Fogo, Água, Terra, Vento, Raio, Gelo,
+Natureza, Luz, Trevas, Aether, Corrupção — mas `DD-ELM-002` fecha os tipos em
+sete. Era a **terceira** ocorrência do conflito (antes: `Slime Azul → Água` no
+Doc 3 e os prefixos `Terreno`/`Marinho` no cap. 46).
+
+O dono escolheu **vocabulário único**: as onze colapsam nos sete.
+
+| Palavra do doc | Vira |
+|---|---|
+| Fogo | Físico → `fire` |
+| Água · Gelo | `ice` |
+| Terra | `physical` |
+| Vento · Raio | `electric` |
+| Natureza | `poison` |
+| Luz · Aether | `holy` |
+| Trevas · Corrupção | `dark` |
+
+⚠️ **O que se perde:** Água e Gelo passam a ser indistinguíveis, e o mesmo vale
+para Vento/Raio e Trevas/Corrupção. Se algum dia uma receita precisar aceitar
+Água mas não Gelo, a distinção volta a fazer falta.
+
+⚠️ **Aether → `holy` é o mapeamento mais frágil.** Aether é a energia mágica do
+mundo na lore; Sagrado é "energia vital". Próximos, não iguais. Se o Aether ganhar
+peso mecânico próprio, é o primeiro lugar a rever.
+
+### O que ficou de fora, e por quê
+
+| Item | Motivo |
+|---|---|
+| **Ervas, Flores, Cogumelos, Minérios, Madeiras, Gemas** | dependem de **coleta e mineração**, que não existem. Criar o item sem forma de obtê-lo seria item inalcançável — e `DD-MAT-001` proíbe material que "existe apenas para ocupar espaço". Há teste impedindo que entrem antes da coleta |
+| **Estado de processamento** (Bruto → Refinado) | depende de profissões com ação |
+| **Qualidade** (Impuro → Perfeito) | afeta "eficiência de produção", e produção não existe |
+| **Nível tecnológico e tamanho** | organizacionais, sem efeito mecânico. Campos opcionais |
 
 **Adiado, com motivo:**
 
