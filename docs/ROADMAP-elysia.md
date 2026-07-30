@@ -46,10 +46,12 @@ Os docs marcam status por decisão. **Respeitar isso é o que impede reescrever 
 **Última atualização:** 2026-07-30
 **Etapas concluídas:** 1 a **9** (de 23) — as 1–6 com ajustes pendentes, ver abaixo
 **Próxima etapa:** **10 — Cartas** 🃏 ⚠️ mas veja a ressalva no `HANDOFF`: o
-formato das cartas depende de decisões não tomadas, e o que mais destrava agora é
-**bônus fixo de equipamento em `ItemDef`** (destrava anéis, Vestes e Livros de uma
-vez só)
-**Saúde do código:** **331 testes** passando (319 shared + 12 server) · typecheck limpo
+formato das cartas depende de decisões não tomadas, e o
+[`INVENTARIO-DE-ARTE.md`](./INVENTARIO-DE-ARTE.md) pede para **não desenhá-las
+ainda**
+**🔴 Antes de qualquer coisa:** a **Etapa 9 nunca foi testada com dois clientes**.
+Convite → aceite → XP dividida exige duas janelas, e não deu para fazer sozinho
+**Saúde do código:** **334 testes** passando (322 shared + 12 server) · typecheck limpo
 nos 3 pacotes · smoke de ponta a ponta validado (derruba servidor → personagem sobrevive)
 **Banco:** schema **v3** (`professions`, `bank_gold`)
 
