@@ -2299,6 +2299,80 @@ const DASH_MAX_TILES = 8;
  */
 const DASH_MS_PER_TILE = 90;
 
+/**
+ * Acima disto o intervalo entre dois passos não é cadência nenhuma — é o ator
+ * simplesmente parado. Nem a criatura mais lenta do jogo (Zumbi, 2000 ms) chega
+ * perto.
+ */
+const STEP_MS_CEILING = 2500;
+
+/**
+ * Quanto a cadência pode PIORAR de um passo para o outro (+12 %).
+ *
+ * 🔴 É isto que conserta o bug de "fico lentíssimo andando logo depois de
+ * atacar". A duração do deslize é aprendida de `agora − último passo`, e essa
+ * medida inclui o tempo PARADO: quem ataca, ou mata o alvo e fica um instante
+ * sem andar, media 1–2 s no primeiro passo seguinte e adotava isso como cadência
+ * — o personagem passava a rastejar um tile por segundo até o passo seguinte.
+ *
+ * Ficar mais RÁPIDO é sempre plausível (buff, item de velocidade) e entra na
+ * hora. Ficar mais LENTO é ambíguo: pode ser Postura Defensiva ou condição
+ * Lentidão de verdade, mas pode ser só pausa — e as duas são indistinguíveis num
+ * único passo. Então a piora entra por rampa: uma pausa isolada mal move a
+ * agulha, e uma lentidão real, porque se repete a cada passo, é alcançada em
+ * poucos passos.
+ */
+const STEP_MS_SLOWER_RAMP = 1.12;
+
+/**
+ * Chute inicial da cadência de um JOGADOR, e ele é **pesado de propósito**.
+ *
+ * O servidor calcula `moveIntervalMs = max(150, 480 − agi×5)`, então 480 é o mais
+ * LENTO que um personagem consegue ser. Como acelerar entra na hora e desacelerar
+ * entra por rampa (`STEP_MS_SLOWER_RAMP`), começar pelo pior caso faz o primeiro
+ * passo real ser adotado **exato**, sem rampa nenhuma. Começar otimista (250)
+ * daria o contrário: alguns segundos de passo engasgado até a rampa alcançar.
+ */
+const PLAYER_STEP_MS_SEED = 480;
+
+/**
+ * Cadência de passo aprendida do servidor, para o deslize durar exatamente o
+ * intervalo entre um passo e o próximo (sem isso o sprite ou patina, ou salta o
+ * tile e congela).
+ *
+ * Guarda o intervalo CRU: quem desliza só uma fração dele (criatura, ver
+ * `CREATURE_GLIDE`) aplica o fator na hora de usar. Ver `STEP_MS_SLOWER_RAMP`
+ * para o porquê do filtro ser assimétrico.
+ */
+function makeStepCadence(initial: number) {
+  let cadence = initial;
+  return {
+    get value(): number {
+      return cadence;
+    },
+    /** Registra o intervalo real medido entre dois passos e devolve a cadência. */
+    observe(measured: number): number {
+      if (measured > 0 && measured < STEP_MS_CEILING) {
+        cadence = measured < cadence
+          ? measured
+          : Math.min(measured, cadence * STEP_MS_SLOWER_RAMP);
+      }
+      return cadence;
+    },
+  };
+}
+
+/**
+ * Chute inicial da cadência. A criatura tem a dela no bestiário, então não há
+ * por que aprender do zero: o PRIMEIRO passo já sai na duração certa, e a rampa
+ * de `STEP_MS_SLOWER_RAMP` fica só para o que o cliente não sabe (Lentidão,
+ * variante, buff).
+ */
+function initialCadence(e: EntitySnapshot, fallback: number): number {
+  const def = e.creatureType ? CREATURES[e.creatureType] : undefined;
+  return def?.moveCooldownMs ?? fallback;
+}
+
 /** Escurece uma cor 0xRRGGBB por uma fração (0..1). Usado no contorno do blob. */
 function darken(color: number, amount: number): number {
   const f = 1 - Math.max(0, Math.min(1, amount));
@@ -2478,7 +2552,8 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   let fromY = e.tileY * TS;
   let toX = fromX;
   let toY = fromY;
-  let stepMs = 250;
+  const cadence = makeStepCadence(initialCadence(e, PLAYER_STEP_MS_SEED));
+  let stepMs = cadence.value * (opts.creatureTint ? CREATURE_GLIDE : 1);
   let moveStart = performance.now();
   let movingUntil = 0;
   c.x = fromX;
@@ -2544,13 +2619,11 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
       return;
     }
     if (!far) {
-      const measured = now - moveStart;
-      // O teto acompanha a cadência REAL do servidor (se ficar baixo, o sprite
-      // salta o tile e congela). A CRIATURA desliza só uma fração do intervalo
-      // e descansa o resto; o JOGADOR usa o intervalo inteiro, porque quem
-      // segura a tecla espera movimento contínuo.
+      // A CRIATURA desliza só uma fração do intervalo e descansa o resto; o
+      // JOGADOR usa o intervalo inteiro, porque quem segura a tecla espera
+      // movimento contínuo.
       const glide = opts.creatureTint ? CREATURE_GLIDE : 1;
-      if (measured < 2500) stepMs = Math.max(90, measured * glide);
+      stepMs = Math.max(90, cadence.observe(now - moveStart) * glide);
       movingUntil = now + stepMs + 80;
     }
     moveStart = now;
@@ -2635,7 +2708,8 @@ function makeSpriteActor(opts: SpriteActorOpts): EntityView {
   let fromY = e.tileY * TS;
   let toX = fromX;
   let toY = fromY;
-  let stepMs = 250;
+  const cadence = makeStepCadence(initialCadence(e, PLAYER_STEP_MS_SEED));
+  let stepMs = cadence.value * (opts.creatureTint ? CREATURE_GLIDE : 1);
   let moveStart = performance.now();
   let movingUntil = 0;
   c.x = fromX;
@@ -2708,13 +2782,11 @@ function makeSpriteActor(opts: SpriteActorOpts): EntityView {
       return;
     }
     if (!far) {
-      const measured = now - moveStart;
-      // O teto acompanha a cadência REAL do servidor (se ficar baixo, o sprite
-      // salta o tile e congela). A CRIATURA desliza só uma fração do intervalo
-      // e descansa o resto; o JOGADOR usa o intervalo inteiro, porque quem
-      // segura a tecla espera movimento contínuo.
+      // A CRIATURA desliza só uma fração do intervalo e descansa o resto; o
+      // JOGADOR usa o intervalo inteiro, porque quem segura a tecla espera
+      // movimento contínuo.
       const glide = opts.creatureTint ? CREATURE_GLIDE : 1;
-      if (measured < 2500) stepMs = Math.max(90, measured * glide);
+      stepMs = Math.max(90, cadence.observe(now - moveStart) * glide);
       movingUntil = now + stepMs + 80;
     }
     moveStart = now;
@@ -2770,7 +2842,8 @@ function makePlayerView(e: EntitySnapshot, isSelf: boolean, tex: CharacterTextur
   let fromY = e.tileY * TS;
   let toX = fromX;
   let toY = fromY;
-  let stepMs = 250; // padrão até medir a cadência real do servidor
+  const cadence = makeStepCadence(initialCadence(e, PLAYER_STEP_MS_SEED));
+  let stepMs = cadence.value; // até medir a cadência real do servidor
   let moveStart = performance.now();
   let movingUntil = 0;
   c.x = fromX;
@@ -2804,11 +2877,10 @@ function makePlayerView(e: EntitySnapshot, isSelf: boolean, tex: CharacterTextur
     toX = x;
     toY = y;
     if (!far) {
-      // Duração do deslize = intervalo real entre passos (sincroniza com o servidor).
-      const measured = now - moveStart;
-      // Jogador desliza o intervalo INTEIRO: quem segura a tecla espera
-      // movimento contínuo, sem pausa entre um tile e outro.
-      if (measured < 2500) stepMs = Math.max(90, measured);
+      // Duração do deslize = intervalo real entre passos (sincroniza com o
+      // servidor). Jogador desliza o intervalo INTEIRO: quem segura a tecla
+      // espera movimento contínuo, sem pausa entre um tile e outro.
+      stepMs = Math.max(90, cadence.observe(now - moveStart));
       movingUntil = now + stepMs + 80; // segue animando entre passos consecutivos
     }
     moveStart = now;
@@ -3057,9 +3129,11 @@ function makeCreatureView(
   let fromY = e.tileY * TS;
   let toX = fromX;
   let toY = fromY;
-  // Padrão até medir a cadência real. Alto porque as criaturas se movem
-  // devagar — um valor baixo faria o PRIMEIRO passo saltar.
-  let stepMs = 500;
+  // O fallback é alto porque as criaturas se movem devagar — um valor baixo
+  // faria o PRIMEIRO passo saltar. Na prática quase nunca é usado: toda criatura
+  // tem `creatureType`, e aí a cadência vem exata do bestiário.
+  const cadence = makeStepCadence(initialCadence(e, 500));
+  let stepMs = cadence.value * CREATURE_GLIDE;
   let moveStart = performance.now();
   c.x = fromX;
   c.y = fromY;
@@ -3087,11 +3161,8 @@ function makeCreatureView(
       return;
     }
     if (!far) {
-      const measured = now - moveStart;
-      // Idem: o teto acompanha a cadência real, senão a criatura salta o tile
-      // e fica parada esperando o próximo passo.
       // Sempre criatura aqui: desliza uma fração e descansa o resto.
-      if (measured < 2500) stepMs = Math.max(120, measured * CREATURE_GLIDE);
+      stepMs = Math.max(120, cadence.observe(now - moveStart) * CREATURE_GLIDE);
     }
     moveStart = now;
   }
