@@ -45,8 +45,10 @@ Os docs marcam status por decisão. **Respeitar isso é o que impede reescrever 
 
 **Última atualização:** 2026-07-30
 **Etapas concluídas:** 1 a 8 (de 23) — as 1–6 com ajustes pendentes, ver abaixo
-**Próxima etapa:** **9 — Party, shared XP e distribuição de loot** 👥
-**Saúde do código:** **298 testes** passando (286 shared + 12 server) · typecheck limpo
+**Próxima etapa:** **9 — Party, shared XP e distribuição de loot** 👥 — as REGRAS
+já estão em `shared/src/party.ts`, testadas e **desligadas**; faltam o protocolo,
+o servidor e a UI
+**Saúde do código:** **329 testes** passando (317 shared + 12 server) · typecheck limpo
 nos 3 pacotes · smoke de ponta a ponta validado (derruba servidor → personagem sobrevive)
 **Banco:** schema **v3** (`professions`, `bank_gold`)
 

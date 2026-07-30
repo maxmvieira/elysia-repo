@@ -1,9 +1,28 @@
 # Handoff — estado do projeto em 2026-07-30
 
-Resumo para quem for continuar o trabalho. Três sessões registradas: **29/07**
+Resumo para quem for continuar o trabalho. Quatro sessões registradas: **29/07**
 (Etapa 8, bestiário do Doc 3, crafting), **30/07 manhã** (aba Vender, colisão,
-clique para andar, banco, curva de nível) e **30/07 noite** (as 4 pendências que
-travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa).
+clique para andar, banco, curva de nível), **30/07 noite** (as 4 pendências que
+travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa) e
+**30/07 madrugada** (o catálogo de equipamento inteiro ganhou números, e as
+regras de Party).
+
+---
+
+## 🆕 A sessão mais recente, em três linhas
+
+1. **Os 177 modelos canônicos do Doc 4 viraram itens jogáveis** — `atk`, `def`,
+   nível recomendado e preço saem de **cinco constantes** em `equipcurve.ts`, não
+   de 178 números escritos à mão.
+2. **Varinha, Livro Arcano e Escudo foram decididos** e saíram do pendente. O
+   Livro é **foco de mão secundária**, no slot do escudo.
+3. **A Etapa 9 começou** — `party.ts` tem as regras testadas, mas **nada está
+   ligado ao jogo ainda**.
+
+🔴 **Se você for mexer em equipamento, leia a seção "curva" do
+[`HISTORICO.md`](./HISTORICO.md) antes.** Ataque e defesa têm curvas separadas, e
+a assimetria não é gosto: `resolveDamage` mitiga por subtração plana, então
+defesa alta demais não "reduz muito" — ela **zera** o dano.
 
 > **Comece por aqui**, depois vá para [`ROADMAP-elysia.md`](./ROADMAP-elysia.md)
 > (plano geral) e [`HISTORICO.md`](./HISTORICO.md) (detalhe de cada etapa).
@@ -16,11 +35,11 @@ travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa).
 git pull
 npm install          # confere; nenhuma dependência nova foi adicionada
 npm run typecheck    # tem que sair limpo nos 3 pacotes
-npm test             # tem que dar 298 passando, 0 falhando
+npm test             # tem que dar 329 passando, 0 falhando
 npm run dev:test     # sobe com os comandos de teste ligados
 ```
 
-Se o `npm test` não der 298, **não continue** — algo se perdeu no merge.
+Se o `npm test` não der 329, **não continue** — algo se perdeu no merge.
 
 ### O que mudou por baixo de você (30/07 à noite)
 
@@ -48,15 +67,15 @@ Corrigido: `backpackSizeFor()` é a fonte única, usada no carregamento **e** ao
 
 ## Saúde do código
 
-| | 29/07 | 30/07 manhã | **30/07 noite** |
+| | 30/07 manhã | 30/07 noite | **30/07 madrugada** |
 |---|---|---|---|
-| Testes | 223 | 237 | **298** (286 shared + 12 server) |
+| Testes | 237 | 298 | **329** (317 shared + 12 server) |
 | Typecheck | limpo | limpo | limpo nos 3 pacotes |
-| Criaturas vivas no mapa | 59 | 32 | 32 |
+| Criaturas vivas no mapa | 32 | 32 | 32 |
 | Espécies definidas | 23 | 23 | 23 |
-| Schema do banco | v2 | v3 | v3 |
-| Itens no catálogo | ~25 | ~32 | **~85** |
-| Modelos canônicos registrados | — | — | **113** (só 8 são itens) |
+| Schema do banco | v3 | v3 | v3 |
+| Itens no catálogo | ~32 | ~85 | **~250** |
+| Modelos canônicos registrados | — | 113 (só 8 são itens) | **177 — todos jogáveis** |
 
 `npm run dev:test` sobe tudo com os comandos de teste ligados.
 
@@ -188,11 +207,16 @@ já está em save de jogador — e aí renomear é migração, não edição.
 13). Há teste garantindo que nenhum tipo regrida de faixa: se alguém embaralhar a
 lista, a inferência se perde e o teste avisa.
 
-🔴 **Três categorias que o doc cria e o código não tem:** Varinhas (cap. 21) e
-Livros Arcanos (cap. 22) exigiriam `WeaponType` **novos**, com proficiência própria
-(`DD-PROG-011` prevê **Magic Level**) — é decisão do dono. Escudos (cap. 23) não
-são `WeaponType`, ocupam o slot `shield`, e só o de Madeira existe. Os 23 nomes
-estão em `PENDING_MODEL_CATEGORIES` para ninguém reinventá-los.
+✅ ~~**Três categorias que o doc cria e o código não tem**~~ — **decididas em
+30/07 pelo dono: nenhum `WeaponType` novo.** Varinha virou família dentro de
+`staff`, Livro Arcano virou foco de mão secundária no slot `shield`, e Escudo
+ocupa `shield` sem classe de armadura. As três saíram de
+`PENDING_MODEL_CATEGORIES`.
+
+⚠️ O que **continua** pendente lá: os 41 modelos que exigem `EquipSlot` novo no
+paperdoll (luvas, capas, braceletes, cintos, broches), os anéis e colares (que
+esperam bônus fixo de equipamento), e as ferramentas/instrumentos/itens de
+guilda, que dependem de coleta, exploração e guildas.
 
 ---
 
@@ -483,17 +507,25 @@ está pela metade.
 1. ✅ ~~Animação de ataque por direção~~ — **feito.** O caminho está pronto e
    esperando arte.
 2. ✅ ~~Ícones das 10 condições~~ — **feito**, com nome no HUD.
-3. 🔴 **DAR NÚMEROS AOS MODELOS.** É o próximo passo natural e depende do dono: os
-   113 nomes canônicos estão registrados em `models.ts`, mas só 8 são itens
-   jogáveis. Preencher exige `atk`/`def` por modelo, e **o documento não dá
-   nenhum**. Sugestão: definir uma progressão por tier (inicial/intermediário/
-   avançado) e derivar, em vez de escolher 113 números à mão.
-4. **Decidir Varinha, Livro e Escudo** — as três categorias pendentes acima. A
-   primeira que precisa de decisão é se Varinha e Livro viram `WeaponType`
-   próprios, porque isso muda proficiência e identidade de classe.
-5. **Etapa 9 — Party e shared XP**, se o dono quiser avançar o roadmap em vez do
-   Doc 4. É um sistema inteiro (protocolo, estado no servidor, UI) e não depende
-   de arte.
+3. ✅ ~~Dar números aos modelos~~ — **feito.** 177 modelos jogáveis, derivados de
+   cinco constantes. Ver `equipcurve.ts` e `catalog.ts`.
+4. ✅ ~~Decidir Varinha, Livro e Escudo~~ — **feito.** Nenhum `WeaponType` novo:
+   Varinha é família dentro de `staff`, Livro é foco de mão secundária no slot
+   `shield`, Escudo ocupa `shield` sem classe de armadura.
+5. 🔴 **TERMINAR A ETAPA 9.** As regras estão em `shared/src/party.ts`, testadas
+   e **desligadas**. Faltam os dois commits que a ligam:
+   - **Protocolo e servidor:** convite/aceite/saída/expulsão, estado da party, e
+     a peça que a base não tem — **contribuição de dano por jogador na
+     criatura** (hoje só existe `targetId`). Ela é pré-requisito de
+     `DD-PARTY-008` (participação válida) e `DD-PARTY-021` (loot de boss).
+   - **Cliente:** painel de party, regra de loot sempre visível, prompt de
+     votação, e `/party` nos comandos de teste — validar isso sozinho exige dois
+     clientes.
+6. **Bônus fixo de equipamento em `ItemDef`** (vida, mana, poder mágico, somado
+   por `equipBonus`). É a peça que destrava **três coisas de uma vez**: os 18
+   anéis do cap. 30, que hoje sairiam todos com `def: 1` e nomes diferentes; a
+   Veste, que troca defesa por nada; e o Livro Arcano, cuja identidade está fina
+   pelo mesmo motivo.
 
 O que **não** vale a pena agora:
 
