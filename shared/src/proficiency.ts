@@ -30,8 +30,12 @@
  * treinaria machado junto. O Doc 4 mantém **uma proficiência por família**, que é
  * o que o código já faz.
  *
- * **Este arquivo implementa a lista do Doc 4**, e o motivo é prático, não de
- * hierarquia — pela regra de ouro o Doc 1 venceria:
+ * 🔴 **O dono decidiu em 2026-07-30: vale a lista do Doc 4.** *"quero modelo do
+ * doc4 mesmo. nao precisa incluir o 1h/2h do doc1"*.
+ *
+ * Isto é **override explícito da regra de ouro** — pela hierarquia o Doc 1
+ * venceria, e por isso a decisão fica escrita aqui em vez de virar só código.
+ * Os dois motivos que a sustentam:
  *
  * 1. É a que **preserva o que já está em save de jogador**. As cinco famílias
  *    corpo a corpo continuam existindo com o mesmo nome; só arco e besta se
@@ -41,8 +45,11 @@
  * 2. O próprio cap. 42 se apresenta como *"conforme o sistema já consolidado"* —
  *    ou seja, ele está **descrevendo** o que existe, não propondo mudança.
  *
- * 🔴 **É decisão do dono, e está registrada como aberta.** Se ele quiser o modelo
- * 1H/2H do Doc 1, o lugar de mudar é aqui — e aí a migração de save é obrigatória.
+ * ⚠️ **Não "conserte" isto de volta para o Doc 1.** O 1H/2H parece o modelo
+ * canônico quando se lê só o destilado, e é exatamente por isso que a decisão
+ * está registrada: quem chegar por aquele lado vai achar que o código diverge do
+ * documento. Não diverge — foi decidido contra ele, de propósito. Há teste
+ * travando a lista.
  */
 
 import { WEAPON_IDENTITY, type WeaponType } from './weapons.js';

@@ -19,6 +19,29 @@ test('as oito proficiências do cap. 42 existem, e todas têm nome', () => {
   }
 });
 
+test('🔴 decisão do dono: vale o Doc 4, NÃO o 1H/2H do Doc 1', () => {
+  // Decidido em 2026-07-30: "quero modelo do doc4 mesmo. nao precisa incluir o
+  // 1h/2h do doc1".
+  //
+  // É override explícito da regra de ouro — pela hierarquia o Doc 1 venceria, e
+  // quem chegar por aquele lado vai achar que o código diverge do documento. Não
+  // diverge: foi decidido contra ele. Este teste é o que impede a "correção".
+  assert.deepEqual(PROFICIENCY_KINDS, [
+    'sword', 'axe', 'club', 'spear', 'dagger', 'distance', 'fist', 'magic',
+  ]);
+  // O modelo do Doc 1 agruparia por como se segura a arma. Se qualquer um destes
+  // aparecer, alguém trocou o modelo sem passar pelo dono.
+  for (const doc1 of ['1h', '2h', 'shield']) {
+    assert.ok(
+      !PROFICIENCY_KINDS.includes(doc1 as never),
+      `"${doc1}" é do modelo do Doc 1, que o dono recusou`,
+    );
+  }
+  // E a prova de que o modelo por família sobreviveu: espada e machado continuam
+  // treinos SEPARADOS. No Doc 1 os dois cairiam em 1H juntos.
+  assert.notEqual(WEAPON_PROFICIENCY.sword, WEAPON_PROFICIENCY.axe);
+});
+
 test('todo tipo de arma cai em alguma proficiência', () => {
   // Arma sem proficiência é arma que não treina nada — o jogador bate e não
   // melhora, para sempre.
