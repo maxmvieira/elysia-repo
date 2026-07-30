@@ -4,8 +4,9 @@ Mapa do **`ELYSIA ONLINE ATUALIZAÇOES DE LACUNAS PARTE 2.docx`**: 69 capítulos
 **227 decisões**, ~10 sistemas completos. Em superfície de design é maior que
 tudo o que já foi implementado somado.
 
-O `.docx` é binário e ilegível por busca. Para trabalhar em cima dele, extraia
-para texto pelo mesmo caminho descrito no fim de [`DOC3-TRIAGEM.md`](./DOC3-TRIAGEM.md).
+O `.docx` é binário e ilegível por busca. O texto extraído e **pesquisável** está
+em [`doc4-lacunas-parte2-extraido.md`](./doc4-lacunas-parte2-extraido.md) — é dele
+que saem os números de linha citados nesta triagem.
 
 **Autorização do dono (2026-07-30):** eu apresento o plano de cada sistema antes
 de implementar e espero aprovação — a granularidade combinada é **por sistema**,
