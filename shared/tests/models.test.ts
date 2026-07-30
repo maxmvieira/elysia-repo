@@ -2,7 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ITEMS,
+  MODEL_ENTRIES,
+  MODEL_FAMILIES,
   PENDING_MODEL_CATEGORIES,
+  TIER_RANK,
   WEAPON_MODELS,
   WEAPON_TYPES,
   implementedModels,
@@ -52,40 +55,60 @@ test('nenhum modelo aparece duas vezes, dentro ou entre os tipos', () => {
   }
 });
 
-test('cada tipo começa no tier inicial e termina no mais alto', () => {
+test('cada FAMÍLIA começa no tier inicial e termina no mais alto', () => {
   // As listas do doc são ordenadas do mais simples ao mais forte, e a ordem é o
   // que permite inferir a faixa. Se alguém embaralhar, a inferência se perde.
-  const rank = { inicial: 0, intermediario: 1, avancado: 2 };
-  for (const [tipo, modelos] of Object.entries(WEAPON_MODELS)) {
-    assert.equal(modelos[0]!.tier, 'inicial', `${tipo} não começa no inicial`);
+  //
+  // 🔴 A validação é por FAMÍLIA, não por tipo de arma: Cajados e Varinhas são
+  // famílias distintas que dividem o `WeaponType` staff, então a escada de tiers
+  // reinicia entre elas de propósito. Validar por tipo acusaria a Varinha
+  // Simples de "regredir" logo depois do Cajado Primordial.
+  for (const fam of MODEL_FAMILIES) {
+    assert.equal(fam.models[0]!.tier, 'inicial', `${fam.name} não começa no inicial`);
     let anterior = -1;
-    for (const mod of modelos) {
-      const r = rank[mod.tier];
-      assert.ok(r >= anterior, `${tipo}: ${mod.name} regride de faixa`);
+    for (const mod of fam.models) {
+      const r = TIER_RANK[mod.tier];
+      assert.ok(r >= anterior, `${fam.name}: ${mod.name} regride de faixa`);
       anterior = r;
     }
   }
 });
 
-test('o catálogo é muito maior que o implementado — e isso é esperado', () => {
+test('todo modelo do catálogo virou item jogável', () => {
   const { total, implemented } = modelCoverage();
-  // 90 modelos de ARMA nos cap. 13–20, mais 23 nas categorias pendentes
-  // (Varinha, Livro e Escudo) = 113 nomes que o documento fixa.
-  assert.ok(total >= 90, `o doc define 90 modelos de arma, contei ${total}`);
-  assert.ok(implemented >= 8, 'as 8 armas do jogo deveriam estar mapeadas');
-  // Preencher o resto exige atribuir atk a cada um, e o doc não dá número
-  // nenhum — dos onze capítulos só o das Espadas tem descrição qualitativa.
-  assert.ok(implemented < total, 'se isto empatar, o catálogo foi preenchido');
+  // 90 modelos de arma (cap. 13–20), 6 Varinhas, 7 Livros e 10 Escudos = 113.
+  assert.equal(total, 113, `o doc fixa 113 nomes, contei ${total}`);
+  // `implemented` conta só o que está escrito à mão em items.ts — as peças
+  // âncora. O resto é gerado, e a cobertura de verdade se confere em ITEMS.
+  assert.equal(implemented, 9, 'as 9 peças âncora deveriam estar mapeadas');
+  for (const fam of MODEL_FAMILIES) {
+    for (const mod of fam.models) {
+      const entry = MODEL_ENTRIES.find((e) => e.name === mod.name);
+      assert.ok(entry, `${mod.name} não foi resolvido`);
+      assert.ok(ITEMS[entry!.kind], `${mod.name} não virou item (${entry!.kind})`);
+    }
+  }
 });
 
-test('as categorias pendentes têm os nomes registrados', () => {
-  // Varinha e Livro exigiriam WeaponType novo; Escudo ocupa outro slot. Os nomes
-  // ficam guardados para ninguém reinventá-los quando a decisão for tomada.
-  assert.ok(PENDING_MODEL_CATEGORIES.varinha.length >= 6);
-  assert.ok(PENDING_MODEL_CATEGORIES.livro.length >= 7);
-  assert.ok(PENDING_MODEL_CATEGORIES.escudo.length >= 10);
-  // O Escudo de Madeira já existe como item, e o nome tem que casar.
-  assert.ok(PENDING_MODEL_CATEGORIES.escudo.includes(ITEMS.wooden_shield!.name));
+test('as categorias que continuam pendentes têm os nomes registrados', () => {
+  // Varinha, Livro e Escudo SAÍRAM daqui em 2026-07-30 — viraram famílias.
+  // Sobram as que exigem slot novo no paperdoll e as que dependem de sistemas
+  // inexistentes (coleta, exploração, guildas).
+  for (const nome of ['varinha', 'livro', 'escudo']) {
+    assert.ok(
+      !(nome in PENDING_MODEL_CATEGORIES),
+      `${nome} virou família e não deveria continuar pendente`,
+    );
+  }
+  assert.ok(PENDING_MODEL_CATEGORIES.luvas.length >= 9);
+  assert.ok(PENDING_MODEL_CATEGORIES.capas.length >= 8);
+  assert.ok(PENDING_MODEL_CATEGORIES.braceletes.length >= 8);
+  assert.ok(PENDING_MODEL_CATEGORIES.cintos.length >= 8);
+  assert.ok(PENDING_MODEL_CATEGORIES.broches.length >= 8);
+  // 🔴 O "Machado de Lenhador" do cap. 35 colide com a arma do cap. 14. Fica
+  // sendo a arma; a ferramenta não entra nem como pendência.
+  assert.ok(!PENDING_MODEL_CATEGORIES.ferramentas.includes('Machado de Lenhador' as never));
+  assert.equal(ITEMS.hand_axe!.name, 'Machado de Lenhador');
 });
 
 test('implementedModels devolve só o que é jogável', () => {

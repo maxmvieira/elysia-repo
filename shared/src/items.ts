@@ -34,6 +34,7 @@ export const EQUIP_SLOT_LABEL: Record<EquipSlot, string> = {
 
 import { RARITY } from './weapons.js';
 import type { ArmorClass, ItemRoll, WeaponType } from './weapons.js';
+import { GENERATED_EQUIP } from './catalog.js';
 
 export type ItemCategory = 'currency' | 'consumable' | 'equip' | 'loot';
 
@@ -87,7 +88,16 @@ export interface ItemDef {
   color: number;
 }
 
-export const ITEMS: Record<string, ItemDef> = {
+/**
+ * Os itens escritos à mão: moeda, consumível, material, e as 13 peças de
+ * equipamento que já existiam antes de o catálogo do Doc 4 entrar.
+ *
+ * 🔴 **As 13 peças ficam aqui de propósito.** Elas têm `kind` em inglês, preço
+ * escolhido a dedo e balanceamento que o dono aprovou jogando — e o `kind` é o
+ * que está gravado em save de jogador. Gerá-las mudaria as três coisas.
+ * `models.ts` aponta para cada uma pelo campo `kind`, e o gerador as pula.
+ */
+const HAND_WRITTEN: Record<string, ItemDef> = {
   // Moedas: 100 de uma viram 1 da próxima (gold -> silver -> blue -> white).
   gold: { kind: 'gold', name: 'Moeda de Ouro', category: 'currency', stackable: true, buyPrice: 0, value: 1, color: 0xf2c14e },
   gold_silver: { kind: 'gold_silver', name: 'Ouro Prateado', category: 'currency', stackable: true, buyPrice: 0, value: 100, color: 0xcdd3da },
@@ -266,6 +276,20 @@ export const ITEMS: Record<string, ItemDef> = {
   large_backpack: { kind: 'large_backpack', name: 'Mochila Grande', category: 'equip', stackable: false, buyPrice: 400, slot: 'container', capacity: 60, color: 0x6a3a5a },
   // peso 1500 — o topo da escada do roadmap
   traveler_pack: { kind: 'traveler_pack', name: 'Mochila do Viajante', category: 'equip', stackable: false, buyPrice: 1800, slot: 'container', capacity: 80, color: 0x4a3a6a },
+};
+
+/**
+ * O catálogo completo: o que foi escrito à mão mais o que o gerador produziu a
+ * partir dos modelos canônicos do Doc 4 (cap. 13–34).
+ *
+ * A ordem do espalhamento importa: o escrito à mão vem **depois** e por isso
+ * vence em caso de colisão de `kind`. Hoje não há colisão — o gerador pula todo
+ * modelo com âncora — mas a ordem garante que, se alguma aparecer, o item que já
+ * está em save de jogador é o que sobrevive.
+ */
+export const ITEMS: Record<string, ItemDef> = {
+  ...GENERATED_EQUIP,
+  ...HAND_WRITTEN,
 };
 
 /** Capacidade de mochila quando nenhum container está equipado (segurança). */

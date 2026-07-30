@@ -298,16 +298,13 @@ acontece com o Zumbi — e sai da tabela de cores sozinha.
 
 ## O que está pela metade
 
-### Fabricar ainda não funciona
+### ~~Fabricar ainda não funciona~~ ✅ resolvido em 30/07 à noite
 
-O material existe, as regras existem e estão testadas, mas **falta o ato**:
-
-1. Mensagem de protocolo (`C2S_Craft`) em `shared/src/protocol.ts`
-2. Handler no servidor consumindo fragmentos + receita e gerando o item
-3. Bancada na interface
-
-O item 3 é trabalho de UI e merece a opinião do dono no layout. Os itens 1 e 2
-são objetivos e podem ser feitos já, expostos por comando de teste.
+Os três itens que faltavam (protocolo `C2S_Craft`, handler no servidor e bancada
+na interface) foram entregues no commit *"Fabricação completa"* — ver a seção
+[Fabricação completa](#-fabricação-completa) acima. Esta subseção fica registrada
+só para quem tinha lido a versão anterior deste handoff e lembra dela como
+pendência.
 
 ### Sistemas prontos e sem uso
 

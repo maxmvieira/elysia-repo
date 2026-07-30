@@ -47,8 +47,10 @@ import {
   rollAffixNames,
   addProfessionXp,
   canCraft,
+  craftableModel,
   craftXp,
   rollCraft,
+  MODEL_INDEX,
   FRAGMENTS_PER_CRAFT,
   MIN_FRAGMENTS_FOR_CHANCE,
   RARITIES,
@@ -1406,6 +1408,20 @@ function handleCraft(player: Player, msg: C2S_Craft): void {
   const def = getItem(msg.kind);
   if (!def || def.category !== 'equip') {
     return deny('Só dá para fabricar equipamento.');
+  }
+
+  // 🔴 A raridade da receita limita o TIER do modelo. Sem esta linha, uma Receita
+  // Comum fabrica o Machado Primordial — a bancada aceitava qualquer `kind` de
+  // equipamento, regra que funcionava quando o catálogo tinha 13 peças, todas de
+  // nível 1. Ver `CRAFT_TIER_CAP` para a escada e o porquê de ser a raridade que
+  // limita, e não um requisito de nível novo.
+  //
+  // ⚠️ A trava vale só para PEÇA DE CATÁLOGO. Mochila, bolsa e as peças de couro
+  // não são modelos do Doc 4 e continuam fabricáveis como sempre foram — negar
+  // por elas não estarem no catálogo tiraria do jogo algo que já funcionava.
+  const entry = MODEL_INDEX[msg.kind];
+  if (entry && !craftableModel(msg.kind, msg.recipeRarity)) {
+    return deny(`${def.name} exige uma receita melhor — é equipamento de nível ${entry.level}.`);
   }
 
   // Fragmentos: o que o jogador pediu tem que existir na mochila.

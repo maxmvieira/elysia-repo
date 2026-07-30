@@ -48,8 +48,8 @@ o meio de jogo existir:
 
 1. ✅ **Item Affix Bible (cap. 46)** *(feito)*
 2. ✅ **Material Bible + Monster Drop Bible (cap. 44–45)** *(feito)*
-3. **Fechar a fabricação** — protocolo e handler
-4. **Catálogo de equipamentos (cap. 13–43)**
+3. ✅ **Fechar a fabricação** — protocolo, handler e bancada do Ferreiro *(feito)*
+4. **Catálogo de equipamentos (cap. 13–43)** ← **em andamento**
 
 ## ✅ Cap. 44–45 — Material Bible e Monster Drop Bible (implementados)
 

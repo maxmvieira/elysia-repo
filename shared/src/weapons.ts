@@ -123,15 +123,23 @@ export const WEAPON_CLASS_AFFINITY: Record<WeaponType, string[]> = {
 /**
  * Categoria de armadura, para a afinidade de classe do cap. 38.
  *
- * O doc separa **Armaduras Pesadas** (Warrior), **Leves** (Archer e Assassin) e
- * **Vestes** (Sorcerer e Druid). Hoje o catálogo tem só peças de couro, que caem
- * em `light` — as outras duas categorias existem para o catálogo do cap. 13–43
- * preencher.
+ * O cap. 38 separa **Armaduras Pesadas** (Warrior), **Leves** (Archer e
+ * Assassin) e **Vestes** (Sorcerer e Druid).
+ *
+ * ⚠️ **`medium` não vem do cap. 38 — vem do cap. 25.** O catálogo de peitorais
+ * divide as peças em Leves / **Médias** / Pesadas / Vestes Mágicas, então a
+ * categoria existe no documento e o código precisava dela para o catálogo entrar.
+ * Mas o cap. 38 **não dá classe nenhuma que priorize Médias**, e inventar uma
+ * seria escolher identidade de classe por conta própria. Fica com afinidade
+ * vazia: é o meio neutro, boa para quem não tem categoria própria (e para o
+ * Warrior que não quer o peso da Pesada), sem prometer afinidade que o doc não
+ * fecha.
  */
-export type ArmorClass = 'heavy' | 'light' | 'robe';
+export type ArmorClass = 'heavy' | 'medium' | 'light' | 'robe';
 
 export const ARMOR_CLASS_AFFINITY: Record<ArmorClass, string[]> = {
   heavy: ['knight'],
+  medium: [],
   light: ['archer', 'assassin'],
   robe: ['sorcerer', 'druid'],
 };

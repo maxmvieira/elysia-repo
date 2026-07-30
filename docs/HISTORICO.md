@@ -696,6 +696,101 @@ HP e XP.
 Receitas como consumível (`DD-PROF-024`: cada fabricação consome uma) ·
 profissões e seus níveis · UI de bancada · o NPC Mestre Ferreiro. É a Etapa 12.
 
+## Catálogo de equipamento — cap. 13–23 ganham NÚMEROS (2026-07-30)
+
+**Arquivos:** `shared/src/equipcurve.ts` (novo) · `shared/src/catalog.ts` (novo) ·
+`shared/src/models.ts` (reescrito em famílias) · `items.ts` · `weapons.ts` ·
+servidor e bancada do cliente
+**Testes:** `shared/tests/catalog.test.ts` (novo) · `models.test.ts`
+
+Os 113 nomes canônicos viraram **113 itens jogáveis**. 104 são gerados; as 9
+peças âncora continuam escritas à mão.
+
+### A curva, e por que ela não é 178 números à mão
+
+Cinco constantes em `equipcurve.ts` produzem `atk`, `def`, nível recomendado e
+preço de todo modelo. Rebalancear o jogo inteiro é mudar uma delas.
+
+🔴 **A tabela de defesa por slot não foi inventada — foi extraída.** Com o `atk`
+das armas iniciais (8) como unidade, os `def` escolhidos a dedo no catálogo
+antigo caem exatos em frações: Armadura 0,625 · Escudo 0,5 · Calça 0,375 · Elmo e
+Botas 0,25 · Colar 0,125. `equipPower(1) = 8` reproduz o catálogo antigo peça por
+peça, e há teste travando isso.
+
+### 🔴 Ataque e defesa têm curvas SEPARADAS, e a assimetria é obrigatória
+
+`resolveDamage` mitiga por **subtração plana** (`max(0, dano − def)`). Defesa não
+tem retorno decrescente: a partir de um ponto ela **zera** o dano. E o teto do
+bestiário é baixo — a criatura mais forte bate com **24**, enquanto o set de
+couro de hoje já soma 17 de defesa. O jogo opera a 70 % do ponto de imunidade.
+
+Por isso `DEF_COEF` (0,25) é **três vezes menor** que `ATK_COEF` (0,75). A
+primeira tentativa usou a mesma curva para os dois e levava o topo a 100: uma
+arma de Lv.20 saía com `atk: 31` — mais que a força de ataque inteira do monstro
+mais perigoso do jogo.
+
+⚠️ **Mesmo assim a curva cruza o teto no meio do jogo.** É limitação do
+bestiário, não da curva: não há Tier IV para bater mais forte. Quando houver,
+sobe-se `strength` das criaturas e `DEF_CURVE_MULT` junto. **A resposta não é
+baixar `DEF_COEF`** — há teste explicando isso na mensagem de falha.
+
+### 🔴 A trava que este commit teve que trazer junto
+
+A bancada do Ferreiro listava **todo** item `equip` e o servidor aceitava
+qualquer `kind`. Regra que funcionava com 13 peças, todas de nível 1 — com 113
+modelos, um jogador recém-nascido fabricaria o Machado Primordial com uma Receita
+Comum.
+
+`CRAFT_TIER_CAP` amarra a raridade da receita ao tier do modelo (Comum/Incomum →
+inicial · Raro/Épico → intermediário · Lendário+ → avançado). Reusa a escada de
+raridade em vez de inventar requisito de nível novo, e faz a receita valer duas
+coisas: a qualidade do resultado **e** o alcance do catálogo.
+
+⚠️ A trava vale só para peça de catálogo. Mochila, bolsa e as de couro não são
+modelos do Doc 4 e continuam fabricáveis como sempre foram.
+
+### Decisões do dono (2026-07-30)
+
+| Assunto | Decisão |
+|---|---|
+| Varinha (cap. 21) | família própria dentro de `staff` — **sem `WeaponType` novo** |
+| Livro Arcano (cap. 22) | **foco de mão secundária**, slot `shield`, classe Veste |
+| Escudo (cap. 23) | slot `shield`, sem classe de armadura |
+
+O Livro no slot do escudo é o que deixa a build mágica completa (Cajado na mão
+principal, Livro na secundária) — leitura natural do cap. 38, que lista Cajados
+**e** Livros para o Sorcerer. ⚠️ A identidade dele está fina: o slot só soma
+`def`, e `ItemDef` não tem campo de mana. Dar bônus mágico de equipamento é
+decisão futura.
+
+### Três coisas que o documento não fecha, achadas no caminho
+
+1. **O cap. 13 não tem Tier Avançado.** A família Espadas para na Espada Anã —
+   é a única sem Celestial/Primordial. Teste trava, para ninguém inventar os
+   nomes que faltam.
+2. **"Machado de Lenhador" aparece duas vezes**: arma no cap. 14 e ferramenta de
+   profissão no cap. 35. Fica sendo a arma, que já existe no jogo.
+3. **`ArmorClass` não tinha "Média"**, e o cap. 25 divide os peitorais em Leves /
+   Médias / Pesadas / Vestes. `medium` entrou — com afinidade **vazia**, porque o
+   cap. 38 não dá classe nenhuma que a priorize e inventar uma seria escolher
+   identidade de classe por conta própria.
+
+### A âncora fica no piso
+
+As 9 peças escritas à mão têm `kind` em inglês, preço a dedo e balanceamento que
+o dono aprovou jogando — e o `kind` está gravado em save. Elas não são geradas, e
+ficam fixadas em Lv.1 mesmo quando o documento as lista no meio da escada inicial
+(a Adaga Curta vem depois de Faca e Punhal no cap. 17). Mas **continuam ocupando
+a posição delas** na distribuição dos outros: tirá-las da contagem fazia o
+Machado de Ferro empatar em Lv.1 com o Lenhador e depois pular para Lv.20.
+
+### O que falta
+
+Armadura dos slots que existem (cap. 24–27, 30–31, 92 modelos) · limitar o
+**drop** por nível (`DROP_POOL_WEAPON`/`ARMOR` continuam sendo as 13 âncoras, então
+os 104 modelos novos só se obtêm fabricando) · os 41 modelos que exigem slot novo
+no paperdoll (cap. 28–29, 32–34).
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os

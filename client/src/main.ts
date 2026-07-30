@@ -75,6 +75,8 @@ import {
   MIN_FRAGMENTS_FOR_CHANCE,
   RARITIES,
   RECIPE_ITEM,
+  MODEL_INDEX,
+  craftableModel,
   type Professions,
   type Rarity,
   CONDITIONS,
@@ -1783,19 +1785,42 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
   }
 
-  function renderCraft(): void {
-    const nivel = myProfessions.blacksmith?.level ?? 1;
-    craftProf.textContent = `Ferreiro ${nivel}`;
-
-    // Peças fabricáveis: todo equipamento do catálogo.
+  /**
+   * As peças que a receita SELECIONADA alcança.
+   *
+   * 🔴 Depende da receita, então tem que rodar depois de a lista de receitas
+   * existir — e de novo a cada troca. Antes do catálogo do Doc 4 a lista era fixa
+   * (13 peças, todas de nível 1) e a ordem não importava; com 113 modelos, listar
+   * tudo colocaria o Machado Primordial ao alcance de uma Receita Comum.
+   *
+   * ⚠️ Peça que **não é modelo de catálogo** (mochila, bolsa, as de couro)
+   * continua sempre listada: elas nunca estiveram sujeitas a tier, e escondê-las
+   * tiraria do jogo algo que já funcionava.
+   */
+  function renderCraftKinds(): void {
+    const raridade = (craftRecipe.value || 'common') as Rarity;
+    const escolhido = craftKind.value;
     craftKind.replaceChildren();
     for (const def of Object.values(ITEMS)) {
       if (def.category !== 'equip') continue;
+      const entry = MODEL_INDEX[def.kind];
+      if (entry && !craftableModel(def.kind, raridade)) continue;
       const opt = document.createElement('option');
       opt.value = def.kind;
-      opt.textContent = def.name;
+      // O nível recomendado no rótulo é o que deixa a escada visível: sem ele, a
+      // lista é um monte de nome sem ordem aparente.
+      opt.textContent = entry ? `${def.name} — Lv.${entry.level}` : def.name;
       craftKind.appendChild(opt);
     }
+    // Preserva a escolha do jogador quando ela sobrevive à troca de receita.
+    if (escolhido && ITEMS[escolhido] && craftableModel(escolhido, raridade)) {
+      craftKind.value = escolhido;
+    }
+  }
+
+  function renderCraft(): void {
+    const nivel = myProfessions.blacksmith?.level ?? 1;
+    craftProf.textContent = `Ferreiro ${nivel}`;
 
     // Receitas: só as que o jogador tem em mão.
     craftRecipe.replaceChildren();
@@ -1813,6 +1838,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       ? 'A receita define o teto da raridade. Fragmentos acima dela não contam.'
       : 'Você não tem nenhuma receita. Elas caem de monstros e chefes.';
 
+    // Depois das receitas, porque a lista de peças depende da que está escolhida.
+    renderCraftKinds();
     buildFragRows();
     renderCraftOdds();
   }
@@ -1825,7 +1852,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   el('craft-close').onclick = (): void => {
     craftEl.style.display = 'none';
   };
-  craftRecipe.addEventListener('change', renderCraftOdds);
+  craftRecipe.addEventListener('change', () => {
+    // Trocar de receita muda o alcance do catálogo, não só as probabilidades.
+    renderCraftKinds();
+    renderCraftOdds();
+  });
   el('craft-do').onclick = (): void => {
     net.send({
       t: 'craft',

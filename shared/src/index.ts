@@ -14,6 +14,8 @@ export * from './weapons.js';
 export * from './affixes.js';
 export * from './materials.js';
 export * from './models.js';
+export * from './equipcurve.js';
+export * from './catalog.js';
 export * from './crafting.js';
 export * from './death.js';
 export * from './bestiary.js';
