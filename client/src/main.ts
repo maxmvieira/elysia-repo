@@ -77,6 +77,8 @@ import {
   RECIPE_ITEM,
   MODEL_INDEX,
   craftableModel,
+  LOOT_RULE_LABEL,
+  type S2C_Party,
   type Professions,
   type Rarity,
   CONDITIONS,
@@ -1092,6 +1094,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         case 'inventory':
           onInventory(msg);
           break;
+        case 'party':
+          renderParty(msg);
+          break;
+        case 'partyinvited':
+          logChat(
+            `<b>${escapeHtml(msg.fromName)}</b> convidou você para o grupo`
+            + ` (${escapeHtml(LOOT_RULE_LABEL[msg.lootRule])}).`
+            + ' Digite <code>/sim</code> ou <code>/nao</code>.',
+            'sys',
+          );
+          break;
         case 'pong':
           break;
       }
@@ -1783,6 +1796,53 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       linha.style.color = `#${RARITY[r].color.toString(16).padStart(6, '0')}`;
       craftOdds.appendChild(linha);
     }
+  }
+
+  /**
+   * Painel de grupo (Etapa 9).
+   *
+   * O servidor manda o estado inteiro a cada mudança, então aqui é só desenhar —
+   * não há estado de party no cliente para sair de sincronia.
+   */
+  function renderParty(msg: S2C_Party): void {
+    const box = el('partybox');
+    if (msg.members.length === 0) {
+      box.style.display = 'none';
+      return;
+    }
+    box.style.display = '';
+    // `DD-PARTY-014`: a regra ativa tem que estar visível para os membros.
+    el('partyloot').textContent = LOOT_RULE_LABEL[msg.lootRule];
+
+    const lista = el('partylist');
+    lista.replaceChildren();
+    for (const m of msg.members) {
+      const linha = document.createElement('div');
+      linha.className = 'partyrow';
+      const vida = m.maxHp > 0 ? Math.round((m.hp / m.maxHp) * 100) : 0;
+      // 🔴 "fora da faixa" é a informação que mais surpreende: quem chama um
+      // amigo de nível muito diferente não entende por que não ganha XP. Dizer
+      // na cara evita a suspeita de bug.
+      const faixa = m.sharesXp
+        ? ''
+        : ' <span class="warn" title="Diferença de nível grande demais para dividir XP">·'
+          + ' fora da faixa</span>';
+      linha.innerHTML = `${m.leader ? '★ ' : ''}<b>${escapeHtml(m.name)}</b>`
+        + ` <span class="hint">Nv ${m.level} · ${vida}%</span>${faixa}`;
+      lista.appendChild(linha);
+    }
+
+    const voto = el('partyvote');
+    if (!msg.vote) {
+      voto.style.display = 'none';
+      return;
+    }
+    voto.style.display = '';
+    const v = msg.vote;
+    voto.innerHTML = `<div class="hint">Proposta: ${escapeHtml(LOOT_RULE_LABEL[v.proposal])}`
+      + `<br>${v.favor} a favor · ${v.contra} contra`
+      + (v.pending ? ' — <code>/sim</code> ou <code>/nao</code>' : ' — você já votou')
+      + '</div>';
   }
 
   /**

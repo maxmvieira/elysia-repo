@@ -2416,6 +2416,80 @@ function summonMinion(boss: Creature): void {
  * Devolve true quando consumiu o texto (não deve virar chat).
  */
 const DEV_MODE = process.env.ELYSIA_DEV === '1';
+/**
+ * Comandos de party no chat. **Não são comandos de teste** — valem em produção.
+ *
+ * O convite precisa de um jeito de o jogador digitar o nome de alguém, e um
+ * comando de chat é o caminho mais curto entre "vi um cara na tela" e "convidei
+ * o cara". O painel mostra o estado; o chat é o que age.
+ */
+function handlePartyCommand(player: Player, text: string): boolean {
+  const [cmd, ...resto] = text.slice(1).split(/\s+/);
+  const arg = resto.join(' ');
+  const aviso = (t: string): void => send(player, { t: 'chat', from: 'Grupo', text: t });
+
+  switch (cmd) {
+    case 'convidar':
+    case 'invite': {
+      if (!arg) return aviso('uso: /convidar <nome>'), true;
+      handlePartyInvite(player, arg);
+      return true;
+    }
+    case 'sim':
+    case 'aceitar': {
+      // Serve para as duas respostas possíveis: convite pendente e votação.
+      if (player.pendingInvite) return handlePartyRespond(player, true), true;
+      if (partyOf(player)?.vote) return handlePartyVote(player, true), true;
+      return aviso('Não há nada para aceitar.'), true;
+    }
+    case 'nao':
+    case 'não':
+    case 'recusar': {
+      if (player.pendingInvite) return handlePartyRespond(player, false), true;
+      if (partyOf(player)?.vote) return handlePartyVote(player, false), true;
+      return aviso('Não há nada para recusar.'), true;
+    }
+    case 'sairdogrupo': {
+      if (!player.partyId) return aviso('Você não está em grupo.'), true;
+      removeFromParty(player);
+      return true;
+    }
+    case 'expulsar': {
+      const alvo = [...players.values()].find(
+        (p) => p.name.toLowerCase() === arg.toLowerCase(),
+      );
+      if (!alvo) return aviso(`Ninguém chamado "${arg}" no grupo.`), true;
+      handlePartyKick(player, alvo.id);
+      return true;
+    }
+    case 'loot': {
+      const mapa: Record<string, LootRule> = {
+        livre: 'free', free: 'free',
+        lider: 'leader', líder: 'leader', leader: 'leader',
+        aleatorio: 'random', aleatório: 'random', random: 'random',
+      };
+      const regra = mapa[arg.toLowerCase()];
+      if (!regra) return aviso('uso: /loot <livre|lider|aleatorio>'), true;
+      if (!player.partyId) return aviso('Você não está em grupo.'), true;
+      handlePartyProposeLoot(player, regra);
+      return true;
+    }
+    case 'grupo': {
+      const party = partyOf(player);
+      if (!party) return aviso('Você anda sozinho. Use /convidar <nome>.'), true;
+      aviso(LOOT_RULE_LABEL[party.lootRule]);
+      for (const m of partyMembers(party)) {
+        const marca = party.memberIds[0] === m.id ? '★ ' : '  ';
+        const xp = sharesXp(m.level, player.level) ? '' : ' (fora da faixa de XP)';
+        aviso(`${marca}${m.name} — Lv.${m.level}${xp}`);
+      }
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
 function handleDevCommand(player: Player, text: string): boolean {
   if (!DEV_MODE) return false;
   const [cmd, arg] = text.slice(1).split(/\s+/);
@@ -2986,6 +3060,10 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       if (!player.joined) return;
       const text = msg.text.trim().slice(0, 200);
       if (text.length === 0) return;
+      // Comandos de party vêm ANTES dos de dev, e valem sempre: são jogo, não
+      // ferramenta de teste. Sem eles a party só existiria para quem abrisse o
+      // painel, e o convite precisa de um jeito de digitar o nome de alguém.
+      if (text.startsWith('/') && handlePartyCommand(player, text)) return;
       if (text.startsWith('/') && handleDevCommand(player, text)) return;
       broadcastFloor(player.floor, { t: 'chat', from: player.name, text });
       break;

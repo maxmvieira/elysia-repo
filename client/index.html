@@ -157,6 +157,21 @@
         color: #8a8272;
         font-size: 9.5px;
       }
+      /* Grupo (Etapa 9). Uma linha por membro, compacta: a barra tem 190 px. */
+      .partyrow {
+        font-size: 10.5px;
+        padding: 2px 0;
+        border-bottom: 1px solid #2a2620;
+      }
+      .partyrow:last-child {
+        border-bottom: none;
+      }
+      /* Usado no "fora da faixa" de XP — âmbar, não vermelho: é um aviso sobre
+         como a regra funciona, não um erro que o jogador cometeu. */
+      .warn {
+        color: #d8a33c;
+        font-size: 9.5px;
+      }
       /* Barras de status */
       .bar {
         position: relative;
@@ -1480,6 +1495,27 @@
               escondido) quando não há condição nenhuma, que é o normal.
             -->
             <div id="mycond"></div>
+          </div>
+        </div>
+        <!--
+          Grupo (Etapa 9). Fica ESCONDIDO enquanto o jogador anda sozinho — um
+          painel vazio anunciando "nenhum grupo" só rouba espaço da barra, que já
+          é estreita (190 px).
+
+          A regra de loot fica sempre visível quando há grupo: `DD-PARTY-014`
+          exige isso, e é o tipo de coisa que o jogador só descobre que precisava
+          saber depois de perder um item.
+        -->
+        <div class="box panel" id="partybox" style="display: none">
+          <div class="phead"><span>👥 Grupo</span><button class="pt" title="Minimizar">−</button></div>
+          <div class="pbody">
+            <div id="partyloot" class="hint"></div>
+            <div id="partylist"></div>
+            <div id="partyvote" style="display: none"></div>
+            <div class="hint" style="margin-top: 6px">
+              <code>/convidar nome</code> · <code>/loot livre|lider|aleatorio</code>
+              · <code>/sairdogrupo</code>
+            </div>
           </div>
         </div>
         <div class="box panel" id="attrbox">
