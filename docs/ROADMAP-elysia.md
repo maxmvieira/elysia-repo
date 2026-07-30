@@ -199,19 +199,45 @@ passivos dos quatro primeiros degraus. **Nada a desfazer.**
 - 🆕 **Crafting alcança no máximo Lendário.** Mítico e Relíquia **não são fabricáveis**.
 - 🆕 **Slot de Relíquia** no personagem (totem, livro, orbe, amuleto, cristal, insígnia).
 
-### 🔴 Etapa 5 — Morte, loot e punição — **penalidade revertida**
+### ✅ Etapa 5 — Morte, loot e punição — **penalidade DECIDIDA (2026-07-30)**
 
-🔴 **A penalidade de XP volta para a tabela do Doc 1** (`DD-DEATH-006/007/008`):
+> ✅ **DECISÃO FINAL DO DONO, 2026-07-30.** Vale a tabela **branda**, que já está
+> no código. Palavras dele: *"não quero personagens de níveis altos perdendo
+> tantos níveis assim, às vezes pode ser quase semana de caças em segundos."*
+>
+> 🔴 **Não "conserte" `death.ts` de volta para os números do Doc 1.** Esta seção
+> já mandou fazer isso uma vez e o código nunca acompanhou — a decisão de hoje
+> encerra o assunto.
 
-| Level | Penalidade |
-|---|---|
-| 1–20 | **50 %** |
-| 21–100 | **100 %** |
-| 101+ | **200–300 %** |
+**O que vale (`shared/src/death.ts`):**
 
-O % é **equivalente de progressão de level**, não XP total.
-⚠️ 🔴 `DD-DEATH-009` **A FÓRMULA EXATA É PENDENTE** — o doc se recusa a fechar. Implementar
-a **estrutura em faixas**, deixar o cálculo configurável.
+| Level | Penalidade PvP | PvE |
+|---|---|---|
+| 1–20 | 20 % | 14 % |
+| 21–100 | 40 % | 28 % |
+| 101+ | sobe suave até 100 % | até 70 % |
+
+🔴 **Teto absoluto: UM nível.** Nunca dois, nunca três.
+
+<details><summary>Histórico da decisão (três voltas — leia antes de mexer)</summary>
+
+1. **Doc 1** (`DD-DEATH-006/007/008`) pede 50 % / 100 % / **200–300 %**, com o %
+   sendo *equivalente de progressão de level*, não XP total. Ou seja: morrer em
+   nível alto custaria **dois ou três níveis inteiros**.
+2. **27/07** — o dono decidiu abrandar para 20 % / 40 % / teto de um nível, e o
+   código foi escrito assim.
+3. **28/07** — esta seção registrou uma reversão para a tabela do Doc 1. **O
+   código nunca foi alterado**, então roadmap e implementação ficaram em
+   conflito por dois dias.
+4. **30/07** — o dono confirmou a versão **branda**, com a justificativa acima.
+   A implementação estava certa desde 27/07; era o roadmap que estava errado.
+
+`DD-DEATH-009` — a fórmula de conversão de "%" em XP concreta — deixa de ser
+bloqueio: com o teto de um nível, a penalidade é simplesmente uma fração da XP
+do nível atual, que é o que `xpPenaltyRatio` já faz. A conversão só voltaria a
+ser necessária se a tabela dura fosse adotada.
+
+</details>
 ✅ **PvE = 60–80 % do PvP** — os 70 % implementados cabem dentro.
 ✅ Backpack 100 %, chance individual por peça, sem blessings, sem ressurreição, perder nível
 zera a distribuição — tudo confirmado.

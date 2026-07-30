@@ -41,9 +41,62 @@ export const ATTRIBUTE_INFO: Record<AttributeKey, { name: string; effects: strin
   luk: { name: 'Luck', effects: 'Chance de crítico · efeitos probabilísticos' },
 };
 
-/** Pontos concedidos por nível e cadência de pontos de talento. */
+/**
+ * Pontos concedidos no PRIMEIRO degrau da curva, e cadência de talento.
+ *
+ * ⚠️ Não use isto direto para conceder pontos — use `pointsForLevel()`. A
+ * constante existe porque é o valor do nível 1–50 e o teste do GDD a cita.
+ */
 export const POINTS_PER_LEVEL = 10;
 export const TALENT_EVERY_LEVELS = 5;
+
+/**
+ * ✅ **DECIDIDO em 2026-07-30** (o dono delegou: "balanceie da forma que achar
+ * melhor").
+ *
+ * `DD-PROG-002` fecha a REGRA — os pontos por nível **crescem de 10 para 20** —
+ * e o Doc 1 recusa dar as faixas, avisando "não devemos inventar". As faixas
+ * abaixo são, portanto, decisão do projeto, não citação.
+ *
+ * 🔴 **Por que a curva existe:** o custo de subir atributo cresce
+ * (`ATTRIBUTE_COST_TABLE`: 2 pontos por +1 no começo, **20** acima de 200). Com
+ * 10 pontos fixos para sempre, o personagem de nível 300 com STR 210 **não
+ * consegue nem +1 por nível** — precisa juntar dois níveis para um ponto. A
+ * progressão por atributo simplesmente para.
+ *
+ * Aos 20 pontos, o nível 251+ volta a comprar +1 de um atributo caro por nível.
+ * Cinco degraus regulares de 50 níveis mantêm a conta previsível para o jogador,
+ * que é o que permite planejar build.
+ */
+const POINTS_CURVE: Array<{ ate: number; pontos: number }> = [
+  { ate: 50, pontos: 10 },
+  { ate: 100, pontos: 12 },
+  { ate: 150, pontos: 14 },
+  { ate: 200, pontos: 16 },
+  { ate: 250, pontos: 18 },
+];
+const POINTS_ACIMA = 20;
+
+/** Quantos pontos de atributo o personagem ganha ao ALCANÇAR este nível. */
+export function pointsForLevel(level: number): number {
+  for (const faixa of POINTS_CURVE) {
+    if (level <= faixa.ate) return faixa.pontos;
+  }
+  return POINTS_ACIMA;
+}
+
+/**
+ * Total de pontos que um personagem deste nível já deveria ter recebido.
+ *
+ * Usado para reconstruir a ficha (comando `/level`, correção de save antigo).
+ * Soma degrau por degrau em vez de multiplicar, senão quem chega ao 300 receberia
+ * 20 × 299 e ficaria com o dobro do que a curva concede.
+ */
+export function totalPointsUpToLevel(level: number): number {
+  let total = 0;
+  for (let n = 2; n <= level; n++) total += pointsForLevel(n);
+  return total;
+}
 
 /**
  * CUSTO CRESCENTE (GDD §4): subir um atributo custa mais conforme ele cresce.

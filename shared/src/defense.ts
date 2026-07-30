@@ -48,11 +48,31 @@ export type LayerOrder = 'shield-first' | 'armor-first';
 export const DEFAULT_LAYER_ORDER: LayerOrder = 'shield-first';
 
 /**
- * ⚠️ REFERÊNCIA. `DD-DEF-012` fecha que **existe** um cap global de bloqueio e
- * que bloqueio mágico completo tem de ser MUITO raro — "senão o Knight fecha
- * todas as formas de pressioná-lo". O **valor** o doc deixa pendente.
+ * ✅ **DECIDIDO pelo dono em 2026-07-30.** `DD-DEF-012` fecha que existe um cap
+ * global de bloqueio e deixava o valor pendente. Fica em **25 %**: é o teto que
+ * mantém o escudo valendo a pena sem tornar o tanque intocável. Abaixo de ~10 %
+ * escudo deixa de importar; acima de ~40 % ninguém consegue pressionar um Knight
+ * bem equipado.
  */
 export const BLOCK_CAP = 0.25;
+
+/**
+ * ✅ **DECIDIDO em 2026-07-30.** Teto SEPARADO e menor para bloqueio de dano
+ * não-físico.
+ *
+ * 🔴 `DD-DEF-012` tem um medo específico: *"bloqueio mágico completo deve ser
+ * MUITO raro — senão o Knight fecha todas as formas de pressioná-lo."* Um teto
+ * único não atende isso, porque deixaria anular magia tão comum quanto anular
+ * espada, e aí não sobra ângulo nenhum contra um tanque completo.
+ *
+ * 10 % faz do bloqueio mágico um alívio ocasional, não uma parede.
+ */
+export const MAGIC_BLOCK_CAP = 0.10;
+
+/** Teto de bloqueio que vale para este tipo de dano. */
+export function blockCapFor(type: DamageType): number {
+  return type === 'physical' ? BLOCK_CAP : MAGIC_BLOCK_CAP;
+}
 
 /**
  * Teto da esquiva. `DD-DEF-005` fecha **retorno decrescente e teto** ("nada de
@@ -196,7 +216,8 @@ export function resolveDamage(
 
   // ── BLOQUEIO COMPLETO ── à parte das camadas: zera o dano. Propriedade
   // especial e rara (`DD-DEF-012`), nunca uma característica natural do escudo.
-  const blockChance = Math.min(BLOCK_CAP, Math.max(0, def.fullBlockChance));
+  // O teto depende do TIPO: anular magia é bem mais raro que anular espada.
+  const blockChance = Math.min(blockCapFor(type), Math.max(0, def.fullBlockChance));
   if (blockChance > 0 && rng() < blockChance) {
     return { amount: 0, outcome: 'blocked', type, breakdown: zero };
   }

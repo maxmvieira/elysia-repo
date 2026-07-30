@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   BLOCK_CAP,
   DODGE_CAP,
+  MAGIC_BLOCK_CAP,
+  blockCapFor,
   computeDodgeChance,
   emptyDefense,
   resolveDamage,
@@ -54,6 +56,24 @@ test('com esquiva e bloqueio no perfil, sorteia a esquiva primeiro', () => {
   assert.equal(resolveDamage(100, 'physical', def, seq(0.1, 0.9)).outcome, 'dodged');
   assert.equal(resolveDamage(100, 'physical', def, seq(0.9, 0.1)).outcome, 'blocked');
   assert.equal(resolveDamage(100, 'physical', def, seq(0.9, 0.9)).outcome, 'hit');
+});
+
+test('DD-DEF-012: bloqueio MÁGICO tem teto muito menor que o físico', () => {
+  // O medo específico do doc: "bloqueio mágico completo deve ser MUITO raro,
+  // senão o Knight fecha todas as formas de pressioná-lo". Um teto único
+  // deixaria anular magia tão comum quanto anular espada.
+  assert.ok(MAGIC_BLOCK_CAP < BLOCK_CAP);
+  assert.equal(blockCapFor('physical'), BLOCK_CAP);
+  for (const t of ['fire', 'ice', 'electric', 'poison', 'holy', 'dark'] as const) {
+    assert.equal(blockCapFor(t), MAGIC_BLOCK_CAP, `${t} deveria usar o teto mágico`);
+  }
+
+  // Com o perfil no máximo, um rng entre os dois tetos bloqueia o físico e
+  // deixa a magia passar — que é exatamente a assimetria pretendida.
+  const def = emptyDefense({ fullBlockChance: 1 });
+  const rng = (): number => (BLOCK_CAP + MAGIC_BLOCK_CAP) / 2;
+  assert.equal(resolveDamage(100, 'physical', def, rng).outcome, 'blocked');
+  assert.equal(resolveDamage(100, 'fire', def, rng).outcome, 'hit');
 });
 
 test('esquiva impede o ataque de conectar', () => {

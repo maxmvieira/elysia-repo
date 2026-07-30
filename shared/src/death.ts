@@ -22,10 +22,20 @@ export const PVE_PENALTY_RATIO = 0.7; // faixa combinada: 60–80%
  *  - níveis 21–100: 40 % — dói, mas não apaga a sessão
  *  - nível 101+: sobe devagar de 40 % até o TETO de 100 %
  *
- * DECISÃO DE 2026-07-27 (do dono do projeto), que substitui a tabela original
- * da conversa-fonte (msg #154: 50 % / 100 % / 200–300 %): perder dois ou três
- * níveis numa morte destrói progresso demais em nível alto e faz o jogador
- * largar o jogo. O teto agora é UM nível, e só no PvP em nível altíssimo.
+ * ✅ **DECISÃO FINAL DO DONO, 2026-07-30** — confirma a de 27/07 e encerra o
+ * assunto. Substitui a tabela do Doc 1 (`DD-DEATH-006/007/008`: 50 % / 100 % /
+ * 200–300 % em *equivalente de nível*), que faria uma morte em nível alto custar
+ * dois ou três níveis inteiros.
+ *
+ * Palavras do dono: *"não quero personagens de níveis altos perdendo tantos
+ * níveis assim, às vezes pode ser quase semana de caças em segundos."*
+ *
+ * 🔴 **Não reverta isto para os números do Doc 1.** O `ROADMAP-elysia.md` mandou
+ * fazer essa reversão em 28/07, o código não acompanhou, e em 30/07 o dono
+ * confirmou que a versão branda é a correta. O roadmap já foi corrigido — o
+ * histórico completo das três voltas está lá, na Etapa 5.
+ *
+ * O teto é UM nível, e só no PvP em nível altíssimo.
  */
 export function pvpXpPenaltyRatio(level: number): number {
   if (level <= 20) return 0.2;

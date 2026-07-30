@@ -257,6 +257,104 @@ export const CONDITION_COLORS: Record<ConditionId, number> = {
   root: 0x8a6a3a,
 };
 
+// ---------------------------------------------------------------------------
+// ANTI-CC-CHAIN (`DD-CC-013/014`)
+// ---------------------------------------------------------------------------
+
+/**
+ * ✅ **DECIDIDO em 2026-07-30** (o dono delegou o balanceamento).
+ *
+ * O doc exige que **CC chain infinito seja impedido** e lista duas
+ * possibilidades sem escolher: resistência temporária após sofrer controle, ou
+ * diminishing returns. **Implementamos as DUAS**, porque cada uma cobre um furo
+ * diferente:
+ *
+ * - **Diminishing returns** impede a corrente LONGA: cada reaplicação da mesma
+ *   condição dura menos, até não pegar mais.
+ * - **Imunidade ao sair** garante uma JANELA DE AÇÃO: mesmo no primeiro
+ *   controle, quando ele acaba você tem um instante para correr, curar ou
+ *   revidar.
+ *
+ * 🔴 O problema que isto resolve é concreto: dois Feiticeiros com Congelamento de
+ * 10 s se alternando prendem o alvo **para sempre**. Não é uma luta difícil — é
+ * uma luta que não existe, porque o jogador assiste o personagem morrer sem
+ * poder apertar tecla.
+ *
+ * ⚠️ Os números são decisão do projeto, não citação: o doc não dá nenhum.
+ */
+
+/** Fator de duração por vez que a condição já pegou na janela atual. */
+export const DR_FACTORS: readonly number[] = [1, 0.5, 0.25, 0];
+
+/**
+ * Tempo sem sofrer AQUELA condição para o histórico dela zerar.
+ *
+ * 15 s é maior que a duração do Congelamento (10 s), de propósito: se a janela
+ * fosse mais curta que o próprio controle, ela expiraria durante o efeito e o
+ * diminishing returns nunca acumularia.
+ */
+export const DR_WINDOW_MS = 15000;
+
+/**
+ * Imunidade a controle TOTAL depois de sair de um.
+ *
+ * 3 s é curto o bastante para não anular controle como mecânica, e longo o
+ * bastante para caber uma poção, um passo para fora da área ou uma habilidade.
+ */
+export const CONTROL_IMMUNITY_MS = 3000;
+
+/** Estado anti-chain de um alvo. O servidor guarda um por jogador e criatura. */
+export interface CcState {
+  /** Quantas vezes cada condição pegou, e quando essa contagem expira. */
+  history: Partial<Record<ConditionId, { stacks: number; windowUntil: number }>>;
+  /** Timestamp até quando o alvo está imune a controle total. */
+  controlImmuneUntil: number;
+}
+
+export function emptyCcState(): CcState {
+  return { history: {}, controlImmuneUntil: 0 };
+}
+
+/** Esta condição tira o controle do personagem por completo? */
+export function isTotalControl(id: ConditionId): boolean {
+  const d = CONDITIONS[id];
+  return d.blocksMove && d.blocksAttack && d.blocksCast;
+}
+
+/**
+ * Fator de duração que o diminishing returns impõe agora.
+ *
+ * 1 = duração cheia (primeira vez), 0 = não pega mais. Não altera o estado —
+ * quem registra é `registerCc`.
+ */
+export function ccDurationFactor(cc: CcState, id: ConditionId, now: number): number {
+  const h = cc.history[id];
+  if (!h || now >= h.windowUntil) return DR_FACTORS[0]!;
+  return DR_FACTORS[Math.min(h.stacks, DR_FACTORS.length - 1)]!;
+}
+
+/** Marca que a condição pegou, avançando o diminishing returns. */
+export function registerCc(cc: CcState, id: ConditionId, now: number): void {
+  const h = cc.history[id];
+  const dentroDaJanela = h && now < h.windowUntil;
+  cc.history[id] = {
+    stacks: dentroDaJanela ? h!.stacks + 1 : 1,
+    // A janela reinicia a cada aplicação: quem está sendo acorrentado só sai do
+    // diminishing returns depois de passar `DR_WINDOW_MS` LIVRE de verdade.
+    windowUntil: now + DR_WINDOW_MS,
+  };
+}
+
+/** O alvo está na janela de imunidade a controle total? */
+export function isControlImmune(cc: CcState, now: number): boolean {
+  return now < cc.controlImmuneUntil;
+}
+
+/** Concede a janela de imunidade. Chamado quando um controle total termina. */
+export function grantControlImmunity(cc: CcState, now: number): void {
+  cc.controlImmuneUntil = now + CONTROL_IMMUNITY_MS;
+}
+
 /** As três contramedidas do doc, na estrutura que o servidor carrega por alvo. */
 export interface ConditionDefense {
   /** Reduz a CHANCE de aplicar. 0..1, onde 1 = a chance vira zero. */
@@ -276,7 +374,7 @@ export function emptyConditionDefense(
   return { resist: {}, reduction: {}, immunity: [], ...overrides };
 }
 
-export type ApplyRejection = 'immune' | 'resisted';
+export type ApplyRejection = 'immune' | 'resisted' | 'cc-immune' | 'cc-exhausted';
 
 export interface ApplyResult {
   applied: boolean;
@@ -299,10 +397,25 @@ export function tryApplyCondition(
   baseDurationMs: number,
   def: ConditionDefense,
   rng: () => number = Math.random,
+  /** Estado anti-chain do alvo. Omitir desliga o `DD-CC-013/014`. */
+  cc?: CcState,
+  now = 0,
 ): ApplyResult {
   // ── IMUNIDADE ── nem sorteia.
   if (def.immunity.includes(id)) {
     return { applied: false, durationMs: 0, rejection: 'immune' };
+  }
+
+  // ── ANTI-CC-CHAIN ── vem ANTES do sorteio, porque quem acabou de sair de um
+  // controle não deveria nem correr o risco de pegar outro.
+  if (cc) {
+    if (isTotalControl(id) && isControlImmune(cc, now)) {
+      return { applied: false, durationMs: 0, rejection: 'cc-immune' };
+    }
+    if (ccDurationFactor(cc, id, now) <= 0) {
+      // Já pegou vezes demais na janela: a 4ª não entra.
+      return { applied: false, durationMs: 0, rejection: 'cc-exhausted' };
+    }
   }
 
   // ── RESISTÊNCIA ── reduz a CHANCE, nunca a duração.
@@ -314,7 +427,17 @@ export function tryApplyCondition(
 
   // ── REDUÇÃO ── reduz a DURAÇÃO de quem já pegou.
   const reduction = Math.min(1, Math.max(0, def.reduction[id] ?? 0));
-  return { applied: true, durationMs: Math.round(baseDurationMs * (1 - reduction)) };
+  let duracao = baseDurationMs * (1 - reduction);
+
+  // ── DIMINISHING RETURNS ── encurta a repetição e registra a aplicação.
+  // Multiplica DEPOIS da Redução: são contramedidas independentes e as duas
+  // valem (equipamento que reduz duração + corrente que já vinha encurtando).
+  if (cc) {
+    duracao *= ccDurationFactor(cc, id, now);
+    registerCc(cc, id, now);
+  }
+
+  return { applied: true, durationMs: Math.round(duracao) };
 }
 
 /** Uma condição ativa num alvo. O servidor guarda a lista; o cliente só exibe. */
@@ -363,8 +486,18 @@ export interface TickResult {
   expired: ConditionId[];
 }
 
-/** Avança o relógio das condições: cobra DoT vencido e derruba o que expirou. */
-export function tickConditions(list: ActiveCondition[], now: number): TickResult {
+/**
+ * Avança o relógio das condições: cobra DoT vencido e derruba o que expirou.
+ *
+ * `cc` opcional: quando informado, sair de um controle TOTAL concede a janela de
+ * imunidade do `DD-CC-013/014`. É aqui que ela nasce, e não na aplicação, porque
+ * a janela conta do FIM do controle.
+ */
+export function tickConditions(
+  list: ActiveCondition[],
+  now: number,
+  cc?: CcState,
+): TickResult {
   const active: ActiveCondition[] = [];
   const damage: TickResult['damage'] = [];
   const expired: ConditionId[] = [];
@@ -372,6 +505,7 @@ export function tickConditions(list: ActiveCondition[], now: number): TickResult
   for (const c of list) {
     if (now >= c.expiresAt) {
       expired.push(c.id);
+      if (cc && isTotalControl(c.id)) grantControlImmunity(cc, now);
       continue;
     }
     const def = CONDITIONS[c.id];
@@ -392,7 +526,20 @@ export function tickConditions(list: ActiveCondition[], now: number): TickResult
  * 🔴 É a diferença mecânica que o doc fecha entre Congelamento e Petrificação,
  * a única parte de `DD-CC-012` que NÃO está em conflito.
  */
-export function breakOnDamage(list: ActiveCondition[]): ActiveCondition[] {
+export function breakOnDamage(
+  list: ActiveCondition[],
+  cc?: CcState,
+  now = 0,
+): ActiveCondition[] {
+  const quebradas = list.filter((c) => CONDITIONS[c.id].brokenByDamage);
+  // Quebrar por dano TAMBÉM é sair de um controle, então também rende a janela
+  // de imunidade. Sem isso, o combo "congela → bate para quebrar → congela de
+  // novo" seria uma corrente legítima passando por baixo do `DD-CC-013/014`.
+  if (cc) {
+    for (const c of quebradas) {
+      if (isTotalControl(c.id)) grantControlImmunity(cc, now);
+    }
+  }
   return list.filter((c) => !CONDITIONS[c.id].brokenByDamage);
 }
 

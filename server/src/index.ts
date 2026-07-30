@@ -49,6 +49,10 @@ import {
   type FragmentSource,
   CONDITIONS,
   CONDITION_IDS,
+  emptyCcState,
+  pointsForLevel,
+  totalPointsUpToLevel,
+  type CcState,
   applyCondition,
   breakOnDamage,
   emptyConditionDefense,
@@ -226,6 +230,12 @@ interface Player {
    * o jogador não pode responder.
    */
   conditions: ActiveCondition[];
+  /**
+   * Estado anti-CC-chain (`DD-CC-013/014`). Não persiste, como as condições:
+   * relogar não deve ser a forma de escapar de uma corrente, mas também não
+   * faria sentido carregar diminishing returns entre sessões.
+   */
+  cc: CcState;
   /** Cooldown das habilidades: id -> timestamp em que fica pronta de novo. */
   spellReadyAt: Record<string, number>;
   /** Skill Points não gastos e nível de cada habilidade aprendida. */
@@ -269,6 +279,12 @@ interface Creature {
   lastMoveAt: number;
   /** Condições ativas (Etapa 8). Zeradas ao renascer, como o resto do estado. */
   conditions: ActiveCondition[];
+  /**
+   * Estado anti-CC-chain (`DD-CC-013/014`). Não persiste, como as condições:
+   * relogar não deve ser a forma de escapar de uma corrente, mas também não
+   * faria sentido carregar diminishing returns entre sessões.
+   */
+  cc: CcState;
   /** Chefes: última magia e última invocação (controle de cooldown). */
   lastSpellAt: number;
   lastSummonAt: number;
@@ -683,7 +699,7 @@ function spawnCreature(
     tileX: pos.x, tileY: pos.y, floor: 0, direction: 'down',
     homeX: pos.x, homeY: pos.y, hp: maxHp, maxHp,
     alive: true, respawnAt: 0, targetId: null, lastAttackAt: 0, lastMoveAt: 0,
-    conditions: [],
+    conditions: [], cc: emptyCcState(),
     lastSpellAt: 0, lastSummonAt: 0, lastSlamAt: 0,
     enrageUntil: 0, enrageUsed: false,
     summonedBy: opts.summonedBy,
@@ -926,7 +942,9 @@ function grantXp(player: Player, amount: number): void {
   while (player.xp >= xpToNext(player.level)) {
     player.xp -= xpToNext(player.level);
     player.level += 1;
-    player.unspentPoints += POINTS_PER_LEVEL;
+    // `DD-PROG-002`: a concessão cresce de 10 para 20 conforme o nível, para
+    // acompanhar o custo crescente de subir atributo.
+    player.unspentPoints += pointsForLevel(player.level);
     // Skill Points são uma progressão SEPARADA dos atributos e rendem
     // diferente por classe (o Sorcerer desenvolve muito mais magias).
     player.skillPoints += skillPointsAtLevel(player.cls.id, player.level);
@@ -1007,7 +1025,10 @@ function applyDeathPenalty(player: Player, byPlayer: boolean): { xpLost: number;
     // Redistribuição forçada: atributos voltam à base da classe e todos os
     // pontos ganhos até o nível atual retornam como não gastos.
     player.attributes = { ...player.cls.base };
-    player.unspentPoints = POINTS_PER_LEVEL * (player.level - 1);
+    // Soma a curva degrau por degrau. Multiplicar pelo valor do nível ATUAL
+    // devolveria pontos que nunca foram concedidos: quem chega ao 300 receberia
+    // 20 × 299 em vez do total real da curva.
+    player.unspentPoints = totalPointsUpToLevel(player.level);
     player.talentPoints = Math.floor(player.level / TALENT_EVERY_LEVELS);
     recompute(player);
   }
@@ -1780,7 +1801,7 @@ function handleDevCommand(player: Player, text: string): boolean {
       // Reconstrói a ficha do nível 1 até `n`, concedendo tudo que seria ganho.
       while (player.level < n) {
         player.level += 1;
-        player.unspentPoints += POINTS_PER_LEVEL;
+        player.unspentPoints += pointsForLevel(player.level);
         player.skillPoints += skillPointsAtLevel(player.cls.id, player.level);
         if (player.level % TALENT_EVERY_LEVELS === 0) player.talentPoints += 1;
       }
@@ -2683,7 +2704,11 @@ function applyConditionTo(
   power?: number,
   sourceId?: string,
 ): boolean {
-  const r = tryApplyCondition(id, chance, durationMs, emptyConditionDefense());
+  // O estado anti-chain do alvo entra aqui: é o que impede dois casters
+  // alternando Congelamento prenderem alguém para sempre (`DD-CC-013/014`).
+  const r = tryApplyCondition(
+    id, chance, durationMs, emptyConditionDefense(), Math.random, target.cc, now,
+  );
   if (!r.applied) return false;
   const def = CONDITIONS[id];
   target.conditions = applyCondition(target.conditions, {
@@ -2727,7 +2752,10 @@ function creatureOnHit(creature: Creature, player: Player, now: number): void {
  */
 function onDamaged(target: Player | Creature): void {
   if (target.conditions.length === 0) return;
-  target.conditions = breakOnDamage(target.conditions);
+  // Passa o estado anti-chain: quebrar Congelamento por dano concede a janela de
+  // imunidade, senão "congela → bate para quebrar → congela" seria uma corrente
+  // passando por baixo da regra.
+  target.conditions = breakOnDamage(target.conditions, target.cc, Date.now());
 }
 
 /**
@@ -2741,7 +2769,7 @@ function onDamaged(target: Player | Creature): void {
 function tickConditionsAll(now: number): void {
   for (const p of players.values()) {
     if (!p.joined || !p.alive || p.conditions.length === 0) continue;
-    const r = tickConditions(p.conditions, now);
+    const r = tickConditions(p.conditions, now, p.cc);
     p.conditions = r.active;
     for (const d of r.damage) {
       const dmg = resolveDamage(d.amount, d.type, playerDefenseProfile(p, false)).amount;
@@ -2760,7 +2788,7 @@ function tickConditionsAll(now: number): void {
 
   for (const c of creatures.values()) {
     if (!c.alive || c.conditions.length === 0) continue;
-    const r = tickConditions(c.conditions, now);
+    const r = tickConditions(c.conditions, now, c.cc);
     c.conditions = r.active;
     for (const d of r.damage) {
       // Quem plantou o DoT leva o crédito do abate: sem isso, matar com veneno
@@ -2894,7 +2922,7 @@ wss.on('connection', (socket) => {
     hp: 100, maxHp: 100, mana: 30, maxMana: 30, gold: 0, bankGold: 0,
     backpack: emptySlots(BACKPACK_SIZE), equipment: {}, depot: emptySlots(DEPOT_SIZE),
     alive: true, deadUntil: 0, targetId: null, lastAttackAt: 0, lastMoveAt: 0, lastAckSeq: 0, joined: false,
-    conditions: [],
+    conditions: [], cc: emptyCcState(),
     spellReadyAt: {}, skillPoints: 0, skillLevels: {}, skillResets: 0,
     fury: null, stance: false, proficiencies: {}, bestiary: {},
     wasAtDepot: false, wasNearVendor: false, wasNearBank: false,
