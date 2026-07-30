@@ -16,6 +16,7 @@ import type { ConditionId } from './conditions.js';
 import type { Rarity } from './weapons.js';
 import type { Professions } from './crafting.js';
 import type { NpcRole } from './tiles.js';
+import type { LootRule } from './party.js';
 
 /** Versão do protocolo. Incrementar em mudanças incompatíveis. */
 export const PROTOCOL_VERSION = 1;
@@ -264,6 +265,52 @@ export interface C2S_SkillReset {
   t: 'skillreset';
 }
 
+// --- Party (Etapa 9, `DD-PARTY-001` a `026`) --------------------------------
+//
+// 🔴 O convite é por NOME, não por id. O id de jogador é interno e o cliente não
+// tem como descobrir o do vizinho sem uma busca própria — pedir o nome é o que o
+// jogador consegue digitar depois de ver alguém na tela.
+
+/** Convidar alguém para a party. Quem convida vira líder se ainda não houver uma. */
+export interface C2S_PartyInvite {
+  t: 'partyinvite';
+  name: string;
+}
+
+/** Responder a um convite pendente. */
+export interface C2S_PartyRespond {
+  t: 'partyrespond';
+  accept: boolean;
+}
+
+/** Sair da party. Se o líder sai, a liderança passa ao membro mais antigo. */
+export interface C2S_PartyLeave {
+  t: 'partyleave';
+}
+
+/** Expulsar um membro. Só o líder. */
+export interface C2S_PartyKick {
+  t: 'partykick';
+  playerId: string;
+}
+
+/**
+ * Propor uma regra de loot.
+ *
+ * 🔴 `DD-PARTY-015`: o líder **não** muda a regra sozinho — isto abre uma
+ * votação, não aplica nada.
+ */
+export interface C2S_PartyProposeLoot {
+  t: 'partyproposeloot';
+  rule: LootRule;
+}
+
+/** Votar na proposta em aberto (`DD-PARTY-016`). */
+export interface C2S_PartyVote {
+  t: 'partyvote';
+  agree: boolean;
+}
+
 export type ClientMessage =
   | C2S_Hello
   | C2S_Auth
@@ -288,7 +335,13 @@ export type ClientMessage =
   | C2S_OpenCorpse
   | C2S_LootCorpse
   | C2S_Craft
-  | C2S_Drop;
+  | C2S_Drop
+  | C2S_PartyInvite
+  | C2S_PartyRespond
+  | C2S_PartyLeave
+  | C2S_PartyKick
+  | C2S_PartyProposeLoot
+  | C2S_PartyVote;
 
 // ----------------------------------------------------------------------------
 // Servidor -> Cliente (fatos autoritativos)
@@ -526,6 +579,51 @@ export interface S2C_Inventory {
   nearBank: boolean;
 }
 
+/** Um membro, como o cliente precisa vê-lo no painel. */
+export interface PartyMemberView {
+  id: string;
+  name: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+  leader: boolean;
+  /**
+   * Divide XP com o dono deste cliente? `DD-PARTY-014` exige que a regra ativa
+   * seja visível — e a elegibilidade é a informação que mais surpreende quem
+   * chama um amigo de nível muito diferente e não entende por que não ganha XP.
+   */
+  sharesXp: boolean;
+}
+
+/**
+ * Estado completo da party. Reenviado inteiro a cada mudança — é estado pequeno
+ * (até um punhado de membros) e mandar o todo evita toda uma classe de bug de
+ * sincronização parcial.
+ *
+ * `members` vazio = o jogador não está em party nenhuma.
+ */
+export interface S2C_Party {
+  t: 'party';
+  members: PartyMemberView[];
+  lootRule: LootRule;
+  /** Votação em aberto, se houver (`DD-PARTY-016`). */
+  vote?: {
+    proposal: LootRule;
+    favor: number;
+    contra: number;
+    /** Este jogador ainda não votou? */
+    pending: boolean;
+  };
+}
+
+/** Convite recebido, esperando resposta. */
+export interface S2C_PartyInvited {
+  t: 'partyinvited';
+  fromName: string;
+  /** Regra de loot que a party já usa, para decidir sabendo (`DD-PARTY-014`). */
+  lootRule: LootRule;
+}
+
 export type ServerMessage =
   | S2C_Welcome
   | S2C_AuthResult
@@ -544,7 +642,9 @@ export type ServerMessage =
   | S2C_Died
   | S2C_Respawn
   | S2C_LevelUp
-  | S2C_Inventory;
+  | S2C_Inventory
+  | S2C_Party
+  | S2C_PartyInvited;
 
 // ----------------------------------------------------------------------------
 // Helpers de serialização (um só ponto para trocar JSON por binário depois)

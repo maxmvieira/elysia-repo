@@ -52,6 +52,14 @@ import {
   rollCraft,
   MODEL_ENTRIES,
   MODEL_INDEX,
+  applyLootVote,
+  canProposeLootRule,
+  distributeXp,
+  rollBossLootWinner,
+  sharesXp,
+  tallyLootVote,
+  LOOT_RULE_LABEL,
+  type LootRule,
   FRAGMENTS_PER_CRAFT,
   MIN_FRAGMENTS_FOR_CHANCE,
   RARITIES,
@@ -240,6 +248,10 @@ interface Player {
   lastAttackAt: number;
   lastMoveAt: number;
   lastAckSeq: number;
+  /** Party atual (Etapa 9). Ausente = anda sozinho. */
+  partyId?: string;
+  /** Convite recebido e ainda não respondido. Um de cada vez. */
+  pendingInvite?: { fromId: string; partyId?: string };
   joined: boolean;
   /**
    * Condições ativas (Etapa 8). Não persiste no banco de propósito: sair do
@@ -332,6 +344,15 @@ interface Creature {
   lastHurtAt: number;
   /** Chefe: quantas vezes já aniquilou um grupo (fica mais forte a cada vez). */
   triumphs: number;
+  /**
+   * Dano acumulado por jogador nesta vida da criatura.
+   *
+   * 🔴 Peça que a base não tinha, e da qual duas regras dependem:
+   * `DD-PARTY-008` (participação válida — bater é o que dá direito à XP) e
+   * `DD-PARTY-021` (contribuição pondera o loot de chefe). É zerada ao renascer,
+   * junto com o resto do estado.
+   */
+  damageBy: Map<string, number>;
   /** Id do chefe que invocou esta criatura (lacaio some ao morrer, não renasce). */
   summonedBy?: string;
 }
@@ -760,7 +781,7 @@ function spawnCreature(
     enrageUntil: 0, enrageUsed: false,
     summonedBy: opts.summonedBy,
     defBreakUntil: 0, defBreakPct: 0, tauntedBy: null, tauntUntil: 0,
-    variant, lastHurtAt: 0, triumphs: 0,
+    variant, lastHurtAt: 0, triumphs: 0, damageBy: new Map(),
   };
   creatures.set(id, c);
   return c;
@@ -1031,9 +1052,36 @@ const BOSS_FRAGMENT_DROPS = 8;
  */
 const RECIPE_DROP_CHANCE = 0.06;
 
-function dropLoot(c: Creature): void {
+/**
+ * Larga o loot de uma criatura morta.
+ *
+ * `recipient` vem da regra de loot da party (`lootRecipientFor`). Quando ele
+ * existe, o item vai direto para a mochila dele; `undefined` mantém o
+ * comportamento de sempre — cai no chão, que é o Loot Livre.
+ *
+ * 🔴 `DD-PARTY-011/012`: **a quantidade não muda.** Uma morte gera uma
+ * quantidade real de drops, com 2 ou com 10 jogadores. O que a regra decide é o
+ * DONO, nunca o volume.
+ */
+function dropLoot(c: Creature, recipient?: Player): void {
+  /**
+   * Entrega uma pilha. Mochila cheia **cai no chão** em vez de sumir: perder
+   * loot por falta de espaço seria pior que a regra de loot não valer.
+   */
+  const entrega = (kind: string, amount: number, roll?: ItemRoll): void => {
+    if (recipient?.alive && addToBackpack(recipient, kind, amount, roll)) {
+      sendInventory(recipient);
+      send(recipient, {
+        t: 'chat', from: 'Grupo',
+        text: `Você recebeu ${amount}× ${ITEMS[kind]?.name ?? kind}.`,
+      });
+      return;
+    }
+    dropItem(kind, amount, c.tileX, c.tileY, c.floor, roll);
+  };
+
   const gold = c.def.goldMin + Math.floor(Math.random() * (c.def.goldMax - c.def.goldMin + 1));
-  if (gold > 0) dropItem('gold', gold, c.tileX, c.tileY, c.floor);
+  if (gold > 0) entrega('gold', gold);
 
   // Fragmentos de Equipamento: o material que sustenta o crafting inteiro.
   // Chefe larga vários de uma vez — é o que justifica organizar um grupo.
@@ -1041,16 +1089,16 @@ function dropLoot(c: Creature): void {
   const tentativas = c.def.boss ? BOSS_FRAGMENT_DROPS : 1;
   for (let i = 0; i < tentativas; i++) {
     const raridade = rollFragmentDrop(fonte, FRAGMENT_DROP_CHANCE);
-    if (raridade) dropItem(FRAGMENT_ITEM[raridade], 1, c.tileX, c.tileY, c.floor);
+    if (raridade) entrega(FRAGMENT_ITEM[raridade], 1);
   }
 
   // Receita: chance BEM menor que fragmento, porque uma receita rende uma
   // fabricação inteira enquanto o fragmento rende 1/100 dela. Chefe garante uma.
   const receita = rollRecipeDrop(fonte, c.def.boss ? 1 : RECIPE_DROP_CHANCE);
-  if (receita) dropItem(RECIPE_ITEM[receita], 1, c.tileX, c.tileY, c.floor);
+  if (receita) entrega(RECIPE_ITEM[receita], 1);
 
   for (const entry of LOOT_TABLE[c.def.type] ?? []) {
-    if (Math.random() < entry.chance) dropItem(entry.kind, 1, c.tileX, c.tileY, c.floor);
+    if (Math.random() < entry.chance) entrega(entry.kind, 1);
   }
 
   // 🔴 `DD-DROP-001`: "o jogador nunca deve derrotar um monstro apenas pela
@@ -1063,7 +1111,7 @@ function dropLoot(c: Creature): void {
   const tentativasMat = c.def.boss ? 2 : 1;
   for (const entry of materialsOf(c.def.type)) {
     for (let i = 0; i < tentativasMat; i++) {
-      if (Math.random() < entry.chance) dropItem(entry.kind, 1, c.tileX, c.tileY, c.floor);
+      if (Math.random() < entry.chance) entrega(entry.kind, 1);
     }
   }
   // Equipamento com raridade e passivos rolados. Chefe empurra a curva de
@@ -1078,10 +1126,7 @@ function dropLoot(c: Creature): void {
     // Cap. 46: o item nasce com NOME. `rollAffixNames` vem separado de
     // `rollItem` para evitar import circular no shared — ver o comentário lá.
     const nomes = rollAffixNames(arma ? 'weapon' : 'armor', rarity);
-    dropItem(
-      kind, 1, c.tileX, c.tileY, c.floor,
-      rollItem(rarity, arma ? 'weapon' : 'armor', Math.random, nomes),
-    );
+    entrega(kind, 1, rollItem(rarity, arma ? 'weapon' : 'armor', Math.random, nomes));
   }
 }
 
@@ -1569,6 +1614,306 @@ function bestiarySee(player: Player, c: Creature): BestiaryEntry {
   return e;
 }
 
+// ---------------------------------------------------------------------------
+// Party (Etapa 9 — `DD-PARTY-001` a `026`)
+// ---------------------------------------------------------------------------
+
+interface Party {
+  id: string;
+  /** Ordem de entrada. O primeiro é o líder. */
+  memberIds: string[];
+  lootRule: LootRule;
+  vote?: { proposal: LootRule; votes: Map<string, boolean> };
+}
+
+const parties = new Map<string, Party>();
+
+/**
+ * Distância máxima, em tiles, para contar como "estava junto na hora da morte".
+ *
+ * ⚠️ REFERÊNCIA: `DD-PARTY-008` exige proximidade sem dar número. 12 é pouco
+ * mais que a tela do jogador — perto o bastante para exigir estar na mesma
+ * briga, longe o bastante para o arqueiro no fundo e o mago na retaguarda
+ * contarem.
+ */
+const PARTY_XP_RANGE = 12;
+
+function partyOf(player: Player): Party | undefined {
+  return player.partyId ? parties.get(player.partyId) : undefined;
+}
+
+function partyMembers(party: Party): Player[] {
+  return party.memberIds
+    .map((id) => players.get(id))
+    .filter((p): p is Player => !!p);
+}
+
+function isPartyLeader(player: Player): boolean {
+  const party = partyOf(player);
+  return !!party && party.memberIds[0] === player.id;
+}
+
+/** Reenvia o estado completo da party a todos os membros. Ver `S2C_Party`. */
+function sendParty(party: Party): void {
+  const membros = partyMembers(party);
+  for (const p of membros) {
+    send(p, {
+      t: 'party',
+      members: membros.map((m) => ({
+        id: m.id,
+        name: m.name,
+        level: m.level,
+        hp: m.hp,
+        maxHp: m.maxHp,
+        leader: party.memberIds[0] === m.id,
+        // A elegibilidade é a informação que mais surpreende quem chama um amigo
+        // de nível muito diferente e não entende por que não ganha XP.
+        sharesXp: sharesXp(m.level, p.level),
+      })),
+      lootRule: party.lootRule,
+      ...(party.vote
+        ? {
+          vote: {
+            proposal: party.vote.proposal,
+            ...tallyLootVote({ proposal: party.vote.proposal, votes: party.vote.votes }),
+            pending: !party.vote.votes.has(p.id),
+          },
+        }
+        : {}),
+    });
+  }
+}
+
+/** Avisa um jogador que ele ficou sem party (painel some no cliente). */
+function sendNoParty(player: Player): void {
+  send(player, { t: 'party', members: [], lootRule: 'free' });
+}
+
+function partyBroadcast(party: Party, text: string): void {
+  for (const p of partyMembers(party)) send(p, { t: 'chat', from: 'Grupo', text });
+}
+
+/**
+ * Tira um jogador da party e cuida das consequências.
+ *
+ * 🔴 **Se o líder sai, a liderança passa ao membro mais antigo** em vez de a
+ * party se dissolver. Dissolver puniria todo o grupo pela desconexão de um.
+ * E party de um membro só não existe — vira ninguém, senão ficaria um painel
+ * aberto anunciando um grupo que não é grupo.
+ */
+function removeFromParty(player: Player): void {
+  const party = partyOf(player);
+  player.partyId = undefined;
+  sendNoParty(player);
+  if (!party) return;
+  party.memberIds = party.memberIds.filter((id) => id !== player.id);
+  // Voto em aberto perde o voto de quem saiu — senão a apuração conta fantasma.
+  party.vote?.votes.delete(player.id);
+  if (party.memberIds.length <= 1) {
+    for (const p of partyMembers(party)) {
+      p.partyId = undefined;
+      sendNoParty(p);
+      send(p, { t: 'chat', from: 'Grupo', text: 'O grupo se desfez.' });
+    }
+    parties.delete(party.id);
+    return;
+  }
+  partyBroadcast(party, `${player.name} saiu do grupo.`);
+  sendParty(party);
+}
+
+function handlePartyInvite(player: Player, name: string): void {
+  const alvo = [...players.values()].find(
+    (p) => p.name.toLowerCase() === name.trim().toLowerCase(),
+  );
+  if (!alvo) return send(player, { t: 'denied', reason: `Ninguém chamado "${name}" por aqui.` });
+  if (alvo.id === player.id) {
+    return send(player, { t: 'denied', reason: 'Você já anda com você mesmo.' });
+  }
+  if (alvo.partyId) return send(player, { t: 'denied', reason: `${alvo.name} já está em um grupo.` });
+  if (alvo.pendingInvite) {
+    return send(player, { t: 'denied', reason: `${alvo.name} já tem um convite em aberto.` });
+  }
+  const party = partyOf(player);
+  if (party && !isPartyLeader(player)) {
+    return send(player, { t: 'denied', reason: 'Só o líder convida.' });
+  }
+  alvo.pendingInvite = { fromId: player.id, partyId: party?.id };
+  send(alvo, {
+    t: 'partyinvited',
+    fromName: player.name,
+    lootRule: party?.lootRule ?? DEFAULT_LOOT_RULE,
+  });
+  send(player, { t: 'chat', from: 'Grupo', text: `Convite enviado a ${alvo.name}.` });
+}
+
+/**
+ * Regra de loot com que toda party nasce.
+ *
+ * ⚠️ **Livre é o padrão porque é o que o jogo já fazia**: o loot cai no chão e
+ * quem chega primeiro pega. Nascer em qualquer outra regra mudaria o
+ * comportamento de quem nunca abriu o painel de party.
+ */
+const DEFAULT_LOOT_RULE: LootRule = 'free';
+
+function handlePartyRespond(player: Player, accept: boolean): void {
+  const convite = player.pendingInvite;
+  player.pendingInvite = undefined;
+  if (!convite) return;
+  const quemConvidou = players.get(convite.fromId);
+  if (!accept) {
+    if (quemConvidou) {
+      send(quemConvidou, { t: 'chat', from: 'Grupo', text: `${player.name} recusou o convite.` });
+    }
+    return;
+  }
+  if (!quemConvidou) {
+    return send(player, { t: 'denied', reason: 'Quem convidou não está mais por aqui.' });
+  }
+  let party = partyOf(quemConvidou);
+  if (!party) {
+    party = {
+      id: newId('party'),
+      memberIds: [quemConvidou.id],
+      lootRule: DEFAULT_LOOT_RULE,
+    };
+    parties.set(party.id, party);
+    quemConvidou.partyId = party.id;
+  }
+  party.memberIds.push(player.id);
+  player.partyId = party.id;
+  partyBroadcast(party, `${player.name} entrou no grupo.`);
+  sendParty(party);
+}
+
+function handlePartyKick(player: Player, targetId: string): void {
+  if (!isPartyLeader(player)) return send(player, { t: 'denied', reason: 'Só o líder expulsa.' });
+  if (targetId === player.id) return send(player, { t: 'denied', reason: 'Para sair, use Sair.' });
+  const alvo = players.get(targetId);
+  if (!alvo || alvo.partyId !== player.partyId) return;
+  send(alvo, { t: 'chat', from: 'Grupo', text: 'Você foi removido do grupo.' });
+  removeFromParty(alvo);
+}
+
+function handlePartyProposeLoot(player: Player, rule: LootRule): void {
+  const party = partyOf(player);
+  if (!party) return;
+  if (party.lootRule === rule) {
+    return send(player, { t: 'denied', reason: 'O grupo já usa essa regra.' });
+  }
+  if (party.vote) return send(player, { t: 'denied', reason: 'Já há uma votação em andamento.' });
+  // 🔴 `DD-PARTY-019`: travada durante combate de chefe. Anti-golpe — sem isso o
+  // líder propõe "Loot do Líder" no instante antes de o chefe cair.
+  if (!canProposeLootRule(partyInBossFight(party))) {
+    return send(player, { t: 'denied', reason: 'Não dá para mudar a regra durante um chefe.' });
+  }
+  // Quem propõe vota a favor: propor é a forma mais clara de dizer "sou a favor".
+  party.vote = { proposal: rule, votes: new Map([[player.id, true]]) };
+  partyBroadcast(party, `${player.name} propôs: ${LOOT_RULE_LABEL[rule]}.`);
+  sendParty(party);
+}
+
+function handlePartyVote(player: Player, agree: boolean): void {
+  const party = partyOf(player);
+  if (!party?.vote) return;
+  party.vote.votes.set(player.id, agree);
+  // Apura quando todo mundo votou. Empate mantém a regra (`DD-PARTY-018`).
+  if (party.vote.votes.size < party.memberIds.length) return sendParty(party);
+  const antes = party.lootRule;
+  party.lootRule = applyLootVote(antes, {
+    proposal: party.vote.proposal,
+    votes: party.vote.votes,
+  });
+  const aprovado = party.lootRule !== antes;
+  party.vote = undefined;
+  partyBroadcast(
+    party,
+    aprovado
+      ? `Aprovado: ${LOOT_RULE_LABEL[party.lootRule]}.`
+      : `Recusado. O grupo segue em ${LOOT_RULE_LABEL[antes]}.`,
+  );
+  sendParty(party);
+}
+
+/** Algum membro está brigando com um chefe agora? Para `DD-PARTY-019`. */
+function partyInBossFight(party: Party): boolean {
+  for (const p of partyMembers(party)) {
+    const alvo = p.targetId ? creatures.get(p.targetId) : undefined;
+    if (alvo?.def.boss && alvo.alive) return true;
+  }
+  return false;
+}
+
+/**
+ * Quem recebe o loot desta morte, segundo a regra da party.
+ *
+ * 🔴 `DD-PARTY-011/012`: **o loot NÃO é multiplicado.** Esta função escolhe UM
+ * dono para a mesma quantidade de itens que cairia solo — ela nunca duplica
+ * nada. `undefined` = cai no chão, que é o Loot Livre e o comportamento de
+ * sempre.
+ */
+function lootRecipientFor(creature: Creature, killer: Player): Player | undefined {
+  const party = partyOf(killer);
+  if (!party) return undefined;
+  const presentes = partyMembers(party).filter((p) => nearCreature(p, creature));
+  if (presentes.length === 0) return undefined;
+  switch (party.lootRule) {
+    case 'free':
+      return undefined;
+    case 'leader':
+      return presentes.find((p) => p.id === party.memberIds[0]);
+    case 'random': {
+      // Em chefe, a contribuição pondera o sorteio (`DD-PARTY-021`) e o last hit
+      // não vale nada (`DD-PARTY-022`). Em criatura comum não há por que pesar:
+      // o combate é curto e a ponderação viraria só ruído.
+      if (creature.def.boss) {
+        const porJogador = new Map<string, number>();
+        for (const p of presentes) {
+          const dano = creature.damageBy.get(p.id) ?? 0;
+          if (dano > 0) porJogador.set(p.id, dano);
+        }
+        const vencedor = rollBossLootWinner(porJogador);
+        if (vencedor) return players.get(vencedor);
+        return undefined;
+      }
+      return presentes[Math.floor(Math.random() * presentes.length)];
+    }
+  }
+}
+
+function nearCreature(p: Player, c: Creature): boolean {
+  return p.floor === c.floor
+    && Math.abs(p.tileX - c.tileX) <= PARTY_XP_RANGE
+    && Math.abs(p.tileY - c.tileY) <= PARTY_XP_RANGE;
+}
+
+/**
+ * Distribui a XP de uma morte, respeitando as regras de `party.ts`.
+ *
+ * Sem party, é o caminho de sempre: quem matou leva tudo.
+ */
+function grantKillXp(killer: Player, creature: Creature, baseXp: number): void {
+  const party = partyOf(killer);
+  if (!party) return grantXp(killer, baseXp);
+
+  const membros = partyMembers(party);
+  const partes = distributeXp(
+    baseXp,
+    membros.map((p) => ({
+      id: p.id,
+      level: p.level,
+      // 🔴 `DD-PARTY-008`: participação VÁLIDA. Entrar no grupo e ficar parado
+      // não rende XP — é o que impede o grupo de virar reboque.
+      participated: (creature.damageBy.get(p.id) ?? 0) > 0,
+      nearby: nearCreature(p, creature),
+    })),
+  );
+  for (const p of membros) {
+    const xp = partes.get(p.id);
+    if (xp) grantXp(p, xp);
+  }
+}
+
 function damageCreature(
   player: Player,
   creature: Creature,
@@ -1577,6 +1922,9 @@ function damageCreature(
   now: number,
 ): void {
   creature.hp = Math.max(0, creature.hp - dmg);
+  // Contribuição acumulada, para `DD-PARTY-008` (participação válida) e
+  // `DD-PARTY-021` (loot de chefe ponderado). Zerada quando a criatura renasce.
+  creature.damageBy.set(player.id, (creature.damageBy.get(player.id) ?? 0) + dmg);
   onDamaged(creature); // dano quebra Congelamento (`DD-CC-012`)
   checkEnrage(creature, now); // chefe pode virar a fase aqui
   creature.lastHurtAt = now;
@@ -1597,12 +1945,16 @@ function damageCreature(
   if (!fatal) return;
   creature.alive = false;
   creature.targetId = null;
-  dropLoot(creature);
+  // A regra de loot da party escolhe UM dono para a mesma quantidade de itens
+  // que cairia solo (`DD-PARTY-011`: loot não é multiplicado). Sem party, ou em
+  // Loot Livre, `undefined` mantém o comportamento de sempre — cai no chão.
+  dropLoot(creature, lootRecipientFor(creature, player));
   // A variante incomum entrega mais XP — é a recompensa por ter dado mais
   // trabalho. Um chefe que já aniquilou grupos também vale mais.
   const bonusTriunfo = 1 + creature.triumphs * BOSS_TRIUMPH_XP;
-  grantXp(
+  grantKillXp(
     player,
+    creature,
     Math.round(creature.def.xpReward * VARIANTS[creature.variant].xpMult * bonusTriunfo),
   );
   // Abate contabilizado no bestiário; avisa quando o conhecimento avança.
@@ -2349,6 +2701,38 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       break;
     }
 
+    // --- Party (Etapa 9) ---------------------------------------------------
+    case 'partyinvite': {
+      if (!player.joined) return;
+      handlePartyInvite(player, msg.name);
+      break;
+    }
+    case 'partyrespond': {
+      if (!player.joined) return;
+      handlePartyRespond(player, msg.accept);
+      break;
+    }
+    case 'partyleave': {
+      if (!player.joined) return;
+      removeFromParty(player);
+      break;
+    }
+    case 'partykick': {
+      if (!player.joined) return;
+      handlePartyKick(player, msg.playerId);
+      break;
+    }
+    case 'partyproposeloot': {
+      if (!player.joined) return;
+      handlePartyProposeLoot(player, msg.rule);
+      break;
+    }
+    case 'partyvote': {
+      if (!player.joined) return;
+      handlePartyVote(player, msg.agree);
+      break;
+    }
+
     case 'setrespawn': {
       if (!player.characterId) return;
       // Só libera se ELE já pisou lá. Conhecer o mapa é da conta; renascer é
@@ -2858,6 +3242,9 @@ function updateCreatures(now: number): void {
         c.tileY = c.homeY;
         c.targetId = null;
         c.conditions = []; // renascer limpa o estado, como o HP
+        // A contribuição é por VIDA da criatura: sem zerar, o dano de ontem
+        // continuaria dando direito ao loot de hoje.
+        c.damageBy.clear();
       }
       continue;
     }
@@ -3280,6 +3667,9 @@ wss.on('connection', (socket) => {
   socket.on('close', () => {
     // Grava ANTES de tirar da lista: é a última chance de não perder a sessão.
     saveCharacter(player);
+    // Sai da party antes de sumir do mapa de jogadores, senão `partyMembers` já
+    // não o encontra e os outros ficam com um fantasma no painel.
+    removeFromParty(player);
     players.delete(id);
     for (const c of creatures.values()) if (c.targetId === id) c.targetId = null;
     console.log(`[disc] ${player.name} saiu (${players.size} online)`);
