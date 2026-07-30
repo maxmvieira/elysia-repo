@@ -64,6 +64,8 @@ import {
   checkName,
   type CharacterSlot,
   type ServerMessage,
+  affixDamageType,
+  composeItemName,
   CONDITION_COLORS,
   CREATURE_PLACEHOLDER_COLORS,
   ELEMENT_INFO,
@@ -1210,7 +1212,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (!def) return stack.kind;
     const linhas: string[] = [];
     const rar = stack.roll ? RARITY[stack.roll.rarity] : null;
-    linhas.push(rar ? `${def.name} [${rar.name}]` : def.name);
+    // Cap. 46: o nome do item carrega os modificadores —
+    // "Espada Longa Feroz do Dragão". É o que faz duas peças do mesmo modelo se
+    // distinguirem antes de o jogador ler os passivos.
+    const nome = composeItemName(def.name, stack.roll?.prefix, stack.roll?.suffix);
+    linhas.push(rar ? `${nome} [${rar.name}]` : nome);
+
+    // O elemento vem do prefixo e muda o TIPO do dano, não só o número — por
+    // isso ganha linha própria em vez de virar mais um passivo na lista.
+    const elem = affixDamageType(stack.roll?.prefix);
+    if (elem && elem !== 'physical') {
+      linhas.push(`Dano de ${ELEMENT_INFO[elem].name}`);
+    }
 
     if (def.weaponType) {
       const w = WEAPON_IDENTITY[def.weaponType];

@@ -1,4 +1,10 @@
-# Doc 3 — Triagem para implementação
+# Triagem dos documentos de lacunas (Doc 3 e Doc 4)
+
+> 📌 **Chegou a Parte 2** (`ELYSIA ONLINE ATUALIZAÇOES DE LACUNAS PARTE 2.docx`),
+> aqui chamada de **Doc 4**: 69 capítulos, **227 decisões**, ~10 sistemas.
+> Triagem própria em **[`DOC4-TRIAGEM.md`](./DOC4-TRIAGEM.md)**.
+
+
 
 Mapa do que o **Doc 3** (`ELYSIA ONLINE ATUALIZAÇOES DE LACUNAS.docx`) contém e
 o que dá para virar código. Texto pesquisável em

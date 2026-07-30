@@ -40,6 +40,8 @@ import {
   computeStats,
   DAMAGE_TYPES,
   resolveDamage,
+  affixDamageType,
+  rollAffixNames,
   FRAGMENT_ITEM,
   RECIPE_ITEM,
   rollFragmentDrop,
@@ -906,7 +908,13 @@ function dropLoot(c: Creature): void {
     const pool = arma ? DROP_POOL_WEAPON : DROP_POOL_ARMOR;
     const kind = pool[Math.floor(Math.random() * pool.length)]!;
     const rarity = rollRarity(c.def.boss ? 35 : 0);
-    dropItem(kind, 1, c.tileX, c.tileY, c.floor, rollItem(rarity, arma ? 'weapon' : 'armor'));
+    // Cap. 46: o item nasce com NOME. `rollAffixNames` vem separado de
+    // `rollItem` para evitar import circular no shared — ver o comentário lá.
+    const nomes = rollAffixNames(arma ? 'weapon' : 'armor', rarity);
+    dropItem(
+      kind, 1, c.tileX, c.tileY, c.floor,
+      rollItem(rarity, arma ? 'weapon' : 'armor', Math.random, nomes),
+    );
   }
 }
 
@@ -1174,6 +1182,25 @@ function basicAttackType(attackType: string): DamageType {
 }
 
 /**
+ * Tipo de dano do ataque do jogador, já contando a ARMA equipada.
+ *
+ * 🔴 Cap. 46 + decisão do dono: prefixo elemental muda o dano de verdade. Uma
+ * "Espada Longa Flamejante" causa dano de FOGO, e é isso que faz as resistências
+ * das criaturas saírem do papel — o Zumbi fraco a Sagrado passa a ter um contra
+ * de verdade, em vez de ser um número parado na ficha.
+ *
+ * A arma vence a classe: quem empunha espada Glacial bate de gelo, mesmo sendo
+ * Knight. Para as classes mágicas o prefixo também vale — cajado Sombrio troca
+ * o fogo padrão por sombrio.
+ */
+function playerDamageType(player: Player): DamageType {
+  const arma = player.equipment?.weapon;
+  const doPrefixo = affixDamageType(arma?.roll?.prefix);
+  if (doPrefixo) return doPrefixo;
+  return basicAttackType(player.derived.attackType);
+}
+
+/**
  * `DefenseProfile` da criatura. Como em `playerDefenseProfile`, traduz o que o
  * servidor já fazia sem mexer no balanceamento:
  *
@@ -1308,10 +1335,14 @@ function playerAttack(player: Player, creature: Creature, now: number): void {
   const { amount, crit } = computeHit(power, d.critChance, d.critMult);
   // Etapa 8: o golpe do jogador também passa pelas camadas, e é aqui que a
   // resistência da criatura entra em jogo.
+  const tipo = playerDamageType(player);
   const dmg = resolveDamage(
     amount,
-    basicAttackType(d.attackType),
-    creatureDefenseProfile(creature, now, player, isMagic),
+    tipo,
+    // Dano não-físico ignora a defesa física da criatura, como antes. Uma espada
+    // Flamejante passa a bater contra a defesa MÁGICA — é a troca que dá sentido
+    // a carregar arma elemental contra bicho de armadura grossa.
+    creatureDefenseProfile(creature, now, player, tipo !== 'physical'),
   ).amount;
   applyLifeSteal(player, dmg);
   gainSkill(player);

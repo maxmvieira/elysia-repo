@@ -140,6 +140,16 @@ export interface ItemRoll {
   affixes: RolledAffix[];
   /** Slots de carta deste exemplar (as cartas em si vêm numa etapa futura). */
   slots: number;
+  /**
+   * Modificadores de NOME (`DD-AFFIX-001`, cap. 46 do Doc 4). Ids de
+   * `affixes.ts`, que é a camada de identidade por cima destes passivos.
+   *
+   * Ficam aqui, e não em `affixes.ts`, porque são parte da INSTÂNCIA do item:
+   * o que faz esta espada ser "Feroz do Dragão" e a de ao lado não.
+   * Ausentes = item sem nome próprio (todo Comum, e alguns Incomuns).
+   */
+  prefix?: string;
+  suffix?: string;
 }
 
 /** Texto pronto de um passivo, para tooltip. */
@@ -178,11 +188,19 @@ export function rollRarity(bonus = 0, rng: () => number = Math.random): Rarity {
   return 'relic';
 }
 
-/** Gera a instância de um equipamento: raridade, passivos e slots. */
+/**
+ * Gera a instância de um equipamento: raridade, passivos, slots e nome.
+ *
+ * `names` vem de fora (`rollAffixNames` em `affixes.ts`) em vez de ser sorteado
+ * aqui, e o motivo é estrutural: `affixes.ts` importa `AffixId` e `Rarity` deste
+ * arquivo, então chamar de volta criaria import circular. Quem cria o item
+ * chama os dois e junta — o servidor faz isso em um lugar só.
+ */
 export function rollItem(
   rarity: Rarity,
   on: 'weapon' | 'armor',
   rng: () => number = Math.random,
+  names?: { prefix?: string; suffix?: string },
 ): ItemRoll {
   const def = RARITY[rarity];
   const candidatos = AFFIX_IDS.filter((id) => AFFIXES[id].on === on || AFFIXES[id].on === 'any');
@@ -199,6 +217,8 @@ export function rollItem(
     rarity,
     affixes: escolhidos,
     slots: randInt(def.slotsMin, def.slotsMax, rng),
+    ...(names?.prefix ? { prefix: names.prefix } : {}),
+    ...(names?.suffix ? { suffix: names.suffix } : {}),
   };
 }
 
