@@ -121,6 +121,28 @@ são objetivos e podem ser feitos já, expostos por comando de teste.
 | 4 | **`DD-LOR-127..133` duplicados** | aparecem duas vezes no Doc 3 com conteúdos diferentes. Um bloco precisa ser renumerado |
 | 5 | **"Água" não é elemento** | a linha 1670 dá `Slime Azul → Água`, mas `DD-ELM-002` fecha os sete tipos e Água não está entre eles. Provável intenção: **Gelo** |
 
+### 🆕 Venda ao comerciante — dois números esperando o dono (2026-07-29)
+
+A aba **Vender** entrou no comerciante (mesmo NPC, duas abas). O Doc 3 fecha o
+*princípio* — "lojas são permanentes", "sem economia dinâmica" — o que autoriza
+preço fixo, mas **não dá número nenhum**. Ficaram como `⚠️ REFERÊNCIA`:
+
+| # | Assunto | Hoje | Onde |
+|---|---|---|---|
+| 1 | **Margem de recompra** | `SELL_PRICE_FACTOR = 0.4` (paga 40 % do preço de loja) | `shared/src/items.ts` |
+| 2 | **Preço do material de monstro** | Gosma de Slime 2, Pele de Serpente 5, ancorados no Fragmento Comum | `shared/src/items.ts` |
+
+E uma **consequência do catálogo** que vale decisão consciente: Fragmento de
+Relíquia e as receitas **Rara para cima** têm `buyPrice: 0`, então hoje o
+comerciante **não compra** o material de topo. O efeito é defensável — não dá para
+torrar o material mais raro por trocados — mas ninguém decidiu isso, saiu do
+catálogo. Há teste travando o comportamento atual (`shared/tests/items.test.ts`),
+para mudar exigir intenção.
+
+Raridade multiplica o preço por `RARITY.statMult` (Comum 1.0 → Relíquia 2.3).
+Reúso deliberado da escala canônica de poder, para não criar uma tabela de preço
+paralela que pudesse contradizê-la.
+
 ### E as quatro pendências que o Doc 3 NÃO cobriu
 
 Continuam abertas e destravariam mais código que o resto junto:

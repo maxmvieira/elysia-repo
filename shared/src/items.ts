@@ -32,6 +32,7 @@ export const EQUIP_SLOT_LABEL: Record<EquipSlot, string> = {
   boots: 'Botas',
 };
 
+import { RARITY } from './weapons.js';
 import type { ItemRoll, WeaponType } from './weapons.js';
 
 export type ItemCategory = 'currency' | 'consumable' | 'equip' | 'loot';
@@ -44,6 +45,15 @@ export interface ItemDef {
   stackable: boolean;
   /** Preço de compra no NPC (0 = não vendido). */
   buyPrice: number;
+  /**
+   * Quanto o comerciante paga por unidade, quando isso NÃO deriva do `buyPrice`.
+   *
+   * Existe por causa do loot de monstro: Gosma de Slime e Pele de Serpente têm
+   * `buyPrice: 0` porque a loja não as estoca, e sem este campo o preço de venda
+   * cairia a zero — contra o "nada é lixo" que abre este arquivo. Ausente = usa
+   * `buyPrice × SELL_PRICE_FACTOR`; `0` explícito = o comerciante não compra.
+   */
+  sellPrice?: number;
   /** Slot ocupado quando category === 'equip'. */
   slot?: EquipSlot;
   /** Efeito de consumível. */
@@ -158,8 +168,12 @@ export const ITEMS: Record<string, ItemDef> = {
     kind: 'recipe_relic', name: 'Receita de Relíquia', category: 'loot',
     stackable: true, buyPrice: 0, color: 0xffe14a,
   },
-  slime_gel: { kind: 'slime_gel', name: 'Gosma de Slime', category: 'loot', stackable: true, buyPrice: 0, color: 0x5fae5f },
-  snake_skin: { kind: 'snake_skin', name: 'Pele de Serpente', category: 'loot', stackable: true, buyPrice: 0, color: 0x6f9a4a },
+  // ⚠️ REFERÊNCIA nos dois `sellPrice`: nenhum doc dá preço para material de
+  // monstro. Ancorados no Fragmento Comum (`buyPrice: 2`), que é o material mais
+  // barato do jogo com preço fechado: a Gosma empata com ele, e a Pele vale mais
+  // porque a Serpente é criatura bem mais difícil que o Slime Verde.
+  slime_gel: { kind: 'slime_gel', name: 'Gosma de Slime', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 2, color: 0x5fae5f },
+  snake_skin: { kind: 'snake_skin', name: 'Pele de Serpente', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0x6f9a4a },
   // Armas: o `atk` é o dano-base, e o TIPO define identidade (velocidade,
   // alcance, uma/duas mãos) e qual proficiência sobe ao usar.
   short_sword: { kind: 'short_sword', name: 'Espada Curta', category: 'equip', stackable: false, buyPrice: 50, slot: 'weapon', atk: 8, weaponType: 'sword', tier: 1, color: 0xc9d0d8 },
@@ -210,6 +224,46 @@ export const DEPOT_SIZE = 40;
 
 export function getItem(kind: string): ItemDef | undefined {
   return ITEMS[kind];
+}
+
+// ---------------------------------------------------------------------------
+// Venda ao comerciante
+// ---------------------------------------------------------------------------
+
+/**
+ * Fração do `buyPrice` que o comerciante paga ao comprar do jogador.
+ *
+ * ⚠️ **REFERÊNCIA.** O Doc 3 fecha o *princípio* do comércio — "lojas são
+ * permanentes", "os comerciantes sempre vendem os mesmos tipos de produtos",
+ * "sem economia dinâmica" — e é justamente isso que autoriza um fator FIXO em vez
+ * de mercado. Mas **nenhum doc dá o número**, então este 0.4 é ponto de partida
+ * para teste, não canônico.
+ *
+ * Por que não 1.0: comprar e vender ao mesmo preço transforma a loja em depósito
+ * sem custo e apaga o peso de cada compra. A margem é o que faz escolher doer.
+ */
+export const SELL_PRICE_FACTOR = 0.4;
+
+/**
+ * Quanto o comerciante paga por UMA unidade. `0` = ele não compra.
+ *
+ * Raridade entra por `statMult` do `RARITY`, e essa reutilização é deliberada: é
+ * a escala canônica de quanto cada degrau é mais forte (Comum 1.0 → Relíquia
+ * 2.3), então serve de valor sem inventar uma tabela de preço paralela que
+ * poderia contradizer a de poder. Sem isso, uma Relíquia sairia pelo preço de uma
+ * Comum, que é o tipo de coisa que ensina o jogador a jogar loot no chão.
+ *
+ * Moeda nunca é vendável — vender ouro por ouro seria uma torneira de dinheiro.
+ */
+export function sellPriceOf(kind: string, roll?: ItemRoll): number {
+  const def = ITEMS[kind];
+  if (!def || def.category === 'currency') return 0;
+  const base = def.sellPrice ?? def.buyPrice * SELL_PRICE_FACTOR;
+  if (base <= 0) return 0;
+  const mult = roll ? RARITY[roll.rarity].statMult : 1;
+  // Piso de 1: item com preço definido nunca vale zero, senão o jogador clica
+  // "Vender" e nada acontece — o que parece bug, não regra.
+  return Math.max(1, Math.round(base * mult));
 }
 
 /** Denominações de moeda da maior para a menor (para normalizar o ouro). */

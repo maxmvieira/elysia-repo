@@ -35,6 +35,7 @@ import {
   VENDOR_STOCK,
   buildStarterMap,
   chebyshev,
+  sellPriceOf,
   computeHit,
   computeStats,
   DAMAGE_TYPES,
@@ -2180,6 +2181,34 @@ function handleMessage(player: Player, msg: ClientMessage): void {
         return;
       }
       setGold(player, player.gold - def.buyPrice);
+      sendStats(player);
+      sendInventory(player);
+      break;
+    }
+    case 'sell': {
+      if (!player.joined || !player.alive) return;
+      if (!nearVendor(player)) {
+        send(player, { t: 'denied', reason: 'Aproxime-se do comerciante.' });
+        return;
+      }
+      const slot = player.backpack[msg.index];
+      if (!slot) {
+        send(player, { t: 'denied', reason: 'Slot vazio.' });
+        return;
+      }
+      // O preço sai do `roll` DESTE slot: uma Relíquia vale mais que a Comum do
+      // mesmo tipo (ver `sellPriceOf`).
+      const unit = sellPriceOf(slot.kind, slot.roll);
+      if (unit <= 0) {
+        send(player, { t: 'denied', reason: 'O comerciante não compra isso.' });
+        return;
+      }
+      // Equipamento é sempre 1 (não empilha, e cada peça tem o roll dela).
+      const pedido = Math.max(1, Math.floor(msg.amount ?? 1));
+      const qtd = getItem(slot.kind)?.stackable ? Math.min(pedido, slot.amount) : 1;
+      slot.amount -= qtd;
+      if (slot.amount <= 0) player.backpack[msg.index] = null;
+      setGold(player, player.gold + unit * qtd);
       sendStats(player);
       sendInventory(player);
       break;

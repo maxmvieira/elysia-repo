@@ -28,6 +28,8 @@ import {
   ITEMS,
   MAX_SKILL_LEVEL,
   NIGHT_SPEED_MULT,
+  SELL_PRICE_FACTOR,
+  sellPriceOf,
   SERVER_TICK_MS,
   SKILLS,
   SKILL_BAR,
@@ -1209,31 +1211,125 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   function onInventory(msg: S2C_Inventory): void {
     currentInv = msg;
     renderInventory();
+    // A aba Vender É a mochila: sem isto, o item vendido continuaria listado até
+    // o jogador trocar de aba, e um segundo clique tentaria vender um slot vazio.
+    if (shopEl.style.display !== 'none' && shopTab === 'sell') renderShop();
+  }
+
+  // ---- Loja do comerciante: abas Comprar / Vender ------------------------
+  //
+  // Decisão do dono: NÃO é um NPC novo. É o mesmo comerciante, com duas abas —
+  // uma para o estoque fixo dele (`VENDOR_STOCK`) e uma para a mochila do
+  // jogador. Um NPC só mantém o "lojas são permanentes" do Doc 3 e evita mandar
+  // o jogador procurar outra pessoa para se livrar do loot.
+  type ShopTab = 'buy' | 'sell';
+  let shopTab: ShopTab = 'buy';
+  const shopHint = el('shophint');
+  const shopTabBuy = el('shoptab-buy');
+  const shopTabSell = el('shoptab-sell');
+
+  /** Uma linha da loja. Serve às duas abas: só muda o rótulo e o que o botão faz. */
+  function shopRow(opts: {
+    kind: string;
+    nome: string;
+    preco: number;
+    /** Quantidade da pilha, quando faz sentido mostrar (aba Vender). */
+    qtd?: number;
+    tooltip?: string;
+    botoes: Array<{ texto: string; classe?: string; acao: () => void }>;
+  }): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'shoprow';
+    if (opts.tooltip) row.title = opts.tooltip;
+    const img = document.createElement('img');
+    img.src = itemIconUrl(opts.kind);
+    const nm = document.createElement('span');
+    nm.className = 'sn';
+    nm.textContent = opts.nome;
+    if (opts.qtd !== undefined && opts.qtd > 1) {
+      const q = document.createElement('span');
+      q.className = 'sq';
+      q.textContent = ` ×${opts.qtd}`;
+      nm.appendChild(q);
+    }
+    const pr = document.createElement('span');
+    pr.className = 'sp';
+    pr.textContent = `${opts.preco} 🪙`;
+    row.append(img, nm, pr);
+    for (const b of opts.botoes) {
+      const btn = document.createElement('button');
+      btn.textContent = b.texto;
+      if (b.classe) btn.className = b.classe;
+      btn.onclick = b.acao;
+      row.appendChild(btn);
+    }
+    return row;
+  }
+
+  function renderShop(): void {
+    shopTabBuy.classList.toggle('on', shopTab === 'buy');
+    shopTabSell.classList.toggle('on', shopTab === 'sell');
+    shopList.innerHTML = '';
+
+    if (shopTab === 'buy') {
+      shopHint.textContent = 'Compra com ouro. Fique perto do comerciante.';
+      for (const kind of VENDOR_STOCK) {
+        const def = ITEMS[kind];
+        if (!def) continue;
+        shopList.appendChild(shopRow({
+          kind, nome: def.name, preco: def.buyPrice,
+          botoes: [{ texto: 'Comprar', acao: () => net.send({ t: 'buy', kind }) }],
+        }));
+      }
+      return;
+    }
+
+    // Aba VENDER: a mochila, sem os itens que ele não compra (moeda, receita,
+    // fragmento sem preço). Esconder é melhor que mostrar desabilitado — a lista
+    // fica curta e só com o que rende ouro.
+    shopHint.textContent = `O comerciante paga ${Math.round(SELL_PRICE_FACTOR * 100)}% do preço de loja. Raridade vale mais.`;
+    let vendavel = 0;
+    (currentInv?.backpack ?? []).forEach((stack, index) => {
+      if (!stack) return;
+      const unit = sellPriceOf(stack.kind, stack.roll);
+      if (unit <= 0) return;
+      vendavel++;
+      const def = getItem(stack.kind);
+      const rar = stack.roll ? RARITY[stack.roll.rarity] : null;
+      const botoes = [{
+        texto: 'Vender', classe: 'sell',
+        acao: () => net.send({ t: 'sell', index }),
+      }];
+      // "Tudo" só em pilha: 30 Gosmas de Slime uma a uma seria castigo, não jogo.
+      if (stack.amount > 1) {
+        botoes.push({
+          texto: `Tudo (${unit * stack.amount})`, classe: 'sell',
+          acao: () => net.send({ t: 'sell', index, amount: stack.amount }),
+        });
+      }
+      shopList.appendChild(shopRow({
+        kind: stack.kind,
+        nome: rar ? `${def?.name ?? stack.kind} [${rar.name}]` : def?.name ?? stack.kind,
+        preco: unit,
+        qtd: stack.amount,
+        tooltip: itemTooltip(stack),
+        botoes,
+      }));
+    });
+    if (vendavel === 0) {
+      const vazio = document.createElement('div');
+      vazio.className = 'hint';
+      vazio.textContent = 'Nada na mochila que ele compre.';
+      shopList.appendChild(vazio);
+    }
   }
 
   function openShop(): void {
-    shopList.innerHTML = '';
-    for (const kind of VENDOR_STOCK) {
-      const def = ITEMS[kind];
-      if (!def) continue;
-      const row = document.createElement('div');
-      row.className = 'shoprow';
-      const img = document.createElement('img');
-      img.src = itemIconUrl(kind);
-      const nm = document.createElement('span');
-      nm.className = 'sn';
-      nm.textContent = def.name;
-      const pr = document.createElement('span');
-      pr.className = 'sp';
-      pr.textContent = `${def.buyPrice} 🪙`;
-      const btn = document.createElement('button');
-      btn.textContent = 'Comprar';
-      btn.onclick = () => net.send({ t: 'buy', kind });
-      row.append(img, nm, pr, btn);
-      shopList.appendChild(row);
-    }
+    renderShop();
     shopEl.style.display = 'flex';
   }
+  shopTabBuy.onclick = () => { shopTab = 'buy'; renderShop(); };
+  shopTabSell.onclick = () => { shopTab = 'sell'; renderShop(); };
   el('shop-close').onclick = () => { shopEl.style.display = 'none'; };
 
   // Arrastar-e-soltar: mochila -> paperdoll (equipar) e paperdoll -> mochila

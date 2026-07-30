@@ -1222,6 +1222,39 @@
         opacity: 0.4;
         cursor: default;
       }
+      /* Botão de VENDER: vermelho-ouro, para não ser confundido com Comprar. */
+      .shoprow button.sell {
+        background: #5a3a2f;
+        border-color: #7a4a3a;
+        color: #ffeadf;
+      }
+      /* Abas Comprar / Vender */
+      #shoptabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+      .shoptab {
+        flex: 1;
+        background: #241f18;
+        border: 1px solid #4a4034;
+        color: #a89f8f;
+        padding: 6px 0;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .shoptab.on {
+        background: #3a3227;
+        border-color: #6a5836;
+        color: #f2c14e;
+        font-weight: 600;
+      }
+      /* Quantidade de uma pilha, ao lado do nome na aba Vender. */
+      .shoprow .sq {
+        color: #8a8274;
+        font-size: 11px;
+      }
     </style>
   </head>
   <body>
@@ -1296,8 +1329,14 @@
     <div id="shop">
       <div class="win">
         <h3><span>🛒 Comerciante</span><span class="close" id="shop-close">✕</span></h3>
+        <div id="shoptabs">
+          <button class="shoptab on" id="shoptab-buy">Comprar</button>
+          <button class="shoptab" id="shoptab-sell">Vender</button>
+        </div>
         <div id="shoplist"></div>
-        <div class="hint" style="margin-top: 8px">Compra com ouro. Fique perto do comerciante.</div>
+        <div class="hint" id="shophint" style="margin-top: 8px">
+          Compra com ouro. Fique perto do comerciante.
+        </div>
       </div>
     </div>
     <div id="bestiary">

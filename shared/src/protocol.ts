@@ -141,6 +141,20 @@ export interface C2S_Buy {
   kind: string;
 }
 
+/**
+ * Vender um item da mochila ao comerciante (precisa estar perto dele).
+ *
+ * Vai por ÍNDICE da mochila, não por `kind`, e isso não é detalhe: duas espadas
+ * curtas podem ter raridades diferentes, e o preço sai do `roll` daquele slot. Por
+ * `kind` o servidor não saberia qual das duas o jogador quis vender.
+ */
+export interface C2S_Sell {
+  t: 'sell';
+  index: number;
+  /** Quantas unidades de uma pilha. Ausente = 1. Ignorado em equipamento. */
+  amount?: number;
+}
+
 /** Usar um item consumível da mochila (poção). */
 export interface C2S_UseItem {
   t: 'use';
@@ -209,6 +223,7 @@ export type ClientMessage =
   | C2S_CancelAttack
   | C2S_Allocate
   | C2S_Buy
+  | C2S_Sell
   | C2S_UseItem
   | C2S_Equip
   | C2S_Unequip
