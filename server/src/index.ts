@@ -18,6 +18,7 @@ import {
   ATTRIBUTE_KEYS,
   attributeCost,
   BACKPACK_SIZE,
+  backpackSizeFor,
   CLASSES,
   CREATURES,
   DEFAULT_SERVER_PORT,
@@ -2163,7 +2164,18 @@ function applyStoredCharacter(player: Player, c: ReturnType<typeof store.loadCha
   if (!c) return;
   const cls = CLASSES[c.cls as PlayerClass] ?? CLASSES.knight;
   const parsed = fromStored(c);
-  const { backpack, depot, equipment } = rowsToItems(c.items, BACKPACK_SIZE, DEPOT_SIZE);
+  // 🔴 O tamanho da mochila vem do CONTAINER EQUIPADO, não de uma constante.
+  //
+  // Usava `BACKPACK_SIZE` (20) fixo, e isso virou bug quando a Mochila subiu para
+  // 40 slots: o personagem salvo com 40 voltava com 20 e **perdia acesso aos
+  // itens dos slots 20 a 39** — eles continuavam no banco, invisíveis.
+  //
+  // Duas passadas porque há uma dependência circular: para saber o tamanho é
+  // preciso saber qual container está equipado, e o container vem das mesmas
+  // linhas. A primeira passada existe só para descobrir isso.
+  const equipPrevio = rowsToItems(c.items, BACKPACK_SIZE, DEPOT_SIZE).equipment;
+  const capacidade = backpackSizeFor(equipPrevio.container?.kind);
+  const { backpack, depot, equipment } = rowsToItems(c.items, capacidade, DEPOT_SIZE);
 
   player.characterId = c.id;
   player.name = c.name;
@@ -2653,7 +2665,8 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       if (def.slot === 'container') {
         // Trocar a MOCHILA equipada: redimensiona a lista de slots. O container
         // antigo volta pra dentro da nova mochila. Trava se não couber tudo.
-        const newCap = def.capacity ?? 0;
+        // Mesma fonte que o carregamento usa, para os dois nunca divergirem.
+        const newCap = backpackSizeFor(slot.kind);
         const items = player.backpack.filter((s, i) => s && i !== msg.index) as ItemStack[];
         const prev = player.equipment.container;
         if (newCap < items.length + (prev ? 1 : 0)) {

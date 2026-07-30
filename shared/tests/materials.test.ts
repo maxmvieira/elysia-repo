@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  BACKPACK_SIZE,
+  backpackSizeFor,
   CREATURES,
   CREATURE_FAMILY,
   DAMAGE_TYPES,
@@ -154,6 +156,30 @@ test('mochila maior custa mais: espaço é progressão, não item de primeiro di
   for (const m of [bp, grande, viajante]) {
     assert.equal(m.slot, 'container');
     assert.equal(m.stackable, false, 'recipiente é instância, não pilha');
+  }
+});
+
+test('o tamanho da mochila vem do container equipado, não de constante', () => {
+  // 🔴 Isto foi bug de verdade. O carregamento usava `BACKPACK_SIZE` (20) fixo, e
+  // quando a Mochila subiu para 40 o personagem salvo voltava com 20 slots —
+  // PERDENDO ACESSO aos itens dos slots 20 a 39, que ficavam no banco invisíveis.
+  assert.equal(backpackSizeFor('bag'), 10);
+  assert.equal(backpackSizeFor('backpack'), 40);
+  assert.equal(backpackSizeFor('large_backpack'), 60);
+  assert.equal(backpackSizeFor('traveler_pack'), 80);
+  // Sem container: cai no padrão.
+  assert.equal(backpackSizeFor(undefined), BACKPACK_SIZE);
+  // Container inexistente não pode virar mochila de tamanho zero.
+  assert.equal(backpackSizeFor('nao_existe'), BACKPACK_SIZE);
+});
+
+test('toda mochila do catálogo tem capacidade declarada', () => {
+  // Container sem `capacity` cairia silenciosamente no padrão de 20, e o jogador
+  // pagaria 1800 de ouro por uma mochila que não cresce.
+  for (const def of Object.values(ITEMS)) {
+    if (def.slot !== 'container') continue;
+    assert.ok(def.capacity && def.capacity > 0, `${def.kind} sem capacidade`);
+    assert.equal(backpackSizeFor(def.kind), def.capacity);
   }
 });
 

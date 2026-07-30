@@ -295,7 +295,30 @@ export const VENDOR_STOCK: string[] = [
   'leather_helmet', 'leather_armor', 'leather_pants', 'leather_boots', 'copper_necklace',
 ];
 
+/**
+ * Slots da mochila de quem **não tem container equipado**.
+ *
+ * ⚠️ **Não use isto para dimensionar a mochila de um personagem com mochila.**
+ * Use `backpackSizeFor()`: a capacidade real vem do container equipado, e a
+ * escada do roadmap vai de 10 a 80.
+ *
+ * 🔴 Isto já causou bug: o carregamento de personagem usava esta constante em vez
+ * da capacidade do container. Quando a Mochila subiu de 20 para 40 slots, um
+ * personagem salvo com 40 voltava com 20 — e **perdia acesso aos itens dos slots
+ * 20 a 39**, que continuavam no banco sem aparecer.
+ */
 export const BACKPACK_SIZE = 20;
+
+/**
+ * Quantos slots a mochila deste personagem tem, dado o container equipado.
+ *
+ * Fonte única para o dimensionamento: usada no carregamento e ao trocar de
+ * mochila. Sem container, cai no `BACKPACK_SIZE`.
+ */
+export function backpackSizeFor(containerKind?: string): number {
+  if (!containerKind) return BACKPACK_SIZE;
+  return ITEMS[containerKind]?.capacity ?? BACKPACK_SIZE;
+}
 export const DEPOT_SIZE = 40;
 
 export function getItem(kind: string): ItemDef | undefined {

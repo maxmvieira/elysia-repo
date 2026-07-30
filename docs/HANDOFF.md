@@ -7,6 +7,38 @@ travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa).
 
 > **Comece por aqui**, depois vá para [`ROADMAP-elysia.md`](./ROADMAP-elysia.md)
 > (plano geral) e [`HISTORICO.md`](./HISTORICO.md) (detalhe de cada etapa).
+
+---
+
+## 🚀 Retomando o trabalho — faça isto primeiro
+
+```bash
+git pull
+npm install          # confere; nenhuma dependência nova foi adicionada
+npm run typecheck    # tem que sair limpo nos 3 pacotes
+npm test             # tem que dar 298 passando, 0 falhando
+npm run dev:test     # sobe com os comandos de teste ligados
+```
+
+Se o `npm test` não der 298, **não continue** — algo se perdeu no merge.
+
+### O que mudou por baixo de você (30/07 à noite)
+
+| Mudou | Impacto em quem tinha trabalho local |
+|---|---|
+| `makeMiniActor` ganhou `attack`/`hurt`/`death` e `EntityView` ganhou `playDeath` | 🔴 **mexe em `client/src/main.ts`** — se você estava editando o render, pule para lá primeiro e resolva conflito antes de qualquer outra coisa |
+| **Quatro itens renomeados** (`Machadinha` → `Machado de Lenhador`, `Adaga` → `Adaga Curta`, `Lança` → `Lança Curta`, `Cajado de Aprendiz` → `Cajado do Aprendiz`) | o `kind` **não** mudou, então saves continuam válidos — só o nome exibido |
+| **Mochila 20 → 40 slots**, e o tamanho passou a vir do container equipado | ✅ **corrigido um bug que isso expôs:** ver abaixo |
+| Coluna `professions` passou a ser lida e gravada | a migração é auto-verificável; seu banco se conserta sozinho no primeiro boot |
+| 38 itens novos (fragmentos, receitas, materiais) | nenhum conflito — só adições em `ITEMS` |
+
+### 🔴 O bug que a mochila expôs, e por que isso importa para você
+
+O carregamento de personagem dimensionava a mochila por uma **constante** (`BACKPACK_SIZE = 20`), não pela capacidade do container equipado. Quando a Mochila subiu para 40 slots, um personagem salvo com 40 **voltava com 20 — e perdia acesso aos itens dos slots 20 a 39**, que ficavam no banco, invisíveis.
+
+Corrigido: `backpackSizeFor()` é a fonte única, usada no carregamento **e** ao trocar de mochila, com teste travando os quatro degraus.
+
+**Se você tinha personagem de teste com mochila cheia antes do pull, confira o inventário depois de entrar** — os itens devem estar todos lá.
 >
 > 🆕 Chegou a **Parte 2 das lacunas** (aqui chamada de **Doc 4**): 69 capítulos,
 > 227 decisões. Triagem e ordem aprovada em
@@ -18,7 +50,7 @@ travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa).
 
 | | 29/07 | 30/07 manhã | **30/07 noite** |
 |---|---|---|---|
-| Testes | 223 | 237 | **296** (284 shared + 12 server) |
+| Testes | 223 | 237 | **298** (286 shared + 12 server) |
 | Typecheck | limpo | limpo | limpo nos 3 pacotes |
 | Criaturas vivas no mapa | 59 | 32 | 32 |
 | Espécies definidas | 23 | 23 | 23 |
