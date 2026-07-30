@@ -67,6 +67,8 @@ import {
   affixDamageType,
   composeItemName,
   rarityChances,
+  ARMOR_CLASS_AFFINITY,
+  WEAPON_CLASS_AFFINITY,
   FRAGMENT_ITEM,
   FRAGMENTS_PER_CRAFT,
   MIN_FRAGMENTS_FOR_CHANCE,
@@ -1231,6 +1233,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const elem = affixDamageType(stack.roll?.prefix);
     if (elem && elem !== 'physical') {
       linhas.push(`Dano de ${ELEMENT_INFO[elem].name}`);
+    }
+
+    // Para quem a peça foi feita (cap. 38). É recomendação, não restrição — o
+    // doc diz "prioriza". Resolve o problema real de hoje: não havia como saber
+    // que cajado é coisa de Feiticeiro.
+    const afinidade = def.weaponType
+      ? WEAPON_CLASS_AFFINITY[def.weaponType]
+      : def.armorClass ? ARMOR_CLASS_AFFINITY[def.armorClass] : undefined;
+    if (afinidade?.length) {
+      const nomes = afinidade.map((c) => CLASSES[c as PlayerClass]?.name ?? c);
+      linhas.push(`Recomendado: ${nomes.join(', ')}`);
     }
 
     if (def.weaponType) {

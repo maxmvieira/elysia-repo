@@ -93,6 +93,49 @@ export const RARITY: Record<Rarity, RarityDef> = {
 // Passivos aleatórios
 // ---------------------------------------------------------------------------
 
+/**
+ * Classes que **priorizam** cada tipo de arma (Doc 4, cap. 38).
+ *
+ * 🔴 O doc diz **"Prioriza"**, não "só pode usar". A diferença importa: é
+ * afinidade, não bloqueio. Um Feiticeiro PODE segurar uma espada — só não é o
+ * dele, e o GDD reforça isso ao ter proficiência `Fist` para lutar sem arma
+ * nenhuma. Bloquear seria inventar restrição que o documento não pediu.
+ *
+ * ⚠️ **Sem efeito mecânico ainda, de propósito.** O doc não dá penalidade nem
+ * bônus numérico para arma fora da afinidade, e inventar um mexeria em
+ * balanceamento sem base. Por ora é informação para o jogador — o tooltip diz
+ * para quem a peça foi feita, o que já resolve o problema real de hoje: não há
+ * como saber que cajado é coisa de Feiticeiro.
+ *
+ * O Druid entra porque o cap. 38 o lista; a classe é a Etapa 15.
+ */
+export const WEAPON_CLASS_AFFINITY: Record<WeaponType, string[]> = {
+  sword: ['knight', 'assassin'], // o Assassin prioriza "Espadas Curtas"
+  axe: ['knight'],
+  mace: ['knight'],
+  spear: ['knight'],
+  dagger: ['assassin'],
+  bow: ['archer'],
+  crossbow: ['archer'],
+  staff: ['sorcerer', 'druid'],
+};
+
+/**
+ * Categoria de armadura, para a afinidade de classe do cap. 38.
+ *
+ * O doc separa **Armaduras Pesadas** (Warrior), **Leves** (Archer e Assassin) e
+ * **Vestes** (Sorcerer e Druid). Hoje o catálogo tem só peças de couro, que caem
+ * em `light` — as outras duas categorias existem para o catálogo do cap. 13–43
+ * preencher.
+ */
+export type ArmorClass = 'heavy' | 'light' | 'robe';
+
+export const ARMOR_CLASS_AFFINITY: Record<ArmorClass, string[]> = {
+  heavy: ['knight'],
+  light: ['archer', 'assassin'],
+  robe: ['sorcerer', 'druid'],
+};
+
 export type AffixId =
   | 'atk_speed' | 'crit_chance' | 'crit_damage' | 'phys_damage'
   | 'armor_pen' | 'life_steal' | 'hp_bonus' | 'mana_bonus'

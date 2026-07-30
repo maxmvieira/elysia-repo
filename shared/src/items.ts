@@ -33,7 +33,7 @@ export const EQUIP_SLOT_LABEL: Record<EquipSlot, string> = {
 };
 
 import { RARITY } from './weapons.js';
-import type { ItemRoll, WeaponType } from './weapons.js';
+import type { ArmorClass, ItemRoll, WeaponType } from './weapons.js';
 
 export type ItemCategory = 'currency' | 'consumable' | 'equip' | 'loot';
 
@@ -64,6 +64,19 @@ export interface ItemDef {
   def?: number;
   /** Tipo da arma (só para slot 'weapon'): define identidade e proficiência. */
   weaponType?: WeaponType;
+  /**
+   * Categoria da armadura (Doc 4, cap. 38): Pesada, Leve ou Veste. Define qual
+   * classe prioriza a peça. Só para peças de proteção.
+   */
+  armorClass?: ArmorClass;
+  /**
+   * 🔴 **Artefato Único** (cap. 40). Existe UM modelo, e ele nunca tem versões
+   * por raridade — não existe "Heartblade Comum" nem "Heartblade Épica".
+   *
+   * O doc é explícito: isso preserva o valor narrativo e econômico. Item marcado
+   * assim não deve entrar em pool de drop aleatório nem em receita de crafting.
+   */
+  unique?: boolean;
   /** Nível de personagem sugerido — usado para calibrar drops e loja. */
   tier?: number;
   /** Para containers (slot 'container'): quantos slots de mochila ele oferece. */
@@ -224,10 +237,12 @@ export const ITEMS: Record<string, ItemDef> = {
   apprentice_staff: { kind: 'apprentice_staff', name: 'Cajado de Aprendiz', category: 'equip', stackable: false, buyPrice: 75, slot: 'weapon', atk: 6, weaponType: 'staff', tier: 1, color: 0x6a5aa0 },
   // Demais equipamentos (compráveis / loot). def soma na defesa.
   wooden_shield: { kind: 'wooden_shield', name: 'Escudo de Madeira', category: 'equip', stackable: false, buyPrice: 40, slot: 'shield', def: 4, color: 0x8a5a2f },
-  leather_helmet: { kind: 'leather_helmet', name: 'Elmo de Couro', category: 'equip', stackable: false, buyPrice: 30, slot: 'helmet', def: 2, color: 0x8a6a3a },
-  leather_armor: { kind: 'leather_armor', name: 'Armadura de Couro', category: 'equip', stackable: false, buyPrice: 60, slot: 'armor', def: 5, color: 0x7a5230 },
-  leather_pants: { kind: 'leather_pants', name: 'Calça de Couro', category: 'equip', stackable: false, buyPrice: 35, slot: 'pants', def: 3, color: 0x6e4a2a },
-  leather_boots: { kind: 'leather_boots', name: 'Botas de Couro', category: 'equip', stackable: false, buyPrice: 25, slot: 'boots', def: 2, color: 0x5a3a20 },
+  // Couro é armadura LEVE (cap. 38): Archer e Assassin priorizam. As categorias
+  // Pesada e Veste existem no tipo e esperam o catálogo do cap. 13–43.
+  leather_helmet: { kind: 'leather_helmet', name: 'Elmo de Couro', category: 'equip', stackable: false, buyPrice: 30, slot: 'helmet', def: 2, armorClass: 'light', color: 0x8a6a3a },
+  leather_armor: { kind: 'leather_armor', name: 'Armadura de Couro', category: 'equip', stackable: false, buyPrice: 60, slot: 'armor', def: 5, armorClass: 'light', color: 0x7a5230 },
+  leather_pants: { kind: 'leather_pants', name: 'Calça de Couro', category: 'equip', stackable: false, buyPrice: 35, slot: 'pants', def: 3, armorClass: 'light', color: 0x6e4a2a },
+  leather_boots: { kind: 'leather_boots', name: 'Botas de Couro', category: 'equip', stackable: false, buyPrice: 25, slot: 'boots', def: 2, armorClass: 'light', color: 0x5a3a20 },
   copper_necklace: { kind: 'copper_necklace', name: 'Colar de Cobre', category: 'equip', stackable: false, buyPrice: 45, slot: 'necklace', atk: 2, def: 1, color: 0xb87333 },
   // Containers de mochila: cada um define a capacidade de slots.
   // --- Recipientes -------------------------------------------------------
