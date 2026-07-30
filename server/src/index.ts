@@ -115,6 +115,9 @@ import {
   proficiencyBonus,
   proficiencyOf,
   proficiencyThreshold,
+  proficiencyFor,
+  migrateProficiencies,
+  PROFICIENCY_LABEL,
   RARITY,
   rollItem,
   rollRarity,
@@ -1211,7 +1214,7 @@ function recompute(player: Player, healGain = false): void {
   // A ARMA define identidade: o machado bate mais forte e mais devagar que a
   // adaga, e a proficiência naquele tipo soma dano conforme você a usa.
   if (arma) {
-    const prof = proficiencyOf(player.proficiencies, arma.identity.type);
+    const prof = proficiencyOf(player.proficiencies, proficiencyFor(arma.identity.type));
     // O multiplicador da arma pesa sobre o GOLPE INTEIRO, não só sobre o bônus
     // dela. É o que faz o machado realmente bater mais forte que a adaga — e o
     // speedMult compensa na cadência, mantendo o dano por segundo equilibrado.
@@ -1723,8 +1726,10 @@ function gainSkill(player: Player): void {
  */
 function gainProficiency(player: Player): void {
   const arma = equippedWeapon(player);
-  if (!arma) return;
-  const tipo = arma.identity.type;
+  // 🔴 **Desarmado treina `fist`, e antes não treinava nada.** O jogador batia
+  // sem arma e não melhorava, para sempre. `proficiencyFor(undefined)` devolve
+  // `fist` justamente para este caminho deixar de ser um beco sem saída.
+  const tipo = proficiencyFor(arma?.identity.type);
   const p = player.proficiencies[tipo] ?? { level: 0, progress: 0 };
   p.progress += 1;
   if (p.progress >= proficiencyThreshold(p.level)) {
@@ -1734,7 +1739,7 @@ function gainProficiency(player: Player): void {
     recompute(player);
     send(player, {
       t: 'chat', from: 'Sistema',
-      text: `${arma.identity.name}: maestria ${p.level}.`,
+      text: `${PROFICIENCY_LABEL[tipo]}: maestria ${p.level}.`,
     });
     return;
   }
@@ -3047,7 +3052,16 @@ function applyStoredCharacter(player: Player, c: ReturnType<typeof store.loadCha
   player.skillPoints = c.skillPoints;
   player.skillLevels = parsed.skillLevels;
   player.skillResets = c.skillResets;
-  player.proficiencies = parsed.proficiencies;
+  // 🔴 Migração de proficiência, no CARREGAMENTO e não no schema.
+  //
+  // A mudança é de FORMATO do JSON, não de coluna — a coluna `proficiencies`
+  // continua a mesma. Migrar aqui é o que faz cada personagem se converter ao
+  // entrar, sem precisar varrer a tabela inteira num boot. E `migrateProficiencies`
+  // é idempotente: chave que já é canônica passa direto, então rodar de novo num
+  // personagem já convertido não faz nada.
+  player.proficiencies = migrateProficiencies(
+    parsed.proficiencies as Record<string, { level: number; progress: number } | undefined>,
+  );
   player.professions = parsed.professions;
   player.bestiary = parsed.bestiary;
   player.respawnTown = c.respawnTown;

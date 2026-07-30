@@ -7,6 +7,8 @@ import {
   WEAPON_PROFICIENCY,
   WEAPON_TYPES,
   isMagicProficiency,
+  magicLevelOf,
+  migrateProficiencies,
   proficiencyFor,
   proficiencyMatchesIdentity,
   weaponsOf,
@@ -99,6 +101,48 @@ test('proficiência e identidade da arma não se separam em silêncio', () => {
   for (const w of WEAPON_TYPES) {
     assert.ok(proficiencyMatchesIdentity(w), `${w}: proficiência contraria a identidade`);
   }
+});
+
+test('🔴 a migração converte save antigo sem perder maestria', () => {
+  // O save antigo era chaveado por WeaponType. Quem já tinha treinado não pode
+  // acordar com a proficiência zerada.
+  const antigo = {
+    sword: { level: 12, progress: 4 },
+    mace: { level: 7, progress: 0 },
+    staff: { level: 30, progress: 9 },
+  };
+  const novo = migrateProficiencies(antigo);
+  assert.equal(novo.sword?.level, 12);
+  assert.equal(novo.club?.level, 7, 'mace virou club, o nome do documento');
+  assert.equal(novo.magic?.level, 30, 'staff virou Magic Level — é o DD-PROG-011');
+  assert.equal(magicLevelOf(novo), 30);
+});
+
+test('🔴 bow e crossbow caem em distance ficando com o MAIOR nível', () => {
+  // Somar seria errado: nível não é aditivo, e dois níveis 10 virariam um 20 que
+  // o jogador nunca treinou. Ficar com o menor puniria quem treinou as duas.
+  const novo = migrateProficiencies({
+    bow: { level: 18, progress: 3 },
+    crossbow: { level: 5, progress: 1 },
+  });
+  assert.equal(novo.distance?.level, 18);
+  assert.equal(novo.distance?.progress, 3, 'o progresso vem junto com o nível que ficou');
+  // E a ordem inversa dá o mesmo resultado — senão dependeria de como o JSON
+  // saiu do banco.
+  const inverso = migrateProficiencies({
+    crossbow: { level: 5, progress: 1 },
+    bow: { level: 18, progress: 3 },
+  });
+  assert.deepEqual(inverso, novo);
+});
+
+test('a migração é idempotente — roda no carregamento de todo mundo', () => {
+  const uma = migrateProficiencies({ staff: { level: 4, progress: 2 } });
+  const duas = migrateProficiencies(uma as Record<string, { level: number; progress: number }>);
+  assert.deepEqual(duas, uma, 'personagem já convertido não pode mudar de novo');
+  // E entrada vazia ou ausente não explode.
+  assert.deepEqual(migrateProficiencies(null), {});
+  assert.deepEqual(migrateProficiencies({}), {});
 });
 
 test('a lança NÃO é arma de distância', () => {

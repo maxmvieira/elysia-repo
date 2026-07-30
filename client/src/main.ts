@@ -80,8 +80,11 @@ import {
   craftableModel,
   LOOT_RULE_LABEL,
   PHASE_LABEL,
+  PROFICIENCY_LABEL,
+  proficiencyFor,
   type AffixId,
   type DayPhase,
+  type ProficiencyKind,
   type Professions,
   type Rarity,
   PARTY_MAX,
@@ -1430,8 +1433,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       const w = WEAPON_IDENTITY[def.weaponType];
       linhas.push(`${w.name} · ${w.hands === 2 ? 'duas mãos' : 'uma mão'} · alcance ${w.range}`);
       linhas.push(w.blurb);
-      const prof = myProficiencies[def.weaponType];
-      if (prof) linhas.push(`Sua maestria: ${prof.level}`);
+      // A maestria é da PROFICIÊNCIA, não do tipo de arma: um Cajado mostra o
+      // Magic Level, e arco e besta mostram a mesma Distância.
+      const kind = proficiencyFor(def.weaponType);
+      const prof = myProficiencies[kind];
+      linhas.push(`${PROFICIENCY_LABEL[kind]}: ${prof?.level ?? 0}`);
     }
     const mult = rar ? rar.statMult : 1;
     if (def.atk) linhas.push(`Ataque ${Math.round(def.atk * mult)}`);
@@ -2129,7 +2135,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // Maestrias de arma: só as que o jogador já começou a treinar.
     const profs = Object.entries(s.proficiencies)
       .filter(([, p]) => p.level > 0 || p.progress > 0)
-      .map(([tipo, p]) => `${WEAPON_IDENTITY[tipo as WeaponType]?.name ?? tipo} <b>${p.level}</b>`)
+      // ⚠️ A chave passou a ser `ProficiencyKind`, não `WeaponType` — "Cajado"
+      // virou "Magic Level" e arco/besta viraram "Distância". Usar
+      // `WEAPON_IDENTITY` aqui mostraria o nome antigo ou nada.
+      .map(([tipo, p]) => `${PROFICIENCY_LABEL[tipo as ProficiencyKind] ?? tipo} <b>${p.level}</b>`)
       .join(' · ');
     return (
       `${skillName}: <b>${s.skillLevel}</b> (${s.skillProgress}/${s.skillThreshold})<br>` +

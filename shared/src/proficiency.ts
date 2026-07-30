@@ -136,6 +136,63 @@ export function isMagicProficiency(kind: ProficiencyKind): boolean {
   return kind === 'magic';
 }
 
+// ---------------------------------------------------------------------------
+// O estado persistido
+// ---------------------------------------------------------------------------
+
+export interface ProficiencyProgress {
+  level: number;
+  progress: number;
+}
+
+/**
+ * A maestria do personagem em cada proficiência.
+ *
+ * 🔴 **Chaveada por `ProficiencyKind`, não por `WeaponType`** — foi esta mudança
+ * que fez o `DD-PROG-011` sair do papel. Antes, o Cajado subia uma entrada
+ * chamada `staff`; agora sobe `magic`, e é dela que as magias vão exigir nível.
+ */
+export type Proficiencies = Partial<Record<ProficiencyKind, ProficiencyProgress>>;
+
+export function proficiencyOf(profs: Proficiencies, kind: ProficiencyKind): number {
+  return profs[kind]?.level ?? 0;
+}
+
+/** Magic Level do personagem. É o número que `DD-PROG-011` chama assim. */
+export function magicLevelOf(profs: Proficiencies): number {
+  return proficiencyOf(profs, 'magic');
+}
+
+/**
+ * Converte a proficiência de um save ANTIGO (chaveada por `WeaponType`) para o
+ * vocabulário canônico.
+ *
+ * 🔴 **Duas chaves antigas caem na mesma nova**: `bow` e `crossbow` viram
+ * `distance`. Quando as duas existem, fica a de **maior nível** — somar seria
+ * errado (nível não é aditivo, e somar dois níveis 10 daria um 20 que o jogador
+ * nunca treinou) e ficar com a menor puniria quem treinou as duas.
+ *
+ * ⚠️ Chaves que já são canônicas passam direto, então rodar isto duas vezes no
+ * mesmo dado é inofensivo — o que importa numa migração que roda no boot.
+ */
+export function migrateProficiencies(
+  antigo: Record<string, ProficiencyProgress | undefined> | null | undefined,
+): Proficiencies {
+  const out: Proficiencies = {};
+  if (!antigo) return out;
+  for (const [chave, valor] of Object.entries(antigo)) {
+    if (!valor) continue;
+    // `bow`/`crossbow`/`staff`/`mace` são traduzidos; o resto (e as chaves que já
+    // são canônicas, como `fist`) permanece.
+    const nova = (WEAPON_PROFICIENCY as Record<string, ProficiencyKind | undefined>)[chave]
+      ?? (PROFICIENCY_KINDS.includes(chave as ProficiencyKind) ? chave as ProficiencyKind : undefined);
+    if (!nova) continue;
+    const atual = out[nova];
+    if (!atual || valor.level > atual.level) out[nova] = { ...valor };
+  }
+  return out;
+}
+
 /**
  * Confere que a identidade da arma concorda com a proficiência.
  *

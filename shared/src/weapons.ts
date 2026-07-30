@@ -123,7 +123,7 @@ export const WEAPON_CLASS_AFFINITY: Record<WeaponType, string[]> = {
 /**
  * Categoria de armadura, para a afinidade de classe do cap. 38.
  *
- * O cap. 38 separa **Armaduras Pesadas** (Warrior), **Leves** (Archer e
+ * O cap. 38 separa **Armaduras Pesadas** (Knight), **Leves** (Archer e
  * Assassin) e **Vestes** (Sorcerer e Druid).
  *
  * ⚠️ **`medium` não vem do cap. 38 — vem do cap. 25.** O catálogo de peitorais
@@ -132,7 +132,7 @@ export const WEAPON_CLASS_AFFINITY: Record<WeaponType, string[]> = {
  * Mas o cap. 38 **não dá classe nenhuma que priorize Médias**, e inventar uma
  * seria escolher identidade de classe por conta própria. Fica com afinidade
  * vazia: é o meio neutro, boa para quem não tem categoria própria (e para o
- * Warrior que não quer o peso da Pesada), sem prometer afinidade que o doc não
+ * Knight que não quer o peso da Pesada), sem prometer afinidade que o doc não
  * fecha.
  */
 export type ArmorClass = 'heavy' | 'medium' | 'light' | 'robe';
@@ -291,9 +291,12 @@ export function proficiencyBonus(level: number): number {
   return Math.pow(level, 0.85) * 0.55;
 }
 
-/** Proficiência de cada tipo de arma do personagem. */
-export type Proficiencies = Partial<Record<WeaponType, { level: number; progress: number }>>;
-
-export function proficiencyOf(profs: Proficiencies, type: WeaponType): number {
-  return profs[type]?.level ?? 0;
-}
+/**
+ * ⚠️ `Proficiencies` e `proficiencyOf` **mudaram de casa** para
+ * `proficiency.ts` em 2026-07-30, quando passaram a ser chaveadas pelo
+ * vocabulário canônico do `DD-PROG-011` (Magic Level, Fist, Distance) em vez de
+ * por `WeaponType`.
+ *
+ * Não ficaram aqui porque `proficiency.ts` precisa de `WEAPON_IDENTITY` deste
+ * arquivo, e o caminho de volta criaria import circular.
+ */
