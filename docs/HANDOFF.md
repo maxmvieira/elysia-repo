@@ -1,26 +1,87 @@
 # Handoff — estado do projeto em 2026-07-30
 
-Resumo para quem for continuar o trabalho. Duas sessões registradas aqui: a de
-**29/07** (Etapa 8, bestiário do Doc 3, crafting) e a de **30/07** (aba Vender,
-colisão, clique para andar, banco, curva de nível, UI).
+Resumo para quem for continuar o trabalho. Três sessões registradas: **29/07**
+(Etapa 8, bestiário do Doc 3, crafting), **30/07 manhã** (aba Vender, colisão,
+clique para andar, banco, curva de nível) e **30/07 noite** (as 4 pendências que
+travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa).
 
 > **Comece por aqui**, depois vá para [`ROADMAP-elysia.md`](./ROADMAP-elysia.md)
 > (plano geral) e [`HISTORICO.md`](./HISTORICO.md) (detalhe de cada etapa).
+>
+> 🆕 Chegou a **Parte 2 das lacunas** (aqui chamada de **Doc 4**): 69 capítulos,
+> 227 decisões. Triagem e ordem aprovada em
+> [`DOC4-TRIAGEM.md`](./DOC4-TRIAGEM.md).
 
 ---
 
 ## Saúde do código
 
-| | 29/07 (início) | 29/07 (fim) | **Agora (30/07)** |
+| | 29/07 | 30/07 manhã | **30/07 noite** |
 |---|---|---|---|
-| Testes | 134 | 223 | **237** (225 shared + 12 server) |
+| Testes | 223 | 237 | **288** (276 shared + 12 server) |
 | Typecheck | limpo | limpo | limpo nos 3 pacotes |
-| Criaturas vivas no mapa | 27 | 59 | **32** (redução pedida pelo dono) |
-| Espécies definidas | 8 | 23 | **23** |
-| Espécies que nascem | 3 | 21 | **23** (uma de cada, sem cópia) |
-| Schema do banco | v1 | v2 | **v3** (`professions`, `bank_gold`) |
+| Criaturas vivas no mapa | 59 | 32 | 32 |
+| Espécies definidas | 23 | 23 | 23 |
+| Schema do banco | v2 | v3 | v3 |
+| Itens no catálogo | ~25 | ~32 | **~85** |
 
 `npm run dev:test` sobe tudo com os comandos de teste ligados.
+
+---
+
+## 🆕 O que a sessão de 30/07 à noite entregou
+
+### ✅ As QUATRO pendências que travavam código — fechadas
+
+Estavam abertas desde a Etapa 8, e **nenhuma das duas partes do documento de
+lacunas as cobria**. O dono decidiu as quatro, delegando o balanceamento.
+
+| Pendência | Decisão |
+|---|---|
+| `DD-DEATH-009` | penalidade **branda** confirmada: teto de **um nível** |
+| `DD-PROG-002` | pontos por nível **10 → 20** em degraus de 50 níveis |
+| `DD-CC-013/014` | **os dois** métodos anti-CC-chain (DR + imunidade de 3 s) |
+| `DD-DEF-012` | cap de bloqueio **25 %** físico, **10 %** mágico |
+
+🔴 **Sobre a penalidade de morte, leia antes de mexer:** havia uma discrepância
+real entre roadmap e código, aberta por dois dias. O roadmap mandava reverter
+para a tabela dura do Doc 1 (200–300 % em nível alto) e o código nunca
+acompanhou. **A implementação estava certa; era o roadmap que estava errado.**
+Corrigido nos dois lados, com o histórico das três voltas registrado na Etapa 5
+do roadmap e um aviso em `death.ts`. **Não "conserte" de volta.**
+
+### ✅ Doc 4 — três sistemas implementados
+
+**Cap. 46 — Item Affix Bible.** Equipamento ganhou **nome**: *"Espada Longa Feroz
+do Dragão"*. 40 prefixos, 30 sufixos, compatibilidade e maldições.
+
+🔴 **Prefixo elemental muda o dano DE VERDADE** (decisão do dono): espada
+Flamejante causa dano de fogo, a arma **vence a classe**, e dano não-físico bate
+contra a defesa mágica da criatura. É o que fez as resistências saírem do papel.
+
+**Cap. 44–45 — Material Bible e Monster Drop Bible.** 24 materiais novos, um
+conjunto por família de criatura. Antes, **21 das 23 espécies só davam XP** — o
+`DD-DROP-001` proíbe exatamente isso.
+
+**Cap. 38/40 — afinidade de classe.** O tooltip agora diz para quem a peça foi
+feita. É **recomendação, não bloqueio** — o doc diz "Prioriza".
+
+### ✅ Fabricação completa
+
+Dá para fabricar. **NPC Ferreiro** na praça de Valoria (laranja de forja), com
+bancada que mostra a **tabela de probabilidade recalculada a cada digitação** —
+essencial, porque `DD-PROF-022` faz da proporção dos fragmentos a origem da
+chance: é aposta informada, não caixa-surpresa.
+
+### ✅ Pedidos do dono
+
+- **Soltar item no chão**: botão direito solta 1, `Shift`+direito solta a pilha.
+  Some em 3 minutos.
+- **Mochila de 40 slots** — e a escada do roadmap inteira: 10/40/60/80.
+
+🔴 **Um vazamento de desempenho corrigido no caminho:** item no chão **nunca
+expirava**. Com 32 criaturas renascendo para sempre, o mapa acumulava centenas de
+entidades, e todas iam no snapshot de todo jogador a cada tique.
 
 ---
 
@@ -305,7 +366,7 @@ No chat do jogo:
 
 ---
 
-## Sugestão de por onde começar (atualizada em 30/07)
+## Sugestão de por onde começar (atualizada em 30/07 à noite)
 
 O dono está **desenhando os sprites** — não mexa no bestiário nem adicione criatura
 enquanto isso. O que rende agora é código que a arte vai precisar, e o que
@@ -313,19 +374,65 @@ está pela metade.
 
 1. 🔴 **Animação de ataque por direção.** Hoje nenhum monstro consegue ter 4
    direções E ataque (ver o gargalo de arte acima). É o que bloqueia metade do que
-   o dono está desenhando, e os gatilhos já existem no servidor.
-2. **Protocolo + handler de fabricação** (`C2S_Craft`) — as regras estão prontas e
-   testadas em `shared/src/crafting.ts`, falta o ato. Objetivo, não depende de
-   decisão de design.
-3. **Ícones das 10 condições** — hoje são quadrados coloridos sem significado, e as
+   o dono está desenhando, e os gatilhos já existem no servidor. **Continua sendo
+   o item mais valioso da lista.**
+2. **Ícones das 10 condições** — hoje são quadrados coloridos sem significado, e as
    aranhas já aplicam Lentidão de verdade.
-4. **Responder as decisões pendentes** acima (as 4 do Doc 3 + os números de venda),
-   que são baratas e destravam código.
-5. **Etapa 9 — Party e shared XP**, se o dono quiser avançar o roadmap.
+3. **Continuar o Doc 4 na ordem aprovada.** Os três primeiros sistemas estão
+   feitos; o próximo é o **resto do catálogo de equipamentos** (cap. 13–43): os
+   modelos de arma e armadura por família, que também destravam os "materiais
+   complementares" nas receitas de fabricação.
+4. **Etapa 9 — Party e shared XP**, se o dono quiser avançar o roadmap em vez do
+   Doc 4.
 
-O que **não** vale a pena: adicionar Tier IV em diante (mais criaturas-bolha tem
-retorno decrescente), nem calibrar a curva de XP fino — o doc põe "faixas de nível"
-depois do bestiário na ordem oficial, então é cedo.
+O que **não** vale a pena agora:
+
+- **Adicionar Tier IV em diante** — mais criaturas-bolha tem retorno decrescente
+  enquanto Tier II e III não têm arte.
+- **Cartas, Sets e Relíquias** (cap. 50–79 do Doc 4, ~310 decisões) — são
+  **endgame** e nenhum jogador passa do Tier III. Construir isso agora é conteúdo
+  que ninguém alcança.
+- **NPC / Quest / Reputação** (cap. 47–49) — precisam de cidade, o mesmo bloqueio
+  da Asteria.
+- **Chefes e Dungeons** (cap. 80–81) — contrariam a ordem que `DD-BAL-038` fechou:
+  Tier por Tier antes de MVPs.
+
+### 🔴 Duas portas fechadas de propósito (não são bugs)
+
+- **Mítico e Relíquia são infabricáveis.** `DD-PROF-028` reserva os dois aos
+  **dois Mestres Ferreiros do mundo**, que dependem de cidades (Etapa 16). A
+  bancada recusa com mensagem explicando.
+- **Ervas, Flores, Cogumelos, Minérios, Madeiras e Gemas não existem** como
+  material. Dependem de **coleta e mineração**, que não foram feitas. Há teste
+  impedindo que entrem antes — criar o item sem forma de obtê-lo seria item
+  inalcançável, e `DD-MAT-001` proíbe material que "existe apenas para ocupar
+  espaço". **Consequência prática: o Ferreiro não tem minério e o Alquimista não
+  tem erva.** As profissões dependem da coleta para funcionarem de verdade.
+
+### ⚠️ A inconsistência que já apareceu QUATRO vezes
+
+O vocabulário elemental do documento estoura os sete tipos de `DD-ELM-002`
+(Físico · Fogo · Gelo · Elétrico · Veneno · Sagrado · Sombrio) em quatro lugares
+diferentes:
+
+| Onde | O que aparece fora dos sete |
+|---|---|
+| Doc 3 | `Slime Azul → Água` |
+| Doc 4 cap. 46 | prefixos `Terreno`, `Marinho` |
+| Doc 4 cap. 44 | 11 afinidades de material (Água, Terra, Vento, Aether, Corrupção) |
+| Doc 4 cap. 39 | **14** afinidades de equipamento (soma Veneno, Vida, Morte) |
+
+✅ **Decisão do dono (30/07): vocabulário único, colapsa nos sete.** Água e Gelo →
+`ice`, Terra → `physical`, Vento e Raio → `electric`, Natureza → `poison`, Luz e
+Aether → `holy`, Trevas e Corrupção → `dark`, Vida → `holy`, Morte → `dark`.
+
+⚠️ **O que se perde:** Água e Gelo passam a ser indistinguíveis, e o mesmo vale
+para Vento/Raio e Trevas/Corrupção. **Aether → `holy` é o mapeamento mais
+frágil** — Aether é a energia mágica do mundo na lore, Sagrado é "energia vital".
+Se o Aether ganhar peso mecânico próprio, é o primeiro lugar a rever.
+
+Há testes em `materials.test.ts` e `affixes.test.ts` impedindo que um oitavo
+elemento entre por descuido.
 
 ---
 
