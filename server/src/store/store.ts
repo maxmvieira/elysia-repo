@@ -20,7 +20,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { nameKey } from '@dominion/shared';
-import { SCHEMA_V1, SCHEMA_V2, SCHEMA_VERSION } from './schema.js';
+import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_VERSION } from './schema.js';
 
 // --------------------------------------------------------------- Tipos ----
 
@@ -53,6 +53,8 @@ export interface StoredCharacter {
   hp: number;
   mana: number;
   gold: number;
+  /** Ouro guardado no Banco. Só número: o Banco não guarda item. */
+  bankGold: number;
   tileX: number;
   tileY: number;
   floor: number;
@@ -133,6 +135,11 @@ export class Store {
     // no meio do caminho.
     if (!this.hasColumn('character', 'professions')) {
       this.db.exec(SCHEMA_V2);
+    }
+    // v3 pelo mesmo padrão auto-verificável, e pelo mesmo motivo: número de
+    // versão sozinho mente (ver o comentário acima).
+    if (!this.hasColumn('character', 'bank_gold')) {
+      this.db.exec(SCHEMA_V3);
     }
     if (current !== SCHEMA_VERSION) {
       this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
@@ -232,16 +239,16 @@ export class Store {
            account_id, name, name_key, class, gender,
            level, xp, unspent_points, talent_points, attributes,
            skill_kind, skill_level, skill_progress,
-           hp, mana, gold, tile_x, tile_y, floor, respawn_town,
+           hp, mana, gold, bank_gold, tile_x, tile_y, floor, respawn_town,
            skill_points, skill_resets, skill_levels, proficiencies, bestiary,
            created_at, last_played_at
-         ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?, ?,?)`,
+         ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?, ?,?)`,
       )
       .run(
         c.accountId, c.name, nameKey(c.name), c.cls, c.gender,
         c.level, c.xp, c.unspentPoints, c.talentPoints, c.attributes,
         c.skillKind, c.skillLevel, c.skillProgress,
-        c.hp, c.mana, c.gold, c.tileX, c.tileY, c.floor, c.respawnTown,
+        c.hp, c.mana, c.gold, c.bankGold, c.tileX, c.tileY, c.floor, c.respawnTown,
         c.skillPoints, c.skillResets, c.skillLevels, c.proficiencies, c.bestiary,
         now, now,
       );
@@ -273,6 +280,8 @@ export class Store {
       hp: r.hp as number,
       mana: r.mana as number,
       gold: r.gold as number,
+      // `?? 0` cobre a linha que existia antes da v3 e ainda não foi regravada.
+      bankGold: (r.bank_gold as number) ?? 0,
       tileX: r.tile_x as number,
       tileY: r.tile_y as number,
       floor: r.floor as number,
@@ -296,7 +305,7 @@ export class Store {
           `UPDATE character SET
              level=?, xp=?, unspent_points=?, talent_points=?, attributes=?,
              skill_kind=?, skill_level=?, skill_progress=?,
-             hp=?, mana=?, gold=?, tile_x=?, tile_y=?, floor=?, respawn_town=?,
+             hp=?, mana=?, gold=?, bank_gold=?, tile_x=?, tile_y=?, floor=?, respawn_town=?,
              skill_points=?, skill_resets=?, skill_levels=?, proficiencies=?, bestiary=?,
              last_played_at=?
            WHERE id=?`,
@@ -304,7 +313,7 @@ export class Store {
         .run(
           c.level, c.xp, c.unspentPoints, c.talentPoints, c.attributes,
           c.skillKind, c.skillLevel, c.skillProgress,
-          c.hp, c.mana, c.gold, c.tileX, c.tileY, c.floor, c.respawnTown,
+          c.hp, c.mana, c.gold, c.bankGold, c.tileX, c.tileY, c.floor, c.respawnTown,
           c.skillPoints, c.skillResets, c.skillLevels, c.proficiencies, c.bestiary,
           Date.now(), c.id,
         );

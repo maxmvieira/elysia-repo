@@ -10,6 +10,24 @@
         --panel: #1c1a17;
         --border: #3a352d;
         --text: #d8cfbf;
+
+        /*
+         * ---- "Zoom" da interface ------------------------------------------
+         *
+         * As barras laterais comiam 480 px dos dois lados somados e ainda
+         * estouravam na vertical (barra de scroll aparecendo). Estes três
+         * números são o controle: mexer neles reescala a UI inteira, em vez de
+         * caçar tamanho solto por todo o arquivo.
+         *
+         * ⚠️ `--slot` e `--bar-w` estão AMARRADOS: a mochila é uma grade de 5
+         * colunas, e 5 × slot + 4 × 3 px de gap tem que caber em
+         * `--bar-w` − 2 × (padding da barra) − 2 × (padding da .box).
+         * Com 190/28: 5×28+12 = 152, e o espaço útil é 190−14−12 = 164. Cabe.
+         * Aumentar `--slot` sem aumentar `--bar-w` reintroduz o scroll.
+         */
+        --bar-w: 190px;
+        --slot: 28px;
+        --bar-pad: 7px;
       }
       * {
         box-sizing: border-box;
@@ -36,17 +54,20 @@
       }
       /* Painel lateral estilo MMORPG clássico (doc 16). */
       #sidebar {
-        width: 240px;
+        width: var(--bar-w);
         background: var(--panel);
         border-left: 2px solid var(--border);
         display: flex;
         flex-direction: column;
-        padding: 10px;
-        gap: 10px;
+        padding: var(--bar-pad);
+        gap: 6px;
         overflow-y: auto;
+        /* Scrollbar fina: quando ela precisar aparecer, não rouba 15 px de conteúdo. */
+        scrollbar-width: thin;
+        scrollbar-color: #3a352d transparent;
       }
       #sidebar h1 {
-        font-size: 12px;
+        font-size: 11px;
         margin: 0;
         letter-spacing: 0.3px;
         color: #c9a86a;
@@ -55,8 +76,8 @@
         background: linear-gradient(#1a1712, #131009);
         border: 1px solid #000;
         border-radius: 5px;
-        padding: 7px 8px;
-        font-size: 10.5px;
+        padding: 5px 6px;
+        font-size: 10px;
         box-shadow: inset 0 1px 0 rgba(201, 168, 106, 0.09), 0 1px 3px rgba(0, 0, 0, 0.5);
       }
       /* Animação de clique em todos os botões (afunda levemente). */
@@ -104,9 +125,11 @@
         border: 1px solid #000;
         border-radius: 3px;
         box-shadow: inset 0 0 0 1px #2b2620;
-        width: 100%;
-        max-width: 190px;
-        height: auto;
+        /* Fixo em 150 (= o atributo do canvas): esticar por % reamostrava a
+           imagem e deixava o minimapa levemente borrado. Agora é 1 px = 1 px. */
+        width: 150px;
+        height: 150px;
+        align-self: center;
       }
       #chatlog {
         flex: 1;
@@ -593,12 +616,12 @@
       }
       /* Painel de chat à esquerda */
       #leftbar {
-        width: 240px;
+        width: var(--bar-w);
         background: var(--panel);
         border-right: 2px solid var(--border);
         display: flex;
         flex-direction: column;
-        padding: 10px;
+        padding: var(--bar-pad);
       }
       /* Painéis retráteis (+/−) */
       .phead {
@@ -606,13 +629,13 @@
         justify-content: space-between;
         align-items: center;
         color: #d9b26a;
-        font-size: 10.5px;
-        letter-spacing: 0.4px;
-        gap: 6px;
+        font-size: 10px;
+        letter-spacing: 0.3px;
+        gap: 5px;
         cursor: grab;
         user-select: none;
         touch-action: none;
-        padding-bottom: 5px;
+        padding-bottom: 4px;
         border-bottom: 1px solid rgba(201, 168, 106, 0.16);
         text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
       }
@@ -631,8 +654,8 @@
         background: #14120f;
         border: 1px solid var(--border);
         color: #c9a86a;
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
         border-radius: 4px;
         cursor: pointer;
         line-height: 1;
@@ -644,17 +667,17 @@
         display: none !important;
       }
       .pbody {
-        margin-top: 6px;
+        margin-top: 5px;
       }
       /* Inventário: equipamento + mochila + depósito */
       /* Paperdoll compacto e centrado. */
       #equipgrid {
         display: grid;
-        grid-template-columns: repeat(3, 34px);
-        grid-auto-rows: 34px;
+        grid-template-columns: repeat(3, var(--slot));
+        grid-auto-rows: var(--slot);
         gap: 3px;
         justify-content: center;
-        margin: 2px 0 6px;
+        margin: 2px 0 5px;
       }
       .eslot.corner {
         border: none;
@@ -665,18 +688,18 @@
       #bpgrid,
       #dpgrid {
         display: grid;
-        grid-template-columns: repeat(5, 34px);
-        grid-auto-rows: 34px;
+        grid-template-columns: repeat(5, var(--slot));
+        grid-auto-rows: var(--slot);
         gap: 3px;
-        margin-top: 5px;
+        margin-top: 4px;
         justify-content: center;
       }
       /* Célula de item/slot: encaixe escuro com relevo (inset), estilo Tibia. */
       .islot,
       .eslot {
         position: relative;
-        width: 34px;
-        height: 34px;
+        width: var(--slot);
+        height: var(--slot);
         background: linear-gradient(#0c0a08, #15120d);
         border: 1px solid #000;
         border-radius: 3px;
@@ -833,8 +856,8 @@
       }
       #corpse-grid {
         display: grid;
-        grid-template-columns: repeat(5, 34px);
-        grid-auto-rows: 34px;
+        grid-template-columns: repeat(5, var(--slot));
+        grid-auto-rows: var(--slot);
         gap: 3px;
         justify-content: center;
       }
@@ -1255,6 +1278,76 @@
         color: #8a8274;
         font-size: 11px;
       }
+      /* Banco (modal) — reaproveita a moldura da loja. */
+      #bank {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.55);
+        z-index: 15;
+      }
+      #bank .win {
+        width: 280px;
+        background: var(--panel);
+        border: 2px solid #4a6a8a;
+        border-radius: 8px;
+        padding: 14px;
+      }
+      #bank h3 {
+        margin: 0 0 10px;
+        color: #9fc7e8;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #bank h3 span.close {
+        cursor: pointer;
+        color: #a89f8f;
+      }
+      .bankrow {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 2px;
+        border-bottom: 1px solid #241f18;
+        font-size: 12px;
+        color: #d8cfbf;
+      }
+      .bankrow b {
+        color: #f2c14e;
+        font-variant-numeric: tabular-nums;
+      }
+      #bank-amount {
+        width: 100%;
+        margin: 10px 0 8px;
+        padding: 6px 8px;
+        background: #1a1712;
+        border: 1px solid #4a4034;
+        border-radius: 4px;
+        color: #e8dfcf;
+        font-size: 12px;
+      }
+      .bankbtns {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      .bankbtns button {
+        flex: 1;
+        background: #3a5a2f;
+        border: 1px solid #4a7a3a;
+        color: #eaffea;
+        padding: 5px 0;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11.5px;
+      }
+      .bankbtns button.wit {
+        background: #3a4a5a;
+        border-color: #4a6a8a;
+        color: #dfeeff;
+      }
     </style>
   </head>
   <body>
@@ -1278,14 +1371,15 @@
         <div class="box panel" id="mapbox">
           <div class="phead"><span>🗺️ Mapa</span><button class="pt" title="Minimizar">−</button></div>
           <div class="pbody" style="display: flex; justify-content: center">
-            <canvas id="minimap" width="180" height="180"></canvas>
+            <!-- 150 e não 180: era o painel mais alto da barra. O JS deriva a
+                 escala de `miniCanvas.width`, então mudar aqui basta. -->
+            <canvas id="minimap" width="150" height="150"></canvas>
           </div>
         </div>
         <div class="box panel" id="vitalsbox">
           <div class="phead">
             <span>Vanguard · Nv <b id="level">1</b></span>
             <span style="display: flex; gap: 8px; align-items: center">
-              <span>🪙 <b id="gold">0</b></span>
               <button class="pt" title="Minimizar">−</button>
             </span>
           </div>
@@ -1336,6 +1430,25 @@
         <div id="shoplist"></div>
         <div class="hint" id="shophint" style="margin-top: 8px">
           Compra com ouro. Fique perto do comerciante.
+        </div>
+      </div>
+    </div>
+    <div id="bank">
+      <div class="win">
+        <h3><span>🏦 Banco</span><span class="close" id="bank-close">✕</span></h3>
+        <div class="bankrow"><span>Em mão</span><b id="bank-hand">0</b></div>
+        <div class="bankrow"><span>Guardado</span><b id="bank-vault">0</b></div>
+        <input id="bank-amount" type="number" min="1" step="1" placeholder="Quantia" />
+        <div class="bankbtns">
+          <button id="bank-dep">Depositar</button>
+          <button id="bank-dep-all">Depositar tudo</button>
+        </div>
+        <div class="bankbtns">
+          <button id="bank-wit" class="wit">Sacar</button>
+          <button id="bank-wit-all" class="wit">Sacar tudo</button>
+        </div>
+        <div class="hint" id="bank-hint" style="margin-top: 8px">
+          O ouro guardado não cai com o corpo se você morrer.
         </div>
       </div>
     </div>

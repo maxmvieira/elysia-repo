@@ -15,7 +15,7 @@
  * Migrações: `user_version` do SQLite. Cada versão é um passo idempotente.
  */
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /**
  * v2 — Profissões (`DD-PROF-023`).
@@ -30,6 +30,19 @@ export const SCHEMA_VERSION = 2;
  */
 export const SCHEMA_V2 = `
 ALTER TABLE character ADD COLUMN professions TEXT NOT NULL DEFAULT '{}';
+`;
+
+/**
+ * v3 — Banco (pedido do dono, 2026-07-30).
+ *
+ * Uma coluna, não uma tabela: o banco guarda **só ouro**, um número por
+ * personagem. Tabela própria só se um dia ele guardar itens — e aí seria outro
+ * sistema, mais próximo do Depósito (`DD` do cap. 19: *"CASA ≠ BANCO"*).
+ *
+ * DEFAULT 0 resolve os personagens que já existem: entram com o banco vazio.
+ */
+export const SCHEMA_V3 = `
+ALTER TABLE character ADD COLUMN bank_gold INTEGER NOT NULL DEFAULT 0;
 `;
 
 export const SCHEMA_V1 = `

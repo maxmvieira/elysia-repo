@@ -65,6 +65,14 @@ export interface FloorLink {
 }
 
 /**
+ * Função de um NPC. O Doc 3 é explícito no cap. "Vida em Elysia": *"cada NPC
+ * possui uma função"*, e lista Ferreiro, Comerciante, **Banco**, Estalajadeiro e
+ * outros como funções SEPARADAS. Daí o Banqueiro ser um NPC próprio e não uma
+ * terceira aba do Comerciante.
+ */
+export type NpcRole = 'vendor' | 'bank';
+
+/**
  * Mapa multi-andar. Cada andar é uma grade `width*height` de ids de tile,
  * em row-major (index = y*width + x).
  */
@@ -84,8 +92,8 @@ export interface GameMap {
    * guardar/retirar itens no baú e MONSTROS NÃO ENTRAM. Retângulo inclusivo.
    */
   depotZone?: { x0: number; y0: number; x1: number; y1: number };
-  /** NPCs fixos do mundo (comerciante etc.). */
-  npcs?: { name: string; x: number; y: number; floor: number; role: 'vendor' }[];
+  /** NPCs fixos do mundo (comerciante, banqueiro…). */
+  npcs?: { name: string; x: number; y: number; floor: number; role: NpcRole }[];
 }
 
 /** Uma célula está dentro da zona do Depósito? */

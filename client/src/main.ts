@@ -38,6 +38,7 @@ import {
   buildStarterMap,
   getItem,
   getTileType,
+  isWalkable,
   type AttributeKey,
   type Direction,
   type EntitySnapshot,
@@ -136,7 +137,9 @@ const chatInputEl = document.querySelector<HTMLInputElement>('#chatinput')!;
 const viewportEl = document.querySelector<HTMLDivElement>('#viewport')!;
 const el = (id: string) => document.getElementById(id)!;
 const hud = {
-  level: el('level'), gold: el('gold'),
+  // Sem `gold`: o contador ao lado do nível saiu a pedido do dono. O ouro do
+  // personagem se vê nas moedas da mochila e no Banco.
+  level: el('level'),
   hpfill: el('hpfill'), hptext: el('hptext'),
   manafill: el('manafill'), manatext: el('manatext'),
   xpfill: el('xpfill'), xptext: el('xptext'),
@@ -497,6 +500,26 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   /** Fitas de ícone de condição, por id de entidade (criadas sob demanda). */
   const condStrips = new Map<string, ReturnType<typeof makeConditionStrip>>();
 
+  // ---- Mover por clique: marcadores no chão ------------------------------
+  //
+  // Dois retângulos desenhados por cima do piso e por baixo de tudo o mais
+  // (zIndex negativo): o tile sob o mouse e o destino clicado.
+  const hoverMark = new Graphics();
+  hoverMark.rect(1, 1, TS - 2, TS - 2).stroke({ width: 1, color: 0xd8e8d8, alpha: 0.5 });
+  hoverMark.zIndex = -0.9;
+  hoverMark.visible = false;
+  hoverMark.eventMode = 'none';
+  objects.addChild(hoverMark);
+
+  const destMark = new Graphics();
+  destMark.rect(1, 1, TS - 2, TS - 2)
+    .fill({ color: 0x5fd15f, alpha: 0.16 })
+    .stroke({ width: 2, color: 0x6cf06c, alpha: 0.95 });
+  destMark.zIndex = -0.8;
+  destMark.visible = false;
+  destMark.eventMode = 'none';
+  objects.addChild(destMark);
+
   // Anel de alvo (sob o inimigo selecionado) e camada de efeitos (números).
   const targetRing = new Graphics();
   targetRing.ellipse(TS / 2, TS - 2, TS / 2 - 1, TS / 4);
@@ -537,6 +560,107 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // Alcance de ataque do meu personagem (tiles). Vem do S2C_Stats; a Battle list
   // só mostra monstros dentro desse raio + uma margem de aproximação.
   let myAttackRange = 1;
+
+  // ---- Mover por clique ---------------------------------------------------
+  //
+  // O servidor continua a autoridade: ele só entende PASSO (`{t:'move',dx,dy}`),
+  // e é isso que continuamos mandando. O clique só decide a SEQUÊNCIA de passos.
+  // Nada de "andar até (x,y)" no protocolo — seria abrir a porta para o cliente
+  // ditar posição.
+  //
+  // Rota por BFS e não A*: a grade é 60×60 (3.600 nós no pior caso, e sempre
+  // menos por causa do teto abaixo), roda uma vez por clique, e BFS já dá o
+  // caminho MAIS CURTO em grade de custo uniforme. A* aqui seria heurística sem
+  // ganho mensurável.
+  let caminho: Array<{ x: number; y: number }> = [];
+  /** Quando o passo atual foi pedido, para detectar rota travada. */
+  let passoPedidoEm = 0;
+
+  /** Teto de nós visitados. Clique no outro canto do mapa não pode travar o frame. */
+  const PATH_MAX_NOS = 4000;
+  /** Sem sair do lugar por este tempo, a rota é recalculada (algo entrou na frente). */
+  const PASSO_TRAVADO_MS = 700;
+
+  /**
+   * Tiles com criatura, como `y * largura + x`. Criatura é obstáculo desde que
+   * ganhou colisão, então a rota tem que desviar — senão o personagem anda até
+   * encostar no monstro e fica empurrando parede.
+   */
+  const tilesDeCriatura = new Set<number>();
+
+  function podeAndar(x: number, y: number, ignorarCriatura = false): boolean {
+    if (!isWalkable(map, x, y, myFloor)) return false;
+    return ignorarCriatura || !tilesDeCriatura.has(y * map.width + x);
+  }
+
+  /**
+   * Menor caminho de (sx,sy) até (tx,ty), sem incluir a origem. `[]` se não há
+   * rota.
+   *
+   * O destino entra com `ignorarCriatura`: clicar EM CIMA de um monstro deve
+   * levar até ele (para atacar), não ser recusado como "inalcançável".
+   */
+  function rotaAte(sx: number, sy: number, tx: number, ty: number): Array<{ x: number; y: number }> {
+    if (sx === tx && sy === ty) return [];
+    if (!isWalkable(map, tx, ty, myFloor)) return [];
+    const largura = map.width;
+    const anterior = new Map<number, number>();
+    const key = (x: number, y: number) => y * largura + x;
+    const fila: number[] = [key(sx, sy)];
+    const visto = new Set<number>(fila);
+    let cabeca = 0;
+    while (cabeca < fila.length && visto.size < PATH_MAX_NOS) {
+      const atual = fila[cabeca++]!;
+      const ax = atual % largura;
+      const ay = Math.floor(atual / largura);
+      if (ax === tx && ay === ty) {
+        // Reconstrói de trás para frente.
+        const saida: Array<{ x: number; y: number }> = [];
+        let no = atual;
+        while (no !== key(sx, sy)) {
+          saida.push({ x: no % largura, y: Math.floor(no / largura) });
+          no = anterior.get(no)!;
+        }
+        return saida.reverse();
+      }
+      // 8 direções: o servidor aceita diagonal (custa ~1,5× o tempo, mas é passo).
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = ax + dx;
+          const ny = ay + dy;
+          const k = key(nx, ny);
+          if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+          if (visto.has(k)) continue;
+          // O tile de DESTINO pode estar ocupado (clique sobre monstro); os do
+          // meio do caminho, não.
+          if (!podeAndar(nx, ny, nx === tx && ny === ty)) continue;
+          visto.add(k);
+          anterior.set(k, atual);
+          fila.push(k);
+        }
+      }
+    }
+    return [];
+  }
+
+  function cancelarRota(): void {
+    caminho = [];
+    destMark.visible = false;
+  }
+
+  function irPara(tx: number, ty: number): void {
+    const rota = rotaAte(myTileX, myTileY, tx, ty);
+    if (rota.length === 0) {
+      cancelarRota();
+      return;
+    }
+    caminho = rota;
+    passoPedidoEm = 0;
+    destMark.x = tx * TS;
+    destMark.y = ty * TS;
+    destMark.visible = true;
+  }
 
   function setTarget(id: string): void {
     targetId = id;
@@ -1328,6 +1452,45 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     renderShop();
     shopEl.style.display = 'flex';
   }
+
+  // ---- Banco (só ouro) ----------------------------------------------------
+  //
+  // NPC próprio, não uma aba do Comerciante: o Doc 3 lista Comerciante e Banco
+  // como FUNÇÕES separadas de NPC. E guarda só ouro — quem guarda item é o
+  // Depósito, que o cap. 19 do Doc 1 separa do Banco ("CASA ≠ BANCO").
+  const bankEl = el('bank');
+  const bankHand = el('bank-hand');
+  const bankVault = el('bank-vault');
+  const bankAmount = document.querySelector<HTMLInputElement>('#bank-amount')!;
+
+  /** Último saldo conhecido, para os botões "tudo" e para redesenhar. */
+  let goldEmMao = 0;
+  let goldGuardado = 0;
+
+  function renderBank(): void {
+    bankHand.textContent = String(goldEmMao);
+    bankVault.textContent = String(goldGuardado);
+  }
+
+  function bankSend(op: 'deposit' | 'withdraw', amount: number): void {
+    if (amount <= 0) return;
+    net.send({ t: 'bank', op, amount });
+    bankAmount.value = '';
+  }
+  /** Quantia digitada. Vazio ou inválido = 0, e aí o clique não faz nada. */
+  const bankDigitado = (): number => Math.max(0, Math.floor(Number(bankAmount.value) || 0));
+
+  el('bank-dep').onclick = () => bankSend('deposit', bankDigitado());
+  el('bank-wit').onclick = () => bankSend('withdraw', bankDigitado());
+  el('bank-dep-all').onclick = () => bankSend('deposit', goldEmMao);
+  el('bank-wit-all').onclick = () => bankSend('withdraw', goldGuardado);
+  el('bank-close').onclick = () => { bankEl.style.display = 'none'; };
+
+  function openBank(): void {
+    renderBank();
+    bankEl.style.display = 'flex';
+    bankAmount.focus();
+  }
   shopTabBuy.onclick = () => { shopTab = 'buy'; renderShop(); };
   shopTabSell.onclick = () => { shopTab = 'sell'; renderShop(); };
   el('shop-close').onclick = () => { shopEl.style.display = 'none'; };
@@ -1487,7 +1650,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   function updateHud(s: S2C_Stats): void {
     hud.level.textContent = String(s.level);
-    hud.gold.textContent = String(s.gold);
+    // O Banco não tem mensagem própria: o saldo chega junto das stats, e o painel
+    // se redesenha se estiver aberto (é assim que "Depositar tudo" fica correto
+    // logo depois de um depósito).
+    goldEmMao = s.gold;
+    goldGuardado = s.bankGold;
+    if (bankEl.style.display !== 'none') renderBank();
     (hud.hpfill as HTMLElement).style.width = `${(s.hp / s.maxHp) * 100}%`;
     hud.hptext.textContent = `${s.hp} / ${s.maxHp}`;
     (hud.manafill as HTMLElement).style.width = `${(s.mana / s.maxMana) * 100}%`;
@@ -1990,14 +2158,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   function syncEntities(entities: EntitySnapshot[]): void {
     const seen = new Set<string>();
+    // Tiles ocupados por criatura, para o pathfinding do clique desviar delas.
+    // Reconstruído a cada snapshot porque é exatamente isso que muda: monstro
+    // andou, monstro morreu.
+    tilesDeCriatura.clear();
     for (const e of entities) {
       seen.add(e.id);
+      if (e.kind === 'creature') tilesDeCriatura.add(e.tileY * map.width + e.tileX);
       const isSelf = e.id === myId;
       let view = sprites.get(e.id);
       if (!view) {
         view = makeEntity(e, isSelf, isSelf ? selfTex : otherTex, anims, setTarget, {
           classAnims, slimeAnim, slimeVariants, zombieAnim, zombieIdleAnim, knightArt, npcAnim,
-          selfClass: charClass, selfGender: gender, openShop, openCorpse,
+          selfClass: charClass, selfGender: gender, openShop, openBank, openCorpse,
         });
         sprites.set(e.id, view);
         objects.addChild(view.container);
@@ -2168,11 +2341,79 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     ev.stopPropagation();
   });
 
+  // ---- Mouse: destacar o tile sob o cursor e andar até o clicado ----------
+  //
+  // Converter tela -> tile é o inverso da câmera: `world.x/y` é o deslocamento e
+  // `ZOOM` a escala.
+  function tileDoEvento(ev: MouseEvent): { x: number; y: number } {
+    const r = viewportEl.getBoundingClientRect();
+    const wx = (ev.clientX - r.left - world.x) / ZOOM;
+    const wy = (ev.clientY - r.top - world.y) / ZOOM;
+    return { x: Math.floor(wx / TS), y: Math.floor(wy / TS) };
+  }
+
+  viewportEl.addEventListener('mousemove', (ev) => {
+    const t = tileDoEvento(ev);
+    const dentro = t.x >= 0 && t.y >= 0 && t.x < map.width && t.y < map.height;
+    hoverMark.visible = dentro && isWalkable(map, t.x, t.y, myFloor);
+    hoverMark.x = t.x * TS;
+    hoverMark.y = t.y * TS;
+  });
+  viewportEl.addEventListener('mouseleave', () => { hoverMark.visible = false; });
+
+  // Botão esquerdo no chão = ir até lá. Clique EM criatura não passa por aqui:
+  // o sprite dela tem `pointertap` próprio (virar alvo) e o Pixi consome o
+  // evento antes. Isso é o certo — atacar e caminhar não competem pelo clique.
+  viewportEl.addEventListener('click', (ev) => {
+    if (ev.button !== 0) return;
+    const t = tileDoEvento(ev);
+    if (t.x < 0 || t.y < 0 || t.x >= map.width || t.y >= map.height) return;
+    irPara(t.x, t.y);
+  });
+  // Botão direito cancela a caminhada — o jeito rápido de "para aí".
+  viewportEl.addEventListener('contextmenu', (ev) => {
+    ev.preventDefault();
+    cancelarRota();
+  });
+
   // Loop de render ---------------------------------------------------------
   app.ticker.add(() => {
     if (myFloor !== renderedFloor) rebuildFloor(myFloor);
 
     const now = performance.now();
+    // TECLADO MANDA: se o jogador tocou numa tecla de direção, a rota do clique
+    // morre. Duas fontes de movimento disputando o mesmo personagem é a receita
+    // do "meu boneco anda sozinho".
+    if (heldKeys.size > 0 && caminho.length > 0) cancelarRota();
+
+    // Consome a rota, um passo por vez, na MESMA cadência do teclado — então
+    // andar por clique e por tecla tem exatamente a mesma velocidade.
+    if (caminho.length > 0 && now - lastSentAt > 120) {
+      const proximo = caminho[0]!;
+      if (proximo.x === myTileX && proximo.y === myTileY) {
+        caminho.shift();
+        passoPedidoEm = 0;
+        if (caminho.length === 0) destMark.visible = false;
+      } else {
+        const dx = Math.sign(proximo.x - myTileX);
+        const dy = Math.sign(proximo.y - myTileY);
+        // Passo pedido e nada aconteceu: algo entrou na frente (monstro andou,
+        // outro jogador parou ali). Recalcula uma vez; se não houver rota, desiste
+        // em vez de ficar empurrando parede para sempre.
+        if (passoPedidoEm && now - passoPedidoEm > PASSO_TRAVADO_MS) {
+          const destino = caminho[caminho.length - 1]!;
+          const rota = rotaAte(myTileX, myTileY, destino.x, destino.y);
+          if (rota.length === 0) cancelarRota();
+          else { caminho = rota; passoPedidoEm = 0; }
+        } else {
+          moveSeq++;
+          net.send({ t: 'move', seq: moveSeq, dx, dy });
+          lastSentAt = now;
+          if (!passoPedidoEm) passoPedidoEm = now;
+        }
+      }
+    }
+
     if (now - lastSentAt > 120 && heldKeys.size > 0) {
       let dx = 0;
       let dy = 0;
@@ -2590,6 +2831,8 @@ interface MiniAssets {
   selfGender: Gender;
   /** Abre a loja do comerciante (clicar no NPC). */
   openShop: () => void;
+  /** Abre o Banco (clicar no Banqueiro). */
+  openBank: () => void;
   /** Abre o espólio de um corpo no chão. */
   openCorpse: (id: string) => void;
 }
@@ -2605,9 +2848,15 @@ function makeEntity(
   if (e.kind === 'creature') return makeCreatureView(e, anims, onTargetClick, mini);
   if (e.kind === 'item') return makeItemView(e, mini.openCorpse);
   if (e.kind === 'npc') {
+    // Clicar abre o painel da FUNÇÃO do NPC. Banqueiro em azul-prata, para não
+    // parecer o Comerciante — os dois ficam na mesma praça.
+    const banqueiro = e.npcRole === 'bank';
     return makeMiniActor({
       e, anim: mini.npcAnim ?? mini.classAnims?.archer ?? { down: [], up: [], right: [], left: [] },
-      scale: 2.4, nameColor: 0xe8c24a, onClick: () => mini.openShop(),
+      scale: 2.4,
+      nameColor: banqueiro ? 0x9fc7e8 : 0xe8c24a,
+      tint: banqueiro ? 0x9fc7e8 : undefined,
+      onClick: () => (banqueiro ? mini.openBank() : mini.openShop()),
     });
   }
   // A classe/sexo vêm do snapshot (todos os jogadores); para o próprio, o escolhido.

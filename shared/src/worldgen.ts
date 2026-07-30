@@ -180,8 +180,13 @@ export function buildStarterMap(): GameMap {
     floorLinks,
     spawn: { x: 20, y: 20, floor: 0 },
     depotZone,
-    // Comerciante fica na praça central de pedra, perto do spawn.
-    npcs: [{ name: 'Comerciante', x: 22, y: 18, floor: 0, role: 'vendor' }],
+    // Os dois ficam na praça central de pedra, perto do spawn, mas em lados
+    // opostos: com eles colados, o clique de "abrir loja" pegaria o Banqueiro
+    // metade das vezes.
+    npcs: [
+      { name: 'Comerciante', x: 22, y: 18, floor: 0, role: 'vendor' },
+      { name: 'Banqueiro', x: 18, y: 18, floor: 0, role: 'bank' },
+    ],
   };
 }
 

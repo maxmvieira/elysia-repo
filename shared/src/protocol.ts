@@ -13,6 +13,7 @@ import type { AttributeKey, Attributes, AttackType, PlayerClass } from './stats.
 import type { EquipSlot, ItemStack } from './items.js';
 import type { DamageType } from './elements.js';
 import type { ConditionId } from './conditions.js';
+import type { NpcRole } from './tiles.js';
 
 /** Versão do protocolo. Incrementar em mudanças incompatíveis. */
 export const PROTOCOL_VERSION = 1;
@@ -29,7 +30,7 @@ export interface EntitySnapshot {
   direction: Direction;
   kind: 'player' | 'creature' | 'item' | 'npc';
   /** Papel do NPC (ex.: 'vendor' abre a loja ao clicar). */
-  npcRole?: 'vendor';
+  npcRole?: NpcRole;
   /** Vida atual/máxima (jogador e criatura). */
   hp?: number;
   maxHp?: number;
@@ -155,6 +156,19 @@ export interface C2S_Sell {
   amount?: number;
 }
 
+/**
+ * Depositar ou sacar ouro no Banco (precisa estar perto do Banqueiro).
+ *
+ * O Banco guarda **só ouro** — decisão do dono. O que guarda item é o Depósito,
+ * e o cap. 19 do Doc 1 separa os dois ("CASA ≠ BANCO").
+ */
+export interface C2S_Bank {
+  t: 'bank';
+  op: 'deposit' | 'withdraw';
+  /** Quantidade. O servidor limita ao que existe do lado de origem. */
+  amount: number;
+}
+
 /** Usar um item consumível da mochila (poção). */
 export interface C2S_UseItem {
   t: 'use';
@@ -224,6 +238,7 @@ export type ClientMessage =
   | C2S_Allocate
   | C2S_Buy
   | C2S_Sell
+  | C2S_Bank
   | C2S_UseItem
   | C2S_Equip
   | C2S_Unequip
@@ -320,6 +335,8 @@ export interface S2C_Stats {
   xp: number;
   xpNext: number;
   gold: number;
+  /** Ouro guardado no Banco (só ouro; itens ficam no Depósito). */
+  bankGold: number;
   alive: boolean;
   /** Atributos e pontos disponíveis. */
   attributes: Attributes;
@@ -462,6 +479,8 @@ export interface S2C_Inventory {
   atDepot: boolean;
   /** True quando está perto do NPC comerciante (pode comprar). */
   nearVendor: boolean;
+  /** True quando está perto do Banqueiro (pode depositar/sacar). */
+  nearBank: boolean;
 }
 
 export type ServerMessage =

@@ -121,6 +121,58 @@ são objetivos e podem ser feitos já, expostos por comando de teste.
 | 4 | **`DD-LOR-127..133` duplicados** | aparecem duas vezes no Doc 3 com conteúdos diferentes. Um bloco precisa ser renumerado |
 | 5 | **"Água" não é elemento** | a linha 1670 dá `Slime Azul → Água`, mas `DD-ELM-002` fecha os sete tipos e Água não está entre eles. Provável intenção: **Gelo** |
 
+### 🆕 Sessão de 2026-07-30 — overrides e novos REFERÊNCIA
+
+**Override do dono contra o doc** (registrado no código, não é erro):
+
+🔴 **Super Slime mais rápido.** `DD-BAL-036` pede "Velocidade: Baixa" (1500). Foi
+para `SPEED.alta` (900) porque o dono jogou e vetou: *"ficou muito lento"*. A
+prática dá razão a ele — de um chefe do qual se foge **andando** não se aprende
+nada, o que esvazia o papel didático que a própria ficha quer. Continua mais lento
+que o jogador (~455 ms/tile), então fugir segue possível. Teste trava as duas
+pontas em `combat.test.ts`.
+
+**Curva de nível — agora obedece `DD-PROG-001`:**
+
+Era `100 + (nível−1)×50`, **linear**, e a regra diz *"sem level cap, progressão
+desacelera em levels altos"*. Linear não desacelera; e como a XP das criaturas
+cresce ~13× do Tier I ao III, subir de nível na prática **acelerava**. Virou
+quadrática: 1,5× mais devagar no começo, 4,3× no nível 100.
+
+| # | Assunto | Hoje | Onde |
+|---|---|---|---|
+| 1 | Termo de desaceleração | `XP_QUADRATIC = 1.5` | `shared/src/combat.ts` |
+| 2 | **Botão de "mais devagar/rápido"** | `XP_REQ_MULT = 1.5` | idem |
+
+⚠️ REFERÊNCIA: o doc dá a regra, não a fórmula, e ele mesmo põe "faixas de nível"
+**depois** do bestiário na ordem oficial.
+
+🔴 **Mas o principal do "subo rápido demais" não era a curva — era o mapa.** Havia
+Zumbi (Tier III, conteúdo de nível 50–100) a **14 tiles** do nascimento. Corrigido
+no povoamento, e é de lá que vem a maior parte da desaceleração.
+
+**Mundo:** 66 → **32 criaturas**, uma de cada espécie, por distância da vila
+(Tier I a 12–14, II a 18–24, III a 30–36). Cortou-se duplicata, não espécie —
+espécie que não nasce é sprite que não se consegue conferir no jogo.
+
+**Colisão:** monstro é obstáculo como parede, nos três sentidos (jogador ↔ monstro,
+monstro ↔ monstro). ⚠️ Consequência deliberada, igual à do Tibia: **dá para
+bloquear passagem com o corpo**.
+
+**Banco (schema v3):** NPC próprio, o Banqueiro, em (18,18). Guarda **só ouro**, e
+o guardado **sobrevive à morte** — é a razão de existir (`dropCorpse` tem
+comentário protegendo isso). Doc 3 lista Comerciante e Banco como funções
+separadas, daí não ser uma terceira aba da loja.
+
+**Mover por clique:** rota por BFS no cliente, mas o protocolo continua só com
+PASSO — nada de "andar até (x,y)", que deixaria o cliente ditar posição. Teclado
+tem prioridade e cancela a rota; botão direito também.
+
+**UI:** barras laterais de 240 → **190 px** (100 px devolvidos ao jogo), com
+`--bar-w`, `--slot` e `--bar-pad` no `:root` fazendo o papel de "zoom" da
+interface. ⚠️ `--slot` e `--bar-w` estão amarrados — ver o comentário no
+`index.html`.
+
 ### 🆕 Venda ao comerciante — dois números esperando o dono (2026-07-29)
 
 A aba **Vender** entrou no comerciante (mesmo NPC, duas abas). O Doc 3 fecha o

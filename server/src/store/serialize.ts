@@ -31,6 +31,8 @@ export interface Persistable {
   hp: number;
   mana: number;
   gold: number;
+  /** Ouro no Banco (fora da mochila). */
+  bankGold: number;
   backpack: (ItemStack | null)[];
   equipment: Partial<Record<EquipSlot, ItemStack>>;
   depot: (ItemStack | null)[];
@@ -146,6 +148,7 @@ export function toStored(
     hp: Math.round(p.hp),
     mana: Math.round(p.mana),
     gold: p.gold,
+    bankGold: p.bankGold,
     tileX: p.tileX,
     tileY: p.tileY,
     floor: p.floor,

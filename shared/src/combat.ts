@@ -27,9 +27,67 @@ export const LEVEL_UP_GAINS = {
   defense: 1,
 } as const;
 
-/** XP necessária para ir do nível atual para o próximo. */
+// ---------------------------------------------------------------------------
+// Curva de nível
+// ---------------------------------------------------------------------------
+
+/**
+ * XP do nível 1 para o 2. Uns 15 Slimes Verdes: o primeiro nível tem que vir
+ * rápido, senão o jogo não engata.
+ */
+export const XP_BASE = 100;
+/** Quanto cada nível acrescenta linearmente. */
+export const XP_LINEAR = 50;
+/**
+ * O termo que faz a curva DESACELERAR — a parte canônica desta função.
+ *
+ * 🔴 `DD-PROG-001`: *"Sem level cap. Progressão desacelera em levels altos."* A
+ * curva anterior era `100 + (nível−1)×50`, puramente LINEAR: ela não desacelerava
+ * nada, e como a XP das criaturas cresce ~13× do Tier I ao Tier III, subir de
+ * nível na prática ACELERAVA. Era o oposto da regra.
+ *
+ * ⚠️ O valor é REFERÊNCIA: o doc dá a regra, não a fórmula, e diz explicitamente
+ * que as faixas de nível vêm depois do bestiário na ordem oficial
+ * (`bestiário fechado → faixas de nível → HP/dano/defesa/XP → loot`).
+ *
+ * Escolhido baixo de propósito: quase invisível até o nível 20, e dobra a
+ * exigência por volta do nível 100 — desacelera onde a regra pede, sem punir o
+ * começo.
+ */
+export const XP_QUADRATIC = 1.5;
+/**
+ * Multiplicador global da exigência de XP. **É ESTE o botão de "subir de nível
+ * mais devagar / mais rápido".**
+ *
+ * ⚠️ REFERÊNCIA, e puro ajuste de sensação: nenhum doc dá número. Subiu para 1.5
+ * a pedido do dono em 2026-07-30 (*"o personagem tá subindo de nível muito
+ * rápido... tem que ser bem devagar"*).
+ *
+ * 🔴 Mas o principal do problema relatado **não era a curva** — era o mapa. Havia
+ * Zumbi de Tier III (95 XP, conteúdo de nível 50–100) a 14 tiles do nascimento,
+ * então um nível 5 farmava conteúdo de nível 50. Isso foi corrigido no
+ * povoamento (`spawnInitialCreatures`), e é de lá que vem a maior parte da
+ * desaceleração. Se ainda estiver rápido, ou se ficar lento demais, este número é
+ * o único que precisa mudar.
+ */
+export const XP_REQ_MULT = 1.5;
+
+/**
+ * XP necessária para ir do nível atual para o próximo.
+ *
+ * Quadrática por exigência de `DD-PROG-001`. Sem teto de nível: a fórmula cresce
+ * para sempre, que é o que "sem level cap" pede.
+ */
 export function xpToNext(level: number): number {
-  return 100 + (level - 1) * 50;
+  const n = Math.max(1, level) - 1;
+  return Math.round(XP_REQ_MULT * (XP_BASE + XP_LINEAR * n + XP_QUADRATIC * n * n));
+}
+
+/** XP acumulada do nível 1 até `level`. Útil para conferir a curva e para testes. */
+export function xpTotalTo(level: number): number {
+  let total = 0;
+  for (let l = 1; l < level; l++) total += xpToNext(l);
+  return total;
 }
 
 import type { DamageType, ResistanceProfile } from './elements.js';
@@ -772,9 +830,16 @@ export const CREATURES: Record<string, CreatureDef> = {
     // que todo mundo. O doc o quer como **primeiro MVP didático** — "ensinar que
     // um MVP exige preparação", não ser intransponível.
     //
-    // ⚠️ Efeito colateral consciente: com velocidade BAIXA, **dá para fugir dele
-    // andando**. A lógica antiga era "corra para o centro do mapa, onde ele não
-    // entra" — `avoidCenter` continua ligado, mas deixou de ser a única saída.
+    // 🔴 **OVERRIDE DO DONO (2026-07-30): a velocidade NÃO é mais a da ficha.**
+    // `DD-BAL-036` diz "Velocidade: Baixa" (1500, igual ao resto da família Slime),
+    // e o dono jogou e vetou: *"o Super Slime ficou muito lento"*. Está certo pela
+    // prática — um chefe de quem se foge ANDANDO não é chefe, é obstáculo, e isso
+    // esvazia justamente o papel didático que a ficha quer ("ensinar que um MVP
+    // exige preparação"). Se dá para sair andando, não se aprende nada.
+    //
+    // Subiu para `SPEED.alta`. Ainda é bem mais lento que o jogador (que anda a
+    // ~455 ms/tile), então **fugir continua possível** — só deixou de ser de graça.
+    // Voltar à ficha é trocar uma constante.
     //
     // Continua FANÁTICO. A ficha diz "Comportamento: Agressivo", que é rótulo
     // grosso; a descrição de IA é específica e decide: "nunca abandona o combate
@@ -787,7 +852,8 @@ export const CREATURES: Record<string, CreatureDef> = {
     magicDefense: 5,
     aggroRange: 9, // "detecta jogadores a uma distância maior"
     attackCooldownMs: 850,
-    moveCooldownMs: 1500, // "Velocidade: Baixa" — igual ao resto da família
+    // ⚠️ Override do dono (ver acima). A ficha pede `SPEED.baixa` (1500).
+    moveCooldownMs: SPEED.alta,
     xpReward: 250,
     goldMin: 200,
     goldMax: 480,

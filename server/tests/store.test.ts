@@ -35,7 +35,7 @@ function personagemBase(accountId: number, name: string): Omit<StoredCharacter, 
     level: 1, xp: 0, unspentPoints: 0, talentPoints: 0,
     attributes: JSON.stringify({ str: 11, vit: 10, agi: 6, dex: 6, int: 3, wis: 4, luk: 5 }),
     skillKind: 'melee', skillLevel: 10, skillProgress: 0,
-    hp: 200, mana: 60, gold: 0,
+    hp: 200, mana: 60, gold: 0, bankGold: 0,
     tileX: 30, tileY: 30, floor: 0,
     respawnTown: 'vilarejo_norte',
     skillPoints: 1, skillResets: 0,
@@ -127,6 +127,7 @@ test('salva e recarrega o personagem inteiro — o objetivo da etapa', () => {
   antes.level = 8;
   antes.xp = 1234;
   antes.gold = 950;
+  antes.bankGold = 7300; // v3: o cofre é uma coluna, e tem que voltar do banco
   antes.attributes = JSON.stringify({ str: 20, vit: 15, agi: 6, dex: 6, int: 3, wis: 4, luk: 5 });
   antes.skillLevels = JSON.stringify({ golpe_poderoso: 3 });
   antes.proficiencies = JSON.stringify({ sword: { level: 22, progress: 5 } });
@@ -150,6 +151,9 @@ test('salva e recarrega o personagem inteiro — o objetivo da etapa', () => {
   assert.equal(depois.level, 8);
   assert.equal(depois.xp, 1234);
   assert.equal(depois.gold, 950);
+  // O ouro do Banco é SEPARADO do ouro em mão. Se um dia estes dois se
+  // confundirem, o cofre virou carteira e a morte volta a levar tudo.
+  assert.equal(depois.bankGold, 7300);
   assert.equal(JSON.parse(depois.attributes).str, 20);
   assert.equal(JSON.parse(depois.skillLevels).golpe_poderoso, 3);
   assert.equal(JSON.parse(depois.proficiencies).sword.level, 22);

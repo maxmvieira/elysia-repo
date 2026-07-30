@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CREATURES, chebyshev, rollDamage, xpToNext } from '../src/index.js';
+import {
+  CREATURES, chebyshev, rollDamage, xpToNext, xpTotalTo, XP_BASE, XP_REQ_MULT,
+} from '../src/index.js';
 
 test('dano nunca é menor que 1, mesmo com defesa altíssima', () => {
   const { amount } = rollDamage(5, 999, () => 0.5);
@@ -24,9 +26,36 @@ test('defesa reduz o dano', () => {
 });
 
 test('xpToNext cresce com o nível', () => {
-  assert.equal(xpToNext(1), 100);
-  assert.equal(xpToNext(2), 150);
-  assert.equal(xpToNext(3), 200);
+  assert.ok(xpToNext(1) < xpToNext(2));
+  assert.ok(xpToNext(2) < xpToNext(3));
+  assert.equal(xpToNext(1), Math.round(XP_REQ_MULT * XP_BASE));
+});
+
+test('a curva DESACELERA — é o que DD-PROG-001 exige', () => {
+  // "Sem level cap. Progressão desacelera em levels altos." A curva antiga era
+  // linear e por isso o incremento era CONSTANTE; este teste é o que impede
+  // alguém "simplificar" a fórmula de volta.
+  const passo = (l: number) => xpToNext(l + 1) - xpToNext(l);
+  assert.ok(passo(50) > passo(10), 'o custo por nível tem que crescer, não só o total');
+  assert.ok(passo(100) > passo(50));
+});
+
+test('sem level cap: a curva continua definida em nível alto', () => {
+  // `DD-PROG-001` diz "sem level cap", e o doc fala de Lv.300 em party.
+  assert.ok(Number.isFinite(xpToNext(300)));
+  assert.ok(xpToNext(300) > xpToNext(200));
+});
+
+test('nível inválido não gera exigência negativa', () => {
+  assert.equal(xpToNext(0), xpToNext(1));
+  assert.ok(xpToNext(-5) > 0);
+});
+
+test('xpTotalTo soma a curva e bate com a soma manual', () => {
+  let manual = 0;
+  for (let l = 1; l < 12; l++) manual += xpToNext(l);
+  assert.equal(xpTotalTo(12), manual);
+  assert.equal(xpTotalTo(1), 0); // já se nasce nível 1
 });
 
 test('distância de Chebyshev trata diagonal como 1', () => {
@@ -245,9 +274,17 @@ test('DD-BAL-036: o Super Slime é MVP, não um Slime Vermelho inflado', () => {
   // Cinco vezes o HP do Vermelho e dez vezes a XP: é outro patamar, mas não os
   // 2.400 HP de antes, que faziam dele uma parede em vez de um chefe didático.
   assert.equal(mvp.maxHp, vermelho.maxHp * 5);
-  // "Velocidade: Baixa" — o MVP não corre mais que o resto da família. É o que
-  // torna possível fugir dele andando.
-  assert.equal(mvp.moveCooldownMs, vermelho.moveCooldownMs);
+  // 🔴 A ficha pede "Velocidade: Baixa" (igual ao Vermelho), mas o dono VETOU na
+  // prática em 2026-07-30: *"o Super Slime ficou muito lento"*. Um chefe de quem
+  // se foge andando não ensina "MVP exige preparação" — esvazia o papel didático
+  // que a própria ficha quer. Override registrado no comentário da def.
+  assert.ok(
+    mvp.moveCooldownMs < vermelho.moveCooldownMs,
+    'o MVP tem que ser mais rápido que o Slime comum (override do dono)',
+  );
+  // Mas continua mais lento que o JOGADOR (~455 ms/tile no nível 1): fugir segue
+  // possível, só deixou de ser de graça. Se isto quebrar, viramos boss inescapável.
+  assert.ok(mvp.moveCooldownMs > 455, 'o chefe não pode alcançar quem corre');
 });
 
 test('o Slime Verde ainda aguenta mais de um golpe no nível 1', () => {

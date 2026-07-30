@@ -116,6 +116,7 @@ import {
   type CreatureDef,
   type DerivedStats,
   type Direction,
+  type NpcRole,
   type EntitySnapshot,
   type EquipSlot,
   type Gender,
@@ -199,6 +200,11 @@ interface Player {
   mana: number;
   maxMana: number;
   gold: number;
+  /**
+   * Ouro no Banco. Fica FORA da mochila de propósito: é o cofre, não moeda em
+   * mão, então não conta para compra nem se perde na morte.
+   */
+  bankGold: number;
   /** Mochila (slots fixos; null = vazio). Guarda loot do chão e compras. */
   backpack: (ItemStack | null)[];
   /** Itens equipados por slot. */
@@ -239,6 +245,7 @@ interface Player {
   /** Última leitura das zonas, p/ reenviar inventário só quando muda. */
   wasAtDepot: boolean;
   wasNearVendor: boolean;
+  wasNearBank: boolean;
 }
 
 interface Creature {
@@ -403,13 +410,16 @@ function setGold(player: Player, amount: number): void {
   }
 }
 
-/** Está perto (<=2 tiles) de um NPC comerciante no mesmo andar? */
-function nearVendor(player: Player): boolean {
+/** Está perto (<=2 tiles) de um NPC com esta função, no mesmo andar? */
+function nearNpc(player: Player, role: NpcRole): boolean {
   return npcs.some(
-    (n) => n.role === 'vendor' && n.floor === player.floor &&
+    (n) => n.role === role && n.floor === player.floor &&
       chebyshev(player.tileX, player.tileY, n.x, n.y) <= 2,
   );
 }
+
+const nearVendor = (player: Player): boolean => nearNpc(player, 'vendor');
+const nearBank = (player: Player): boolean => nearNpc(player, 'bank');
 
 /** Está dentro da zona do Depósito? */
 function atDepot(player: Player): boolean {
@@ -424,6 +434,7 @@ function sendInventory(player: Player): void {
     depot: player.depot,
     atDepot: atDepot(player),
     nearVendor: nearVendor(player),
+    nearBank: nearBank(player),
   });
 }
 /** Manda o conteúdo do corpo para quem o abriu. */
@@ -449,6 +460,7 @@ function sendStats(player: Player): void {
     xp: player.xp,
     xpNext: xpToNext(player.level),
     gold: player.gold,
+    bankGold: player.bankGold,
     alive: player.alive,
     attributes: player.attributes,
     unspentPoints: player.unspentPoints,
@@ -602,11 +614,47 @@ function recompute(player: Player, healGain = false): void {
 // ---------------------------------------------------------------------------
 // Mundo: criaturas
 // ---------------------------------------------------------------------------
+/**
+ * Já tem alguém de carne e osso neste tile? Criatura viva ou jogador vivo.
+ *
+ * 🔴 **Um ocupante por tile.** A pedido do dono, monstro passou a ter colisão
+ * "igual parede e muralha": antes o jogador atravessava criatura, e várias
+ * criaturas empilhavam no mesmo tile. A regra vale nos três sentidos — jogador
+ * não entra em monstro, monstro não entra em monstro, monstro não entra em
+ * jogador — porque qualquer exceção reapareceria como sprite sobreposto, que é
+ * exatamente a queixa original.
+ *
+ * ⚠️ Consequência deliberada, e é a mesma do Tibia: **dá para bloquear passagem
+ * com o corpo.** Um jogador numa porta trava o monstro; o `stepToward` tem
+ * desvios laterais, então ele contorna quando há por onde.
+ *
+ * Varre a lista em vez de manter um índice de ocupação de propósito: dentro do
+ * MESMO tique as criaturas se movem uma depois da outra, e um índice montado no
+ * início do tique estaria desatualizado na hora de a segunda decidir o passo —
+ * duas criaturas cairiam no mesmo tile. Com 60×60 e poucas dezenas de criaturas,
+ * a varredura não aparece no perfil.
+ */
+function tileOccupied(x: number, y: number, floor: number, ignoreId?: string): boolean {
+  for (const c of creatures.values()) {
+    if (!c.alive || c.id === ignoreId) continue;
+    if (c.floor === floor && c.tileX === x && c.tileY === y) return true;
+  }
+  for (const p of players.values()) {
+    if (!p.joined || !p.alive || p.id === ignoreId) continue;
+    if (p.floor === floor && p.tileX === x && p.tileY === y) return true;
+  }
+  return false;
+}
+
 function findWalkableNear(x: number, y: number, floor: number): { x: number; y: number } {
   for (let r = 0; r < 8; r++) {
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
-        if (isWalkable(map, x + dx, y + dy, floor)) return { x: x + dx, y: y + dy };
+        // Ocupação entra aqui também: sem isso, dois spawns no mesmo ponto (ou um
+        // lacaio invocado sobre o chefe) nasceriam empilhados e já travados.
+        if (isWalkable(map, x + dx, y + dy, floor) && !tileOccupied(x + dx, y + dy, floor)) {
+          return { x: x + dx, y: y + dy };
+        }
       }
     }
   }
@@ -644,84 +692,84 @@ function spawnCreature(
   return c;
 }
 
+/**
+ * Povoamento do mundo, **reescrito em 2026-07-30 a pedido do dono** ("diminuir
+ * bastante a quantidade de monstros"): de 66 criaturas para 32.
+ *
+ * Duas regras organizam tudo, e a segunda é a que importa:
+ *
+ * 1. **Uma de cada espécie, sem cópias.** Cortar duplicata em vez de espécie é
+ *    deliberado: o dono vai desenhar 20 sprites de monstro, e espécie que não
+ *    nasce é sprite que não se consegue conferir no jogo. As duplas de família de
+ *    `DD-BAL-049` (tank + ranged) sobrevivem intactas, porque a dupla são duas
+ *    ESPÉCIES diferentes — Formiga Soldado com Cuspidora, Goblin Guerreiro com
+ *    Arqueiro, as duas Aranhas.
+ *
+ * 2. **Distância da vila = Tier**, e agora de verdade. As bandas de nível do doc
+ *    (Tier I = 1–20, II = 20–50, III = 50–100) só significam algo se o jogador de
+ *    nível baixo não tropeçar em Tier III: `DD-DIF-006/007/008` manda o AMBIENTE
+ *    comunicar o perigo, sem placa escrita.
+ *
+ *    🔴 Isto conserta o que o dono relatou como "subo de nível muito rápido".
+ *    Havia Zumbi (Tier III, 95 XP, conteúdo de nível 50–100) a **14 tiles** do
+ *    centro, e Tier II a 12. Um nível 1 saía da muralha e caía em conteúdo que
+ *    vale 10× a XP do Slime Verde. A curva não estava errada; a vizinhança estava.
+ *
+ * Distâncias de Chebyshev a partir de (20,20), onde o personagem nasce — a
+ * muralha da vila fica em 10..30, ou seja, a 10 do centro:
+ *
+ * | Faixa | Distância | Quem |
+ * |---|---|---|
+ * | Tier I | 12–14 | Slime Verde (8) |
+ * | Tier I+ | 16–18 | Slime Azul (2), Vermelho (2) |
+ * | Tier II | 18–24 | 9 espécies, uma cada |
+ * | Tier III | 30–36 | 10 espécies, uma cada |
+ * | MVP | 28 | Super Slime |
+ *
+ * ⚠️ A geografia limita: a vila fica no quadrante noroeste de um mapa 60×60, então
+ * só há espaço para 30+ de distância a **leste e ao sul**. Todo o Tier III mora lá.
+ */
 function spawnInitialCreatures(): void {
-  // Mapa maior (60×60). Só três criaturas povoam o mundo: Slime, Zumbi e o
-  // chefe Super Slime.
-  const slimeSpots: Array<[number, number]> = [
-    [5, 6], [34, 6], [6, 33], [34, 33], [30, 8], [9, 30], [36, 20], [20, 36], [4, 18], [35, 15],
-    [12, 8], [28, 30], [8, 22], [32, 12], [22, 8], [15, 34], [30, 24],
+  // Snake, Rotworm, Coelho, Javali e Aranha seguem DORMENTES a pedido: as
+  // CreatureDefs e os desenhos continuam no código, só não nascem. Para
+  // reintroduzir qualquer uma, basta uma linha aqui.
+
+  // TIER I — o anel de treino, logo depois da muralha.
+  const tier1: Array<[string, number, number]> = [
+    ['slime', 8, 16], ['slime', 32, 16], ['slime', 16, 8], ['slime', 24, 32],
+    ['slime', 7, 24], ['slime', 33, 25], ['slime', 12, 6], ['slime', 28, 34],
+    // Um degrau acima (`DD-BAL-034/035`), mais para fora: quem sai da vila
+    // encontra 50 HP, depois 70, depois 100.
+    ['slime_blue', 4, 18], ['slime_blue', 36, 22],
+    ['slime_red', 20, 38], ['slime_red', 38, 14],
   ];
-  // Snake, Rotworm, Coelho, Javali e Aranha estão DORMENTES a pedido: as
-  // CreatureDefs e os desenhos continuam no código, só não nascem mais. Para
-  // reintroduzir qualquer uma, basta voltar a chamar spawnCreature aqui.
-  for (const [x, y] of slimeSpots) spawnCreature('slime', x, y);
 
-  // SLIME AZUL e VERMELHO (`DD-BAL-034/035`): um degrau acima do Verde. Estavam
-  // definidos e sem nascer — a pendência nº 3 do HANDOFF — e entram agora porque
-  // ganharam arte: a do Verde com o matiz rotacionado (ver `loadSlimeVariants`).
-  //
-  // A distribuição segue o mesmo princípio dos Tiers: quem sai da vila encontra
-  // Verde (50 HP), depois Azul (70), depois Vermelho (100), e só então o Tier II.
-  // É o ambiente avisando da dificuldade, sem placa.
-  const slimeAzulSpots: Array<[number, number]> = [[7, 16], [33, 16], [16, 7], [24, 34]];
-  const slimeVermelhoSpots: Array<[number, number]> = [[5, 24], [35, 25], [25, 5]];
-  for (const [x, y] of slimeAzulSpots) spawnCreature('slime_blue', x, y);
-  for (const [x, y] of slimeVermelhoSpots) spawnCreature('slime_red', x, y);
-  // ZUMBIS: ficam FORA da muralha da vila (x/y 10..30) e longe da zona segura
-  // do centro.
-  //
-  // 🔴 **Nenhum fica no eixo sul do nascimento.** `DD-BAL-055` promoveu o Zumbi
-  // a Tier III (340 HP, dano 20–28) e havia um em (20,34) — linha reta descendo
-  // de (20,20), onde o personagem nasce. Servia como alvo de teste quando ele
-  // tinha 160 HP; virou execução de quem acabou de criar personagem.
-  //
-  // A regra agora: nada de Zumbi com |x − 20| < 5 ao sul da vila. Quem descer em
-  // linha reta tem espaço para ver o perigo antes de encostar nele.
-  const zombieSpots: Array<[number, number]> = [
-    [13, 33], [27, 35], [14, 38], [7, 26], [38, 24], [11, 6], [31, 5], [42, 40], [6, 42],
-  ];
-  for (const [x, y] of zombieSpots) spawnCreature('zombie', x, y);
-
-  // -------------------------------------------------------------------------
-  // TIER II e TIER III — ligados a pedido do dono, com bolha colorida e nome.
-  //
-  // ⚠️ Nenhuma tem arte própria: todas usam o blob placeholder, diferenciado por
-  // COR (`CREATURE_PLACEHOLDER_COLORS`) e pelo nome sobre a cabeça. É andaime
-  // para conseguir testar a curva de dificuldade antes dos sprites existirem.
-  //
-  // A distribuição é por PERIGO: quanto mais longe da vila (centro em 20,20),
-  // mais alto o Tier. `DD-BAL-039` permite misturar Tiers numa região, mas a
-  // progressão tem que ser legível — quem anda para fora encontra coisa pior,
-  // e é o ambiente que avisa, não uma placa.
-  // -------------------------------------------------------------------------
-
-  // TIER II — primeiro anel fora da muralha. Duplas da mesma família nascem
-  // juntas de propósito: `DD-BAL-049` desenhou tank + ranged para atuarem em
-  // conjunto, e separá-las apagaria o papel de cada uma.
+  // TIER II — segundo anel. Cada dupla de família nasce colada, porque
+  // `DD-BAL-049` desenhou tank + ranged para atuarem em conjunto.
   const tier2: Array<[string, number, number]> = [
-    ['forest_spider', 6, 12], ['forest_spider', 8, 9], ['web_spider', 5, 10],
-    ['soldier_ant', 36, 10], ['soldier_ant', 38, 12], ['spitter_ant', 37, 8],
-    ['goblin_warrior', 34, 34], ['goblin_warrior', 36, 32], ['goblin_archer', 35, 36],
-    ['grey_wolf', 8, 36], ['grey_wolf', 6, 34], ['grey_wolf', 10, 38],
-    ['young_orc', 40, 20], ['young_orc', 42, 22], ['orc_warrior', 41, 18],
+    ['forest_spider', 38, 12], ['web_spider', 39, 11],
+    ['soldier_ant', 12, 38], ['spitter_ant', 11, 39],
+    ['goblin_warrior', 38, 38], ['goblin_archer', 39, 39],
+    ['grey_wolf', 42, 26],
+    ['young_orc', 26, 42], ['orc_warrior', 44, 30],
   ];
-  for (const [t, x, y] of tier2) spawnCreature(t, x, y);
 
-  // TIER III — bordas do mapa. `DD-BAL-058`: "transição para o conteúdo
-  // intermediário", exige build consistente e prioridade de alvos.
+  // TIER III — só leste e sul, a 30+ de distância. `DD-BAL-058`: "transição para
+  // o conteúdo intermediário", exige build consistente e prioridade de alvos.
   const tier3: Array<[string, number, number]> = [
-    ['skeleton_warrior', 48, 8], ['skeleton_warrior', 50, 10], ['skeleton_archer', 49, 6],
-    ['giant_spider', 6, 48], ['giant_spider', 9, 50],
-    ['mystic_ant', 50, 30], ['mystic_ant', 52, 32],
-    ['kobold_hunter', 30, 50], ['kobold_hunter', 33, 52],
-    ['brown_bear', 12, 46], ['brown_bear', 16, 49],
-    ['black_wolf', 46, 46], ['black_wolf', 49, 44],
-    ['minotaur', 52, 20], ['minotaur', 54, 24],
-    ['troll', 20, 52], ['troll', 24, 54],
+    ['zombie', 50, 20],
+    ['skeleton_warrior', 52, 14], ['skeleton_archer', 53, 15],
+    ['minotaur', 20, 50],
+    ['brown_bear', 14, 52], ['black_wolf', 15, 53],
+    ['giant_spider', 50, 50],
+    ['mystic_ant', 54, 44], ['kobold_hunter', 44, 54],
+    ['troll', 54, 52],
   ];
-  for (const [t, x, y] of tier3) spawnCreature(t, x, y);
-  // CHEFE: Super Slime no canto sudeste da floresta, bem longe do centro. Ele
-  // caça o jogador pelo mapa, mas trava na borda da zona central (spawn).
+
+  for (const [t, x, y] of [...tier1, ...tier2, ...tier3]) spawnCreature(t, x, y);
+
+  // CHEFE: no sudeste, longe do centro. Ele caça o jogador pelo mapa, mas trava
+  // na borda da zona central (`avoidCenter`).
   spawnCreature('super_slime', 48, 48);
   console.log(`[mundo] ${creatures.size} criaturas geradas.`);
 }
@@ -730,14 +778,18 @@ function spawnInitialCreatures(): void {
  * Criaturas podem pisar aqui? Caminhável E fora da zona do Depósito (DP).
  * `avoidCenter` (chefes): também bloqueia a zona central segura do spawn.
  */
-function creatureCanEnter(x: number, y: number, floor: number, avoidCenter = false): boolean {
+function creatureCanEnter(
+  x: number, y: number, floor: number, avoidCenter = false, selfId?: string,
+): boolean {
   if (floor === 0 && inDepotZone(map, x, y)) return false; // monstros não entram no DP
   if (avoidCenter && floor === 0 && inCenterSafeZone(x, y)) return false; // chefe não invade o centro
-  return isWalkable(map, x, y, floor);
+  if (!isWalkable(map, x, y, floor)) return false;
+  return !tileOccupied(x, y, floor, selfId);
 }
 
 function stepToward(
   cx: number, cy: number, tx: number, ty: number, floor: number, avoidCenter = false,
+  selfId?: string,
 ): { x: number; y: number } | null {
   const dx = Math.sign(tx - cx);
   const dy = Math.sign(ty - cy);
@@ -753,7 +805,9 @@ function stepToward(
   if (dy === 0) tries.push([0, 1], [0, -1]);
   for (const [mx, my] of tries) {
     if (mx === 0 && my === 0) continue;
-    if (creatureCanEnter(cx + mx!, cy + my!, floor, avoidCenter)) return { x: cx + mx!, y: cy + my! };
+    if (creatureCanEnter(cx + mx!, cy + my!, floor, avoidCenter, selfId)) {
+      return { x: cx + mx!, y: cy + my! };
+    }
   }
   return null;
 }
@@ -965,6 +1019,9 @@ function dropCorpse(player: Player): Corpse {
     player.backpack[i] = null;
   }
   player.gold = 0;
+  // 🔴 `player.bankGold` NÃO entra aqui, e é a razão de o Banco existir: ouro
+  // guardado sobrevive à morte, ouro em mão não. Zerar o banco na morte
+  // transformaria o cofre em decoração.
 
   for (const slot of EQUIP_SLOTS) {
     if (slot === 'container') continue; // a mochila equipada fica com o dono
@@ -1792,6 +1849,7 @@ function createCharacterFor(player: Player, name: string, cls: ClassDef, gender:
     attributes, skill,
     level: 1, xp: 0, unspentPoints: 0, talentPoints: 0,
     hp: derived.maxHp, mana: derived.maxMana, gold: 50,
+    bankGold: 0, // começa sem nada guardado
     backpack: emptySlots(BACKPACK_SIZE),
     equipment: { container: { kind: 'backpack', amount: 1 } } as Partial<Record<EquipSlot, ItemStack>>,
     depot: emptySlots(DEPOT_SIZE),
@@ -1830,6 +1888,7 @@ function applyStoredCharacter(player: Player, c: ReturnType<typeof store.loadCha
   player.unspentPoints = c.unspentPoints;
   player.talentPoints = c.talentPoints;
   player.gold = c.gold;
+  player.bankGold = c.bankGold;
   player.backpack = backpack;
   player.depot = depot;
   player.equipment = equipment;
@@ -2004,6 +2063,9 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       const nx = player.tileX + dx;
       const ny = player.tileY + dy;
       if (!isWalkable(map, nx, ny, player.floor)) return;
+      // Monstro é obstáculo, como parede (pedido do dono). Antes o jogador
+      // atravessava criatura, e o sprite passava por cima dela.
+      if (tileOccupied(nx, ny, player.floor, player.id)) return;
       player.tileX = nx;
       player.tileY = ny;
       player.lastMoveAt = now;
@@ -2209,6 +2271,40 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       slot.amount -= qtd;
       if (slot.amount <= 0) player.backpack[msg.index] = null;
       setGold(player, player.gold + unit * qtd);
+      sendStats(player);
+      sendInventory(player);
+      break;
+    }
+    case 'bank': {
+      if (!player.joined || !player.alive) return;
+      if (!nearBank(player)) {
+        send(player, { t: 'denied', reason: 'Aproxime-se do Banqueiro.' });
+        return;
+      }
+      // Limita ao que existe do lado de origem em vez de recusar: quem clica em
+      // "Depositar tudo" com o ouro mudando no mesmo instante não merece um erro.
+      const pedido = Math.floor(msg.amount);
+      if (!Number.isFinite(pedido) || pedido <= 0) {
+        send(player, { t: 'denied', reason: 'Quantia inválida.' });
+        return;
+      }
+      if (msg.op === 'deposit') {
+        const qtd = Math.min(pedido, player.gold);
+        if (qtd <= 0) {
+          send(player, { t: 'denied', reason: 'Você não tem ouro em mão.' });
+          return;
+        }
+        player.bankGold += qtd;
+        setGold(player, player.gold - qtd);
+      } else {
+        const qtd = Math.min(pedido, player.bankGold);
+        if (qtd <= 0) {
+          send(player, { t: 'denied', reason: 'Não há ouro guardado.' });
+          return;
+        }
+        player.bankGold -= qtd;
+        setGold(player, player.gold + qtd);
+      }
       sendStats(player);
       sendInventory(player);
       break;
@@ -2423,7 +2519,7 @@ function updateCreatures(now: number): void {
       if (perto && now - c.lastMoveAt >= moveCd) {
         const fx = c.tileX * 2 - perto.tileX;
         const fy = c.tileY * 2 - perto.tileY;
-        const step = stepToward(c.tileX, c.tileY, fx, fy, c.floor, avoidCenter);
+        const step = stepToward(c.tileX, c.tileY, fx, fy, c.floor, avoidCenter, c.id);
         if (step) {
           c.tileX = step.x;
           c.tileY = step.y;
@@ -2462,7 +2558,7 @@ function updateCreatures(now: number): void {
         // Longe demais para o corpo a corpo, perto o bastante para a magia.
         creatureCastSpell(c, target, now);
       } else if (now - c.lastMoveAt >= moveCd) {
-        const step = stepToward(c.tileX, c.tileY, target.tileX, target.tileY, c.floor, avoidCenter);
+        const step = stepToward(c.tileX, c.tileY, target.tileX, target.tileY, c.floor, avoidCenter, c.id);
         if (step) { c.tileX = step.x; c.tileY = step.y; c.lastMoveAt = now; }
       }
     } else if (chebyshev(c.tileX, c.tileY, c.homeX, c.homeY) > 6) {
@@ -2471,7 +2567,7 @@ function updateCreatures(now: number): void {
       // onde não pode entrar — ficava PARALISADO, sem como perseguir nem perambular.
       if (now - c.lastMoveAt >= moveCd) {
         c.direction = dirFromDelta(c.homeX - c.tileX, c.homeY - c.tileY, c.direction);
-        const step = stepToward(c.tileX, c.tileY, c.homeX, c.homeY, c.floor, avoidCenter);
+        const step = stepToward(c.tileX, c.tileY, c.homeX, c.homeY, c.floor, avoidCenter, c.id);
         if (step) { c.tileX = step.x; c.tileY = step.y; c.lastMoveAt = now; }
       }
     } else if (now - c.lastMoveAt >= moveCd * 2 && Math.random() < 0.3) {
@@ -2480,7 +2576,7 @@ function updateCreatures(now: number): void {
       const v = dirs[Math.floor(Math.random() * dirs.length)]!;
       const nx = c.tileX + v.dx;
       const ny = c.tileY + v.dy;
-      if (chebyshev(nx, ny, c.homeX, c.homeY) <= 6 && creatureCanEnter(nx, ny, c.floor, avoidCenter)) {
+      if (chebyshev(nx, ny, c.homeX, c.homeY) <= 6 && creatureCanEnter(nx, ny, c.floor, avoidCenter, c.id)) {
         c.tileX = nx;
         c.tileY = ny;
         c.direction = dirFromDelta(v.dx, v.dy, c.direction);
@@ -2524,13 +2620,15 @@ function updatePlayers(now: number): void {
         }
       }
     }
-    // Reenvia o inventário quando entra/sai do Depósito ou do alcance do vendedor
-    // (as flags atDepot/nearVendor habilitam os botões no cliente).
+    // Reenvia o inventário quando entra/sai do Depósito, do alcance do vendedor
+    // ou do Banqueiro (as flags habilitam os botões no cliente).
     const dep = atDepot(player);
     const ven = nearVendor(player);
-    if (dep !== player.wasAtDepot || ven !== player.wasNearVendor) {
+    const ban = nearBank(player);
+    if (dep !== player.wasAtDepot || ven !== player.wasNearVendor || ban !== player.wasNearBank) {
       player.wasAtDepot = dep;
       player.wasNearVendor = ven;
+      player.wasNearBank = ban;
       sendInventory(player);
     }
   }
@@ -2762,13 +2860,13 @@ wss.on('connection', (socket) => {
     cls, gender: 'male', attributes: { ...cls.base }, skill: { kind: cls.skill, level: START_SKILL_LEVEL, progress: 0 },
     derived: computeStats(cls, cls.base, 1, { kind: cls.skill, level: START_SKILL_LEVEL, progress: 0 }),
     level: 1, xp: 0, unspentPoints: 0, talentPoints: 0,
-    hp: 100, maxHp: 100, mana: 30, maxMana: 30, gold: 0,
+    hp: 100, maxHp: 100, mana: 30, maxMana: 30, gold: 0, bankGold: 0,
     backpack: emptySlots(BACKPACK_SIZE), equipment: {}, depot: emptySlots(DEPOT_SIZE),
     alive: true, deadUntil: 0, targetId: null, lastAttackAt: 0, lastMoveAt: 0, lastAckSeq: 0, joined: false,
     conditions: [],
     spellReadyAt: {}, skillPoints: 0, skillLevels: {}, skillResets: 0,
     fury: null, stance: false, proficiencies: {}, bestiary: {},
-    wasAtDepot: false, wasNearVendor: false,
+    wasAtDepot: false, wasNearVendor: false, wasNearBank: false,
   };
   addToBackpack(player, 'mana_potion', 5);
   setGold(player, 50);
