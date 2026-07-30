@@ -9,7 +9,7 @@ regras de Party).
 
 ---
 
-## 🆕 A sessão mais recente, em cinco linhas
+## 🆕 A sessão mais recente, em seis linhas
 
 1. **Os 205 modelos canônicos do Doc 4 viraram itens jogáveis** — `atk`, `def`,
    bônus fixo, nível recomendado e preço saem de **cinco constantes** em
@@ -23,6 +23,9 @@ regras de Party).
    caiu para menos da metade.
 5. **`ItemDef.bonus`** — bônus fixo de equipamento. Destravou os anéis, os
    colares, a Veste e o Livro Arcano de uma vez só.
+6. **`proficiency.ts`** — o vocabulário do `DD-PROG-011`. **Magic Level e Fist
+   passam a existir.** ⚠️ É camada de LEITURA: `Proficiencies` continua indexada
+   por `WeaponType` em save, e ligar de verdade exige migração.
 
 🔴 **Se você for mexer em equipamento ou defesa, leia as seções "curva" e
 "armadura ganha teto" do [`HISTORICO.md`](./HISTORICO.md) antes.** Ataque e
@@ -42,11 +45,33 @@ bruto derruba o golpe ao piso e o jogador vira intocável.
 git pull
 npm install          # confere; nenhuma dependência nova foi adicionada
 npm run typecheck    # tem que sair limpo nos 3 pacotes
-npm test             # tem que dar 334 passando, 0 falhando
+npm test             # tem que dar 344 passando, 0 falhando
 npm run dev:test     # sobe com os comandos de teste ligados
 ```
 
-Se o `npm test` não der 334, **não continue** — algo se perdeu no merge.
+Se o `npm test` não der 344, **não continue** — algo se perdeu no merge.
+
+---
+
+## 🔴 LEIA ISTO ANTES DE PROGRAMAR: existe um branch paralelo
+
+O seu irmão trabalhou em **`pvp-caveira-branca`** a partir do **mesmo commit** que
+o `main` (`5afa083`), sem que os dois soubessem. Nenhum branch contém o outro.
+
+Lá estão: **menu de contexto** no botão direito, **formação de party**, **lista de
+amigos** (schema **v4**) e o **PvP com Caveira Branca**. Aqui estão: catálogo de
+205 modelos, **distribuição** de party (XP e loot), balanceamento e proficiência.
+
+🔴 **Os dois `party.ts` são complementares, não rivais** — ele fez a formação, o
+`main` fez a distribuição. Juntos fecham a Etapa 9.
+
+📋 **O plano completo do merge está em
+[`MERGE-PVP-CAVEIRA-BRANCA.md`](./MERGE-PVP-CAVEIRA-BRANCA.md)**: os 17 arquivos
+que entram limpos, os 6 que conflitam, o que fazer em cada um, e o bug do menu de
+contexto que o dono relatou.
+
+⚠️ **Cada coisa nova feita no `main` encarece esse merge.** Se for programar algo
+grande, considere mergear antes.
 
 ### O que mudou por baixo de você (30/07 à noite)
 
@@ -76,7 +101,7 @@ Corrigido: `backpackSizeFor()` é a fonte única, usada no carregamento **e** ao
 
 | | 30/07 manhã | 30/07 noite | **30/07 madrugada** |
 |---|---|---|---|
-| Testes | 237 | 298 | **334** (322 shared + 12 server) |
+| Testes | 237 | 298 | **344** (332 shared + 12 server) |
 | Typecheck | limpo | limpo | limpo nos 3 pacotes |
 | Criaturas vivas no mapa | 32 | 32 | 32 |
 | Espécies definidas | 23 | 23 | 23 |

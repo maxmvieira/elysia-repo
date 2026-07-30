@@ -1029,6 +1029,57 @@ repetir a Fortuna: um dá a chance, o outro o tamanho do golpe.
 Num anel ele é a peça inteira, não um extra. Escondê-lo deixaria o Anel da Vida
 indistinguível do Anel da Mana na mochila.
 
+## Proficiência canônica — `DD-PROG-011` (2026-07-30)
+
+**Arquivos:** `shared/src/proficiency.ts` (novo)
+**Testes:** `shared/tests/proficiency.test.ts` (novo)
+
+Camada **pura de leitura** sobre os `WeaponType` que já existem. Não toca em
+save: `Proficiencies` continua indexada por `WeaponType`, e ligar de verdade é
+migração.
+
+### Por que era dívida
+
+Quando o dono fechou que **Varinha e Livro Arcano não viram `WeaponType`**, o
+argumento que sustentou a decisão foi que a proficiência mágica deles já estava
+prevista no Magic Level. Só que **Magic Level não existia no código** — o Cajado
+subia uma proficiência chamada `staff`, que é nome de arma, não de magia. A
+decisão estava de pé sobre algo inexistente.
+
+### 🔴 Os dois documentos discordam, e o dono decidiu
+
+| Fonte | Lista |
+|---|---|
+| **Doc 1** (§61) | `1H` · `2H` · `Distance` · `Shield` · `Magic Level` |
+| **Doc 4**, cap. 42 | `Sword` · `Axe` · `Club` · `Spear` · `Dagger` · `Distance` · `Fist` · `Magic Level` |
+
+Não é redação: são modelos diferentes. O Doc 1 agrupa por **como se segura a
+arma** — treinar espada treinaria machado junto. O Doc 4 mantém **uma
+proficiência por família**, que é o que o código já fazia.
+
+🔴 **Decisão do dono em 2026-07-30: vale o Doc 4.** É **override explícito da
+regra de ouro** — pela hierarquia o Doc 1 venceria, e por isso está travado por
+teste. Quem chegar lendo só o destilado vai achar que o código diverge do
+documento; **não diverge, foi decidido contra ele.**
+
+Os dois motivos que sustentam: preserva o que já está em save (o Doc 1 jogaria
+fora a proficiência de todo mundo), e o próprio cap. 42 se apresenta como
+*"conforme o sistema já consolidado"* — está descrevendo, não propondo.
+
+### O que passou a existir
+
+- **`magic`** — o Magic Level de verdade. É por `isMagicProficiency` que as
+  magias vão perguntar requisito, e **não** por INT.
+- **`fist`** — lutar sem arma passa a ter onde treinar. Antes o jogador batia e
+  não melhorava, para sempre; o doc prevê Fist porque lutar sem arma é escolha
+  válida, e escolha válida que não progride não é escolha.
+- **`distance`** — arco e besta colapsam. ⚠️ O que se funde é o **treino**, não a
+  arma: há teste garantindo que `WEAPON_IDENTITY` continua dando cadência e dano
+  distintos aos dois.
+
+`proficiencyMatchesIdentity` trava as duas tabelas juntas, com a **lança** como
+caso de fronteira: ela alcança dois tiles, não o outro lado da tela.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os
