@@ -6,6 +6,7 @@ import {
   CREATURES,
   CREATURE_FAMILY,
   DAMAGE_TYPES,
+  NODES,
   FAMILY_MATERIALS,
   ITEMS,
   MATERIALS,
@@ -183,15 +184,25 @@ test('toda mochila do catálogo tem capacidade declarada', () => {
   }
 });
 
-test('nenhum material de coleta foi criado sem forma de obtê-lo', () => {
-  // Ervas, Flores, Cogumelos, Minérios, Madeiras e Gemas dependem de coleta e
-  // mineração, que não existem. Criar o item antes seria item inalcançável — e
-  // `DD-MAT-001` proíbe material que só ocupa espaço.
-  const semColeta = ['erva', 'flor', 'cogumelo', 'minerio', 'madeira', 'gema'];
+test('🔴 nenhum material existe sem forma de obtê-lo — inclusive os de coleta', () => {
+  // Este teste **bloqueava** as famílias de coleta até 2026-07-30: Ervas,
+  // Flores, Cogumelos, Minérios, Madeiras, Cristais e Gemas não podiam existir
+  // porque não havia como consegui-las, e `DD-MAT-001` proíbe material que só
+  // ocupa espaço.
+  //
+  // A regra não mudou — mudou o mundo. `gathering.ts` deu origem a elas, então
+  // o teste virou do avesso: em vez de proibir a família, agora exige que cada
+  // material dela tenha um NÓ que o produza. Um material de coleta novo, sem nó,
+  // continua sendo exatamente o erro que a versão anterior pegava.
+  const deColeta = ['erva', 'flor', 'cogumelo', 'minerio', 'madeira', 'gema', 'cristal'];
+  const colhiveis = new Set(
+    Object.values(NODES).flatMap((n) => n.yields.map((y) => y.kind)),
+  );
   for (const m of Object.values(MATERIALS)) {
+    if (!deColeta.includes(m.family)) continue;
     assert.ok(
-      !semColeta.includes(m.family),
-      `${m.kind} é da família ${m.family}, que ainda não tem como ser obtida`,
+      colhiveis.has(m.kind),
+      `${m.kind} é da família ${m.family} e nenhum nó de coleta o produz`,
     );
   }
 });

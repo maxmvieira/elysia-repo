@@ -1127,6 +1127,61 @@ transição, que é o que se quer testar.
 O efeito é **global**: o mundo é um só, então quem estiver jogando junto vê a
 mesma coisa. `/ciclo` devolve ao horário natural.
 
+## Coleta e mineração — as regras (2026-07-30)
+
+**Arquivos:** `shared/src/gathering.ts` (novo) · `materials.ts` · `items.ts`
+**Testes:** `shared/tests/gathering.test.ts` (novo) · `materials.test.ts`
+
+### 🔴 Seis famílias de material estavam PROIBIDAS de existir
+
+`materials.ts` diz que só material com forma de ser obtido entra, porque
+`DD-MAT-001` proíbe o que "existe apenas para ocupar espaço". Minérios, Madeiras,
+Ervas, Flores, Cogumelos, Cristais e Gemas não tinham origem — e a consequência
+era dura: **o Ferreiro não tinha minério e o Alquimista não tinha erva.**
+
+O cap. 44.1 dá a origem de cada uma numa linha (*"obtidos através da mineração"*,
+*"obtidas através do corte de árvores"*, *"obtidas por coleta"*). Faltava o
+sistema.
+
+### O teste que bloqueava virou do avesso
+
+Havia um teste em `materials.test.ts` proibindo essas famílias. Ele **não foi
+apagado** — foi invertido: agora exige que todo material de coleta tenha um **nó
+que o produza**. A regra não mudou, mudou o mundo. Material de coleta novo sem
+nó continua sendo exatamente o erro que a versão anterior pegava.
+
+### 🔴 A ferramenta de lenhador não precisou ser inventada
+
+O cap. 35 lista "Machado de Lenhador" entre os equipamentos de profissão, e o
+cap. 14 entre os machados. **Isto foi registrado como colisão do documento
+quando o catálogo entrou — e não era.** É o mesmo objeto: cortar árvore exige um
+machado equipado, e o machado inicial do jogo chama-se Machado de Lenhador. O
+documento estava certo dos dois lados.
+
+Picareta e Foice, essas sim, não existiam. Entraram, e saíram de
+`PENDING_MODEL_CATEGORIES.ferramentas`. ⚠️ **Não ocupam slot** — basta tê-las na
+mochila. Ferramenta que exigisse desequipar a arma transformaria coleta em ida e
+volta de inventário.
+
+### Decisões de desenho
+
+| Assunto | Decisão | Por quê |
+|---|---|---|
+| Cogumelo | **sem ferramenta** | é a porta de entrada; quem nasceu agora não tem ferramenta, e coleta que exige compra é invisível para quem mais precisa dela |
+| Cargas por nó | 2 a 3 (⚠️ REFERÊNCIA) | mais de uma para não caçar nó a cada item; poucas para o nó não virar torneira parada |
+| Rendimento | **um por coleta**, nunca vários | nó de 3 cargas dá 3 itens em 3 ações — coleta é ritmo, não caixa de presente |
+| Piso garantido | comum com `chance: 1` | 🔴 **coleta vazia é o que ensina o jogador a não coletar** |
+| Cristal | 1 carga · 12 min · maior XP | as três pontas concordam, senão vira armadilha ou vira farm. Teste trava |
+
+### O que falta
+
+**Nada disto está no mundo ainda.** Faltam os nós como entidade no servidor
+(spawn, cargas, respawn), a mensagem de coleta e o desenho no cliente.
+
+⚠️ **Os nós serão ENTIDADES, não tiles.** O mapa é gerado deterministicamente
+pelos dois lados e não trafega pela rede — mudar um tile ao cortar uma árvore
+dessincronizaria cliente e servidor.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os

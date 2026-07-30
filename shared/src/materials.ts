@@ -152,13 +152,61 @@ function mat(
 /**
  * O banco de materiais.
  *
- * 🔴 **Só material que TEM COMO SER OBTIDO entra aqui.** As famílias de coleta do
- * `44.1` — Ervas, Flores, Cogumelos, Minérios, Madeiras, Gemas — dependem de
- * **mineração e coleta**, que não existem no jogo. Criar o item sem a forma de
- * consegui-lo seria criar item inalcançável, e o `DD-MAT-001` justamente proíbe
- * material que "existe apenas para ocupar espaço". Entram quando a coleta entrar.
+ * 🔴 **Só material que TEM COMO SER OBTIDO entra aqui** — `DD-MAT-001` proíbe
+ * material que "existe apenas para ocupar espaço", e item sem forma de conseguir
+ * é exatamente isso.
+ *
+ * ✅ **As famílias de coleta entraram em 2026-07-30**, quando `gathering.ts`
+ * passou a existir. Antes, Minérios, Madeiras, Ervas, Flores, Cogumelos e
+ * Cristais estavam proibidos por esta regra — e a consequência era dura: **o
+ * Ferreiro não tinha minério e o Alquimista não tinha erva.**
+ *
+ * ⚠️ O que **continua** de fora: Penas (não há criatura voadora) e as famílias
+ * que dependem de conteúdo inexistente. A regra não mudou; só deixou de bloquear
+ * o que agora tem origem.
  */
 export const MATERIALS: Record<string, MaterialDef> = {
+  // === Coleta e mineração (`44.1`) ==========================================
+  // Cada um destes tem um nó em `gathering.ts` que o produz. Se algum ficar sem
+  // nó, o teste de origem acusa — é a trava que substitui o bloqueio antigo.
+  iron_ore: mat(
+    'iron_ore', 'minerio', 'mineral', 'common', 'ferraria',
+    'pesado', 'baixo',
+    'Bruto, ainda com a pedra grudada. O ferreiro cobra a mais para limpar.',
+  ),
+  raw_gem: mat(
+    'raw_gem', 'gema', 'mineral', 'rare', 'joalheria',
+    'muito-leve', 'alto',
+    'Sai da rocha parecendo cascalho. Só o lapidador sabe o que tem dentro.',
+  ),
+  oak_log: mat(
+    'oak_log', 'madeira', 'vegetal', 'common', 'carpintaria',
+    'pesado', 'baixo',
+    'Tora de carvalho. Cabo de machado, coronha de besta e lenha de forja saem daqui.',
+  ),
+  common_herb: mat(
+    'common_herb', 'erva', 'vegetal', 'common', 'alquimia',
+    'muito-leve', 'muito-baixo',
+    'Cresce em qualquer canteiro pisado. É a base de metade dos frascos do Alquimista.',
+  ),
+  moon_flower: mat(
+    'moon_flower', 'flor', 'vegetal', 'uncommon', 'alquimia',
+    'muito-leve', 'medio',
+    'Só abre à noite, e murcha na mão de quem colhe de dia.',
+    { affinity: 'ice' },
+  ),
+  cave_mushroom: mat(
+    'cave_mushroom', 'cogumelo', 'vegetal', 'common', 'alquimia',
+    'muito-leve', 'muito-baixo',
+    'Brota onde não bate sol. Comestível — o que não é o mesmo que saboroso.',
+  ),
+  mana_crystal: mat(
+    'mana_crystal', 'cristal', 'mineral', 'rare', 'encantamento',
+    'leve', 'alto',
+    'Zumbe baixinho quando há magia por perto. Encantadores o usam como diapasão.',
+    { affinity: 'holy' },
+  ),
+
   // === Já existiam no jogo, agora classificados =============================
   slime_gel: mat(
     'slime_gel', 'essencia', 'monstruoso', 'common', 'alquimia',

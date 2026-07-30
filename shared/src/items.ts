@@ -227,6 +227,28 @@ const HAND_WRITTEN: Record<string, ItemDef> = {
   // ⚠️ REFERÊNCIA em todo `sellPrice`: nenhum doc dá preço de material. Ancorados
   // na faixa de valor do `44.9` — muito-baixo 2 · baixo 5 · médio 15 · alto 50 ·
   // muito-alto 150 — com o Fragmento Comum (`buyPrice: 2`) como piso do sistema.
+  // --- Coleta e mineração (`44.1`, destravadas por `gathering.ts`) ---------
+  // ⚠️ REFERÊNCIA nos preços, como em todo material: nenhum doc dá número.
+  // Ancorados na mesma faixa de `44.9` que o resto usa.
+  iron_ore: { kind: 'iron_ore', name: 'Minério de Ferro', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0x8a7a6a },
+  raw_gem: { kind: 'raw_gem', name: 'Gema Bruta', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 50, color: 0x6ad1c0 },
+  oak_log: { kind: 'oak_log', name: 'Tora de Carvalho', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0x6e4f2f },
+  common_herb: { kind: 'common_herb', name: 'Erva Comum', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 2, color: 0x5f9a4a },
+  moon_flower: { kind: 'moon_flower', name: 'Flor da Lua', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0xb8c8f2 },
+  cave_mushroom: { kind: 'cave_mushroom', name: 'Cogumelo das Cavernas', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 2, color: 0xa06a9a },
+  mana_crystal: { kind: 'mana_crystal', name: 'Cristal de Mana', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 50, color: 0x7ad1e0 },
+
+  // --- Ferramentas de coleta (cap. 35) -------------------------------------
+  // 🔴 O "Machado de Lenhador" do cap. 35 NÃO entra aqui: ele é a arma do cap.
+  // 14, que já existe (`hand_axe`). O documento não se contradizia — é o mesmo
+  // objeto, e cortar árvore exige um machado equipado.
+  //
+  // Estas duas não ocupam slot de equipamento: basta tê-las na mochila. Ferramenta
+  // que exige desequipar a arma para usar transformaria coleta em ida e volta de
+  // inventário.
+  pickaxe: { kind: 'pickaxe', name: 'Picareta', category: 'loot', stackable: false, buyPrice: 90, color: 0x8a8a92 },
+  sickle: { kind: 'sickle', name: 'Foice', category: 'loot', stackable: false, buyPrice: 70, color: 0xb8a86a },
+
   spider_web: { kind: 'spider_web', name: 'Teia de Aranha', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0xdfe7f2 },
   spider_venom: { kind: 'spider_venom', name: 'Veneno de Aranha', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0x7ad13a },
   spider_eye: { kind: 'spider_eye', name: 'Olho de Aranha', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0x8a6a9a },
@@ -335,6 +357,9 @@ export const VENDOR_STOCK: string[] = [
   // delas objetivo de médio prazo, não compra do primeiro dia. O espaço extra é
   // progressão, como o roadmap desenha na escada 20/40/60/80.
   'large_backpack', 'traveler_pack',
+  // As ferramentas de coleta são compradas, não achadas: sem elas o jogador não
+  // tem como começar a minerar nem a colher.
+  'pickaxe', 'sickle',
   'short_sword', 'hand_axe', 'club', 'dagger', 'spear', 'short_bow', 'light_crossbow',
   'apprentice_staff', 'wooden_shield',
   'leather_helmet', 'leather_armor', 'leather_pants', 'leather_boots', 'copper_necklace',
