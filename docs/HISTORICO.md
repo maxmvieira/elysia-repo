@@ -891,6 +891,92 @@ sorteio de loot de boss ponderado por dano, com **last hit valendo nada**
   prompt de votação, e um `/party` nos comandos de teste, porque validar isso
   sozinho exige dois clientes.
 
+## Etapa 9 COMPLETA — Party, shared XP e loot (2026-07-30)
+
+**Arquivos:** `shared/src/party.ts` · `protocol.ts` · `server/src/index.ts` ·
+`client/src/main.ts` · `client/index.html`
+**Testes:** `shared/tests/party.test.ts`
+
+### A peça que a base não tinha
+
+`Creature` ganhou **`damageBy: Map<playerId, dano>`**, acumulado por *vida* da
+criatura e zerado ao renascer — sem isso, o dano de ontem daria direito ao loot
+de hoje. Duas regras dependiam dela e não tinham como existir antes:
+`DD-PARTY-008` (participação válida — entrar no grupo e ficar parado não rende
+XP) e `DD-PARTY-021` (contribuição pondera o loot de chefe, com **last hit
+valendo nada**).
+
+### Loot escolhe DONO, nunca volume
+
+`DD-PARTY-011/012`. `dropLoot` ganhou um `recipient` opcional e todas as entregas
+passam por ele; `undefined` mantém o comportamento de sempre, que é cair no chão.
+
+⚠️ **Mochila cheia cai no chão em vez de sumir.** Perder loot por falta de espaço
+seria pior que a regra de loot não valer.
+
+**Loot Livre é o padrão** de toda party nova, porque é exatamente o que o jogo já
+fazia. Nascer em outra regra mudaria o comportamento de quem nunca abriu o painel.
+
+### Decisões que o documento não fecha
+
+| Assunto | Decisão | Por quê |
+|---|---|---|
+| Líder sai | liderança passa ao **membro mais antigo** | dissolver puniria o grupo pela desconexão de um |
+| Party de 1 | **deixa de existir** | painel anunciando um grupo que não é grupo |
+| Quem propõe | **já vota a favor** | propor é a forma mais clara de dizer "sou a favor" |
+| Proximidade | **12 tiles** (`PARTY_XP_RANGE`, ⚠️ REFERÊNCIA) | pouco mais que a tela: exige a mesma briga, mas conta o arqueiro no fundo |
+| Convite | por **nome**, não por id | o id é interno; o nome é o que o jogador consegue digitar |
+
+### O chat age, o painel mostra
+
+Os comandos de party **não** são de dev — valem em produção e vêm antes deles no
+handler: `/convidar <nome>` · `/sim` · `/nao` · `/sairdogrupo` ·
+`/expulsar <nome>` · `/loot <livre|lider|aleatorio>` · `/grupo`.
+
+`/sim` e `/nao` servem para as duas respostas possíveis — convite e votação —
+porque do ponto de vista do jogador são a mesma pergunta.
+
+O painel some quando não há grupo (a barra tem 190 px), e mostra **"fora da
+faixa"** em âmbar em quem não divide XP. É a informação que mais surpreende: sem
+ela, a regra parece bug para quem chama um amigo de nível muito diferente.
+
+## Balanceamento — armadura ganha teto (2026-07-30)
+
+**Arquivos:** `shared/src/defense.ts` · `server/src/index.ts`
+**Testes:** `shared/tests/defense.test.ts`
+
+Pedido do dono: *"balanceie para não ficar fácil demais"*. Duas alavancas, as
+duas `⚠️ REFERÊNCIA` — **as fichas `DD-BAL` das criaturas são canônicas e não
+foram tocadas.**
+
+### 🔴 `MIN_DAMAGE_AFTER_ARMOR = 0,25`
+
+Corte plano não tem retorno decrescente. Quando a defesa passa do dano bruto, o
+golpe cai para o piso de 1 e o jogador vira intocável — não é imunidade literal,
+mas resolve o jogo do mesmo jeito. E deixou de ser teórico com o catálogo
+completo: um set pesado de meio de jogo já soma mais que os **24** de força do
+Zumbi.
+
+O teto **não contradiz o cap. 31** ("corte plano no dano bruto"): o corte
+continua plano, só não pode anular. E segue a filosofia que o próprio
+`DD-DEF-012` estabeleceu para o bloqueio — defesa tem teto, e o teto é decisão
+consciente.
+
+⚠️ **Vale só para a camada de armadura.** Resistência elemental e redução de
+skill agem depois e podem baixar mais (`DD-ELM-003`). Há teste garantindo que
+resistir a fogo continua valendo mesmo com armadura enorme.
+
+**E não muda nada do balanceamento de hoje:** set de couro (17 de defesa) contra
+o Zumbi (24) já entrega 7 de dano, bem acima do teto — que nem entra em ação. É
+grade de proteção, não nerf.
+
+### `EQUIP_DROP_CHANCE`: 0,18 → 0,08
+
+Antes havia 13 peças, todas de nível 1, e quase 1 em cada 5 abates largar
+equipamento só enchia a mochila de repetição. Com 177 modelos escalonados por
+nível, cada peça que cai pode ser melhor que a atual — a mesma frequência viraria
+progressão de graça.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os

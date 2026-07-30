@@ -9,20 +9,25 @@ regras de Party).
 
 ---
 
-## 🆕 A sessão mais recente, em três linhas
+## 🆕 A sessão mais recente, em quatro linhas
 
 1. **Os 177 modelos canônicos do Doc 4 viraram itens jogáveis** — `atk`, `def`,
    nível recomendado e preço saem de **cinco constantes** em `equipcurve.ts`, não
    de 178 números escritos à mão.
 2. **Varinha, Livro Arcano e Escudo foram decididos** e saíram do pendente. O
    Livro é **foco de mão secundária**, no slot do escudo.
-3. **A Etapa 9 começou** — `party.ts` tem as regras testadas, mas **nada está
-   ligado ao jogo ainda**.
+3. **A Etapa 9 está COMPLETA** — party, shared XP, três regras de loot com
+   votação, e loot de chefe por contribuição. Jogável por comandos de chat
+   (`/convidar`, `/loot`, `/grupo`) com painel na barra lateral.
+4. **Passe de balanceamento** — a armadura ganhou teto e o drop de equipamento
+   caiu para menos da metade.
 
-🔴 **Se você for mexer em equipamento, leia a seção "curva" do
-[`HISTORICO.md`](./HISTORICO.md) antes.** Ataque e defesa têm curvas separadas, e
-a assimetria não é gosto: `resolveDamage` mitiga por subtração plana, então
-defesa alta demais não "reduz muito" — ela **zera** o dano.
+🔴 **Se você for mexer em equipamento ou defesa, leia as seções "curva" e
+"armadura ganha teto" do [`HISTORICO.md`](./HISTORICO.md) antes.** Ataque e
+defesa têm curvas separadas, e a assimetria não é gosto: `resolveDamage` mitiga
+por **subtração plana**, que não tem retorno decrescente — defesa acima do dano
+bruto derruba o golpe ao piso e o jogador vira intocável.
+`MIN_DAMAGE_AFTER_ARMOR` é a grade que impede isso.
 
 > **Comece por aqui**, depois vá para [`ROADMAP-elysia.md`](./ROADMAP-elysia.md)
 > (plano geral) e [`HISTORICO.md`](./HISTORICO.md) (detalhe de cada etapa).
@@ -35,7 +40,7 @@ defesa alta demais não "reduz muito" — ela **zera** o dano.
 git pull
 npm install          # confere; nenhuma dependência nova foi adicionada
 npm run typecheck    # tem que sair limpo nos 3 pacotes
-npm test             # tem que dar 329 passando, 0 falhando
+npm test             # tem que dar 331 passando, 0 falhando
 npm run dev:test     # sobe com os comandos de teste ligados
 ```
 
@@ -69,7 +74,7 @@ Corrigido: `backpackSizeFor()` é a fonte única, usada no carregamento **e** ao
 
 | | 30/07 manhã | 30/07 noite | **30/07 madrugada** |
 |---|---|---|---|
-| Testes | 237 | 298 | **329** (317 shared + 12 server) |
+| Testes | 237 | 298 | **331** (319 shared + 12 server) |
 | Typecheck | limpo | limpo | limpo nos 3 pacotes |
 | Criaturas vivas no mapa | 32 | 32 | 32 |
 | Espécies definidas | 23 | 23 | 23 |
@@ -496,6 +501,16 @@ No chat do jogo:
 | `/cond <id>` | aplica condição (`freeze`, `poison`, `silence`, `slow`, …) |
 | `/uncond` | limpa todas as condições |
 
+## Comandos de GRUPO — estes valem em produção, não são de teste
+
+| Comando | O que faz |
+|---|---|
+| `/convidar <nome>` | convida quem estiver online |
+| `/sim` · `/nao` | responde ao convite **ou** à votação de loot — do ponto de vista do jogador é a mesma pergunta |
+| `/grupo` | lista membros, líder (★) e a regra de loot ativa |
+| `/loot <livre\|lider\|aleatorio>` | **propõe** a regra — `DD-PARTY-015`, o líder não muda sozinho |
+| `/expulsar <nome>` · `/sairdogrupo` | só o líder expulsa |
+
 ---
 
 ## Sugestão de por onde começar (atualizada em 30/07 à noite)
@@ -512,15 +527,11 @@ está pela metade.
 4. ✅ ~~Decidir Varinha, Livro e Escudo~~ — **feito.** Nenhum `WeaponType` novo:
    Varinha é família dentro de `staff`, Livro é foco de mão secundária no slot
    `shield`, Escudo ocupa `shield` sem classe de armadura.
-5. 🔴 **TERMINAR A ETAPA 9.** As regras estão em `shared/src/party.ts`, testadas
-   e **desligadas**. Faltam os dois commits que a ligam:
-   - **Protocolo e servidor:** convite/aceite/saída/expulsão, estado da party, e
-     a peça que a base não tem — **contribuição de dano por jogador na
-     criatura** (hoje só existe `targetId`). Ela é pré-requisito de
-     `DD-PARTY-008` (participação válida) e `DD-PARTY-021` (loot de boss).
-   - **Cliente:** painel de party, regra de loot sempre visível, prompt de
-     votação, e `/party` nos comandos de teste — validar isso sozinho exige dois
-     clientes.
+5. ✅ ~~Terminar a Etapa 9~~ — **feita, de ponta a ponta.** ⚠️ **Nunca foi testada
+   com dois clientes de verdade** — sozinho dá para conferir que o painel some,
+   que `/grupo` responde e que o convite a um nome inexistente é negado, mas
+   convite→aceite→XP dividida exige duas janelas. É a primeira coisa a fazer
+   quando houver dois.
 6. **Bônus fixo de equipamento em `ItemDef`** (vida, mana, poder mágico, somado
    por `equipBonus`). É a peça que destrava **três coisas de uma vez**: os 18
    anéis do cap. 30, que hoje sairiam todos com `def: 1` e nomes diferentes; a

@@ -44,11 +44,12 @@ Os docs marcam status por decisão. **Respeitar isso é o que impede reescrever 
 ## 📍 ONDE ESTAMOS — leia isto primeiro
 
 **Última atualização:** 2026-07-30
-**Etapas concluídas:** 1 a 8 (de 23) — as 1–6 com ajustes pendentes, ver abaixo
-**Próxima etapa:** **9 — Party, shared XP e distribuição de loot** 👥 — as REGRAS
-já estão em `shared/src/party.ts`, testadas e **desligadas**; faltam o protocolo,
-o servidor e a UI
-**Saúde do código:** **329 testes** passando (317 shared + 12 server) · typecheck limpo
+**Etapas concluídas:** 1 a **9** (de 23) — as 1–6 com ajustes pendentes, ver abaixo
+**Próxima etapa:** **10 — Cartas** 🃏 ⚠️ mas veja a ressalva no `HANDOFF`: o
+formato das cartas depende de decisões não tomadas, e o que mais destrava agora é
+**bônus fixo de equipamento em `ItemDef`** (destrava anéis, Vestes e Livros de uma
+vez só)
+**Saúde do código:** **331 testes** passando (319 shared + 12 server) · typecheck limpo
 nos 3 pacotes · smoke de ponta a ponta validado (derruba servidor → personagem sobrevive)
 **Banco:** schema **v3** (`professions`, `bank_gold`)
 
@@ -355,7 +356,11 @@ sistema de visita/respawn já funciona.
 (`DD-CC-012`) — mas a **diferença mecânica vale**: dano quebra congelamento, **não** quebra
 petrificação, e o petrificado ganha grande bônus de DEF/MDEF.
 
-### Etapa 9 — Party, shared XP e distribuição de loot 👥
+### ✅ Etapa 9 — Party, shared XP e distribuição de loot 👥 *(feita em 2026-07-30)*
+
+> Os seis pontos abaixo estão todos implementados. Detalhe de cada decisão em
+> [`HISTORICO.md`](./HISTORICO.md); as regras puras vivem em `shared/src/party.ts`.
+> ⚠️ **Ainda não foi testada com dois clientes de verdade.**
 
 1. **Shared XP com faixa de nível:** ~10 níveis até Lv.100, ~20 depois. 🔴 Um Lv.300 pode
    **ajudar** um Lv.20, mas **não divide XP** — anti-power-leveling.
