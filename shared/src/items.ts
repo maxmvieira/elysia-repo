@@ -228,13 +228,18 @@ export const ITEMS: Record<string, ItemDef> = {
   // Armas: o `atk` é o dano-base, e o TIPO define identidade (velocidade,
   // alcance, uma/duas mãos) e qual proficiência sobe ao usar.
   short_sword: { kind: 'short_sword', name: 'Espada Curta', category: 'equip', stackable: false, buyPrice: 50, slot: 'weapon', atk: 8, weaponType: 'sword', tier: 1, color: 0xc9d0d8 },
-  hand_axe: { kind: 'hand_axe', name: 'Machadinha', category: 'equip', stackable: false, buyPrice: 55, slot: 'weapon', atk: 8, weaponType: 'axe', tier: 1, color: 0x9a8878 },
+  // ⚠️ Nomes corrigidos para os CANÔNICOS do Doc 4 (cap. 13–23). Antes eram
+  // "Machadinha", "Adaga", "Lança" e "Cajado de Aprendiz" — nenhum existe no
+  // catálogo oficial. `models.ts` tem teste travando isso, para o nome errado não
+  // voltar: nome divergente é retrabalho silencioso, descoberto meses depois
+  // quando o item já está em save de jogador.
+  hand_axe: { kind: 'hand_axe', name: 'Machado de Lenhador', category: 'equip', stackable: false, buyPrice: 55, slot: 'weapon', atk: 8, weaponType: 'axe', tier: 1, color: 0x9a8878 },
   club: { kind: 'club', name: 'Clava', category: 'equip', stackable: false, buyPrice: 45, slot: 'weapon', atk: 8, weaponType: 'mace', tier: 1, color: 0x8a6a3a },
-  dagger: { kind: 'dagger', name: 'Adaga', category: 'equip', stackable: false, buyPrice: 40, slot: 'weapon', atk: 8, weaponType: 'dagger', tier: 1, color: 0xb8c2cc },
-  spear: { kind: 'spear', name: 'Lança', category: 'equip', stackable: false, buyPrice: 65, slot: 'weapon', atk: 9, weaponType: 'spear', tier: 1, color: 0xa08858 },
+  dagger: { kind: 'dagger', name: 'Adaga Curta', category: 'equip', stackable: false, buyPrice: 40, slot: 'weapon', atk: 8, weaponType: 'dagger', tier: 1, color: 0xb8c2cc },
+  spear: { kind: 'spear', name: 'Lança Curta', category: 'equip', stackable: false, buyPrice: 65, slot: 'weapon', atk: 9, weaponType: 'spear', tier: 1, color: 0xa08858 },
   short_bow: { kind: 'short_bow', name: 'Arco Curto', category: 'equip', stackable: false, buyPrice: 70, slot: 'weapon', atk: 8, weaponType: 'bow', tier: 1, color: 0x9a7a4a },
   light_crossbow: { kind: 'light_crossbow', name: 'Besta Leve', category: 'equip', stackable: false, buyPrice: 85, slot: 'weapon', atk: 9, weaponType: 'crossbow', tier: 1, color: 0x7a6a5a },
-  apprentice_staff: { kind: 'apprentice_staff', name: 'Cajado de Aprendiz', category: 'equip', stackable: false, buyPrice: 75, slot: 'weapon', atk: 6, weaponType: 'staff', tier: 1, color: 0x6a5aa0 },
+  apprentice_staff: { kind: 'apprentice_staff', name: 'Cajado do Aprendiz', category: 'equip', stackable: false, buyPrice: 75, slot: 'weapon', atk: 6, weaponType: 'staff', tier: 1, color: 0x6a5aa0 },
   // Demais equipamentos (compráveis / loot). def soma na defesa.
   wooden_shield: { kind: 'wooden_shield', name: 'Escudo de Madeira', category: 'equip', stackable: false, buyPrice: 40, slot: 'shield', def: 4, color: 0x8a5a2f },
   // Couro é armadura LEVE (cap. 38): Archer e Assassin priorizam. As categorias
