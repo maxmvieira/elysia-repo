@@ -76,6 +76,7 @@ import {
   RECIPE_ITEM,
   type Professions,
   type Rarity,
+  CONDITIONS,
   CONDITION_COLORS,
   CREATURE_PLACEHOLDER_COLORS,
   ELEMENT_INFO,
@@ -2413,6 +2414,38 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
   }
 
+  const myCondEl = el('mycond');
+  /** Última lista desenhada, para não reconstruir o DOM a cada tique. */
+  let myCondKey = '';
+
+  function renderMyConditions(ids?: ConditionId[]): void {
+    const lista = ids ?? [];
+    const chave = lista.join(',');
+    if (chave === myCondKey) return;
+    myCondKey = chave;
+
+    myCondEl.replaceChildren();
+    for (const id of lista) {
+      const def = CONDITIONS[id];
+      if (!def) continue;
+      const tag = document.createElement('span');
+      tag.className = 'cond';
+      tag.textContent = def.name;
+      // `currentColor` na borda: define a cor uma vez e a borda acompanha.
+      tag.style.color = hx(CONDITION_COLORS[id] ?? 0xffffff);
+      // O tooltip explica o efeito — é onde o jogador aprende que Silêncio
+      // bloqueia só magia, e que dano quebra Congelamento mas não Petrificação.
+      const efeitos: string[] = [];
+      if (!def.blocksMove) efeitos.push('anda');
+      if (!def.blocksAttack) efeitos.push('ataca');
+      if (!def.blocksCast) efeitos.push('conjura');
+      tag.title = efeitos.length
+        ? `Ainda consegue: ${efeitos.join(', ')}`
+        : 'Sem ação até passar';
+      myCondEl.appendChild(tag);
+    }
+  }
+
   function syncEntities(entities: EntitySnapshot[]): void {
     const seen = new Set<string>();
     // Reconstruídos a cada snapshot porque é exatamente isso que muda de um para
@@ -2453,6 +2486,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       }
       strip?.set(e.conditions);
       if (isSelf) {
+        // Condições do próprio jogador no HUD, com NOME. O ícone sobre o sprite
+        // dá a leitura de relance; o nome é o que ensina o que o símbolo quer
+        // dizer. Sem isto, dez glifos de 9 px seriam adivinhação.
+        renderMyConditions(e.conditions);
         myFloor = e.floor;
         myTileX = e.tileX;
         myTileY = e.tileY;
@@ -2883,9 +2920,107 @@ function makeHpBar(): { node: Container; set: (hp?: number, maxHp?: number) => v
  * fábricas de sprite: são quatro fábricas diferentes (jogador, criatura, item,
  * NPC) e nenhuma delas precisa saber que condições existem.
  */
+/**
+ * Desenha o SÍMBOLO de uma condição num quadrado de lado `s`, na origem dada.
+ *
+ * 🔴 Antes eram quadrados coloridos e nada mais: dez estados diferentes com a
+ * mesma forma, distinguíveis só pela cor. Cor sozinha não serve — o jogador não
+ * memoriza dez tons, e quem tem daltonismo não distingue nenhum.
+ *
+ * Cada condição ganhou uma FORMA reconhecível. São desenhos vetoriais e não arte,
+ * porque a 9 px nenhum sprite legível caberia; a forma é o que carrega o
+ * significado nesse tamanho.
+ */
+function drawConditionGlyph(
+  g: Graphics, id: ConditionId, ox: number, oy: number, s: number,
+): void {
+  const cor = CONDITION_COLORS[id] ?? 0xffffff;
+  const cx = ox + s / 2;
+  const cy = oy + s / 2;
+  const r = s * 0.42;
+  const linha = Math.max(1, s * 0.16);
+
+  switch (id) {
+    // Congelamento: cristal de gelo — três eixos cruzados.
+    case 'freeze':
+      for (const a of [0, Math.PI / 3, (2 * Math.PI) / 3]) {
+        g.moveTo(cx - Math.cos(a) * r, cy - Math.sin(a) * r);
+        g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      }
+      g.stroke({ width: linha, color: cor });
+      break;
+
+    // Petrificação: pedra — polígono angular e maciço.
+    case 'petrify':
+      g.poly([
+        cx - r, cy + r * 0.5, cx - r * 0.5, cy - r,
+        cx + r * 0.6, cy - r * 0.7, cx + r, cy + r * 0.3, cx + r * 0.2, cy + r,
+      ]).fill(cor);
+      break;
+
+    // Atordoamento: tontura — anel aberto com um ponto, como as estrelinhas.
+    case 'stun':
+      g.arc(cx, cy, r, 0.6, Math.PI * 1.7).stroke({ width: linha, color: cor });
+      g.circle(cx + r * 0.7, cy - r * 0.7, linha * 0.9).fill(cor);
+      break;
+
+    // Silêncio: círculo cortado — o "proibido" universal.
+    case 'silence':
+      g.circle(cx, cy, r).stroke({ width: linha, color: cor });
+      g.moveTo(cx - r * 0.7, cy + r * 0.7);
+      g.lineTo(cx + r * 0.7, cy - r * 0.7);
+      g.stroke({ width: linha, color: cor });
+      break;
+
+    // Veneno: bolhas — três círculos, distinto da gota do sangramento.
+    case 'poison':
+      g.circle(cx - r * 0.45, cy + r * 0.35, r * 0.4).fill(cor);
+      g.circle(cx + r * 0.45, cy + r * 0.25, r * 0.32).fill(cor);
+      g.circle(cx, cy - r * 0.5, r * 0.45).fill(cor);
+      break;
+
+    // Sangramento: gota caindo.
+    case 'bleed':
+      g.poly([cx, cy - r, cx + r * 0.75, cy + r * 0.45, cx, cy + r, cx - r * 0.75, cy + r * 0.45])
+        .fill(cor);
+      break;
+
+    // Queimadura: chama — triângulo com a base ondulada sugerida.
+    case 'burn':
+      g.poly([cx, cy - r, cx + r * 0.8, cy + r * 0.8, cx - r * 0.8, cy + r * 0.8]).fill(cor);
+      g.circle(cx, cy + r * 0.3, r * 0.3).fill(0x000000);
+      break;
+
+    // Lentidão: ampulheta — tempo escorrendo.
+    case 'slow':
+      g.poly([cx - r * 0.7, cy - r, cx + r * 0.7, cy - r, cx, cy]).fill(cor);
+      g.poly([cx - r * 0.7, cy + r, cx + r * 0.7, cy + r, cx, cy]).fill(cor);
+      break;
+
+    // Empurrão: seta para a direita.
+    case 'knockback':
+      g.poly([cx - r * 0.3, cy - r * 0.7, cx + r * 0.8, cy, cx - r * 0.3, cy + r * 0.7]).fill(cor);
+      g.rect(cx - r, cy - linha / 2, r * 0.6, linha).fill(cor);
+      break;
+
+    // Aprisionamento: raízes cruzadas prendendo os pés.
+    case 'root':
+      g.moveTo(cx - r, cy + r);
+      g.lineTo(cx + r * 0.4, cy - r);
+      g.moveTo(cx + r, cy + r);
+      g.lineTo(cx - r * 0.4, cy - r);
+      g.moveTo(cx - r, cy);
+      g.lineTo(cx + r, cy);
+      g.stroke({ width: linha, color: cor });
+      break;
+  }
+}
+
 function makeConditionStrip(): { node: Container; set: (ids?: ConditionId[]) => void } {
-  const S = 5; // lado do quadradinho
-  const GAP = 1;
+  // 9 px em vez dos 5 de antes: a 5 px nenhum símbolo é legível, e sem símbolo a
+  // fita volta a ser dez quadrados iguais.
+  const S = 9;
+  const GAP = 2;
   const node = new Container();
   const g = new Graphics();
   node.addChild(g);
@@ -2905,11 +3040,13 @@ function makeConditionStrip(): { node: Container; set: (ids?: ConditionId[]) => 
     const largura = lista.length * S + (lista.length - 1) * GAP;
     // Centraliza sobre o tile e senta acima da barra de vida (que fica em y=-8).
     node.x = (TS - largura) / 2;
-    node.y = -15;
+    node.y = -20;
     lista.forEach((id, i) => {
       const x = i * (S + GAP);
-      g.rect(x - 0.5, -0.5, S + 1, S + 1).fill({ color: 0x000000, alpha: 0.8 });
-      g.rect(x, 0, S, S).fill(CONDITION_COLORS[id] ?? 0xffffff);
+      // Fundo escuro atrás de cada símbolo: sem ele, glifo de cor clara sobre
+      // piso claro desaparece.
+      g.roundRect(x - 1, -1, S + 2, S + 2, 2).fill({ color: 0x0a0806, alpha: 0.85 });
+      drawConditionGlyph(g, id, x, 0, S);
     });
   }
 

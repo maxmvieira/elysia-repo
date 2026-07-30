@@ -1279,6 +1279,25 @@
         font-size: 11px;
       }
       /* Banco (modal) — reaproveita a moldura da loja. */
+      /* Condições ativas do jogador, no HUD. Uma etiqueta por condição, na cor
+         dela — o mesmo código de cor dos ícones sobre o sprite, para o jogador
+         ligar as duas coisas. */
+      #mycond {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        margin-top: 4px;
+      }
+      #mycond:empty {
+        display: none;
+      }
+      #mycond .cond {
+        font-size: 10px;
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: #1a1611;
+        border: 1px solid currentColor;
+      }
       /* Bancada do Ferreiro. Reusa a mesma linguagem visual do Banco (janela
          centrada sobre véu escuro), porque são os dois painéis de serviço de
          NPC e é bom que o jogador reconheça o padrão. */
@@ -1453,6 +1472,14 @@
             <div class="bar"><i id="hpfill"></i><span id="hptext">—</span></div>
             <div class="bar"><i id="manafill"></i><span id="manatext">—</span></div>
             <div class="bar"><i id="xpfill"></i><span id="xptext">—</span></div>
+            <!--
+              Condições ativas do PRÓPRIO jogador, com NOME.
+
+              Os ícones sobre o sprite dão a leitura de relance; aqui vem o nome,
+              porque símbolo de 9 px não ensina o que significa. Fica vazio (e
+              escondido) quando não há condição nenhuma, que é o normal.
+            -->
+            <div id="mycond"></div>
           </div>
         </div>
         <div class="box panel" id="attrbox">
