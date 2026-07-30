@@ -186,6 +186,9 @@ export function buildStarterMap(): GameMap {
     npcs: [
       { name: 'Comerciante', x: 22, y: 18, floor: 0, role: 'vendor' },
       { name: 'Banqueiro', x: 18, y: 18, floor: 0, role: 'bank' },
+      // Bancada de fabricação. Fica ao lado dos outros dois: a praça da vila
+      // concentra os serviços, que é o que faz o jogador voltar para cá.
+      { name: 'Ferreiro', x: 20, y: 17, floor: 0, role: 'blacksmith' },
     ],
   };
 }

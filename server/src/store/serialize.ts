@@ -13,7 +13,7 @@
 
 import type {
   Attributes, BestiaryState, EquipSlot, ItemStack, PlayerClass,
-  Proficiencies, SkillLevels, SkillState,
+  Proficiencies, Professions, SkillLevels, SkillState,
 } from '@dominion/shared';
 import { EQUIP_SLOTS } from '@dominion/shared';
 import type { StoredCharacter, StoredItem } from './store.js';
@@ -44,6 +44,13 @@ export interface Persistable {
   skillResets: number;
   proficiencies: Proficiencies;
   bestiary: BestiaryState;
+  /**
+   * Níveis de profissão (`DD-PROF-004`: sem limite de profissões, daí o mapa).
+   *
+   * A coluna existe no banco desde a migração v2, mas ficou **órfã** até agora —
+   * nada lia nem gravava, então subir Ferreiro e relogar perdia tudo.
+   */
+  professions: Professions;
 }
 
 /** Achata mochila + depósito + equipamento numa lista de linhas. */
@@ -158,6 +165,7 @@ export function toStored(
     skillLevels: JSON.stringify(p.skillLevels),
     proficiencies: JSON.stringify(p.proficiencies),
     bestiary: JSON.stringify(p.bestiary),
+    professions: JSON.stringify(p.professions),
     items: itemsToRows(p),
     visitedTowns,
   };
@@ -170,6 +178,7 @@ export function fromStored(c: StoredCharacter): {
   skillLevels: SkillLevels;
   proficiencies: Proficiencies;
   bestiary: BestiaryState;
+  professions: Professions;
 } {
   return {
     attributes: JSON.parse(c.attributes) as Attributes,
@@ -181,5 +190,8 @@ export function fromStored(c: StoredCharacter): {
     skillLevels: JSON.parse(c.skillLevels) as SkillLevels,
     proficiencies: JSON.parse(c.proficiencies) as Proficiencies,
     bestiary: JSON.parse(c.bestiary) as BestiaryState,
+    // Personagem criado antes da migração v2 tem a coluna com o DEFAULT '{}',
+    // mas um save corrompido ou vazio não pode derrubar o login — daí o fallback.
+    professions: JSON.parse(c.professions || '{}') as Professions,
   };
 }

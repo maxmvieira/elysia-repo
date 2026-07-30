@@ -13,6 +13,8 @@ import type { AttributeKey, Attributes, AttackType, PlayerClass } from './stats.
 import type { EquipSlot, ItemStack } from './items.js';
 import type { DamageType } from './elements.js';
 import type { ConditionId } from './conditions.js';
+import type { Rarity } from './weapons.js';
+import type { Professions } from './crafting.js';
 import type { NpcRole } from './tiles.js';
 
 /** Versão do protocolo. Incrementar em mudanças incompatíveis. */
@@ -201,6 +203,26 @@ export interface C2S_Cast {
   spell: string;
 }
 
+/**
+ * Fabricar um equipamento na bancada do Ferreiro (`DD-PROF-022`/`026`).
+ *
+ * O jogador escolhe o QUE fabricar (`DD-PROF-026`: a receita define a categoria,
+ * não o tipo de peça) e QUAIS fragmentos pôr na bancada — a proporção deles é o
+ * que define a chance de cada raridade.
+ *
+ * Só intenção: o servidor revalida tudo, sorteia e é a autoridade sobre o
+ * resultado. O cliente nunca decide raridade.
+ */
+export interface C2S_Craft {
+  t: 'craft';
+  /** `kind` do equipamento desejado. */
+  kind: string;
+  /** Raridade da receita a consumir. */
+  recipeRarity: Rarity;
+  /** Quantos fragmentos de cada raridade colocar. */
+  fragments: Partial<Record<Rarity, number>>;
+}
+
 /** Abrir o corpo de alguém que morreu (precisa estar perto). */
 export interface C2S_OpenCorpse {
   t: 'opencorpse';
@@ -247,7 +269,8 @@ export type ClientMessage =
   | C2S_SkillUp
   | C2S_SkillReset
   | C2S_OpenCorpse
-  | C2S_LootCorpse;
+  | C2S_LootCorpse
+  | C2S_Craft;
 
 // ----------------------------------------------------------------------------
 // Servidor -> Cliente (fatos autoritativos)
@@ -374,6 +397,8 @@ export interface S2C_Stats {
   proficiencies: Record<string, { level: number; progress: number }>;
   /** O que o jogador já descobriu de cada criatura. */
   bestiary: Record<string, { encountered: boolean; kills: number; variants: string[] }>;
+  /** Níveis de profissão, para a bancada mostrar o nível de Ferreiro. */
+  professions: Professions;
 }
 
 /** Um golpe aplicado (para números de dano flutuantes e barras). */

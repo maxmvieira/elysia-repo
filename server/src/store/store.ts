@@ -64,6 +64,8 @@ export interface StoredCharacter {
   skillLevels: string;
   proficiencies: string;
   bestiary: string;
+  /** JSON do mapa de profissões (`DD-PROF-004`). */
+  professions: string;
   items: StoredItem[];
   visitedTowns: string[];
 }
@@ -241,8 +243,9 @@ export class Store {
            skill_kind, skill_level, skill_progress,
            hp, mana, gold, bank_gold, tile_x, tile_y, floor, respawn_town,
            skill_points, skill_resets, skill_levels, proficiencies, bestiary,
+           professions,
            created_at, last_played_at
-         ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?, ?,?)`,
+         ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?, ?, ?,?)`,
       )
       .run(
         c.accountId, c.name, nameKey(c.name), c.cls, c.gender,
@@ -250,6 +253,7 @@ export class Store {
         c.skillKind, c.skillLevel, c.skillProgress,
         c.hp, c.mana, c.gold, c.bankGold, c.tileX, c.tileY, c.floor, c.respawnTown,
         c.skillPoints, c.skillResets, c.skillLevels, c.proficiencies, c.bestiary,
+        c.professions,
         now, now,
       );
     const id = Number(info.lastInsertRowid);
@@ -291,6 +295,9 @@ export class Store {
       skillLevels: r.skill_levels as string,
       proficiencies: r.proficiencies as string,
       bestiary: r.bestiary as string,
+      // Personagem criado antes da v2 tem o DEFAULT '{}'; o `?? '{}'` cobre o
+      // caso de um banco onde a coluna foi adicionada sem default.
+      professions: (r.professions as string) ?? '{}',
       items: this.loadItems(id),
       visitedTowns: this.visitedTowns(id),
     };
@@ -307,6 +314,7 @@ export class Store {
              skill_kind=?, skill_level=?, skill_progress=?,
              hp=?, mana=?, gold=?, bank_gold=?, tile_x=?, tile_y=?, floor=?, respawn_town=?,
              skill_points=?, skill_resets=?, skill_levels=?, proficiencies=?, bestiary=?,
+             professions=?,
              last_played_at=?
            WHERE id=?`,
         )
@@ -315,6 +323,7 @@ export class Store {
           c.skillKind, c.skillLevel, c.skillProgress,
           c.hp, c.mana, c.gold, c.bankGold, c.tileX, c.tileY, c.floor, c.respawnTown,
           c.skillPoints, c.skillResets, c.skillLevels, c.proficiencies, c.bestiary,
+          c.professions,
           Date.now(), c.id,
         );
       this.replaceItems(c.id, c.items);

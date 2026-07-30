@@ -66,6 +66,14 @@ import {
   type ServerMessage,
   affixDamageType,
   composeItemName,
+  rarityChances,
+  FRAGMENT_ITEM,
+  FRAGMENTS_PER_CRAFT,
+  MIN_FRAGMENTS_FOR_CHANCE,
+  RARITIES,
+  RECIPE_ITEM,
+  type Professions,
+  type Rarity,
   CONDITION_COLORS,
   CREATURE_PLACEHOLDER_COLORS,
   ELEMENT_INFO,
@@ -1498,6 +1506,155 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     shopEl.style.display = 'flex';
   }
 
+  // ---- Bancada do Ferreiro (Doc 4, cap. 44-46) ----------------------------
+  //
+  // O jogador escolhe a peça e a proporção de fragmentos. A PROPORÇÃO é o que
+  // define a chance de cada raridade (`DD-PROF-022`), então a tabela de
+  // probabilidade aparece antes de confirmar: é uma aposta informada, não uma
+  // caixa-surpresa. Sem mostrar as chances, o jogador não teria como decidir
+  // entre arriscar agora ou juntar fragmento melhor.
+  const craftEl = el('craft');
+  const craftKind = document.querySelector<HTMLSelectElement>('#craft-kind')!;
+  const craftRecipe = document.querySelector<HTMLSelectElement>('#craft-recipe')!;
+  const craftFrags = el('craft-frags');
+  const craftOdds = el('craft-odds');
+  const craftHint = el('craft-hint');
+  const craftProf = el('craft-prof');
+
+  /** Quanto o jogador tem de um `kind` na mochila. */
+  function haveInBag(kind: string): number {
+    let n = 0;
+    for (const s of currentInv?.backpack ?? []) if (s?.kind === kind) n += s.amount;
+    return n;
+  }
+
+  /**
+   * Níveis de profissão. Vem no `stats`, e é lido aqui em vez de numa variável
+   * lá embaixo porque a bancada é declarada antes do bloco de stats.
+   */
+  let myProfessions: Professions = {};
+
+  /** Campos de fragmento por raridade, criados uma vez. */
+  function buildFragRows(): void {
+    craftFrags.replaceChildren();
+    for (const r of RARITIES) {
+      const item = ITEMS[FRAGMENT_ITEM[r]]!;
+      const tem = haveInBag(item.kind);
+      const row = document.createElement('div');
+      row.className = 'fragrow';
+
+      const nome = document.createElement('span');
+      nome.textContent = item.name;
+      nome.style.color = `#${RARITY[r].color.toString(16).padStart(6, '0')}`;
+
+      const have = document.createElement('span');
+      have.className = 'have';
+      have.textContent = `tem ${tem}`;
+
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.max = String(tem);
+      input.step = '1';
+      input.value = '0';
+      input.dataset.rarity = r;
+      // Recalcula as chances a cada digitação: o jogador precisa ver o efeito
+      // de mover 10 fragmentos de uma raridade para outra.
+      input.addEventListener('input', renderCraftOdds);
+
+      row.append(nome, have, input);
+      craftFrags.appendChild(row);
+    }
+  }
+
+  /** O que está digitado na bancada agora. */
+  function currentBundle(): Partial<Record<Rarity, number>> {
+    const out: Partial<Record<Rarity, number>> = {};
+    for (const input of craftFrags.querySelectorAll<HTMLInputElement>('input')) {
+      const r = input.dataset.rarity as Rarity;
+      const n = Math.max(0, Math.floor(Number(input.value) || 0));
+      if (n > 0) out[r] = n;
+    }
+    return out;
+  }
+
+  function renderCraftOdds(): void {
+    const bundle = currentBundle();
+    const total = RARITIES.reduce((s, r) => s + (bundle[r] ?? 0), 0);
+    const receita = craftRecipe.value as Rarity;
+    const chances = rarityChances(bundle);
+    const entradas = (Object.entries(chances) as Array<[Rarity, number]>)
+      // A receita é TETO: fragmento acima dela não entra no sorteio.
+      .filter(([r]) => RARITIES.indexOf(r) <= RARITIES.indexOf(receita));
+
+    craftOdds.replaceChildren();
+    if (entradas.length === 0) {
+      craftOdds.textContent = total < FRAGMENTS_PER_CRAFT
+        ? `Faltam ${FRAGMENTS_PER_CRAFT - total} fragmentos.`
+        : `Nenhuma raridade alcançou os ${MIN_FRAGMENTS_FOR_CHANCE} fragmentos mínimos.`;
+      return;
+    }
+    const soma = entradas.reduce((s, [, p]) => s + p, 0);
+    for (const [r, p] of entradas) {
+      const linha = document.createElement('div');
+      linha.textContent = `${RARITY[r].name}: ${Math.round((p / soma) * 100)}%`;
+      linha.style.color = `#${RARITY[r].color.toString(16).padStart(6, '0')}`;
+      craftOdds.appendChild(linha);
+    }
+  }
+
+  function renderCraft(): void {
+    const nivel = myProfessions.blacksmith?.level ?? 1;
+    craftProf.textContent = `Ferreiro ${nivel}`;
+
+    // Peças fabricáveis: todo equipamento do catálogo.
+    craftKind.replaceChildren();
+    for (const def of Object.values(ITEMS)) {
+      if (def.category !== 'equip') continue;
+      const opt = document.createElement('option');
+      opt.value = def.kind;
+      opt.textContent = def.name;
+      craftKind.appendChild(opt);
+    }
+
+    // Receitas: só as que o jogador tem em mão.
+    craftRecipe.replaceChildren();
+    let alguma = false;
+    for (const r of RARITIES) {
+      const tem = haveInBag(RECIPE_ITEM[r]);
+      if (tem <= 0) continue;
+      alguma = true;
+      const opt = document.createElement('option');
+      opt.value = r;
+      opt.textContent = `${ITEMS[RECIPE_ITEM[r]]!.name} (${tem})`;
+      craftRecipe.appendChild(opt);
+    }
+    craftHint.textContent = alguma
+      ? 'A receita define o teto da raridade. Fragmentos acima dela não contam.'
+      : 'Você não tem nenhuma receita. Elas caem de monstros e chefes.';
+
+    buildFragRows();
+    renderCraftOdds();
+  }
+
+  function openCraft(): void {
+    renderCraft();
+    craftEl.style.display = 'flex';
+  }
+
+  el('craft-close').onclick = (): void => {
+    craftEl.style.display = 'none';
+  };
+  craftRecipe.addEventListener('change', renderCraftOdds);
+  el('craft-do').onclick = (): void => {
+    net.send({
+      t: 'craft',
+      kind: craftKind.value,
+      recipeRarity: craftRecipe.value as Rarity,
+      fragments: currentBundle(),
+    });
+  };
+
   // ---- Banco (só ouro) ----------------------------------------------------
   //
   // NPC próprio, não uma aba do Comerciante: o Doc 3 lista Comerciante e Banco
@@ -1982,6 +2139,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     skillLevels = s.skillLevels;
     currentMana = s.mana;
     myProficiencies = s.proficiencies;
+    myProfessions = s.professions;
+    // Se a bancada está aberta, o nível novo aparece na hora — fabricar sobe
+    // profissão, e ver o número mudar é metade da recompensa.
+    if (craftEl.style.display !== 'none') renderCraft();
     // A barra só existe para quem tem alguma habilidade na classe.
     const usable = SKILL_BAR.some((id) => id && SKILLS[id].classes.includes(s.charClass));
     spellBarEl.style.display = usable ? 'flex' : 'none';
@@ -2220,7 +2381,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       if (!view) {
         view = makeEntity(e, isSelf, isSelf ? selfTex : otherTex, anims, setTarget, {
           classAnims, slimeAnim, slimeVariants, zombieAnim, zombieIdleAnim, knightArt, npcAnim,
-          selfClass: charClass, selfGender: gender, openShop, openBank, openCorpse,
+          selfClass: charClass, selfGender: gender, openShop, openBank, openCraft, openCorpse,
         });
         sprites.set(e.id, view);
         objects.addChild(view.container);
@@ -2893,6 +3054,7 @@ interface MiniAssets {
   openShop: () => void;
   /** Abre o Banco (clicar no Banqueiro). */
   openBank: () => void;
+  openCraft: () => void;
   /** Abre o espólio de um corpo no chão. */
   openCorpse: (id: string) => void;
 }
@@ -2908,15 +3070,25 @@ function makeEntity(
   if (e.kind === 'creature') return makeCreatureView(e, anims, onTargetClick, mini);
   if (e.kind === 'item') return makeItemView(e, mini.openCorpse);
   if (e.kind === 'npc') {
-    // Clicar abre o painel da FUNÇÃO do NPC. Banqueiro em azul-prata, para não
-    // parecer o Comerciante — os dois ficam na mesma praça.
-    const banqueiro = e.npcRole === 'bank';
+    // Clicar abre o painel da FUNÇÃO do NPC. Cada um tem cor própria: os três
+    // ficam na mesma praça e usam o MESMO sprite placeholder, então a cor é a
+    // única pista visual de quem é quem.
+    const cor = e.npcRole === 'bank'
+      ? 0x9fc7e8 // banqueiro: azul-prata
+      : e.npcRole === 'blacksmith'
+        ? 0xd98a4a // ferreiro: laranja de forja
+        : 0xe8c24a; // comerciante: dourado
+    const abre = e.npcRole === 'bank'
+      ? mini.openBank
+      : e.npcRole === 'blacksmith'
+        ? mini.openCraft
+        : mini.openShop;
     return makeMiniActor({
       e, anim: mini.npcAnim ?? mini.classAnims?.archer ?? { down: [], up: [], right: [], left: [] },
       scale: 2.4,
-      nameColor: banqueiro ? 0x9fc7e8 : 0xe8c24a,
-      tint: banqueiro ? 0x9fc7e8 : undefined,
-      onClick: () => (banqueiro ? mini.openBank() : mini.openShop()),
+      nameColor: cor,
+      tint: e.npcRole === 'vendor' ? undefined : cor,
+      onClick: abre,
     });
   }
   // A classe/sexo vêm do snapshot (todos os jogadores); para o próprio, o escolhido.

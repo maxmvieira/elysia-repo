@@ -40,7 +40,7 @@ function personagemBase(accountId: number, name: string): Omit<StoredCharacter, 
     respawnTown: 'vilarejo_norte',
     skillPoints: 1, skillResets: 0,
     skillLevels: JSON.stringify({}), proficiencies: JSON.stringify({}),
-    bestiary: JSON.stringify({}),
+    bestiary: JSON.stringify({}), professions: JSON.stringify({}),
     items: [], visitedTowns: ['vilarejo_norte'],
   };
 }
@@ -131,6 +131,9 @@ test('salva e recarrega o personagem inteiro — o objetivo da etapa', () => {
   antes.attributes = JSON.stringify({ str: 20, vit: 15, agi: 6, dex: 6, int: 3, wis: 4, luk: 5 });
   antes.skillLevels = JSON.stringify({ golpe_poderoso: 3 });
   antes.proficiencies = JSON.stringify({ sword: { level: 22, progress: 5 } });
+  // Profissão entrou na migração v2 e a coluna ficou órfã por um dia: nada lia
+  // nem gravava. Este campo no round-trip é o que garante que não volte a ficar.
+  antes.professions = JSON.stringify({ blacksmith: { level: 7, xp: 33 } });
   antes.bestiary = JSON.stringify({ slime: { encountered: true, kills: 42, variants: ['common'] } });
   antes.tileX = 12; antes.tileY = 44; antes.floor = -1;
   antes.items = [

@@ -1279,6 +1279,72 @@
         font-size: 11px;
       }
       /* Banco (modal) — reaproveita a moldura da loja. */
+      /* Bancada do Ferreiro. Reusa a mesma linguagem visual do Banco (janela
+         centrada sobre véu escuro), porque são os dois painéis de serviço de
+         NPC e é bom que o jogador reconheça o padrão. */
+      #craft {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.55);
+        z-index: 15;
+      }
+      #craft .win {
+        width: 320px;
+        max-height: 88vh;
+        overflow-y: auto;
+        background: var(--panel);
+        border: 2px solid #8a6a3a;
+        border-radius: 8px;
+        padding: 14px;
+      }
+      #craft select {
+        width: 100%;
+        margin-bottom: 4px;
+      }
+      .craftrow {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 2px;
+        border-bottom: 1px solid #241f18;
+        font-size: 12px;
+      }
+      .craftlabel {
+        font-size: 11px;
+        color: #9a8f7a;
+        margin: 8px 0 3px;
+      }
+      /* Uma linha por raridade de fragmento: nome, quanto você tem, quanto pôr. */
+      .fragrow {
+        display: grid;
+        grid-template-columns: 1fr auto 62px;
+        gap: 6px;
+        align-items: center;
+        font-size: 11px;
+        padding: 2px 0;
+      }
+      .fragrow input {
+        width: 100%;
+      }
+      .fragrow .have {
+        color: #9a8f7a;
+      }
+      /* A tabela de probabilidade. Fica visível ANTES de confirmar porque o
+         sistema é aposta informada: o jogador escolhe o risco. */
+      .craftodds {
+        margin: 8px 0;
+        padding: 6px 8px;
+        background: #1a1611;
+        border-radius: 5px;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      #craft-do {
+        width: 100%;
+        margin-top: 6px;
+      }
       #bank {
         position: fixed;
         inset: 0;
@@ -1450,6 +1516,31 @@
         <div class="hint" id="bank-hint" style="margin-top: 8px">
           O ouro guardado não cai com o corpo se você morrer.
         </div>
+      </div>
+    </div>
+    <!--
+      Bancada do Ferreiro (Doc 4, cap. 44-46 / DD-PROF-022..028).
+
+      O jogador escolhe a PEÇA e quantos fragmentos de cada raridade põe na
+      bancada. A proporção dos fragmentos é o que define a chance de cada
+      raridade sair — por isso a tabela de probabilidade fica visível ANTES de
+      confirmar: o sistema é uma aposta informada, não uma caixa-surpresa.
+    -->
+    <div id="craft">
+      <div class="win">
+        <h3><span>🔨 Bancada do Ferreiro</span><span class="close" id="craft-close">✕</span></h3>
+        <div class="craftrow">
+          <span>Profissão</span><b id="craft-prof">Ferreiro 1</b>
+        </div>
+        <label class="craftlabel" for="craft-kind">O que fabricar</label>
+        <select id="craft-kind"></select>
+        <label class="craftlabel" for="craft-recipe">Receita a consumir</label>
+        <select id="craft-recipe"></select>
+        <div class="craftlabel">Fragmentos na bancada</div>
+        <div id="craft-frags"></div>
+        <div id="craft-odds" class="craftodds"></div>
+        <div class="hint" id="craft-hint"></div>
+        <button id="craft-do">Fabricar</button>
       </div>
     </div>
     <div id="bestiary">

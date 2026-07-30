@@ -41,8 +41,20 @@ import {
   DAMAGE_TYPES,
   resolveDamage,
   affixDamageType,
+  composeItemName,
   materialsOf,
   rollAffixNames,
+  addProfessionXp,
+  canCraft,
+  craftXp,
+  rollCraft,
+  FRAGMENTS_PER_CRAFT,
+  MIN_FRAGMENTS_FOR_CHANCE,
+  RARITIES,
+  type C2S_Craft,
+  type FragmentBundle,
+  type Professions,
+  type Rarity,
   FRAGMENT_ITEM,
   RECIPE_ITEM,
   rollFragmentDrop,
@@ -253,6 +265,11 @@ interface Player {
   stance: boolean;
   /** Maestria por tipo de arma — sobe com o uso e nunca tem teto. */
   proficiencies: Proficiencies;
+  /**
+   * Níveis de profissão (`DD-PROF-004`: sem limite de profissões, daí o mapa).
+   * Persistido na coluna `professions` desde a migração v2.
+   */
+  professions: Professions;
   /** O que ele já conhece de cada criatura (encontros e abates). */
   bestiary: BestiaryState;
   /** Última leitura das zonas, p/ reenviar inventário só quando muda. */
@@ -408,6 +425,29 @@ function addToBackpack(player: Player, kind: string, amount: number, roll?: Item
 }
 
 /**
+ * Remove `amount` unidades de um `kind` empilhável da mochila.
+ *
+ * Devolve quanto NÃO conseguiu remover (0 = removeu tudo). Quem chama já deve ter
+ * verificado a quantidade — o retorno existe para o caso de a verificação e a
+ * remoção divergirem, que seria bug e precisa aparecer em vez de sumir.
+ *
+ * Só serve para empilhável: equipamento tem `roll` próprio por instância e não
+ * pode ser tratado como quantidade fungível.
+ */
+function removeFromBackpack(player: Player, kind: string, amount: number): number {
+  let faltam = Math.max(0, Math.floor(amount));
+  for (let i = 0; i < player.backpack.length && faltam > 0; i++) {
+    const slot = player.backpack[i];
+    if (slot?.kind !== kind) continue;
+    const tira = Math.min(slot.amount, faltam);
+    slot.amount -= tira;
+    faltam -= tira;
+    if (slot.amount <= 0) player.backpack[i] = null;
+  }
+  return faltam;
+}
+
+/**
  * Ouro vive como MOEDAS na mochila (gold/silver/blue/white). `player.gold` é o
  * total autoritativo; esta função reescreve as moedas normalizadas (100 de uma
  * viram 1 da próxima). Remove as moedas antigas e recria o mínimo de pilhas.
@@ -504,6 +544,7 @@ function sendStats(player: Player): void {
     furyActive: player.fury !== null,
     stanceActive: player.stance,
     proficiencies: player.proficiencies as Record<string, { level: number; progress: number }>,
+    professions: player.professions,
     bestiary: player.bestiary as Record<string, { encountered: boolean; kills: number; variants: string[] }>,
   });
 }
@@ -1267,6 +1308,137 @@ function creatureDefenseProfile(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Fabricação (`DD-PROF-021`..`028`)
+// ---------------------------------------------------------------------------
+
+/**
+ * ⚠️ REFERÊNCIA. Custo em ouro por raridade de receita.
+ *
+ * `DD-PROF-024` exige gold em toda fabricação e **não dá valor**. Dobra por
+ * degrau: o custo tem que doer o suficiente para o jogador não queimar receita
+ * em teste, mas o gargalo real do sistema são os 100 fragmentos, não a moeda.
+ */
+const CRAFT_GOLD_COST: Record<Rarity, number> = {
+  common: 50,
+  uncommon: 100,
+  rare: 200,
+  epic: 400,
+  legendary: 800,
+  mythic: 1600,
+  relic: 3200,
+};
+
+/** Quantos itens deste `kind` o jogador tem na mochila. */
+function countInBackpack(player: Player, kind: string): number {
+  let n = 0;
+  for (const slot of player.backpack) {
+    if (slot?.kind === kind) n += slot.amount;
+  }
+  return n;
+}
+
+/**
+ * Fabrica um equipamento. O servidor é a autoridade: revalida tudo, consome e
+ * sorteia. O cliente só manda a intenção.
+ *
+ * A ordem importa — **valida tudo antes de consumir qualquer coisa**. Consumir e
+ * depois falhar comeria os fragmentos do jogador, que é o pior bug possível num
+ * sistema onde 100 fragmentos custam horas de caça.
+ */
+function handleCraft(player: Player, msg: C2S_Craft): void {
+  const deny = (reason: string): void => send(player, { t: 'denied', reason });
+
+  // `DD-PROF-028`: fabricação acontece na bancada do Ferreiro, não no mato.
+  if (!nearNpc(player, 'blacksmith')) {
+    return deny('Você precisa estar na bancada de um Ferreiro.');
+  }
+
+  const def = getItem(msg.kind);
+  if (!def || def.category !== 'equip') {
+    return deny('Só dá para fabricar equipamento.');
+  }
+
+  // Fragmentos: o que o jogador pediu tem que existir na mochila.
+  const pedido: FragmentBundle = {};
+  for (const r of RARITIES) {
+    const n = Math.max(0, Math.floor(msg.fragments[r] ?? 0));
+    if (n > 0) {
+      if (countInBackpack(player, FRAGMENT_ITEM[r]) < n) {
+        return deny(`Você não tem ${n} ${ITEMS[FRAGMENT_ITEM[r]]!.name}.`);
+      }
+      pedido[r] = n;
+    }
+  }
+
+  const attempt = {
+    bundle: pedido,
+    recipeRarity: msg.recipeRarity,
+    professionLevel: player.professions.blacksmith?.level ?? 1,
+    // Os dois Mestres Ferreiros do mundo são conteúdo da Etapa 16 (cidades).
+    // Até existirem, Mítico e Relíquia ficam inalcançáveis — fiel ao doc.
+    masterSmith: false,
+  };
+
+  const check = canCraft(attempt);
+  if (!check.ok) {
+    const motivos: Record<string, string> = {
+      'sem-fragmentos-suficientes': `A fabricação exige ${FRAGMENTS_PER_CRAFT} fragmentos.`,
+      'nenhuma-raridade-qualificada':
+        `Nenhuma raridade tem os ${MIN_FRAGMENTS_FOR_CHANCE} fragmentos mínimos.`,
+      'acima-da-receita': 'Seus fragmentos estão acima do que esta receita produz.',
+      'exige-mestre-ferreiro': 'Só um Mestre Ferreiro fabrica isso — e não há nenhum por aqui.',
+    };
+    return deny(motivos[check.reason ?? ''] ?? 'Não é possível fabricar isso.');
+  }
+
+  // Receita e ouro.
+  const receita = RECIPE_ITEM[msg.recipeRarity];
+  if (countInBackpack(player, receita) < 1) {
+    return deny(`Você precisa de uma ${ITEMS[receita]!.name}.`);
+  }
+  const custo = CRAFT_GOLD_COST[msg.recipeRarity] ?? 0;
+  if (player.gold < custo) return deny(`A fabricação custa ${custo} de ouro.`);
+
+  // --- Daqui para baixo, nada mais pode falhar: consome e entrega. ---
+  for (const r of RARITIES) {
+    const n = pedido[r];
+    if (n) removeFromBackpack(player, FRAGMENT_ITEM[r], n);
+  }
+  // `DD-PROF-024`: a receita é CONSUMÍVEL. Cada fabricação gasta uma.
+  removeFromBackpack(player, receita, 1);
+  // `setGold` e não `player.gold -=`: o ouro vive como MOEDAS na mochila e
+  // precisa ser renormalizado (100 de uma viram 1 da próxima).
+  setGold(player, player.gold - custo);
+
+  const result = rollCraft(attempt);
+  const arma = def.slot === 'weapon';
+  const nomes = rollAffixNames(arma ? 'weapon' : 'armor', result.rarity);
+  const roll = rollItem(result.rarity, arma ? 'weapon' : 'armor', Math.random, nomes);
+  addToBackpack(player, msg.kind, 1, roll);
+
+  // XP de profissão. `DD-PROF-023`: receita difícil rende mais.
+  const antes = player.professions.blacksmith ?? { level: 1, xp: 0 };
+  const ganho = craftXp(msg.recipeRarity, antes.level);
+  const { state, levelsGained } = addProfessionXp(antes, ganho);
+  player.professions.blacksmith = state;
+
+  const nomeFinal = composeItemName(def.name, roll.prefix, roll.suffix);
+  send(player, {
+    t: 'chat', from: 'Ferreiro',
+    text: `Você fabricou ${nomeFinal} [${RARITY[result.rarity].name}]`
+      + `${result.upgraded ? ' — sua perícia elevou a raridade!' : ''}`,
+  });
+  if (levelsGained > 0) {
+    send(player, {
+      t: 'chat', from: 'Ferreiro',
+      text: `Ferreiro subiu para o nível ${state.level}.`,
+    });
+  }
+  sendInventory(player);
+  sendStats(player);
+}
+
 /** Roubo de vida dos passivos: devolve parte do dano causado como vida. */
 function applyLifeSteal(player: Player, dano: number): void {
   const taxa = equipBonus(player).lifeSteal;
@@ -1927,6 +2099,7 @@ function createCharacterFor(player: Player, name: string, cls: ClassDef, gender:
     skillLevels: {} as SkillLevels,
     skillResets: 0,
     proficiencies: {} as Proficiencies,
+    professions: {} as Professions,
     bestiary: {} as BestiaryState,
   };
   // Kit inicial: poções + ouro, como era no fluxo antigo.
@@ -1966,6 +2139,7 @@ function applyStoredCharacter(player: Player, c: ReturnType<typeof store.loadCha
   player.skillLevels = parsed.skillLevels;
   player.skillResets = c.skillResets;
   player.proficiencies = parsed.proficiencies;
+  player.professions = parsed.professions;
   player.bestiary = parsed.bestiary;
   player.respawnTown = c.respawnTown;
   player.visitedTowns = new Set(c.visitedTowns);
@@ -2189,6 +2363,11 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       player.skillLevels[def.id as SkillId] = atual + 1;
       sendStats(player);
       break;
+    }
+    case 'craft': {
+      if (!player.joined || !player.alive) return;
+      handleCraft(player, msg);
+      return;
     }
     case 'opencorpse': {
       if (!player.joined || !player.alive) return;
@@ -2939,7 +3118,7 @@ wss.on('connection', (socket) => {
     alive: true, deadUntil: 0, targetId: null, lastAttackAt: 0, lastMoveAt: 0, lastAckSeq: 0, joined: false,
     conditions: [], cc: emptyCcState(),
     spellReadyAt: {}, skillPoints: 0, skillLevels: {}, skillResets: 0,
-    fury: null, stance: false, proficiencies: {}, bestiary: {},
+    fury: null, stance: false, proficiencies: {}, professions: {}, bestiary: {},
     wasAtDepot: false, wasNearVendor: false, wasNearBank: false,
   };
   addToBackpack(player, 'mana_potion', 5);

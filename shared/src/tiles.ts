@@ -70,7 +70,15 @@ export interface FloorLink {
  * outros como funções SEPARADAS. Daí o Banqueiro ser um NPC próprio e não uma
  * terceira aba do Comerciante.
  */
-export type NpcRole = 'vendor' | 'bank';
+/**
+ * Papéis de NPC. `blacksmith` é a bancada de fabricação (`DD-PROF-028`: "a
+ * maioria das cidades possui Ferreiros comuns", que fabricam até Lendário).
+ *
+ * ⚠️ Os **dois Mestres Ferreiros** do mundo — os únicos que fazem Mítico e
+ * Relíquia — são conteúdo da Etapa 16, quando as cidades existirem. Não têm papel
+ * próprio aqui ainda, e por isso essas duas raridades seguem inalcançáveis.
+ */
+export type NpcRole = 'vendor' | 'bank' | 'blacksmith';
 
 /**
  * Mapa multi-andar. Cada andar é uma grade `width*height` de ids de tile,
