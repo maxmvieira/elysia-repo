@@ -9,7 +9,7 @@ const jogador = (id: string, extra: Partial<Combatant> = {}): Combatant => ({
 });
 const monstro = (id: string): Combatant => ({ id, kind: 'creature' });
 
-test('PK OFF: a ação ofensiva simplesmente não existe entre jogadores', () => {
+test('PK OFF: a ação ofensiva do atacante simplesmente não existe (17.32/17.33)', () => {
   const a = jogador('a', { pkEnabled: false });
   const b = jogador('b', { pkEnabled: false });
   const d = canHarm(a, b);
@@ -19,12 +19,23 @@ test('PK OFF: a ação ofensiva simplesmente não existe entre jogadores', () =>
   assert.equal(d.marksAsPk, false);
 });
 
-test('basta um dos dois com PK OFF para a ação não existir', () => {
-  // Senão quem liga o flag arrastaria um jogador pacífico para o PvP.
+test('🔴 o PK do ALVO não protege: sofrer o golpe não é opcional (17.34)', () => {
+  // Este teste existe para travar a correção de rumo de 30/07. A versão
+  // anterior exigia PK ON dos dois lados, o que fazia do flag um escudo
+  // pessoal e da emboscada uma impossibilidade.
   const agressor = jogador('a', { pkEnabled: true });
   const pacifico = jogador('b', { pkEnabled: false });
-  assert.equal(canHarm(agressor, pacifico).allowed, false);
-  assert.equal(canHarm(pacifico, agressor).allowed, false);
+  const d = canHarm(agressor, pacifico);
+  assert.equal(d.allowed, true, 'quem ligou o PK acerta quem está com ele desligado');
+  assert.equal(d.marksAsPk, true, 'e leva a Caveira Branca por isso');
+});
+
+test('o pacífico não devolve o golpe enquanto o agressor não tem caveira', () => {
+  // O flag continua sendo a porta de saída de quem não quer PvP: sem ligar o
+  // PK e sem uma caveira do outro lado, ele não ataca ninguém.
+  const agressor = jogador('a', { pkEnabled: true });
+  const pacifico = jogador('b', { pkEnabled: false });
+  assert.equal(canHarm(pacifico, agressor).veto, 'pk-off');
 });
 
 test('PK ON dos dois lados libera a ação e marca o atacante como PK', () => {
@@ -33,6 +44,38 @@ test('PK ON dos dois lados libera a ação e marca o atacante como PK', () => {
   const d = canHarm(a, b);
   assert.equal(d.allowed, true);
   assert.equal(d.marksAsPk, true);
+});
+
+test('⚪ Caveira Branca: a vítima revida sem ligar o PK e sem ganhar caveira', () => {
+  const agressor = jogador('a', { pkEnabled: true, skull: 'white' });
+  const vitima = jogador('b', { pkEnabled: false });
+  const d = canHarm(vitima, agressor);
+  assert.equal(d.allowed, true);
+  assert.equal(d.marksAsPk, false, '17.38: matar quem está de caveira é justificado');
+  assert.equal(d.justified, true);
+});
+
+test('⚪ qualquer um que esteja vendo também pode atacar o de caveira branca', () => {
+  // É o ponto do cap. 75: o mundo reage ao agressor, não só quem ele agrediu.
+  const agressor = jogador('a', { pkEnabled: true, skull: 'white' });
+  const testemunha = jogador('c', { pkEnabled: false });
+  const d = canHarm(testemunha, agressor);
+  assert.equal(d.allowed, true);
+  assert.equal(d.marksAsPk, false);
+});
+
+test('a caveira do agressor não o deixa bater de graça em quem não tem caveira', () => {
+  // O alvo livre é ELE, não o contrário: continuar agredindo continua marcando.
+  const agressor = jogador('a', { pkEnabled: true, skull: 'white' });
+  const outro = jogador('b', { pkEnabled: false });
+  assert.equal(canHarm(agressor, outro).marksAsPk, true);
+});
+
+test('caveira não fura a proteção de grupo', () => {
+  // Senão bastaria um companheiro pegar caveira para o friendly fire voltar.
+  const a = jogador('a', { pkEnabled: true, partyId: 'g1' });
+  const b = jogador('b', { partyId: 'g1', skull: 'white' });
+  assert.equal(canHarm(a, b).veto, 'ally');
 });
 
 test('criatura ignora o flag de PK nos dois sentidos', () => {

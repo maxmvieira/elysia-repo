@@ -20,7 +20,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { nameKey } from '@dominion/shared';
-import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_VERSION } from './schema.js';
+import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_VERSION } from './schema.js';
 
 // --------------------------------------------------------------- Tipos ----
 
@@ -143,6 +143,13 @@ export class Store {
     if (!this.hasColumn('character', 'bank_gold')) {
       this.db.exec(SCHEMA_V3);
     }
+    // v4 (amigos) é TABELA nova, não coluna — daí `hasTable`. O `CREATE TABLE IF
+    // NOT EXISTS` já seria idempotente sozinho, mas passar pelo mesmo portão das
+    // outras mantém uma regra só para todas as migrações: quem decide é o
+    // schema, nunca o número de versão.
+    if (!this.hasTable('account_friend')) {
+      this.db.exec(SCHEMA_V4);
+    }
     if (current !== SCHEMA_VERSION) {
       this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
     }
@@ -158,6 +165,14 @@ export class Store {
   private hasColumn(table: string, column: string): boolean {
     const rows = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
     return rows.some((r) => r.name === column);
+  }
+
+  /** Esta tabela existe? O `hasColumn` das migrações que criam tabela. */
+  private hasTable(table: string): boolean {
+    const row = this.db
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`)
+      .get(table);
+    return row !== undefined;
   }
 
   close(): void {
@@ -388,6 +403,61 @@ export class Store {
     if (!this.visitedTowns(characterId).includes(town)) return false;
     this.db.prepare('UPDATE character SET respawn_town = ? WHERE id = ?').run(town, characterId);
     return true;
+  }
+
+  // ----------------------------------------------------------- Amigos ----
+  // Escopo CONTA (decisão do dono, 2026-07-30). Ver o comentário do `SCHEMA_V4`
+  // para por que a amizade aponta para a conta mas guarda o nome.
+
+  /** Conta dona de um personagem, pelo nome. `undefined` se o nome não existe. */
+  accountOfCharacter(name: string): { accountId: number; name: string } | undefined {
+    const row = this.db
+      .prepare('SELECT account_id, name FROM character WHERE name_key = ?')
+      .get(nameKey(name)) as { account_id: number; name: string } | undefined;
+    return row ? { accountId: row.account_id, name: row.name } : undefined;
+  }
+
+  listFriends(accountId: number): Array<{ accountId: number; name: string }> {
+    const rows = this.db
+      .prepare(
+        `SELECT friend_account_id, added_name FROM account_friend
+          WHERE account_id = ? ORDER BY added_name COLLATE NOCASE`,
+      )
+      .all(accountId) as Array<{ friend_account_id: number; added_name: string }>;
+    return rows.map((r) => ({ accountId: r.friend_account_id, name: r.added_name }));
+  }
+
+  /**
+   * Adiciona um amigo pelo NOME de um personagem dele.
+   *
+   * Devolve o motivo da recusa em vez de jogar, porque as três recusas viram
+   * mensagens diferentes na tela e o chamador não deve ter de adivinhar qual foi.
+   */
+  addFriend(accountId: number, name: string): { ok: true } | { ok: false; reason: 'nao_existe' | 'voce_mesmo' | 'ja_tem' } {
+    const alvo = this.accountOfCharacter(name);
+    if (!alvo) return { ok: false, reason: 'nao_existe' };
+    // 🔴 Compara CONTA, não personagem: adicionar o próprio alt não é fazer um
+    // amigo, e a lista mostraria "online" para sempre.
+    if (alvo.accountId === accountId) return { ok: false, reason: 'voce_mesmo' };
+    const ja = this.db
+      .prepare('SELECT 1 FROM account_friend WHERE account_id = ? AND friend_account_id = ?')
+      .get(accountId, alvo.accountId);
+    if (ja) return { ok: false, reason: 'ja_tem' };
+    this.db
+      .prepare(
+        `INSERT INTO account_friend (account_id, friend_account_id, added_name, added_at)
+         VALUES (?,?,?,?)`,
+      )
+      .run(accountId, alvo.accountId, alvo.name, Date.now());
+    return { ok: true };
+  }
+
+  /** Remove pelo nome com que foi adicionado. `false` se não estava na lista. */
+  removeFriend(accountId: number, name: string): boolean {
+    const info = this.db
+      .prepare('DELETE FROM account_friend WHERE account_id = ? AND added_name = ? COLLATE NOCASE')
+      .run(accountId, name);
+    return Number(info.changes) > 0;
   }
 }
 

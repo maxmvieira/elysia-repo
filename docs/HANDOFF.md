@@ -16,11 +16,87 @@ travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa).
 git pull
 npm install          # confere; nenhuma dependência nova foi adicionada
 npm run typecheck    # tem que sair limpo nos 3 pacotes
-npm test             # tem que dar 298 passando, 0 falhando
+npm test             # tem que dar 333 passando, 0 falhando
 npm run dev:test     # sobe com os comandos de teste ligados
 ```
 
-Se o `npm test` não der 298, **não continue** — algo se perdeu no merge.
+Se o `npm test` não der 333, **não continue** — algo se perdeu no merge.
+
+### 🆕 Última alteração — a regra de PvP estava ERRADA, e foi corrigida
+
+Se você só for ler um bloco deste arquivo, leia este.
+
+🔴 **O PK deixou de ser um escudo.** A versão anterior (feita horas antes, na mesma
+sessão) exigia PK ON dos **dois** lados para o golpe existir. Consequência: bastava
+deixar o flag desligado para ficar **intocável**, e emboscar alguém era impossível.
+
+**O doc nunca pediu isso.** 17.32 e 17.33 falam só do flag de **quem ataca** (*"Se o
+Sorcerer estiver com PK OFF…"*), e 17.34 diz que com PK ON "as ações ofensivas **podem
+atingir jogadores válidos**" — sem exigir nada do lado de lá.
+
+**Como funciona agora** (decisão do dono, igual ao Tibia):
+
+1. Quem liga o PK **acerta quem está com o PK desligado**. Sofrer o ataque **não é
+   opcional**.
+2. Por isso, o agressor recebe a **⚪ Caveira Branca** por 5 minutos.
+3. Enquanto ela durar, **a vítima e qualquer um que esteja vendo** podem atacá-lo **sem
+   ligar o próprio PK e sem nenhuma punição** — não ganham caveira por isso.
+4. Continuar agredindo **renova** os 5 min (não soma).
+
+| Mudou | Impacto em quem tinha trabalho local |
+|---|---|
+| `canHarm` lê **só o flag do atacante**; `Combatant` ganhou `skull` | 🔴 **mexe em `shared/src/pvp.ts`** — é a regra inteira, resolva o conflito aqui primeiro |
+| `HarmDecision` ganhou `justified` | gancho da Etapa 17: "esta morte não conta como assassinato" |
+| `EntitySnapshot` ganhou `skull` | campo opcional, só viaja quando há caveira |
+| `Player` ganhou `whiteSkullUntil`; `lockPk` virou `applyAggression` | não persiste (como `pkEnabled`); a trava de 10 s agora vale **só para o agressor** |
+| Sumiu o box de **coordenadas e atalhos** da barra lateral | pedido do dono — 3 linhas a menos de CSS em `index.html` |
+
+⚠️ **`WHITE_SKULL_MS = 5 min` é REFERÊNCIA.** O cap. 75 dá a duração da vermelha (7 dias) e
+da preta (30), **não a da branca**; a única fonte é a conversa antiga ("poucos minutos").
+
+🔴 **Não "conserte" de volta para exigir os dois flags.** Há teste travando as duas pontas
+(`shared/tests/pvp.test.ts`), com o motivo escrito no próprio teste.
+
+**Isto ainda não fecha a Etapa 17.** Amarela, vermelha e preta continuam de fora — e o que
+elas exigem que a branca não exigiu é **persistência**: contagem de assassinatos por dia e
+por semana, o que significa schema v5.
+
+### Sessão de 2026-07-30 (madrugada) — social e PvP mínimo
+
+Pedido do dono: **botão direito em outro jogador abre um menu** com atacar, seguir,
+informações, amigos e convite de grupo. Saiu isso e o que cada item exigia por baixo.
+
+| Mudou | Impacto em quem tinha trabalho local |
+|---|---|
+| **Schema v4** — tabela `account_friend` | migração auto-verificável por `hasTable`; seu banco se conserta sozinho no primeiro boot |
+| `EntitySnapshot` ganhou `pkEnabled` e `partyId` | campos opcionais, só viajam quando são verdade — nada quebra |
+| 5 mensagens novas no protocolo (`pk`, `party`, `friend`, `S2C_Party`, `S2C_PartyInvite`, `S2C_Friends`) | 🔴 **mexe em `shared/src/protocol.ts`, `server/src/index.ts` e `client/src/main.ts`** — resolva conflito nos três antes de qualquer outra coisa |
+| `updatePlayers` passou a tratar **alvo jogador** | o caminho de PvE não mudou; há teste garantindo |
+
+**O que ficou pronto:**
+
+- **Menu de contexto** no botão direito (o clique no vazio continua cancelando a rota)
+- **Seguir** — 100 % cliente, reusando o BFS do clique-para-andar. 🔴 **Não** virou
+  mensagem de protocolo: "siga o jogador X" deixaria o cliente ditar posição
+- **Party (formação)** — ver a Etapa 9 do roadmap para o que falta
+- **Lista de amigos** — ⚠️ sistema **sem respaldo documental**, escopo CONTA por decisão
+  do dono. Ver o comentário do `SCHEMA_V4`
+- **PvP mínimo** — o **primeiro uso real do `canHarm`**, que estava pronto e testado
+  desde a Etapa 8 sem nada chamá-lo. Golpe de jogador em jogador passa pelas mesmas
+  camadas de defesa do PvE
+
+🔴 **Isto NÃO é a Etapa 17.** Não há skull amarela, vermelha nem preta, não há
+criminalidade, guarda não reage e duelo consensual não existe. O que existe é o flag PK
+com interface e um golpe que conecta.
+
+⚠️ **A regra de PvP descrita aqui foi CORRIGIDA horas depois** — ver o bloco no topo do
+arquivo. Exigia PK ON dos dois lados; hoje só o do atacante conta, e a contrapartida é a
+⚪ Caveira Branca.
+
+⚠️ **Dois números novos marcados `REFERÊNCIA`**, nenhum vindo de documento:
+`PARTY_MAX = 5` (do exemplo de XP do cap. 35) e `PK_COMBAT_LOCK_MS = 10_000` (o tempo
+mínimo com PK ligado depois de agredir — sem ele, bater-e-desligar deixaria o menu do
+outro dizendo "ligue o seu PK").
 
 ### O que mudou por baixo de você (30/07 à noite)
 
@@ -48,15 +124,15 @@ Corrigido: `backpackSizeFor()` é a fonte única, usada no carregamento **e** ao
 
 ## Saúde do código
 
-| | 29/07 | 30/07 manhã | **30/07 noite** |
-|---|---|---|---|
-| Testes | 223 | 237 | **298** (286 shared + 12 server) |
-| Typecheck | limpo | limpo | limpo nos 3 pacotes |
-| Criaturas vivas no mapa | 59 | 32 | 32 |
-| Espécies definidas | 23 | 23 | 23 |
-| Schema do banco | v2 | v3 | v3 |
-| Itens no catálogo | ~25 | ~32 | **~85** |
-| Modelos canônicos registrados | — | — | **113** (só 8 são itens) |
+| | 30/07 manhã | 30/07 noite | 30/07 madrugada | **agora** |
+|---|---|---|---|---|
+| Testes | 237 | 298 | 328 | **333** (313 shared + 20 server) |
+| Typecheck | limpo | limpo | limpo | limpo nos 3 pacotes |
+| Criaturas vivas no mapa | 32 | 32 | 32 | 32 |
+| Espécies definidas | 23 | 23 | 23 | 23 |
+| Schema do banco | v3 | v3 | **v4** (`account_friend`) | v4 (a caveira não persiste) |
+| Itens no catálogo | ~32 | ~85 | ~85 | ~85 |
+| Modelos canônicos registrados | — | 113 | 113 | 113 (só 8 são itens) |
 
 `npm run dev:test` sobe tudo com os comandos de teste ligados.
 
@@ -268,11 +344,10 @@ cima** — placeholder deliberado.
 pasta por monstro (já criadas em `client/public/assets/monsters/`), nome de cada
 arquivo, formato da folha e as animações de cada espécie.
 
-🔴 **Trabalho de código que a arte vai exigir:** hoje **nenhum monstro consegue ter
-4 direções E animação de ataque.** `makeMiniActor` tem 4 direções mas só
-andar/parado; `makeSpriteActor` tem ataque/dano/morte mas é vista frontal única,
-espelhada. Estender o caminho direcional está pendente — os gatilhos já existem no
-servidor (`hit`, `hit.fatal`, `projectile`).
+✅ **O trabalho de código que a arte exigia FOI FEITO em 30/07 à noite** — ver a
+seção "O gargalo da ARTE foi destravado" acima. `makeMiniActor` aceita `attack`,
+`hurt` e `death` por direção. *(Este parágrafo dizia o contrário e ficou para trás;
+corrigido em 30/07 de madrugada.)*
 
 O motivo não é código nem espaço no mapa: o cliente escolhe o desenho por
 `creatureType` e cai em `drawSlime` para tipo desconhecido
@@ -298,22 +373,26 @@ acontece com o Zumbi — e sai da tabela de cores sozinha.
 
 ## O que está pela metade
 
-### Fabricar ainda não funciona
+### ~~Fabricar ainda não funciona~~ — ✅ resolvido em 30/07 à noite
 
-O material existe, as regras existem e estão testadas, mas **falta o ato**:
+`C2S_Craft`, handler e a bancada do Ferreiro estão prontos. Ver "Fabricação
+completa" acima.
 
-1. Mensagem de protocolo (`C2S_Craft`) em `shared/src/protocol.ts`
-2. Handler no servidor consumindo fragmentos + receita e gerando o item
-3. Bancada na interface
+### Party — só a metade social
 
-O item 3 é trabalho de UI e merece a opinião do dono no layout. Os itens 1 e 2
-são objetivos e podem ser feitos já, expostos por comando de teste.
+A **formação** do grupo funciona (convidar, aceitar, sair, expulsar, liderança), mas
+**shared XP e distribuição de loot não existem**: a XP continua indo inteira para
+quem deu o abate. É o que resta da Etapa 9, e é a maior parte dela.
+
+`sharesXpWith` e `xpBandFor` já estão em `shared/src/party.ts`, testadas e **sem
+nenhum chamador** — a faixa de nível é regra fechada (`DD-PARTY-004/005`), então
+entrou junto; ligar na distribuição é o próximo passo.
 
 ### Sistemas prontos e sem uso
 
-- **Flag PK** (`canHarm`) — completa e testada; não há PvP implementado
 - **Resistência, redução e imunidade a condição** — a estrutura existe, mas nada
   no jogo as concede. Dependem das cartas (Etapa 10) e do equipamento (Etapa 11)
+- ~~**Flag PK**~~ — ✅ ganhou botão e primeiro chamador em 30/07 de madrugada
 
 ---
 
@@ -477,7 +556,15 @@ No chat do jogo:
 
 ---
 
-## Sugestão de por onde começar (atualizada em 30/07 à noite)
+## Sugestão de por onde começar (atualizada em 30/07 de madrugada)
+
+> 🆕 **Entrou na frente da lista abaixo:** **fechar a Etapa 9** ligando o shared XP.
+> A formação do grupo, o `partyId` e as faixas de nível já existem e estão testadas —
+> falta a distribuição, que é o que o cap. 35 realmente pede. Não depende de arte nem
+> de decisão do dono: `DD-PARTY-004/005/007` estão fechados. Os únicos pendentes
+> numéricos são o **bônus de grupo** (`DD-PARTY-010`) e o **mínimo de contribuição**
+> em boss global (`DD-PARTY-024`) — implementar a estrutura e deixar configurável.
+
 
 O dono está **desenhando os sprites** — não mexa no bestiário nem adicione criatura
 enquanto isso. O que rende agora é código que a arte vai precisar, e o que

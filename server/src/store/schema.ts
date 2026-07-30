@@ -15,7 +15,7 @@
  * Migrações: `user_version` do SQLite. Cada versão é um passo idempotente.
  */
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /**
  * v2 — Profissões (`DD-PROF-023`).
@@ -43,6 +43,39 @@ ALTER TABLE character ADD COLUMN professions TEXT NOT NULL DEFAULT '{}';
  */
 export const SCHEMA_V3 = `
 ALTER TABLE character ADD COLUMN bank_gold INTEGER NOT NULL DEFAULT 0;
+`;
+
+/**
+ * v4 — Lista de amigos (pedido do dono, 2026-07-30).
+ *
+ * ⚠️ **Sistema sem respaldo documental.** Não aparece em nenhum dos quatro
+ * documentos. O dono decidiu o escopo: **da CONTA**, o mesmo de
+ * `account_discovery` e `account_marker` — e é por isso que a tabela pende de
+ * `account`, não de `character`.
+ *
+ * 🔴 **A amizade aponta para a CONTA, mas guarda o NOME com que foi feita.**
+ * As duas colunas parecem redundantes e não são: `friend_account_id` é o que
+ * decide "está online?" (vale para qualquer personagem daquela conta);
+ * `added_name` é o que a lista mostra, porque o jogador adicionou *o Thorgar*, e
+ * ver a lista virar outro nome quando o amigo troca de personagem seria perder
+ * a única referência que ele tem.
+ *
+ * Não-recíproca de propósito: A ter B na lista não põe A na lista de B. Amizade
+ * mútua exigiria aceite, e aceite é notificação, fila e recusa — sistema inteiro
+ * que ninguém pediu. Aqui é marcador pessoal, como o `account_marker`.
+ *
+ * `ON DELETE CASCADE` nos dois lados: apagar qualquer uma das contas leva a
+ * linha junto, senão a lista mostraria amigo que não existe mais.
+ */
+export const SCHEMA_V4 = `
+CREATE TABLE IF NOT EXISTS account_friend (
+  account_id        INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
+  friend_account_id INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
+  added_name        TEXT    NOT NULL,
+  added_at          INTEGER NOT NULL,
+  PRIMARY KEY (account_id, friend_account_id)
+);
+CREATE INDEX IF NOT EXISTS ix_friend_account ON account_friend(account_id);
 `;
 
 export const SCHEMA_V1 = `
