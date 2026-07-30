@@ -1,0 +1,147 @@
+/**
+ * O vocabulário canônico de PROFICIÊNCIA (`DD-PROG-011`).
+ *
+ * 🔴 **`DD-PROG-011`: Magic Level é PROFICIÊNCIA, não é INT.** Dois Feiticeiros
+ * com a mesma INT podem ter Magic Levels diferentes — um treinou, o outro não. É
+ * a decisão que este arquivo existe para tornar possível: hoje o Cajado sobe uma
+ * proficiência chamada `staff`, que é nome de arma, não de magia.
+ *
+ * Isto importa para uma decisão que já foi tomada por cima dele: quando o dono
+ * fechou que **Varinha e Livro Arcano não viram `WeaponType` novo** (2026-07-30),
+ * o argumento foi que a proficiência mágica deles já estava prevista aqui. Até
+ * este arquivo existir, aquela decisão estava de pé sobre algo que não existia.
+ *
+ * ⚠️ **Camada de LEITURA, por enquanto.** Nada aqui muda o que é gravado em save:
+ * `Proficiencies` continua indexada por `WeaponType`. Esta é a tradução para o
+ * vocabulário do documento, e é o que permite a interface e as futuras exigências
+ * de magia falarem a língua certa antes de a migração acontecer. Ligar de
+ * verdade é mexer em estado persistido, e o padrão do projeto manda verificar o
+ * SCHEMA, nunca o `user_version`.
+ *
+ * ## 🔴 Os dois documentos discordam, e a diferença é grande
+ *
+ * | Fonte | Lista |
+ * |---|---|
+ * | **Doc 1** (destilado, §61) | `1H` · `2H` · `Distance` · `Shield` · `Magic Level` |
+ * | **Doc 4**, cap. 42 | `Sword` · `Axe` · `Club` · `Spear` · `Dagger` · `Distance` · `Fist` · `Magic Level` |
+ *
+ * Não é divergência de redação: são modelos diferentes de jogo. O Doc 1 agrupa
+ * por **como se segura a arma** (uma mão, duas mãos), então treinar espada
+ * treinaria machado junto. O Doc 4 mantém **uma proficiência por família**, que é
+ * o que o código já faz.
+ *
+ * **Este arquivo implementa a lista do Doc 4**, e o motivo é prático, não de
+ * hierarquia — pela regra de ouro o Doc 1 venceria:
+ *
+ * 1. É a que **preserva o que já está em save de jogador**. As cinco famílias
+ *    corpo a corpo continuam existindo com o mesmo nome; só arco e besta se
+ *    juntam em `distance` e o cajado vira `magic`. Adotar o Doc 1 jogaria fora a
+ *    proficiência de todo mundo e exigiria decidir se espada e machado passam a
+ *    ser a mesma coisa.
+ * 2. O próprio cap. 42 se apresenta como *"conforme o sistema já consolidado"* —
+ *    ou seja, ele está **descrevendo** o que existe, não propondo mudança.
+ *
+ * 🔴 **É decisão do dono, e está registrada como aberta.** Se ele quiser o modelo
+ * 1H/2H do Doc 1, o lugar de mudar é aqui — e aí a migração de save é obrigatória.
+ */
+
+import { WEAPON_IDENTITY, type WeaponType } from './weapons.js';
+
+/**
+ * As oito proficiências do cap. 42.
+ *
+ * `fist` e `magic` não correspondem a nenhum `WeaponType`: a primeira é lutar
+ * **sem arma**, a segunda é conjurar. As duas existem no documento e não existiam
+ * no código.
+ */
+export type ProficiencyKind =
+  | 'sword' | 'axe' | 'club' | 'spear' | 'dagger'
+  | 'distance' | 'fist' | 'magic';
+
+export const PROFICIENCY_KINDS: ProficiencyKind[] = [
+  'sword', 'axe', 'club', 'spear', 'dagger', 'distance', 'fist', 'magic',
+];
+
+/** Nome exibido de cada proficiência. */
+export const PROFICIENCY_LABEL: Record<ProficiencyKind, string> = {
+  sword: 'Espada',
+  axe: 'Machado',
+  club: 'Maça',
+  spear: 'Lança',
+  dagger: 'Adaga',
+  distance: 'Distância',
+  fist: 'Luta Desarmada',
+  magic: 'Magic Level',
+};
+
+/**
+ * Em que proficiência canônica cai cada tipo de arma.
+ *
+ * As duas fusões que o cap. 42 pede, e que o código não fazia:
+ *
+ * - **`bow` e `crossbow` → `distance`.** O documento não separa arco de besta;
+ *   trata mirar à distância como uma habilidade só. A identidade das duas
+ *   continua distinta onde importa de verdade — `WEAPON_IDENTITY` dá cadência,
+ *   dano e alcance próprios a cada uma.
+ * - **`staff` → `magic`.** É o `DD-PROG-011` em si. "Proficiência de cajado" era
+ *   um nome errado para o que sempre foi conjuração: quem conjura melhor treinou
+ *   magia, não madeira.
+ *
+ * `mace` vira `club` porque é o nome que o documento usa.
+ */
+export const WEAPON_PROFICIENCY: Record<WeaponType, ProficiencyKind> = {
+  sword: 'sword',
+  axe: 'axe',
+  mace: 'club',
+  spear: 'spear',
+  dagger: 'dagger',
+  bow: 'distance',
+  crossbow: 'distance',
+  staff: 'magic',
+};
+
+/**
+ * A proficiência que este ataque treina. `undefined` = desarmado.
+ *
+ * 🔴 **Desarmado treina `fist`, e isso é o que faltava.** Hoje lutar sem arma não
+ * sobe proficiência nenhuma — o jogador bate e não melhora, para sempre. O
+ * documento prevê Fist justamente porque lutar sem arma é uma escolha válida, e
+ * escolha válida que não progride não é escolha.
+ */
+export function proficiencyFor(weapon: WeaponType | undefined): ProficiencyKind {
+  return weapon ? WEAPON_PROFICIENCY[weapon] : 'fist';
+}
+
+/** Os tipos de arma que treinam esta proficiência. Vazio para `fist`. */
+export function weaponsOf(kind: ProficiencyKind): WeaponType[] {
+  return (Object.keys(WEAPON_PROFICIENCY) as WeaponType[])
+    .filter((w) => WEAPON_PROFICIENCY[w] === kind);
+}
+
+/**
+ * Esta proficiência é a de conjuração?
+ *
+ * Existe como função e não como comparação solta porque é o gancho de
+ * `DD-PROG-011`: *"requisito de magias é Magic Level"*. Quando as magias ganharem
+ * exigência de nível, é por aqui que elas perguntam — e não por `INT`.
+ */
+export function isMagicProficiency(kind: ProficiencyKind): boolean {
+  return kind === 'magic';
+}
+
+/**
+ * Confere que a identidade da arma concorda com a proficiência.
+ *
+ * Arma marcada `magic: true` em `WEAPON_IDENTITY` tem que cair em `magic`, e
+ * arma de alcance longo em `distance`. As duas tabelas descrevem o mesmo mundo e
+ * separar-se em silêncio é o tipo de erro que só aparece meses depois.
+ */
+export function proficiencyMatchesIdentity(weapon: WeaponType): boolean {
+  const id = WEAPON_IDENTITY[weapon];
+  const prof = WEAPON_PROFICIENCY[weapon];
+  if (id.magic) return prof === 'magic';
+  // Alcance > 1 sem ser mágico é arma de arremesso/tiro. A lança tem alcance 2 e
+  // NÃO é distância: ela alcança dois tiles, não o outro lado da tela.
+  if (id.range >= 4) return prof === 'distance';
+  return prof !== 'distance' && prof !== 'magic';
+}

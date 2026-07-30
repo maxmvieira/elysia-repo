@@ -12,6 +12,7 @@ export * from './stats.js';
 export * from './items.js';
 export * from './skills.js';
 export * from './weapons.js';
+export * from './proficiency.js';
 export * from './affixes.js';
 export * from './materials.js';
 export * from './models.js';
