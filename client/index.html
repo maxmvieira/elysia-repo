@@ -588,6 +588,22 @@
        * `clientX/clientY` do evento, que já são coordenadas de viewport. Com
        * `absolute` ele saltaria junto com qualquer scroll de ancestral.
        */
+      /* Separador antes da ação destrutiva do menu de contexto. Distância é
+         parte da proteção: "Atacar" não pode ser vizinho de "Adicionar aos
+         amigos" na mesma pilha de botões idênticos. */
+      .ctxsep {
+        height: 1px;
+        margin: 4px 2px;
+        background: var(--border);
+      }
+      /* Vermelho só nesta: o menu inteiro é neutro, e a única que cobra preço
+         (⚪ Caveira Branca por 5 min) tem que se destacar do resto. */
+      #ctxmenu button.ctxdanger {
+        color: #e08a7a;
+      }
+      #ctxmenu button.ctxdanger:hover:not(:disabled) {
+        background: #4a2420;
+      }
       #ctxmenu {
         position: fixed;
         display: none;

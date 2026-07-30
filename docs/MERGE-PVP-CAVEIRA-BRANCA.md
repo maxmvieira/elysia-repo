@@ -138,7 +138,28 @@ barato consertar antes de misturar as duas bases do que depois.
 
 ---
 
-## 🐞 Bug relatado — menu de contexto dispara "Atacar" sozinho
+## ✅ ~~Bug relatado — menu de contexto dispara "Atacar" sozinho~~ — CORRIGIDO
+
+**Corrigido em 2026-07-30, depois do merge.** Eram **duas** causas somadas, e
+nenhuma sozinha explicava o sintoma:
+
+1. O menu abria com o canto superior esquerdo **exatamente no cursor**, então o
+   primeiro item nascia sob o ponteiro. E no Windows o `contextmenu` dispara no
+   **release** do botão direito — o menu já aparecia com o mouse em cima.
+2. **"Atacar" era o primeiro item.**
+
+O conserto tem três partes: o menu abre **deslocado** 6 px do cursor;
+**"Informações" passou a ser o primeiro** e "Atacar" foi para o fim, atrás de um
+separador e em vermelho; e atacar quem **não** tem caveira agora **pede
+confirmação em dois cliques**.
+
+🔴 A confirmação existe pelo preço: o golpe rende ⚪ Caveira Branca por 5 minutos,
+e durante ela qualquer um que esteja vendo pode revidar sem punição. Alvo **com**
+caveira é a exceção e não pede confirmação — atacá-lo já não custa nada (`17.38`).
+
+O registro original fica abaixo.
+
+## 🐞 O diagnóstico original
 
 **Relatado pelo dono em 2026-07-30.** Ele classificou como *"nada crítico demais"*
 e não chegou a testar a fundo.

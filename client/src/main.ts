@@ -3025,21 +3025,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // visibilidade de oito botões daria mais código que recriar quatro.
     while (ctxEl.children.length > 1) ctxEl.lastChild!.remove();
 
-    // Atacar — o motivo da recusa é calculado aqui só para o TOOLTIP. Quem
-    // decide de verdade é o `canHarm` do servidor, e ele recusa de novo.
+    // 🔴 **"Informações" vem PRIMEIRO, e "Atacar" vai para o fim.** A ordem não é
+    // estética: o menu abre logo abaixo do cursor, então o primeiro item é o que
+    // um clique apressado acerta. Inspecionar é a ação segura e frequente;
+    // atacar é a rara e irreversível — quem paga o preço de um clique errado não
+    // pode ser quem só queria olhar.
     //
-    // 🔴 O PK do ALVO não entra na conta: ele não protege ninguém. O que abre a
-    // exceção é a caveira dele, que dispensa o atacante de ligar o próprio PK.
-    const motivoAtacar = noMeuGrupo
-      ? 'Está no seu grupo.'
-      : !pkOn && !alvo.skull
-        ? 'Ligue o seu PK para atacar outro jogador.'
-        : null;
-    ctxEl.appendChild(itemMenu(
-      alvo.skull ? '⚔️ Atacar (⚪ alvo livre)' : '⚔️ Atacar',
-      motivoAtacar,
-      () => setTarget(alvo.id),
-    ));
+    // Este era o bug relatado pelo dono em 2026-07-30: *"clico para inspecionar
+    // e a ação sai em atacar direto se o PK estiver ativo"*. Com "Atacar" no topo
+    // e o menu nascendo sob o ponteiro, ele estava a um clique de distância —
+    // e no Windows o `contextmenu` dispara no RELEASE do botão direito, então o
+    // menu já aparece com o cursor em cima.
+    ctxEl.appendChild(itemMenu('📋 Informações', null, () => mostrarInfo(alvo)));
 
     ctxEl.appendChild(itemMenu(
       followId === alvo.id ? '🚶 Parar de seguir' : '🚶 Seguir',
@@ -3052,8 +3049,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         tickFollow();
       },
     ));
-
-    ctxEl.appendChild(itemMenu('📋 Informações', null, () => mostrarInfo(alvo)));
 
     if (noMeuGrupo) {
       if (souLider && alvo.id !== myId) {
@@ -3083,15 +3078,65 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       () => net.send({ t: 'friend', action: amigo ? 'remove' : 'add', name: alvo.name }),
     ));
 
+    // --- Atacar, por último e separado ---------------------------------------
+    //
+    // O motivo da recusa é calculado aqui só para o TOOLTIP. Quem decide de
+    // verdade é o `canHarm` do servidor, e ele recusa de novo.
+    //
+    // 🔴 O PK do ALVO não entra na conta: ele não protege ninguém. O que abre a
+    // exceção é a caveira dele, que dispensa o atacante de ligar o próprio PK.
+    const motivoAtacar = noMeuGrupo
+      ? 'Está no seu grupo.'
+      : !pkOn && !alvo.skull
+        ? 'Ligue o seu PK para atacar outro jogador.'
+        : null;
+
+    const sep = document.createElement('div');
+    sep.className = 'ctxsep';
+    ctxEl.appendChild(sep);
+
+    // 🔴 **Atacar quem NÃO tem caveira pede confirmação.** O golpe rende ⚪
+    // Caveira Branca por 5 minutos, e durante ela qualquer um que esteja vendo
+    // pode revidar sem punição. Uma ação com esse preço não pode custar um
+    // clique — e o alvo com caveira é a exceção justamente porque atacá-lo já
+    // não custa nada (`17.38`).
+    const custaCaveira = !alvo.skull;
+    const btnAtacar = itemMenu(
+      alvo.skull ? '⚔️ Atacar (⚪ alvo livre)' : '⚔️ Atacar',
+      motivoAtacar,
+      () => setTarget(alvo.id),
+    );
+    if (!motivoAtacar && custaCaveira) {
+      btnAtacar.classList.add('ctxdanger');
+      btnAtacar.title = 'Isto te dá ⚪ Caveira Branca por 5 min — clique duas vezes.';
+      let armado = false;
+      btnAtacar.onclick = (): void => {
+        if (!armado) {
+          armado = true;
+          btnAtacar.textContent = '⚔️ Confirmar — dá Caveira Branca';
+          return;
+        }
+        fecharMenu();
+        setTarget(alvo.id);
+      };
+    }
+    ctxEl.appendChild(btnAtacar);
+
     // Posiciona e só então mede: com `display: none` o menu não tem tamanho, e
     // a correção de borda mediria zero.
     ctxEl.style.display = 'block';
     ctxEl.style.left = '0px';
     ctxEl.style.top = '0px';
     const r = ctxEl.getBoundingClientRect();
+    // 🔴 **Deslocado do cursor, não colado nele.** Com o canto exatamente em
+    // (x, y) o primeiro item nasce SOB o ponteiro, e no Windows o `contextmenu`
+    // dispara no release do botão direito — ou seja, o menu já aparece com o
+    // mouse em cima de um item, a um clique de executá-lo. Foi metade do bug do
+    // "atacar sozinho"; a outra metade era "Atacar" ser o primeiro item.
+    const CURSOR_GAP = 6;
     // Encosta na borda -> abre para dentro, senão o último item fica fora da tela.
-    const px = Math.min(x, window.innerWidth - r.width - 4);
-    const py = Math.min(y, window.innerHeight - r.height - 4);
+    const px = Math.min(x + CURSOR_GAP, window.innerWidth - r.width - 4);
+    const py = Math.min(y + CURSOR_GAP, window.innerHeight - r.height - 4);
     ctxEl.style.left = `${Math.max(4, px)}px`;
     ctxEl.style.top = `${Math.max(4, py)}px`;
     void eu; // (a ficha do próprio jogador ainda não muda o menu)
