@@ -43,12 +43,30 @@ Os docs marcam status por decisão. **Respeitar isso é o que impede reescrever 
 
 ## 📍 ONDE ESTAMOS — leia isto primeiro
 
-**Última atualização:** 2026-07-29
-**Etapas concluídas:** 1 a 7 (de 23) — as 1–6 com ajustes pendentes, ver abaixo
-**Etapa em curso:** **8 — Elementos, condições e defesa em camadas** ⚔️ — as REGRAS
-estão fechadas e testadas em `shared`; falta **ligar no servidor e no cliente**
-**Saúde do código:** **182 testes** passando (170 shared + 12 server) · typecheck limpo
+**Última atualização:** 2026-07-30
+**Etapas concluídas:** 1 a 8 (de 23) — as 1–6 com ajustes pendentes, ver abaixo
+**Próxima etapa:** **9 — Party, shared XP e distribuição de loot** 👥
+**Saúde do código:** **237 testes** passando (225 shared + 12 server) · typecheck limpo
 nos 3 pacotes · smoke de ponta a ponta validado (derruba servidor → personagem sobrevive)
+**Banco:** schema **v3** (`professions`, `bank_gold`)
+
+> 🔴 **Antes de programar, leia a seção "Sessão de 2026-07-30" do
+> [`HANDOFF.md`](./HANDOFF.md).** Ela tem um **override do dono contra o Doc 3**
+> (velocidade do Super Slime) e quatro números marcados `⚠️ REFERÊNCIA` que
+> parecem canônicos e não são. Implementar sem saber disso é reescrever decisão.
+
+### ⚠️ O gargalo NÃO é código
+
+**18 das 23 espécies não têm sprite** — aparecem como bolha colorida com o nome em
+cima. O dono está desenhando; a especificação do que ele precisa entregar está em
+[`SPEC-SPRITES-MONSTROS.md`](./SPEC-SPRITES-MONSTROS.md), com uma pasta por
+monstro já criada em `client/public/assets/monsters/`.
+
+🔴 **Hoje nenhum monstro consegue ter 4 direções E animação de ataque**: são dois
+caminhos de render no cliente e nenhum faz as duas coisas (`makeMiniActor` tem 4
+direções mas só andar/parado; `makeSpriteActor` tem ataque/dano/morte mas é vista
+frontal única). Estender o caminho direcional é **trabalho de código pendente**, e
+os gatilhos já existem no servidor (`hit`, `hit.fatal`, `projectile`).
 
 ### ✅ Decisões do dono — 2026-07-29 (Etapa 8)
 

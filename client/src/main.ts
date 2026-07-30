@@ -582,27 +582,48 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const PASSO_TRAVADO_MS = 700;
 
   /**
-   * Tiles com criatura, como `y * largura + x`. Criatura é obstáculo desde que
-   * ganhou colisão, então a rota tem que desviar — senão o personagem anda até
-   * encostar no monstro e fica empurrando parede.
+   * Tiles que a rota tem que DESVIAR, como `y * largura + x`.
+   *
+   * Espelha o `tileOccupied` do servidor: criatura viva e outro jogador. Sem
+   * isso a rota planejaria atravessar monstro, e desde que monstro ganhou colisão
+   * o personagem andaria até encostar nele e ficaria empurrando parede.
    */
-  const tilesDeCriatura = new Set<number>();
+  const tilesBloqueados = new Set<number>();
 
-  function podeAndar(x: number, y: number, ignorarCriatura = false): boolean {
+  /**
+   * Tiles onde clicar significa INTERAGIR, não andar: monstro (atacar), NPC
+   * (abrir loja/banco), corpo no chão (saquear), outro jogador.
+   *
+   * 🔴 Existe por um bug real: o sprite da entidade tem `pointertap` próprio, mas
+   * o clique nativo do DOM **continua subindo** até o `viewport` e disparava a
+   * caminhada também. Clicar num monstro atacava E mandava andar até o tile dele
+   * — que é justamente o que o dono não quer ("estou atacando, não indo até ele").
+   *
+   * Separado de `tilesBloqueados` porque as duas listas não são a mesma coisa:
+   * NPC e corpo não bloqueiam passagem, mas o clique neles não é ordem de andar.
+   */
+  const tilesClicaveis = new Set<number>();
+
+  function podeAndar(x: number, y: number): boolean {
     if (!isWalkable(map, x, y, myFloor)) return false;
-    return ignorarCriatura || !tilesDeCriatura.has(y * map.width + x);
+    return !tilesBloqueados.has(y * map.width + x);
   }
+
+  /** Vizinhos considerados pela rota: 4 direções, sem diagonal (ver `rotaAte`). */
+  const PASSOS_RETOS: Array<[number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 
   /**
    * Menor caminho de (sx,sy) até (tx,ty), sem incluir a origem. `[]` se não há
-   * rota.
+   * rota — e aí a caminhada é cancelada em vez de o personagem ficar tentando.
    *
-   * O destino entra com `ignorarCriatura`: clicar EM CIMA de um monstro deve
-   * levar até ele (para atacar), não ser recusado como "inalcançável".
+   * Destino ocupado também devolve `[]`: um tile com monstro em cima não é
+   * caminhável (é a regra de colisão), e insistir nele faria o personagem empurrar
+   * parede no fim da rota. Clique EM monstro nem chega aqui — é interação, não
+   * caminhada (ver `tilesClicaveis`).
    */
   function rotaAte(sx: number, sy: number, tx: number, ty: number): Array<{ x: number; y: number }> {
     if (sx === tx && sy === ty) return [];
-    if (!isWalkable(map, tx, ty, myFloor)) return [];
+    if (!podeAndar(tx, ty)) return [];
     const largura = map.width;
     const anterior = new Map<number, number>();
     const key = (x: number, y: number) => y * largura + x;
@@ -623,22 +644,33 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         }
         return saida.reverse();
       }
-      // 8 direções: o servidor aceita diagonal (custa ~1,5× o tempo, mas é passo).
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          const nx = ax + dx;
-          const ny = ay + dy;
-          const k = key(nx, ny);
-          if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
-          if (visto.has(k)) continue;
-          // O tile de DESTINO pode estar ocupado (clique sobre monstro); os do
-          // meio do caminho, não.
-          if (!podeAndar(nx, ny, nx === tx && ny === ty)) continue;
-          visto.add(k);
-          anterior.set(k, atual);
-          fila.push(k);
-        }
+      // 🔴 **4 direções, sem diagonal — e isto é o conserto de um bug real.**
+      //
+      // Com 8 direções a rota saía quase toda diagonal (é o menor número de
+      // passos em distância de Chebyshev). Só que o servidor resolve a direção do
+      // sprite por `dirFromDelta`, e num passo diagonal `|dx| === |dy|` cai no
+      // empate `abs(dx) >= abs(dy)` → sempre 'right'/'left'. Resultado: o
+      // personagem atravessava o mapa inteiro **virado de lado**, exatamente como
+      // o dono relatou.
+      //
+      // Sem diagonal, cada passo tem um eixo só, a direção do sprite é sempre a
+      // do movimento, e andar por clique fica idêntico a andar por tecla — que é
+      // a referência que o jogador tem.
+      //
+      // ⚠️ Custo consciente: diagonal pura fica ~33 % mais lenta (2n passos de
+      // custo 1 em vez de n passos de custo 1,5), e a rota vira escada/L. Preferir
+      // velocidade à leitura é voltar este laço para 8 direções — mas aí o sprite
+      // volta a andar de lado, então antes conserte o empate de `dirFromDelta`.
+      for (const [dx, dy] of PASSOS_RETOS) {
+        const nx = ax + dx;
+        const ny = ay + dy;
+        if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+        const k = key(nx, ny);
+        if (visto.has(k)) continue;
+        if (!podeAndar(nx, ny)) continue;
+        visto.add(k);
+        anterior.set(k, atual);
+        fila.push(k);
       }
     }
     return [];
@@ -2158,13 +2190,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   function syncEntities(entities: EntitySnapshot[]): void {
     const seen = new Set<string>();
-    // Tiles ocupados por criatura, para o pathfinding do clique desviar delas.
-    // Reconstruído a cada snapshot porque é exatamente isso que muda: monstro
-    // andou, monstro morreu.
-    tilesDeCriatura.clear();
+    // Reconstruídos a cada snapshot porque é exatamente isso que muda de um para
+    // o outro: monstro andou, monstro morreu, corpo apareceu.
+    tilesBloqueados.clear();
+    tilesClicaveis.clear();
     for (const e of entities) {
       seen.add(e.id);
-      if (e.kind === 'creature') tilesDeCriatura.add(e.tileY * map.width + e.tileX);
+      const tile = e.tileY * map.width + e.tileX;
+      if (e.id !== myId) {
+        // Bloqueia só o que o SERVIDOR bloqueia (ver `tileOccupied` lá).
+        if (e.kind === 'creature' || e.kind === 'player') tilesBloqueados.add(tile);
+        tilesClicaveis.add(tile);
+      }
       const isSelf = e.id === myId;
       let view = sprites.get(e.id);
       if (!view) {
@@ -2355,19 +2392,29 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   viewportEl.addEventListener('mousemove', (ev) => {
     const t = tileDoEvento(ev);
     const dentro = t.x >= 0 && t.y >= 0 && t.x < map.width && t.y < map.height;
-    hoverMark.visible = dentro && isWalkable(map, t.x, t.y, myFloor);
+    // Só destaca onde clicar REALMENTE anda: o contorno prometendo caminhada num
+    // tile de parede, de monstro ou de NPC seria mentira visual.
+    hoverMark.visible = dentro
+      && podeAndar(t.x, t.y)
+      && !tilesClicaveis.has(t.y * map.width + t.x);
     hoverMark.x = t.x * TS;
     hoverMark.y = t.y * TS;
   });
   viewportEl.addEventListener('mouseleave', () => { hoverMark.visible = false; });
 
-  // Botão esquerdo no chão = ir até lá. Clique EM criatura não passa por aqui:
-  // o sprite dela tem `pointertap` próprio (virar alvo) e o Pixi consome o
-  // evento antes. Isso é o certo — atacar e caminhar não competem pelo clique.
+  // Botão esquerdo no CHÃO = ir até lá.
+  //
+  // 🔴 O clique numa entidade tem que sair por aqui sem andar. O sprite dela tem
+  // `pointertap` próprio (atacar, abrir loja, saquear), mas o clique nativo do DOM
+  // continua subindo até o viewport — então antes o personagem atacava o monstro
+  // E ia andando até o tile dele. Checar o tile é mais confiável que tentar
+  // cancelar a propagação do Pixi, porque não depende da ordem em que os dois
+  // sistemas de evento disparam.
   viewportEl.addEventListener('click', (ev) => {
     if (ev.button !== 0) return;
     const t = tileDoEvento(ev);
     if (t.x < 0 || t.y < 0 || t.x >= map.width || t.y >= map.height) return;
+    if (tilesClicaveis.has(t.y * map.width + t.x)) return; // é interação, não caminhada
     irPara(t.x, t.y);
   });
   // Botão direito cancela a caminhada — o jeito rápido de "para aí".

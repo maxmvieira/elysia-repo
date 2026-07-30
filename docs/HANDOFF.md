@@ -1,8 +1,8 @@
-# Handoff — estado do projeto em 2026-07-29
+# Handoff — estado do projeto em 2026-07-30
 
-Resumo para quem for continuar o trabalho. Escrito ao fim de uma sessão de
-desenvolvimento no clone do **frankmvieira-creator**, com 16 commits publicados
-em `main`.
+Resumo para quem for continuar o trabalho. Duas sessões registradas aqui: a de
+**29/07** (Etapa 8, bestiário do Doc 3, crafting) e a de **30/07** (aba Vender,
+colisão, clique para andar, banco, curva de nível, UI).
 
 > **Comece por aqui**, depois vá para [`ROADMAP-elysia.md`](./ROADMAP-elysia.md)
 > (plano geral) e [`HISTORICO.md`](./HISTORICO.md) (detalhe de cada etapa).
@@ -11,15 +11,38 @@ em `main`.
 
 ## Saúde do código
 
-| | Antes desta sessão | Agora |
-|---|---|---|
-| Testes | 134 | **223** (211 shared + 12 server) |
-| Typecheck | limpo | limpo nos 3 pacotes |
-| Criaturas vivas no mapa | 27 | **59** |
-| Espécies definidas | 8 | **23** |
-| Schema do banco | v1 | **v2** (coluna `professions`) |
+| | 29/07 (início) | 29/07 (fim) | **Agora (30/07)** |
+|---|---|---|---|
+| Testes | 134 | 223 | **237** (225 shared + 12 server) |
+| Typecheck | limpo | limpo | limpo nos 3 pacotes |
+| Criaturas vivas no mapa | 27 | 59 | **32** (redução pedida pelo dono) |
+| Espécies definidas | 8 | 23 | **23** |
+| Espécies que nascem | 3 | 21 | **23** (uma de cada, sem cópia) |
+| Schema do banco | v1 | v2 | **v3** (`professions`, `bank_gold`) |
 
 `npm run dev:test` sobe tudo com os comandos de teste ligados.
+
+---
+
+## ⚠️ Leia isto antes de tocar em número
+
+Três coisas nesta base **parecem canônicas e não são**. Mudá-las por engano é
+desfazer decisão do dono:
+
+1. **Velocidade do Super Slime** — `SPEED.alta` (900) **contraria** a ficha
+   aprovada `DD-BAL-036` ("Velocidade: Baixa"). É override explícito do dono, com
+   o motivo no comentário da def e teste travando as duas pontas.
+2. **`XP_QUADRATIC` e `XP_REQ_MULT`** (`shared/src/combat.ts`) — a *regra* de
+   desacelerar é canônica (`DD-PROG-001`); os *números* são `⚠️ REFERÊNCIA`.
+   `XP_REQ_MULT` é o botão de "subir de nível mais devagar/rápido".
+3. **`SELL_PRICE_FACTOR = 0.4`** e os `sellPrice` de Gosma/Pele
+   (`shared/src/items.ts`) — o Doc 3 fecha "comércio fixo, sem economia dinâmica",
+   mas **nenhum número**.
+
+E uma consequência de catálogo que ninguém decidiu: **Fragmento de Relíquia e as
+receitas Rara+ têm `buyPrice: 0`, então o comerciante não compra o material de topo
+do jogo.** Há teste travando o comportamento atual justamente para que mudá-lo seja
+consciente.
 
 ---
 
@@ -65,8 +88,19 @@ Regras completas e testadas (`shared/src/crafting.ts`), mais o material no jogo:
 
 ## 🔴 O gargalo agora é ARTE
 
-**21 das 23 criaturas não têm sprite.** Todas aparecem como **bolha colorida com
-o nome em cima** — placeholder deliberado.
+**18 das 23 criaturas não têm sprite** (eram 21; Slime Azul e Vermelho ganharam a
+arte do Verde recolorida em 30/07). Aparecem como **bolha colorida com o nome em
+cima** — placeholder deliberado.
+
+📐 **Para desenhar, a spec é a [`SPEC-SPRITES-MONSTROS.md`](./SPEC-SPRITES-MONSTROS.md)**:
+pasta por monstro (já criadas em `client/public/assets/monsters/`), nome de cada
+arquivo, formato da folha e as animações de cada espécie.
+
+🔴 **Trabalho de código que a arte vai exigir:** hoje **nenhum monstro consegue ter
+4 direções E animação de ataque.** `makeMiniActor` tem 4 direções mas só
+andar/parado; `makeSpriteActor` tem ataque/dano/morte mas é vista frontal única,
+espelhada. Estender o caminho direcional está pendente — os gatilhos já existem no
+servidor (`hit`, `hit.fatal`, `projectile`).
 
 O motivo não é código nem espaço no mapa: o cliente escolhe o desenho por
 `creatureType` e cai em `drawSlime` para tipo desconhecido
@@ -271,16 +305,41 @@ No chat do jogo:
 
 ---
 
-## Sugestão de por onde começar
+## Sugestão de por onde começar (atualizada em 30/07)
 
-1. **Arte do Tier II** — 9 criaturas, é a faixa que o jogador vê depois do
-   tutorial. Maior impacto por hora de trabalho
-2. **Ícones das 10 condições** — hoje são quadrados coloridos sem significado, e
-   as aranhas já aplicam Lentidão de verdade
-3. **Protocolo + handler de fabricação** — objetivo, não depende de decisão de
-   design
-4. **Responder as 5 decisões pendentes** acima, que são baratas e destravam
-   código
+O dono está **desenhando os sprites** — não mexa no bestiário nem adicione criatura
+enquanto isso. O que rende agora é código que a arte vai precisar, e o que
+está pela metade.
 
-O que **não** vale a pena agora: adicionar Tier IV em diante. Mais criaturas-bolha
-tem retorno decrescente enquanto o Tier II não tem arte.
+1. 🔴 **Animação de ataque por direção.** Hoje nenhum monstro consegue ter 4
+   direções E ataque (ver o gargalo de arte acima). É o que bloqueia metade do que
+   o dono está desenhando, e os gatilhos já existem no servidor.
+2. **Protocolo + handler de fabricação** (`C2S_Craft`) — as regras estão prontas e
+   testadas em `shared/src/crafting.ts`, falta o ato. Objetivo, não depende de
+   decisão de design.
+3. **Ícones das 10 condições** — hoje são quadrados coloridos sem significado, e as
+   aranhas já aplicam Lentidão de verdade.
+4. **Responder as decisões pendentes** acima (as 4 do Doc 3 + os números de venda),
+   que são baratas e destravam código.
+5. **Etapa 9 — Party e shared XP**, se o dono quiser avançar o roadmap.
+
+O que **não** vale a pena: adicionar Tier IV em diante (mais criaturas-bolha tem
+retorno decrescente), nem calibrar a curva de XP fino — o doc põe "faixas de nível"
+depois do bestiário na ordem oficial, então é cedo.
+
+---
+
+## Onde as coisas moram (mapa rápido do código)
+
+| Assunto | Arquivo |
+|---|---|
+| Curva de nível, bestiário, dano | `shared/src/combat.ts` |
+| Itens, preço de venda | `shared/src/items.ts` |
+| Elementos · condições · defesa | `shared/src/{elements,conditions,defense}.ts` |
+| Crafting e profissões | `shared/src/crafting.ts` |
+| NPCs do mundo (papéis) | `shared/src/worldgen.ts` · tipo em `tiles.ts` |
+| Colisão, IA, spawn, handlers | `server/src/index.ts` |
+| Migrações do banco | `server/src/store/{schema,store}.ts` |
+| HUD, rota do clique, loja, banco | `client/src/main.ts` |
+| Carregadores de sprite | `client/src/{sprites,miniworld}.ts` |
+| CSS e "zoom" da UI | `client/index.html` (`:root`) |
