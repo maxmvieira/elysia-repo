@@ -230,8 +230,22 @@ export const ITEMS: Record<string, ItemDef> = {
   leather_boots: { kind: 'leather_boots', name: 'Botas de Couro', category: 'equip', stackable: false, buyPrice: 25, slot: 'boots', def: 2, color: 0x5a3a20 },
   copper_necklace: { kind: 'copper_necklace', name: 'Colar de Cobre', category: 'equip', stackable: false, buyPrice: 45, slot: 'necklace', atk: 2, def: 1, color: 0xb87333 },
   // Containers de mochila: cada um define a capacidade de slots.
+  // --- Recipientes -------------------------------------------------------
+  // 🔴 A escada vem do roadmap (Etapa 12): **200/20 · 500/40 · 1000/60 · 1500/80**
+  // — peso e compartimentos. Os SLOTS estão implementados; o peso é o número
+  // depois da barra e fica declarado no comentário até a capacidade de carga
+  // existir (ela deriva de STR e ainda não foi feita).
+  //
+  // ⚠️ **Decisão do dono (2026-07-30): a Mochila inicial subiu de 20 para 40.**
+  // Ele pediu "pelo menos uns 40 itens" para gerir inventário, e 40 é justamente
+  // o segundo degrau canônico — então o pedido cabe no doc sem inventar degrau.
+  // A escada acima dela (60 e 80) segue existindo como progressão.
   bag: { kind: 'bag', name: 'Bolsa', category: 'equip', stackable: false, buyPrice: 20, slot: 'container', capacity: 10, color: 0x9a6a3a },
-  backpack: { kind: 'backpack', name: 'Mochila', category: 'equip', stackable: false, buyPrice: 40, slot: 'container', capacity: 20, color: 0x8a4a6a },
+  backpack: { kind: 'backpack', name: 'Mochila', category: 'equip', stackable: false, buyPrice: 40, slot: 'container', capacity: 40, color: 0x8a4a6a },
+  // peso 1000 quando a carga existir
+  large_backpack: { kind: 'large_backpack', name: 'Mochila Grande', category: 'equip', stackable: false, buyPrice: 400, slot: 'container', capacity: 60, color: 0x6a3a5a },
+  // peso 1500 — o topo da escada do roadmap
+  traveler_pack: { kind: 'traveler_pack', name: 'Mochila do Viajante', category: 'equip', stackable: false, buyPrice: 1800, slot: 'container', capacity: 80, color: 0x4a3a6a },
 };
 
 /** Capacidade de mochila quando nenhum container está equipado (segurança). */
@@ -252,6 +266,10 @@ export interface ItemStack {
 /** Itens vendidos pelo NPC comerciante (na ordem exibida). */
 export const VENDOR_STOCK: string[] = [
   'health_potion', 'mana_potion', 'torch', 'bag', 'backpack',
+  // As duas mochilas grandes ficam CARAS de propósito: 400 e 1800 de ouro fazem
+  // delas objetivo de médio prazo, não compra do primeiro dia. O espaço extra é
+  // progressão, como o roadmap desenha na escada 20/40/60/80.
+  'large_backpack', 'traveler_pack',
   'short_sword', 'hand_axe', 'club', 'dagger', 'spear', 'short_bow', 'light_crossbow',
   'apprentice_staff', 'wooden_shield',
   'leather_helmet', 'leather_armor', 'leather_pants', 'leather_boots', 'copper_necklace',

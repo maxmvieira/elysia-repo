@@ -358,6 +358,16 @@ interface GroundItem {
   floor: number;
   /** Instância do equipamento (raridade/passivos), quando houver. */
   roll?: ItemRoll;
+  /**
+   * Timestamp em que o item some do chão.
+   *
+   * 🔴 Antes disto, item no chão **nunca expirava** — só corpo expirava. Com 32
+   * criaturas renascendo para sempre, cada uma largando ouro, fragmento e
+   * material, o mapa acumulava centenas de entidades, e TODAS iam no snapshot de
+   * todo jogador a cada tique. Era vazamento de desempenho, não só sujeira
+   * visual.
+   */
+  expiresAt: number;
 }
 
 const players = new Map<string, Player>();
@@ -893,11 +903,49 @@ const LOOT_TABLE: Record<string, { kind: string; chance: number }[]> = {
   snake: [{ kind: 'snake_skin', chance: 0.8 }],
 };
 
+/**
+ * Quanto tempo o item do JOGADOR fica no chão, quando ele solta da mochila.
+ *
+ * 3 minutos, a pedido do dono. A ideia é o chão servir de área de descarte
+ * temporária para gerir inventário — solta o excesso, decide o que voltar a
+ * pegar, e o que sobra se limpa sozinho.
+ */
+const PLAYER_DROP_TTL_MS = 180000;
+
+/**
+ * Quanto tempo o LOOT de monstro fica no chão.
+ *
+ * Mais longo que o do jogador de propósito: um chefe larga 8 fragmentos, uma
+ * receita, material e ouro de uma vez, muitas vezes no fim de uma luta em que o
+ * grupo está sem vida e precisa se recompor. Três minutos ali custariam o loot
+ * que a luta rendeu.
+ *
+ * ⚠️ REFERÊNCIA. Ancorado nos ~120 s do corpo de monstro (`DD-LOOT-002`), com
+ * folga porque o item já está no chão, fora do corpo.
+ */
+const GROUND_LOOT_TTL_MS = 300000;
+
 function dropItem(
   kind: string, amount: number, x: number, y: number, floor: number, roll?: ItemRoll,
+  ttlMs = GROUND_LOOT_TTL_MS,
 ): void {
   const id = newId('i');
-  items.set(id, { id, itemKind: kind, amount, tileX: x, tileY: y, floor, roll });
+  items.set(id, {
+    id, itemKind: kind, amount, tileX: x, tileY: y, floor, roll,
+    expiresAt: Date.now() + ttlMs,
+  });
+}
+
+/**
+ * Remove do chão o que passou da validade.
+ *
+ * Roda junto de `expireCorpses`, no mesmo tique — as duas limpezas têm a mesma
+ * natureza e separá-las só espalharia a lógica.
+ */
+function expireGroundItems(now: number): void {
+  for (const item of items.values()) {
+    if (now >= item.expiresAt) items.delete(item.id);
+  }
 }
 
 /** Equipamentos que podem cair de monstros, por slot. */
@@ -2369,6 +2417,27 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       handleCraft(player, msg);
       return;
     }
+    case 'drop': {
+      if (!player.joined || !player.alive) return;
+      const slot = player.backpack[msg.slot];
+      if (!slot) return;
+      // Ouro não se solta pelo slot: ele vive como moedas normalizadas e
+      // `player.gold` é a autoridade. Mexer nas moedas por fora dessincronizaria
+      // o total, e o jogador acharia que perdeu dinheiro.
+      if (isGold(slot.kind)) {
+        send(player, { t: 'denied', reason: 'Ouro não pode ser solto no chão.' });
+        return;
+      }
+      const qtd = Math.min(slot.amount, Math.max(1, Math.floor(msg.amount ?? slot.amount)));
+      dropItem(
+        slot.kind, qtd, player.tileX, player.tileY, player.floor,
+        slot.roll, PLAYER_DROP_TTL_MS,
+      );
+      slot.amount -= qtd;
+      if (slot.amount <= 0) player.backpack[msg.slot] = null;
+      sendInventory(player);
+      return;
+    }
     case 'opencorpse': {
       if (!player.joined || !player.alive) return;
       const corpse = corpses.get(msg.corpseId);
@@ -3069,6 +3138,7 @@ function gameTick(): void {
   tick++;
   const now = Date.now();
   expireCorpses(now);
+  expireGroundItems(now);
   // Relógio do mundo (0..24). Noite entre 18h e 6h.
   worldHour = ((now % DAY_CYCLE_MS) / DAY_CYCLE_MS) * 24;
   isNight = worldHour < 6 || worldHour >= 18;

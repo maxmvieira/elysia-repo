@@ -223,6 +223,23 @@ export interface C2S_Craft {
   fragments: Partial<Record<Rarity, number>>;
 }
 
+/**
+ * Soltar um item da mochila no chão.
+ *
+ * Serve de área de descarte temporária para gerir inventário: solta o excesso,
+ * decide o que vale voltar a pegar, e o que sobra desaparece sozinho depois de
+ * alguns minutos.
+ *
+ * ⚠️ Qualquer jogador pode pegar o que foi solto. Não existe "meu item no chão".
+ */
+export interface C2S_Drop {
+  t: 'drop';
+  /** Índice do slot da mochila. */
+  slot: number;
+  /** Quantas unidades soltar. Ausente ou maior que a pilha = solta tudo. */
+  amount?: number;
+}
+
 /** Abrir o corpo de alguém que morreu (precisa estar perto). */
 export interface C2S_OpenCorpse {
   t: 'opencorpse';
@@ -270,7 +287,8 @@ export type ClientMessage =
   | C2S_SkillReset
   | C2S_OpenCorpse
   | C2S_LootCorpse
-  | C2S_Craft;
+  | C2S_Craft
+  | C2S_Drop;
 
 // ----------------------------------------------------------------------------
 // Servidor -> Cliente (fatos autoritativos)

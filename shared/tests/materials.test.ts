@@ -135,6 +135,28 @@ test('as consultas de família e uso funcionam (base das profissões)', () => {
   assert.equal(getMaterial('nao_existe'), undefined);
 });
 
+test('a escada de mochilas segue o roadmap: 20/40/60/80 compartimentos', () => {
+  // Roadmap (Etapa 12): "Mochilas com peso E compartimentos: 200/20 · 500/40 ·
+  // 1000/60 · 1500/80". Os slots estão implementados; o peso espera a
+  // capacidade de carga (que deriva de STR e não existe).
+  const caps = ['bag', 'backpack', 'large_backpack', 'traveler_pack']
+    .map((k) => ITEMS[k]!.capacity);
+  assert.deepEqual(caps, [10, 40, 60, 80]);
+});
+
+test('mochila maior custa mais: espaço é progressão, não item de primeiro dia', () => {
+  const bp = ITEMS.backpack!;
+  const grande = ITEMS.large_backpack!;
+  const viajante = ITEMS.traveler_pack!;
+  assert.ok(grande.buyPrice > bp.buyPrice * 5);
+  assert.ok(viajante.buyPrice > grande.buyPrice * 3);
+  // E toda mochila ocupa o slot de container, senão não dá para equipar.
+  for (const m of [bp, grande, viajante]) {
+    assert.equal(m.slot, 'container');
+    assert.equal(m.stackable, false, 'recipiente é instância, não pilha');
+  }
+});
+
 test('nenhum material de coleta foi criado sem forma de obtê-lo', () => {
   // Ervas, Flores, Cogumelos, Minérios, Madeiras e Gemas dependem de coleta e
   // mineração, que não existem. Criar o item antes seria item inalcançável — e

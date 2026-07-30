@@ -1327,7 +1327,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       : '🎒 Sem mochila';
     bpGrid.innerHTML = '';
     currentInv.backpack.forEach((stack, i) => {
-      bpGrid.appendChild(makeItemCell(stack, () => onBackpackClick(i, stack), `bp:${i}`));
+      const cell = makeItemCell(stack, () => onBackpackClick(i, stack), `bp:${i}`);
+      // SOLTAR NO CHÃO com o botão direito. Escolhido em vez de um botão na
+      // interface porque o gesto tem que ser rápido: a função dele é despachar
+      // excesso durante a caça, e parar para clicar num botão por item anula o
+      // ganho. O clique esquerdo continua sendo usar/equipar, então não há
+      // conflito de gesto.
+      if (stack) {
+        cell.oncontextmenu = (ev): void => {
+          ev.preventDefault();
+          // Shift solta a pilha inteira; sem shift, uma unidade. Empilhável
+          // costuma ser o que mais entope a mochila, e soltar 300 fragmentos por
+          // engano com um clique seria irreversível.
+          const tudo = ev.shiftKey || stack.amount === 1;
+          net.send({ t: 'drop', slot: i, ...(tudo ? {} : { amount: 1 }) });
+        };
+      }
+      bpGrid.appendChild(cell);
     });
     // Depósito (só aparece dentro do DP).
     depotBox.style.display = currentInv.atDepot ? 'block' : 'none';
