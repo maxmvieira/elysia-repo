@@ -10,6 +10,33 @@ travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa).
 
 ---
 
+## 🐛 ANTES DE MAIS NADA: este commit tem bugs conhecidos
+
+**Não trate o último commit como estável.** O dono jogou depois da entrega, disse
+que **"ainda tem alguns bugs"** e precisou sair antes de descrever quais. Então:
+
+- ✅ O que está verificado: **333 testes passando**, **typecheck limpo** nos 3 pacotes,
+  e a página do cliente carrega **sem erro de console**.
+- ❌ O que **não** está verificado: **nada foi testado dentro do jogo** nesta sessão.
+  A tela de login pede senha, e o agente não digita senha — então o menu de contexto,
+  a party, a lista de amigos, o golpe em PvP e a Caveira Branca **nunca rodaram com
+  dois jogadores de verdade**. Teste passando não é o mesmo que funcionar em tela.
+
+🔴 **Onde eu olharia primeiro**, por serem o que mudou e o que menos tem rede de
+proteção (nesta ordem):
+
+1. **Barra lateral** — o box de posição/atalhos foi removido e ele era a **âncora do
+   reordenamento de painéis**. Arraste os painéis e recarregue: a ordem tem que voltar.
+2. **PvP com dois clientes** — é a mudança mais nova e a única sem teste de integração:
+   agredir, ver a caveira aparecer nos dois lados, revidar com o PK desligado, e a
+   caveira sumindo sozinha em 5 min.
+3. **Party e amigos** — feitos na mesma sessão, também sem teste de ponta a ponta.
+
+Se o bug for de regra de PvP, **leia o bloco da Caveira Branca abaixo antes de
+"consertar"**: a regra atual é decisão do dono e contraria o que o código fazia ontem.
+
+---
+
 ## 🚀 Retomando o trabalho — faça isto primeiro
 
 ```bash
