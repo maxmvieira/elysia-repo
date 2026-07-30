@@ -135,3 +135,44 @@ Nenhum dos dois lados foi testado dentro do jogo:
 
 **Os bugs não descritos são a primeira coisa a levantar com o dono** — é mais
 barato consertar antes de misturar as duas bases do que depois.
+
+---
+
+## 🐞 Bug relatado — menu de contexto dispara "Atacar" sozinho
+
+**Relatado pelo dono em 2026-07-30.** Ele classificou como *"nada crítico demais"*
+e não chegou a testar a fundo.
+
+> Clicar em outro jogador para **inspecionar** dispara **Atacar** direto, quando o
+> PK está ativo.
+
+⚠️ **Só reproduz no branch `pvp-caveira-branca`** — o menu de contexto não existe
+no `main`. Consertar exige trabalhar na branch dele ou fazer o merge antes.
+
+### Onde olhar
+
+O sintoma é o clique escapando para o caminho de ataque **antes** de o menu
+abrir. Três suspeitas, em ordem de probabilidade:
+
+1. **O botão direito não está cancelando o comportamento padrão do clique.** O
+   `main` já usava o botão direito para duas coisas — cancelar a rota do
+   clique-para-andar e soltar item — e o menu entrou por cima disso. Se o
+   handler novo não faz `preventDefault`/`stopPropagation`, os dois rodam.
+2. **A seleção de alvo acontece no `mousedown` e o menu no `contextmenu`.** O
+   `mousedown` chega primeiro, então o auto-ataque já começou quando o menu
+   aparece — e nesse caso o menu até abre, mas o dano já está saindo.
+3. **O menu decide o item padrão por `canHarm`.** Se "Atacar" for o primeiro item
+   e algo o dispara por padrão quando o alvo é válido, o PK ligado é exatamente o
+   que torna o alvo válido — o que casa com "só acontece se o PK estiver ativo".
+
+### Por que isso importa mais do que parece
+
+🔴 **Ataque acidental em PvP não é erro de UI, é erro de consequência.** Com a
+Caveira Branca implementada, um clique errado marca o jogador como agressor por
+5 minutos e o transforma em alvo livre para qualquer um que esteja vendo. O custo
+de errar o clique é alto demais para o clique ser fácil de errar.
+
+Vale considerar, ao consertar: **"Atacar" não deveria ser a ação de clique
+simples em jogador com PK ligado.** Inspecionar é a ação segura e frequente;
+atacar é a rara e irreversível. A ação destrutiva é que deveria exigir o passo a
+mais, não o contrário.
