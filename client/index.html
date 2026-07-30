@@ -581,6 +581,147 @@
         cursor: pointer;
         font-size: 10px;
       }
+
+      /* ---- Menu de contexto (botão direito em outro jogador) --------------
+       *
+       * `position: fixed` e não `absolute`: o menu é posicionado a partir de
+       * `clientX/clientY` do evento, que já são coordenadas de viewport. Com
+       * `absolute` ele saltaria junto com qualquer scroll de ancestral.
+       */
+      #ctxmenu {
+        position: fixed;
+        display: none;
+        z-index: 30;
+        min-width: 148px;
+        padding: 4px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+        font-size: 11px;
+        user-select: none;
+      }
+      #ctxmenu .ctxname {
+        padding: 3px 8px 5px;
+        color: #d9b26a;
+        font-size: 10px;
+        border-bottom: 1px solid rgba(201, 168, 106, 0.16);
+        margin-bottom: 3px;
+      }
+      #ctxmenu button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 4px 8px;
+        background: none;
+        border: 0;
+        border-radius: 3px;
+        color: var(--text);
+        font: inherit;
+        cursor: pointer;
+      }
+      #ctxmenu button:hover {
+        background: rgba(201, 168, 106, 0.14);
+      }
+      /* Ação indisponível continua VISÍVEL, apagada, com o motivo no tooltip.
+         Sumir com a linha mudaria a altura do menu conforme o alvo, e o jogador
+         perderia a memória muscular da posição de cada opção. */
+      #ctxmenu button:disabled {
+        color: #6d675b;
+        cursor: default;
+      }
+      #ctxmenu button:disabled:hover {
+        background: none;
+      }
+
+      .minibtn {
+        width: 100%;
+        margin-top: 4px;
+        padding: 3px;
+        background: #2a261f;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--text);
+        font: inherit;
+        font-size: 10px;
+        cursor: pointer;
+      }
+      .minibtn:hover { border-color: #d9b26a; }
+      /* PK ligado é estado perigoso: o botão vira vermelho para o jogador não
+         esquecer que está atacável. */
+      .minibtn.on {
+        background: #4a1f1c;
+        border-color: #b4443a;
+        color: #f0c7c2;
+      }
+
+      /* ---- Grupo e amigos ------------------------------------------------ */
+      .prow {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 3px;
+        font-size: 10px;
+        border-radius: 3px;
+      }
+      /* Companheiro longe demais fica apagado: é a pista de que ele sairia da
+         faixa de proximidade que o Shared XP vai exigir (DD-PARTY-008). */
+      .prow.far { opacity: 0.45; }
+      .prow .pname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .prow .plead { color: #d9b26a; }
+      .prow .phpbar {
+        width: 42px;
+        height: 5px;
+        background: #2a1414;
+        border: 1px solid #000;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .prow .phpbar i { display: block; height: 100%; background: #9c2b26; }
+      .frow {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 3px;
+        font-size: 10px;
+      }
+      .frow .fdot { width: 6px; height: 6px; border-radius: 50%; background: #5a544a; }
+      .frow.on .fdot { background: #6fbf5a; }
+      .frow .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .frow.on .fname { color: #cfe6c4; }
+      .frow .fx {
+        background: none; border: 0; color: #6d675b; cursor: pointer; font: inherit; padding: 0 2px;
+      }
+      .frow .fx:hover { color: #d98a80; }
+
+      /* ---- Convite de grupo ---------------------------------------------- */
+      #partyinvite {
+        position: fixed;
+        left: 50%;
+        top: 84px;
+        transform: translateX(-50%);
+        display: none;
+        z-index: 25;
+        padding: 10px 14px;
+        background: var(--panel);
+        border: 1px solid #d9b26a;
+        border-radius: 6px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+        font-size: 12px;
+        text-align: center;
+      }
+      #partyinvite .pibtns { display: flex; gap: 8px; margin-top: 8px; }
+      #partyinvite button {
+        flex: 1;
+        padding: 4px 12px;
+        background: #2a261f;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--text);
+        font: inherit;
+        cursor: pointer;
+      }
+      #partyinvite button:hover { border-color: #d9b26a; }
       .brow:hover {
         background: #201d18;
       }
@@ -1497,27 +1638,6 @@
             <div id="mycond"></div>
           </div>
         </div>
-        <!--
-          Grupo (Etapa 9). Fica ESCONDIDO enquanto o jogador anda sozinho — um
-          painel vazio anunciando "nenhum grupo" só rouba espaço da barra, que já
-          é estreita (190 px).
-
-          A regra de loot fica sempre visível quando há grupo: `DD-PARTY-014`
-          exige isso, e é o tipo de coisa que o jogador só descobre que precisava
-          saber depois de perder um item.
-        -->
-        <div class="box panel" id="partybox" style="display: none">
-          <div class="phead"><span>👥 Grupo</span><button class="pt" title="Minimizar">−</button></div>
-          <div class="pbody">
-            <div id="partyloot" class="hint"></div>
-            <div id="partylist"></div>
-            <div id="partyvote" style="display: none"></div>
-            <div class="hint" style="margin-top: 6px">
-              <code>/convidar nome</code> · <code>/loot livre|lider|aleatorio</code>
-              · <code>/sairdogrupo</code>
-            </div>
-          </div>
-        </div>
         <div class="box panel" id="attrbox">
           <div class="phead">
             <span>Atributos · <b id="attr-points">0</b> pts</span>
@@ -1546,13 +1666,67 @@
           <div class="phead"><span>⚔️ Battle</span><button class="pt" title="Minimizar">−</button></div>
           <div class="pbody"><div id="battlelist"></div></div>
         </div>
-        <div class="box">
-          <div id="coords">Posição: —</div>
-          <div class="hint">Mover: setas/WASD (2 juntas ou numpad = diagonal) · Clicar no monstro ou na Battle: atacar · Esc: soltar alvo</div>
+        <!--
+          Grupo. Fica ESCONDIDO enquanto o jogador não está em nenhum: um painel
+          permanentemente vazio na barra rouba altura de quem joga sozinho, que
+          é a maioria do tempo.
+        -->
+        <div class="box panel" id="partybox" style="display: none">
+          <div class="phead"><span>👥 Grupo</span><button class="pt" title="Minimizar">−</button></div>
+          <div class="pbody">
+            <!--
+              A regra de loot fica sempre visível: `DD-PARTY-014` exige, e é o
+              tipo de coisa que o jogador só descobre que precisava saber depois
+              de perder um item.
+            -->
+            <div id="partyloot" class="hint"></div>
+            <div id="partylist"></div>
+            <div id="partyvote" style="display: none"></div>
+            <button id="party-leave" class="minibtn">Sair do grupo</button>
+            <div class="hint" style="margin-top: 6px">
+              Regra de loot: <code>/loot livre|lider|aleatorio</code> — abre votação.
+            </div>
+          </div>
+        </div>
+        <div class="box panel" id="friendsbox">
+          <div class="phead">
+            <span>🤝 Amigos</span><button class="pt" title="Minimizar">−</button>
+          </div>
+          <div class="pbody">
+            <div id="friendlist"></div>
+            <div class="hint" style="margin-top: 4px">
+              Botão direito em outro jogador para adicionar.
+            </div>
+          </div>
+        </div>
+        <div class="box panel" id="pkbox">
+          <div class="phead"><span>⚔️ PvP</span><button class="pt" title="Minimizar">−</button></div>
+          <div class="pbody">
+            <button id="pk-toggle" class="minibtn">PK: desligado</button>
+            <div class="hint" style="margin-top: 4px">
+              Ligue o PK para poder atacar outros jogadores. Quem agride ganha a
+              ⚪ Caveira Branca por 5 min — e quem está de caveira pode ser
+              atacado por qualquer um, sem punição.
+            </div>
+          </div>
         </div>
       </aside>
     </div>
     <div id="spellbar"><div id="spellgrip" title="Arraste para mover a barra"></div></div>
+    <!--
+      Menu de contexto do botão direito em outro jogador. Os botões são criados
+      pelo JS (o que aparece depende do alvo: líder vê "Expulsar", já-amigo vê
+      "Remover amigo"), mas o contêiner e o nome no topo ficam aqui para o CSS
+      não precisar existir em duas linguagens.
+    -->
+    <div id="ctxmenu"><div class="ctxname"></div></div>
+    <div id="partyinvite">
+      <div id="pi-text">—</div>
+      <div class="pibtns">
+        <button id="pi-accept">Aceitar</button>
+        <button id="pi-decline">Recusar</button>
+      </div>
+    </div>
     <div id="shop">
       <div class="win">
         <h3><span>🛒 Comerciante</span><span class="close" id="shop-close">✕</span></h3>

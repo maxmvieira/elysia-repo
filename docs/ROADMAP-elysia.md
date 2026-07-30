@@ -43,22 +43,25 @@ Os docs marcam status por decisão. **Respeitar isso é o que impede reescrever 
 
 ## 📍 ONDE ESTAMOS — leia isto primeiro
 
-**Última atualização:** 2026-07-30
+**Última atualização:** 2026-07-30 (depois do merge dos dois branches)
 **Etapas concluídas:** 1 a **9** (de 23) — as 1–6 com ajustes pendentes, ver abaixo
 **Próxima etapa:** **10 — Cartas** 🃏 ⚠️ mas veja a ressalva no `HANDOFF`: o
 formato das cartas depende de decisões não tomadas, e o
 [`INVENTARIO-DE-ARTE.md`](./INVENTARIO-DE-ARTE.md) pede para **não desenhá-las
 ainda**
-**🔴 Antes de qualquer coisa:** a **Etapa 9 nunca foi testada com dois clientes**.
-Convite → aceite → XP dividida exige duas janelas, e não deu para fazer sozinho
-**Saúde do código:** **334 testes** passando (322 shared + 12 server) · typecheck limpo
+**🔴 Antes de qualquer coisa:** nem a **party** nem o **PvP** foram testados com
+dois clientes de verdade. Convite → aceite → XP dividida, e agredir → caveira →
+revide, exigem duas janelas — nenhum dos dois lados conseguiu fazer sozinho
+**Saúde do código:** **377 testes** passando (357 shared + 20 server) · typecheck limpo
 nos 3 pacotes · smoke de ponta a ponta validado (derruba servidor → personagem sobrevive)
-**Banco:** schema **v3** (`professions`, `bank_gold`)
+**Banco:** schema **v4** (`professions`, `bank_gold`, `account_friend`)
 
-> 🔴 **Antes de programar, leia a seção "Sessão de 2026-07-30" do
-> [`HANDOFF.md`](./HANDOFF.md).** Ela tem um **override do dono contra o Doc 3**
-> (velocidade do Super Slime) e quatro números marcados `⚠️ REFERÊNCIA` que
+> 🔴 **Antes de programar, leia o [`HANDOFF.md`](./HANDOFF.md) inteiro.** Ele tem os
+> **overrides do dono contra os docs** e os valores marcados `⚠️ REFERÊNCIA` que
 > parecem canônicos e não são. Implementar sem saber disso é reescrever decisão.
+>
+> ⚠️ **Quando este bloco e o HANDOFF divergirem, o HANDOFF é o mais recente** — ele é
+> atualizado a cada sessão, este bloco nem sempre.
 
 ### ⚠️ O gargalo NÃO é código
 
@@ -67,11 +70,10 @@ cima. O dono está desenhando; a especificação do que ele precisa entregar est
 [`SPEC-SPRITES-MONSTROS.md`](./SPEC-SPRITES-MONSTROS.md), com uma pasta por
 monstro já criada em `client/public/assets/monsters/`.
 
-🔴 **Hoje nenhum monstro consegue ter 4 direções E animação de ataque**: são dois
-caminhos de render no cliente e nenhum faz as duas coisas (`makeMiniActor` tem 4
-direções mas só andar/parado; `makeSpriteActor` tem ataque/dano/morte mas é vista
-frontal única). Estender o caminho direcional é **trabalho de código pendente**, e
-os gatilhos já existem no servidor (`hit`, `hit.fatal`, `projectile`).
+✅ **O bloqueio de render foi RESOLVIDO em 30/07.** `makeMiniActor` aceita `attack`,
+`hurt` e `death` **por direção**, e `loadCreatureSheets` lê o formato da spec. Ligar uma
+espécie quando a arte chegar é **uma linha** em `CREATURE_SHEETS`
+(`client/src/miniworld.ts`) — quem desenha só precisa informar o lado da célula em px.
 
 ### ✅ Decisões do dono — 2026-07-29 (Etapa 8)
 
@@ -333,7 +335,11 @@ sistema de visita/respawn já funciona.
 
 ---
 
-## ⏭️ ETAPA 8 — Elementos, condições e defesa em camadas ⚔️ — **PRÓXIMA**
+## ✅ ETAPA 8 — Elementos, condições e defesa em camadas ⚔️ — **FEITA (2026-07-29/30)**
+
+Os cinco pontos da Fase A abaixo estão implementados. O **item 5 (flag PK)** ficou pronto
+e sem uso por dois dias — ganhou interface e primeiro chamador em 30/07, junto com o menu
+de contexto (ver Etapa 9).
 
 ---
 
@@ -351,21 +357,41 @@ sistema de visita/respawn já funciona.
    **chance de bloqueio não vem de nenhum dos 7 atributos**.
 4. 🆕 **Três níveis de contramedida:** Resistência (chance) · Redução (duração) ·
    Imunidade (não funciona).
-5. 🆕 **Flag PK ON/OFF** — com PK OFF, AoE/DoT/armadilha de um jogador **simplesmente não
-   existe** para outro, e o caster não vira PK.
+5. 🆕 **Flag PK ON/OFF** — com PK OFF, AoE/DoT/armadilha **daquele jogador** simplesmente não
+   existe contra outro, e o caster não vira PK.
+   🔴 **É o flag de AGREDIR, não o de ser agredido** (corrigido em 30/07 — ver Etapa 17).
 
 ⚠️ **Pendente no doc:** a **duração** de Congelamento × Petrificação está em conflito
 (`DD-CC-012`) — mas a **diferença mecânica vale**: dano quebra congelamento, **não** quebra
 petrificação, e o petrificado ganha grande bônus de DEF/MDEF.
 
-### ✅ Etapa 9 — Party, shared XP e distribuição de loot 👥 *(feita em 2026-07-30)*
+### ✅ Etapa 9 — Party, shared XP e distribuição de loot 👥 *(completa em 2026-07-30)*
 
-> Os seis pontos abaixo estão todos implementados. Detalhe de cada decisão em
-> [`HISTORICO.md`](./HISTORICO.md); as regras puras vivem em `shared/src/party.ts`.
+> 🔴 **Esta etapa foi fechada por um MERGE, e a história vale ser lembrada:** os
+> dois irmãos escreveram metades complementares em paralelo, sem saber. Um fez a
+> **formação** (convite com prazo de 30 s revalidado no aceite, expulsar, passar
+> liderança, `PARTY_MAX`), o outro fez a **distribuição** (shared XP, três regras
+> de loot com votação, loot de chefe por contribuição). Nenhuma das duas metades
+> fechava a etapa sozinha.
+>
+> Detalhe de cada decisão em [`HISTORICO.md`](./HISTORICO.md); as regras puras
+> vivem em `shared/src/party.ts`.
+>
 > ⚠️ **Ainda não foi testada com dois clientes de verdade.**
+
+Além dos seis pontos abaixo, entrou o que a formação trouxe: `partyId` chega ao
+`canHarm` → **friendly fire desligado entre companheiros**, que era a única regra
+de party que o jogo tinha e não usava.
+
+⚠️ **`PARTY_MAX = 5` é REFERÊNCIA, não canônico.** `DD-PARTY-001..026` não fixam
+tamanho de grupo em lugar nenhum — o 5 sai do exemplo de distribuição de XP do
+cap. 35. Nenhum teste trava o valor.
+
+**Os seis pontos, todos implementados:**
 
 1. **Shared XP com faixa de nível:** ~10 níveis até Lv.100, ~20 depois. 🔴 Um Lv.300 pode
    **ajudar** um Lv.20, mas **não divide XP** — anti-power-leveling.
+   *(a faixa já existe em `party.ts`; falta ligar na distribuição)*
 2. **Bônus de grupo antes da divisão** — solo rende mais por monstro; party rende mais no total.
 3. 🔴 `DD-PARTY-011` **LOOT NÃO É MULTIPLICADO.** 5 itens são 5 itens com 2 ou 10 jogadores.
 4. **Três modos:** Aleatório · Loot do Líder · Loot Livre, visíveis antes de entrar.
@@ -373,6 +399,17 @@ petrificação, e o petrificado ganha grande bônus de DEF/MDEF.
    mantém, e **trava durante combate de boss** (anti-golpe).
 6. **Boss compartilhado:** contribuição pondera o sorteio · **last hit não vale nada** ·
    existe contribuição mínima · solo compete normalmente.
+7. **Proximidade e participação ativa** (`DD-PARTY-008`) — o `nearby` do HUD já mede
+   distância, mas ninguém a usa como condição. Anti-leech (`35.9`) não existe.
+
+### 🆕 Sistema fora do roadmap: LISTA DE AMIGOS 🤝 — **FEITA (2026-07-30)**
+
+⚠️ **Não aparece em nenhum dos quatro documentos** — não está `PENDENTE`, simplesmente não
+existe. Pedido do dono, que decidiu o escopo: **da CONTA**, pela mesma lógica do
+`DD-MAP-010` (geografia e marcadores pendem da conta; só o respawn é do personagem).
+
+Tabela `account_friend` (**schema v4**), não-recíproca de propósito, com presença online
+derivada de quem está conectado. Detalhes e o porquê de cada escolha em `SCHEMA_V4`.
 
 ---
 
@@ -468,12 +505,47 @@ conta). Vilarejo inicial · cidade principal com até 60 NPCs · guardas patrulh
 ⚠️ **Muito pendente aqui:** cidade inicial, capital humana, sistema político, religiões,
 Asteria, ordens de Knights. **Não inventar.**
 
-### Etapa 17 — PvP, skulls e criminalidade ⚔️
+### ⏳ Etapa 17 — PvP, skulls e criminalidade ⚔️ — **PARCIAL**
+
+> ✅ **A ⚪ CAVEIRA BRANCA está pronta (2026-07-30).** Não estava planejada para agora:
+> entrou porque a regra de PvP implementada dias antes estava **errada**, e a caveira é
+> a metade que faltava para consertá-la.
+>
+> 🔴 **A correção:** a primeira versão exigia PK ON dos **dois** lados. Isso fazia do PK um
+> **escudo pessoal** — bastava deixá-lo desligado para ser intocável — e tornava a emboscada
+> impossível, esvaziando este capítulo inteiro ("o objetivo não é impedir PK"). O doc nunca
+> pediu isso: 17.32/17.33 falam **só do flag do atacante** (*"Se o Sorcerer estiver com PK
+> OFF…"*) e 17.34 diz que com PK ON "as ações ofensivas **podem atingir jogadores válidos**".
+>
+> **Como é agora:** quem liga o PK acerta quem está com ele desligado — **sofrer o ataque
+> não é opcional** — e por isso recebe a ⚪ Caveira Branca por 5 min. Enquanto durar, a
+> vítima **e qualquer um que esteja vendo** podem atacá-lo **sem ligar o próprio PK e sem
+> punição** (17.38 exclui "matar criminoso/procurado" do assassinato injustificado).
+> Decisão do dono, com teste travando as duas pontas. **Não reverter para os dois flags.**
+
+**Feito:**
+- ⚪ **Caveira Branca**: 5 min, renovada (não somada) a cada nova agressão, visível sobre o
+  personagem para todo mundo, com aviso no chat ao ganhar e ao perder
+- `canHarm` lê **só o flag do atacante**; alvo de caveira é **alvo livre**
+- `HarmDecision.justified` — o gancho de "esta morte não conta como assassinato"
+- A trava de 10 s passou a valer **só para o agressor**: travar a vítima seria puni-la por
+  ter sido atacada, agora que o flag dela não a defende de nada
+
+**Falta:**
 
 🟡 **Yellow Skull** (quem intervém para proteger não é PK comum) · 🔴 **Red Skull**
 (3 kills/dia ou 5/semana; some em **7 dias sem novos kills**) · ⚫ **Black Skull**
 (10/semana; **30 dias**). **Level baixo NÃO tem imunidade.** **Duelo é separado de PK.**
 Guardas reagem em cidades **e regiões próximas**.
+
+🔴 **O que as três exigem e a branca não exigiu: PERSISTÊNCIA.** A branca dura 5 min e mora
+na memória; vermelha e preta contam assassinatos por dia e por semana, então precisam de
+tabela no banco (schema v5) e de um registro de kill por vítima — é aí que a etapa começa
+de verdade.
+
+⚠️ **`WHITE_SKULL_MS = 5 min` é REFERÊNCIA.** O cap. 75 fecha a duração da vermelha e da
+preta, mas **não a da branca** — a única fonte é a conversa antiga ("poucos minutos").
+
 ✅ O problema de "AoE acertando quem não está em PvP" é resolvido pelo **flag PK** da Etapa 8.
 
 ### Etapa 18 — Casa, montaria e sobrevivência 🏠

@@ -13,10 +13,11 @@ import type { AttributeKey, Attributes, AttackType, PlayerClass } from './stats.
 import type { EquipSlot, ItemStack } from './items.js';
 import type { DamageType } from './elements.js';
 import type { ConditionId } from './conditions.js';
+import type { SkullKind } from './pvp.js';
+import type { LootRule } from './party.js';
 import type { Rarity } from './weapons.js';
 import type { Professions } from './crafting.js';
 import type { NpcRole } from './tiles.js';
-import type { LootRule } from './party.js';
 
 /** Versão do protocolo. Incrementar em mudanças incompatíveis. */
 export const PROTOCOL_VERSION = 1;
@@ -58,6 +59,28 @@ export interface EntitySnapshot {
    * forma. Ausente ou vazio = nenhuma condição.
    */
   conditions?: ConditionId[];
+  /**
+   * Flag de PK deste jogador (32.57–32.61). O cliente usa para desenhar o
+   * indicador e para saber se "Atacar" no menu vai dar em algo.
+   *
+   * Vai no snapshot público de propósito: PK é informação que o jogador PRECISA
+   * ver no outro antes de chegar perto. Não é escudo — quem está com ele ligado
+   * pode agredir quem está com ele desligado —, mas é aviso.
+   */
+  pkEnabled?: boolean;
+  /**
+   * ⚪ Caveira ativa. Hoje só a branca (agrediu alguém há pouco).
+   *
+   * 🔴 Isto **tem** de ser público, mais do que o `pkEnabled`: a caveira é o
+   * que diz a todo mundo em volta que aquele jogador virou alvo livre e que
+   * atacá-lo não custa nada. Uma caveira invisível não cumpre função nenhuma.
+   */
+  skull?: SkullKind;
+  /**
+   * Grupo a que este jogador pertence, quando há. O cliente pinta o nome dos
+   * companheiros e o menu de contexto troca "Convidar" por "Expulsar".
+   */
+  partyId?: string;
 }
 
 // ----------------------------------------------------------------------------
@@ -265,50 +288,63 @@ export interface C2S_SkillReset {
   t: 'skillreset';
 }
 
-// --- Party (Etapa 9, `DD-PARTY-001` a `026`) --------------------------------
-//
-// 🔴 O convite é por NOME, não por id. O id de jogador é interno e o cliente não
-// tem como descobrir o do vizinho sem uma busca própria — pedir o nome é o que o
-// jogador consegue digitar depois de ver alguém na tela.
-
-/** Convidar alguém para a party. Quem convida vira líder se ainda não houver uma. */
-export interface C2S_PartyInvite {
-  t: 'partyinvite';
-  name: string;
-}
-
-/** Responder a um convite pendente. */
-export interface C2S_PartyRespond {
-  t: 'partyrespond';
-  accept: boolean;
-}
-
-/** Sair da party. Se o líder sai, a liderança passa ao membro mais antigo. */
-export interface C2S_PartyLeave {
-  t: 'partyleave';
-}
-
-/** Expulsar um membro. Só o líder. */
-export interface C2S_PartyKick {
-  t: 'partykick';
-  playerId: string;
+/**
+ * Ligar/desligar o flag de PK (32.57–32.61).
+ *
+ * 🔴 É intenção, como todo o resto: o servidor decide. Em particular ele impõe
+ * o tempo mínimo com PK ligado — desligar no meio da briga para virar intocável
+ * é exatamente o golpe que o flag não pode permitir.
+ */
+export interface C2S_SetPk {
+  t: 'pk';
+  on: boolean;
 }
 
 /**
- * Propor uma regra de loot.
- *
- * 🔴 `DD-PARTY-015`: o líder **não** muda a regra sozinho — isto abre uma
- * votação, não aplica nada.
+ * Ações de grupo (cap. 35). Uma mensagem para todas, com `action` discriminando:
+ * são cinco verbos pequenos sobre o mesmo objeto, e cinco tipos separados só
+ * inchariam a união sem ganhar nada em tipagem.
  */
-export interface C2S_PartyProposeLoot {
-  t: 'partyproposeloot';
-  rule: LootRule;
+export interface C2S_Party {
+  t: 'party';
+  action:
+    | 'invite' | 'accept' | 'decline' | 'leave' | 'kick' | 'promote'
+    // Distribuição de loot (`DD-PARTY-013..020`), vinda do merge de 2026-07-30.
+    | 'loot' | 'vote';
+  /** Alvo da ação. Ausente em `leave`. Em `accept`/`decline`, quem convidou. */
+  targetId?: string;
+  /**
+   * Alvo por NOME, alternativa ao `targetId`.
+   *
+   * 🔴 As duas formas existem porque as duas entradas existem: o **menu de
+   * contexto** clica num jogador visível e tem o id dele do snapshot; o
+   * **comando de chat** (`/convidar Fulano`) só tem o que a pessoa digitou. Exigir
+   * id mataria o comando; exigir nome obrigaria o menu a resolver nome de volta.
+   */
+  name?: string;
+  /** Só em `loot`: a regra PROPOSTA (`DD-PARTY-015` — não é aplicação direta). */
+  rule?: LootRule;
+  /** Só em `vote`. */
+  agree?: boolean;
 }
 
-/** Votar na proposta em aberto (`DD-PARTY-016`). */
-export interface C2S_PartyVote {
-  t: 'partyvote';
-  agree: boolean;
+/**
+ * Lista de amigos.
+ *
+ * ⚠️ **Sistema sem respaldo documental.** Não aparece em nenhum dos quatro
+ * documentos — não está marcado `PENDENTE`, simplesmente não existe. Foi pedido
+ * pelo dono em 2026-07-30, que decidiu o escopo: **da CONTA**, pela mesma lógica
+ * do `DD-MAP-010` (geografia descoberta e marcadores pendem da conta; só o
+ * ponto de respawn é do personagem).
+ *
+ * Por isso o alvo é o **nome**, não o id de sessão: adiciona-se um amigo que
+ * está offline, e o vínculo tem que sobreviver à troca de personagem dos dois
+ * lados.
+ */
+export interface C2S_Friend {
+  t: 'friend';
+  action: 'add' | 'remove';
+  name: string;
 }
 
 export type ClientMessage =
@@ -336,12 +372,9 @@ export type ClientMessage =
   | C2S_LootCorpse
   | C2S_Craft
   | C2S_Drop
-  | C2S_PartyInvite
-  | C2S_PartyRespond
-  | C2S_PartyLeave
-  | C2S_PartyKick
-  | C2S_PartyProposeLoot
-  | C2S_PartyVote;
+  | C2S_SetPk
+  | C2S_Party
+  | C2S_Friend;
 
 // ----------------------------------------------------------------------------
 // Servidor -> Cliente (fatos autoritativos)
@@ -579,50 +612,88 @@ export interface S2C_Inventory {
   nearBank: boolean;
 }
 
-/** Um membro, como o cliente precisa vê-lo no painel. */
+/** Um companheiro de grupo, do jeito que o HUD precisa dele. */
 export interface PartyMemberView {
   id: string;
   name: string;
   level: number;
   hp: number;
   maxHp: number;
-  leader: boolean;
+  charClass: PlayerClass;
+  /** Está no mesmo andar e perto o bastante para o grupo funcionar. */
+  nearby: boolean;
   /**
-   * Divide XP com o dono deste cliente? `DD-PARTY-014` exige que a regra ativa
-   * seja visível — e a elegibilidade é a informação que mais surpreende quem
-   * chama um amigo de nível muito diferente e não entende por que não ganha XP.
+   * Divide XP com o dono deste cliente?
+   *
+   * 🔴 É a informação que mais surpreende: quem chama um amigo de nível muito
+   * diferente não entende por que não ganha XP, e sem dizer isso na cara a regra
+   * do `DD-PARTY-007` parece bug.
    */
   sharesXp: boolean;
 }
 
 /**
- * Estado completo da party. Reenviado inteiro a cada mudança — é estado pequeno
- * (até um punhado de membros) e mandar o todo evita toda uma classe de bug de
- * sincronização parcial.
+ * O grupo do jogador mudou. `party: null` = ele não está em nenhum.
  *
- * `members` vazio = o jogador não está em party nenhuma.
+ * Reenviado inteiro a cada mudança em vez de por delta: um grupo tem no máximo
+ * `PARTY_MAX` membros, e delta de lista pequena é complexidade sem ganho.
  */
 export interface S2C_Party {
   t: 'party';
-  members: PartyMemberView[];
-  lootRule: LootRule;
-  /** Votação em aberto, se houver (`DD-PARTY-016`). */
-  vote?: {
-    proposal: LootRule;
-    favor: number;
-    contra: number;
-    /** Este jogador ainda não votou? */
-    pending: boolean;
-  };
+  party: {
+    id: string;
+    leaderId: string;
+    members: PartyMemberView[];
+    /**
+     * Regra de loot ativa. `DD-PARTY-014` exige que ela seja **visível aos
+     * membros** — é o tipo de coisa que o jogador só descobre que precisava
+     * saber depois de perder um item.
+     */
+    lootRule: LootRule;
+    /** Votação em aberto, se houver (`DD-PARTY-016`). */
+    vote?: {
+      proposal: LootRule;
+      favor: number;
+      contra: number;
+      /** Este jogador ainda não votou? */
+      pending: boolean;
+    };
+  } | null;
 }
 
-/** Convite recebido, esperando resposta. */
-export interface S2C_PartyInvited {
-  t: 'partyinvited';
+/** Chegou um convite de grupo. O cliente mostra aceitar/recusar. */
+export interface S2C_PartyInvite {
+  t: 'partyinvite';
+  fromId: string;
   fromName: string;
-  /** Regra de loot que a party já usa, para decidir sabendo (`DD-PARTY-014`). */
-  lootRule: LootRule;
+  /** Quando o convite expira, em ms epoch — o cliente conta o tempo na tela. */
+  expiresAt: number;
 }
+
+/** A lista de amigos da CONTA (ver `C2S_Friend`). */
+export interface S2C_Friends {
+  t: 'friends';
+  list: Array<{
+    name: string;
+    /** Algum personagem desta conta-amiga está jogando agora. */
+    online: boolean;
+    /** Nome do personagem online, quando há. */
+    charName?: string;
+  }>;
+}
+
+/*
+ * ⚠️ **Não existe um `S2C_PlayerInfo`, e é de propósito.** O "informações
+ * básicas" do menu de contexto é montado no cliente a partir do próprio
+ * snapshot — nome, nível, classe, vida, PK e grupo já viajam nele a 15 Hz. Pedir
+ * ao servidor para reenviar o que o cliente acabou de receber seria uma ida e
+ * volta para nada, e mais um tipo de mensagem para manter.
+ *
+ * 🔴 O limite do que a ficha mostra é o que já é público no mundo. Atributos,
+ * equipamento e ouro ficam de fora: inspecionar a build alheia é decisão de
+ * design que nenhum documento tomou, e é muito mais fácil acrescentar campo
+ * depois do que tirar um que os jogadores já usam.
+ */
 
 export type ServerMessage =
   | S2C_Welcome
@@ -644,7 +715,8 @@ export type ServerMessage =
   | S2C_LevelUp
   | S2C_Inventory
   | S2C_Party
-  | S2C_PartyInvited;
+  | S2C_PartyInvite
+  | S2C_Friends;
 
 // ----------------------------------------------------------------------------
 // Helpers de serialização (um só ponto para trocar JSON por binário depois)

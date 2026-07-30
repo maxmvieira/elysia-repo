@@ -75,18 +75,23 @@ import {
   MIN_FRAGMENTS_FOR_CHANCE,
   RARITIES,
   RECIPE_ITEM,
+  // --- Vindos do merge de 2026-07-30 (catálogo do Doc 4 + distribuição de party)
   MODEL_INDEX,
   craftableModel,
   LOOT_RULE_LABEL,
   type AffixId,
-  type S2C_Party,
   type Professions,
   type Rarity,
+  PARTY_MAX,
+  chebyshev,
+  type S2C_Party,
+  type S2C_Friends,
   CONDITIONS,
   CONDITION_COLORS,
   CREATURE_PLACEHOLDER_COLORS,
   ELEMENT_INFO,
   type ConditionId,
+  type SkullKind,
 } from '@dominion/shared';
 import { NetClient } from './net.js';
 import { spellIconUrl } from './spellicons.js';
@@ -151,7 +156,6 @@ const USE_KNIGHT_HD = false;
 // ---- Elementos de UI (DOM) -------------------------------------------------
 const statusEl = document.querySelector<HTMLElement>('#conn')!;
 const clockEl = document.querySelector<HTMLElement>('#clock')!;
-const coordsEl = document.querySelector<HTMLDivElement>('#coords')!;
 const chatlogEl = document.querySelector<HTMLDivElement>('#chatlog')!;
 const chatInputEl = document.querySelector<HTMLInputElement>('#chatinput')!;
 const viewportEl = document.querySelector<HTMLDivElement>('#viewport')!;
@@ -528,6 +532,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const sprites = new Map<string, EntityView>();
   /** Fitas de ícone de condição, por id de entidade (criadas sob demanda). */
   const condStrips = new Map<string, ReturnType<typeof makeConditionStrip>>();
+  /** ⚪ Caveira sobre o personagem, por id (também sob demanda — é raríssima). */
+  const skullMarks = new Map<string, ReturnType<typeof makeSkullMark>>();
 
   // ---- Mover por clique: marcadores no chão ------------------------------
   //
@@ -632,6 +638,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * NPC e corpo não bloqueiam passagem, mas o clique neles não é ordem de andar.
    */
   const tilesClicaveis = new Set<number>();
+
+  /** Outros JOGADORES por tile — quem o botão direito abre o menu. */
+  const jogadoresPorTile = new Map<number, EntitySnapshot>();
+  /** Último snapshot indexado por id: a ficha do menu sai daqui, sem ida ao servidor. */
+  const porId = new Map<string, EntitySnapshot>();
 
   function podeAndar(x: number, y: number): boolean {
     if (!isWalkable(map, x, y, myFloor)) return false;
@@ -1096,15 +1107,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           onInventory(msg);
           break;
         case 'party':
-          renderParty(msg);
+          party = msg.party;
+          renderParty();
           break;
-        case 'partyinvited':
-          logChat(
-            `<b>${escapeHtml(msg.fromName)}</b> convidou você para o grupo`
-            + ` (${escapeHtml(LOOT_RULE_LABEL[msg.lootRule])}).`
-            + ' Digite <code>/sim</code> ou <code>/nao</code>.',
-            'sys',
-          );
+        case 'partyinvite':
+          mostrarConvite(msg.fromId, msg.fromName, msg.expiresAt);
+          break;
+        case 'friends':
+          friends = msg.list;
+          renderFriends();
           break;
         case 'pong':
           break;
@@ -1809,63 +1820,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   /**
-   * Painel de grupo (Etapa 9).
-   *
-   * O servidor manda o estado inteiro a cada mudança, então aqui é só desenhar —
-   * não há estado de party no cliente para sair de sincronia.
-   */
-  function renderParty(msg: S2C_Party): void {
-    const box = el('partybox');
-    if (msg.members.length === 0) {
-      box.style.display = 'none';
-      return;
-    }
-    box.style.display = '';
-    // `DD-PARTY-014`: a regra ativa tem que estar visível para os membros.
-    el('partyloot').textContent = LOOT_RULE_LABEL[msg.lootRule];
-
-    const lista = el('partylist');
-    lista.replaceChildren();
-    for (const m of msg.members) {
-      const linha = document.createElement('div');
-      linha.className = 'partyrow';
-      const vida = m.maxHp > 0 ? Math.round((m.hp / m.maxHp) * 100) : 0;
-      // 🔴 "fora da faixa" é a informação que mais surpreende: quem chama um
-      // amigo de nível muito diferente não entende por que não ganha XP. Dizer
-      // na cara evita a suspeita de bug.
-      const faixa = m.sharesXp
-        ? ''
-        : ' <span class="warn" title="Diferença de nível grande demais para dividir XP">·'
-          + ' fora da faixa</span>';
-      linha.innerHTML = `${m.leader ? '★ ' : ''}<b>${escapeHtml(m.name)}</b>`
-        + ` <span class="hint">Nv ${m.level} · ${vida}%</span>${faixa}`;
-      lista.appendChild(linha);
-    }
-
-    const voto = el('partyvote');
-    if (!msg.vote) {
-      voto.style.display = 'none';
-      return;
-    }
-    voto.style.display = '';
-    const v = msg.vote;
-    voto.innerHTML = `<div class="hint">Proposta: ${escapeHtml(LOOT_RULE_LABEL[v.proposal])}`
-      + `<br>${v.favor} a favor · ${v.contra} contra`
-      + (v.pending ? ' — <code>/sim</code> ou <code>/nao</code>' : ' — você já votou')
-      + '</div>';
-  }
-
-  /**
    * As peças que a receita SELECIONADA alcança.
    *
    * 🔴 Depende da receita, então tem que rodar depois de a lista de receitas
    * existir — e de novo a cada troca. Antes do catálogo do Doc 4 a lista era fixa
-   * (13 peças, todas de nível 1) e a ordem não importava; com 113 modelos, listar
+   * (13 peças, todas de nível 1) e a ordem não importava; com 205 modelos, listar
    * tudo colocaria o Machado Primordial ao alcance de uma Receita Comum.
    *
-   * ⚠️ Peça que **não é modelo de catálogo** (mochila, bolsa, as de couro)
-   * continua sempre listada: elas nunca estiveram sujeitas a tier, e escondê-las
-   * tiraria do jogo algo que já funcionava.
+   * ⚠️ Peça que **não é modelo de catálogo** (mochila, bolsa) continua sempre
+   * listada: elas nunca estiveram sujeitas a tier, e escondê-las tiraria do jogo
+   * algo que já funcionava.
    */
   function renderCraftKinds(): void {
     const raridade = (craftRecipe.value || 'common') as Rarity;
@@ -1882,7 +1846,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       opt.textContent = entry ? `${def.name} — Lv.${entry.level}` : def.name;
       craftKind.appendChild(opt);
     }
-    // Preserva a escolha do jogador quando ela sobrevive à troca de receita.
     if (escolhido && ITEMS[escolhido] && craftableModel(escolhido, raridade)) {
       craftKind.value = escolhido;
     }
@@ -1910,6 +1873,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
     // Depois das receitas, porque a lista de peças depende da que está escolhida.
     renderCraftKinds();
+
     buildFragRows();
     renderCraftOdds();
   }
@@ -2017,18 +1981,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // Clique curto = minimiza; arrastar (>6px) = reordena. A ordem fica salva.
   const sidebarEl = el('sidebar');
   const ORDER_KEY = 'elysia_panel_order';
-  const bottomAnchor = el('coords').closest('.box'); // caixa de posição/dicas fica embaixo
+  // Havia aqui uma "caixa de baixo" fixa (posição + atalhos de teclado) que servia
+  // de âncora: os painéis arrastados eram inseridos ANTES dela. O dono mandou
+  // removê-la em 30/07, então a barra passou a ser só painéis e o fim da lista é o
+  // fim da barra — `insertBefore(x, null)` é exatamente `appendChild`.
   const reorderable = (): HTMLElement[] =>
     Array.from(sidebarEl.children).filter(
       (c): c is HTMLElement => c instanceof HTMLElement && !!c.querySelector(':scope > .phead'),
     );
-  // Restaura a ordem salva (move cada painel salvo para antes da caixa de baixo).
+  // Restaura a ordem salva reanexando os painéis na ordem gravada.
   try {
     const saved = JSON.parse(localStorage.getItem(ORDER_KEY) ?? 'null') as string[] | null;
-    if (saved && bottomAnchor) {
+    if (saved) {
       for (const id of saved) {
         const p = document.getElementById(id);
-        if (p && p.parentElement === sidebarEl) sidebarEl.insertBefore(p, bottomAnchor);
+        if (p && p.parentElement === sidebarEl) sidebarEl.appendChild(p);
       }
     }
   } catch { /* ordem inválida — ignora */ }
@@ -2060,7 +2027,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     e.preventDefault();
     const after = panelAfter(e.clientY);
     if (after) sidebarEl.insertBefore(dragPanel, after);
-    else if (bottomAnchor) sidebarEl.insertBefore(dragPanel, bottomAnchor);
     else sidebarEl.appendChild(dragPanel);
   });
   document.addEventListener('pointerup', () => {
@@ -2677,17 +2643,25 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   function syncEntities(entities: EntitySnapshot[]): void {
     const seen = new Set<string>();
+    // Guarda os OUTROS jogadores por tile, para o botão direito saber em quem
+    // clicou sem varrer a lista inteira a cada clique. Reconstruído a cada
+    // snapshot, como `tilesClicaveis` logo abaixo, e pelo mesmo motivo: é
+    // exatamente isso que muda de um snapshot para o outro.
+    jogadoresPorTile.clear();
+    porId.clear();
     // Reconstruídos a cada snapshot porque é exatamente isso que muda de um para
     // o outro: monstro andou, monstro morreu, corpo apareceu.
     tilesBloqueados.clear();
     tilesClicaveis.clear();
     for (const e of entities) {
       seen.add(e.id);
+      porId.set(e.id, e);
       const tile = e.tileY * map.width + e.tileX;
       if (e.id !== myId) {
         // Bloqueia só o que o SERVIDOR bloqueia (ver `tileOccupied` lá).
         if (e.kind === 'creature' || e.kind === 'player') tilesBloqueados.add(tile);
         tilesClicaveis.add(tile);
+        if (e.kind === 'player') jogadoresPorTile.set(tile, e);
       }
       const isSelf = e.id === myId;
       let view = sprites.get(e.id);
@@ -2714,15 +2688,29 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         view.container.addChild(strip.node);
       }
       strip?.set(e.conditions);
+      // ⚪ Caveira Branca. Mesmo padrão da fita, e pela mesma razão: quase
+      // ninguém tem uma, e um Graphics por sprite seria desperdício puro.
+      let skull = skullMarks.get(e.id);
+      if (!skull && e.skull) {
+        skull = makeSkullMark();
+        skullMarks.set(e.id, skull);
+        view.container.addChild(skull.node);
+      }
+      skull?.set(e.skull);
       if (isSelf) {
         // Condições do próprio jogador no HUD, com NOME. O ícone sobre o sprite
         // dá a leitura de relance; o nome é o que ensina o que o símbolo quer
         // dizer. Sem isto, dez glifos de 9 px seriam adivinhação.
         renderMyConditions(e.conditions);
+        // O flag de PK vem do SERVIDOR, não do clique no botão: assim o botão
+        // reflete o estado real mesmo quando o servidor recusa desligar (trava
+        // de combate) — e não fica mentindo "desligado" enquanto o jogador
+        // segue atacável.
+        const pkAgora = e.pkEnabled === true;
+        if (pkAgora !== pkOn) { pkOn = pkAgora; renderPk(); }
         myFloor = e.floor;
         myTileX = e.tileX;
         myTileY = e.tileY;
-        coordsEl.textContent = `Posição: (${e.tileX}, ${e.tileY}) — andar ${e.floor}`;
       }
     }
     for (const [id, view] of sprites) {
@@ -2736,6 +2724,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         // A fita morre junto: o destroy do container já leva o nó, mas deixar a
         // entrada no mapa vazaria memória em servidor de vida longa.
         condStrips.delete(id);
+        skullMarks.delete(id);
       }
     }
   }
@@ -2909,9 +2898,394 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (tilesClicaveis.has(t.y * map.width + t.x)) return; // é interação, não caminhada
     irPara(t.x, t.y);
   });
-  // Botão direito cancela a caminhada — o jeito rápido de "para aí".
+  // ---- Social: menu de contexto, grupo, amigos e PK ----------------------
+  //
+  // Tudo o que o botão direito em outro jogador destrava. O servidor continua
+  // dono das decisões: aqui só se pinta o estado e se manda intenção.
+
+  const ctxEl = el('ctxmenu');
+  const ctxNameEl = ctxEl.querySelector('.ctxname') as HTMLElement;
+  const partyBox = el('partybox');
+  const partyListEl = el('partylist');
+  const partyLootEl = el('partyloot');
+  const partyVoteEl = el('partyvote');
+  const friendListEl = el('friendlist');
+  const pkBtn = el('pk-toggle') as HTMLButtonElement;
+  const inviteEl = el('partyinvite');
+  const inviteTextEl = el('pi-text');
+
+  /** Grupo atual, como o servidor mandou. `null` = sem grupo. */
+  let party: S2C_Party['party'] = null;
+  /** Lista de amigos da conta. */
+  let friends: S2C_Friends['list'] = [];
+  /** Espelho local do flag de PK, só para pintar o botão. O servidor decide. */
+  let pkOn = false;
+  /** Quem convidou, enquanto o convite está na tela. */
+  let convitePendente: { fromId: string; fromName: string } | null = null;
+
+  /**
+   * Alvo do "Seguir".
+   *
+   * 🔴 **Follow é 100 % cliente, de propósito.** Ele não é uma mensagem nova:
+   * reusa a mesma rota por BFS e os mesmos PASSOS que o clique-para-andar já
+   * manda. Criar um "siga o jogador X" no protocolo seria deixar o cliente
+   * ditar posição — exatamente o que a nota do `C2S_MoveIntent` proíbe.
+   */
+  let followId: string | null = null;
+  /** Último tile para o qual se traçou rota, p/ não recalcular a cada frame. */
+  let followUltimoTile = -1;
+
+  function pararFollow(silencioso = false): void {
+    if (!followId) return;
+    const alvo = porId.get(followId);
+    followId = null;
+    followUltimoTile = -1;
+    cancelarRota();
+    if (!silencioso && alvo) logChat(`Você parou de seguir ${alvo.name}.`, 'sys');
+  }
+
+  /**
+   * Refaz a rota até o alvo quando ele muda de tile.
+   *
+   * Mira um tile VIZINHO, não o do alvo: o tile de outro jogador é bloqueado
+   * (é a regra de colisão de 30/07), então pedir rota até ele devolveria `[]`
+   * sempre e o follow nunca sairia do lugar.
+   */
+  function tickFollow(): void {
+    if (!followId) return;
+    const alvo = porId.get(followId);
+    // Sumiu do snapshot: saiu do andar, deslogou ou morreu.
+    if (!alvo) { pararFollow(); return; }
+    const tile = alvo.tileY * map.width + alvo.tileX;
+    if (tile === followUltimoTile) return;
+    followUltimoTile = tile;
+    if (chebyshev(myTileX, myTileY, alvo.tileX, alvo.tileY) <= 1) {
+      cancelarRota(); // já está do lado; não fica trombando
+      return;
+    }
+    let melhor: Array<{ x: number; y: number }> = [];
+    for (const [dx, dy] of PASSOS_RETOS) {
+      const nx = alvo.tileX + dx;
+      const ny = alvo.tileY + dy;
+      const rota = rotaAte(myTileX, myTileY, nx, ny);
+      if (rota.length === 0) continue;
+      if (melhor.length === 0 || rota.length < melhor.length) melhor = rota;
+    }
+    if (melhor.length === 0) return; // sem caminho agora; tenta de novo quando ele andar
+    caminho = melhor;
+    passoPedidoEm = 0;
+    const fim = melhor[melhor.length - 1]!;
+    destMark.x = fim.x * TS;
+    destMark.y = fim.y * TS;
+    destMark.visible = true;
+  }
+
+  // ---- Menu de contexto ---------------------------------------------------
+
+  function fecharMenu(): void {
+    ctxEl.style.display = 'none';
+  }
+
+  /** Um item do menu. `motivo` presente = desabilitado, com o porquê no tooltip. */
+  function itemMenu(rotulo: string, motivo: string | null, acao: () => void): HTMLButtonElement {
+    const b = document.createElement('button');
+    b.textContent = rotulo;
+    if (motivo) {
+      b.disabled = true;
+      b.title = motivo;
+    } else {
+      b.onclick = (): void => { fecharMenu(); acao(); };
+    }
+    return b;
+  }
+
+  /** Este personagem é de uma conta que está na minha lista? (ver `S2C_Friends`) */
+  function ehAmigo(nome: string): boolean {
+    return friends.some((f) => f.charName === nome);
+  }
+
+  function abrirMenu(alvo: EntitySnapshot, x: number, y: number): void {
+    const eu = myId ? porId.get(myId) : undefined;
+    const noMeuGrupo = party?.members.some((m) => m.id === alvo.id) ?? false;
+    const souLider = party?.leaderId === myId;
+    const amigo = ehAmigo(alvo.name);
+
+    ctxNameEl.textContent = `${alvo.name} — Nv ${alvo.level ?? '?'}`;
+    // Recriar os botões a cada abertura em vez de escondê-los: o que aparece
+    // depende do alvo (líder vê "Expulsar", amigo vê "Remover"), e alternar
+    // visibilidade de oito botões daria mais código que recriar quatro.
+    while (ctxEl.children.length > 1) ctxEl.lastChild!.remove();
+
+    // Atacar — o motivo da recusa é calculado aqui só para o TOOLTIP. Quem
+    // decide de verdade é o `canHarm` do servidor, e ele recusa de novo.
+    //
+    // 🔴 O PK do ALVO não entra na conta: ele não protege ninguém. O que abre a
+    // exceção é a caveira dele, que dispensa o atacante de ligar o próprio PK.
+    const motivoAtacar = noMeuGrupo
+      ? 'Está no seu grupo.'
+      : !pkOn && !alvo.skull
+        ? 'Ligue o seu PK para atacar outro jogador.'
+        : null;
+    ctxEl.appendChild(itemMenu(
+      alvo.skull ? '⚔️ Atacar (⚪ alvo livre)' : '⚔️ Atacar',
+      motivoAtacar,
+      () => setTarget(alvo.id),
+    ));
+
+    ctxEl.appendChild(itemMenu(
+      followId === alvo.id ? '🚶 Parar de seguir' : '🚶 Seguir',
+      null,
+      () => {
+        if (followId === alvo.id) { pararFollow(); return; }
+        followId = alvo.id;
+        followUltimoTile = -1;
+        logChat(`Seguindo ${alvo.name}. Ande com o teclado para parar.`, 'sys');
+        tickFollow();
+      },
+    ));
+
+    ctxEl.appendChild(itemMenu('📋 Informações', null, () => mostrarInfo(alvo)));
+
+    if (noMeuGrupo) {
+      if (souLider && alvo.id !== myId) {
+        ctxEl.appendChild(itemMenu('👑 Passar liderança', null, () => {
+          net.send({ t: 'party', action: 'promote', targetId: alvo.id });
+        }));
+        ctxEl.appendChild(itemMenu('🚫 Expulsar do grupo', null, () => {
+          net.send({ t: 'party', action: 'kick', targetId: alvo.id });
+        }));
+      }
+    } else {
+      const motivoConvite = alvo.partyId
+        ? `${alvo.name} já está em outro grupo.`
+        : party && !souLider
+          ? 'Só o líder do grupo pode convidar.'
+          : party && party.members.length >= PARTY_MAX
+            ? `O grupo já está cheio (${PARTY_MAX}).`
+            : null;
+      ctxEl.appendChild(itemMenu('👥 Convidar para o grupo', motivoConvite, () => {
+        net.send({ t: 'party', action: 'invite', targetId: alvo.id });
+      }));
+    }
+
+    ctxEl.appendChild(itemMenu(
+      amigo ? '💔 Remover dos amigos' : '🤝 Adicionar aos amigos',
+      null,
+      () => net.send({ t: 'friend', action: amigo ? 'remove' : 'add', name: alvo.name }),
+    ));
+
+    // Posiciona e só então mede: com `display: none` o menu não tem tamanho, e
+    // a correção de borda mediria zero.
+    ctxEl.style.display = 'block';
+    ctxEl.style.left = '0px';
+    ctxEl.style.top = '0px';
+    const r = ctxEl.getBoundingClientRect();
+    // Encosta na borda -> abre para dentro, senão o último item fica fora da tela.
+    const px = Math.min(x, window.innerWidth - r.width - 4);
+    const py = Math.min(y, window.innerHeight - r.height - 4);
+    ctxEl.style.left = `${Math.max(4, px)}px`;
+    ctxEl.style.top = `${Math.max(4, py)}px`;
+    void eu; // (a ficha do próprio jogador ainda não muda o menu)
+  }
+
+  /**
+   * "Informações básicas" — montada do snapshot, sem ida ao servidor.
+   *
+   * Sai no chat em vez de numa janela: é informação de uma linha, e uma janela
+   * modal para três dados exigiria fechar algo antes de voltar a jogar.
+   */
+  function mostrarInfo(alvo: EntitySnapshot): void {
+    const cls = alvo.charClass ? CLASSES[alvo.charClass]?.name ?? alvo.charClass : '—';
+    const vida = alvo.hp !== undefined && alvo.maxHp !== undefined
+      ? `${Math.round((alvo.hp / alvo.maxHp) * 100)}%`
+      : '—';
+    const partes = [
+      `<b>${alvo.name}</b>`,
+      `Nível ${alvo.level ?? '?'}`,
+      cls,
+      `Vida ${vida}`,
+      alvo.pkEnabled ? 'PK ligado' : 'PK desligado',
+    ];
+    // Antes do grupo e dos amigos: é o dado que muda o que dá para fazer AGORA.
+    if (alvo.skull) partes.push('⚪ <b>Caveira Branca</b> — pode ser atacado sem punição');
+    if (alvo.partyId) partes.push(alvo.partyId === party?.id ? 'no seu grupo' : 'em um grupo');
+    if (ehAmigo(alvo.name)) partes.push('seu amigo');
+    logChat(partes.join(' · '), 'sys');
+  }
+
+  // Um clique em qualquer lugar fecha o menu. `mousedown` e não `click` para
+  // fechar antes de o clique virar caminhada por baixo do menu aberto.
+  window.addEventListener('mousedown', (ev) => {
+    if (!ctxEl.contains(ev.target as Node)) fecharMenu();
+  });
+  window.addEventListener('blur', fecharMenu);
+
+  // ---- Grupo --------------------------------------------------------------
+
+  function renderParty(): void {
+    if (!party) {
+      partyBox.style.display = 'none';
+      partyListEl.textContent = '';
+      return;
+    }
+    partyBox.style.display = '';
+    partyListEl.textContent = '';
+    for (const m of party.members) {
+      const row = document.createElement('div');
+      row.className = m.nearby ? 'prow' : 'prow far';
+      row.title = m.nearby ? '' : 'Longe demais do grupo';
+      const nome = document.createElement('span');
+      nome.className = 'pname';
+      nome.textContent = m.name;
+      if (m.id === party.leaderId) {
+        const coroa = document.createElement('span');
+        coroa.className = 'plead';
+        coroa.textContent = '👑';
+        coroa.title = 'Líder do grupo';
+        row.appendChild(coroa);
+      }
+      const nv = document.createElement('span');
+      nv.textContent = `Nv${m.level}`;
+      const barra = document.createElement('div');
+      barra.className = 'phpbar';
+      const fill = document.createElement('i');
+      fill.style.width = `${Math.max(0, Math.min(100, (m.hp / Math.max(1, m.maxHp)) * 100))}%`;
+      barra.appendChild(fill);
+      barra.title = `${m.hp}/${m.maxHp}`;
+      row.append(nome, nv, barra);
+      // 🔴 `DD-PARTY-007` na tela. Sem isto, quem chama um amigo de nível muito
+      // diferente não entende por que não ganha XP — e a regra parece bug.
+      // Âmbar, não vermelho: é aviso sobre como a regra funciona, não erro que o
+      // jogador cometeu.
+      if (!m.sharesXp) {
+        const fora = document.createElement('span');
+        fora.className = 'pxpwarn';
+        fora.textContent = '≠XP';
+        fora.title = 'Diferença de nível grande demais para dividir XP';
+        row.appendChild(fora);
+      }
+      partyListEl.appendChild(row);
+    }
+
+    // `DD-PARTY-014`: a regra ativa tem que estar visível aos membros. É o tipo
+    // de coisa que o jogador só descobre que precisava saber depois de perder um
+    // item.
+    partyLootEl.textContent = LOOT_RULE_LABEL[party.lootRule];
+
+    if (!party.vote) {
+      partyVoteEl.style.display = 'none';
+      return;
+    }
+    partyVoteEl.style.display = '';
+    const v = party.vote;
+    partyVoteEl.innerHTML = `<div class="hint">Proposta: ${escapeHtml(LOOT_RULE_LABEL[v.proposal])}`
+      + `<br>${v.favor} a favor · ${v.contra} contra</div>`;
+    if (v.pending) {
+      const sim = document.createElement('button');
+      sim.textContent = 'A favor';
+      sim.onclick = (): void => net.send({ t: 'party', action: 'vote', agree: true });
+      const nao = document.createElement('button');
+      nao.textContent = 'Contra';
+      nao.onclick = (): void => net.send({ t: 'party', action: 'vote', agree: false });
+      partyVoteEl.append(sim, nao);
+    }
+  }
+
+  el('party-leave').addEventListener('click', () => net.send({ t: 'party', action: 'leave' }));
+
+  /** Conta regressiva do convite na tela; limpa junto com a caixa. */
+  let conviteTimer: number | undefined;
+
+  function mostrarConvite(fromId: string, fromName: string, expiresAt: number): void {
+    convitePendente = { fromId, fromName };
+    inviteEl.style.display = 'block';
+    // A caixa some sozinha quando o convite expira no SERVIDOR. Deixá-la na
+    // tela depois disso ofereceria um "Aceitar" que já seria recusado.
+    const tick = (): void => {
+      const seg = Math.ceil((expiresAt - Date.now()) / 1000);
+      if (seg <= 0) { esconderConvite(); return; }
+      inviteTextEl.innerHTML = `<b>${fromName}</b> convidou você para um grupo. <span class="hint">(${seg}s)</span>`;
+      conviteTimer = window.setTimeout(tick, 250);
+    };
+    window.clearTimeout(conviteTimer);
+    tick();
+  }
+  function esconderConvite(): void {
+    convitePendente = null;
+    inviteEl.style.display = 'none';
+    window.clearTimeout(conviteTimer);
+  }
+  el('pi-accept').addEventListener('click', () => {
+    if (!convitePendente) return;
+    net.send({ t: 'party', action: 'accept', targetId: convitePendente.fromId });
+    esconderConvite();
+  });
+  el('pi-decline').addEventListener('click', () => {
+    if (!convitePendente) return;
+    net.send({ t: 'party', action: 'decline', targetId: convitePendente.fromId });
+    esconderConvite();
+  });
+
+  // ---- Amigos -------------------------------------------------------------
+
+  function renderFriends(): void {
+    friendListEl.textContent = '';
+    if (friends.length === 0) {
+      const vazio = document.createElement('div');
+      vazio.className = 'hint';
+      vazio.textContent = 'Nenhum amigo ainda.';
+      friendListEl.appendChild(vazio);
+      return;
+    }
+    // Online primeiro: é a informação pela qual se abre a lista.
+    const ordenada = [...friends].sort(
+      (a, b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name),
+    );
+    for (const f of ordenada) {
+      const row = document.createElement('div');
+      row.className = f.online ? 'frow on' : 'frow';
+      const dot = document.createElement('span');
+      dot.className = 'fdot';
+      const nome = document.createElement('span');
+      nome.className = 'fname';
+      // Mostra o nome com que foi adicionado; se ele está online com OUTRO
+      // personagem da mesma conta, o de agora vai entre parênteses — senão o
+      // jogador veria "offline" alguém que está bem ali na frente dele.
+      nome.textContent = f.online && f.charName && f.charName !== f.name
+        ? `${f.name} (${f.charName})`
+        : f.name;
+      nome.title = f.online ? 'Online' : 'Offline';
+      const x = document.createElement('button');
+      x.className = 'fx';
+      x.textContent = '✕';
+      x.title = `Remover ${f.name}`;
+      x.onclick = (): void => { net.send({ t: 'friend', action: 'remove', name: f.name }); };
+      row.append(dot, nome, x);
+      friendListEl.appendChild(row);
+    }
+  }
+
+  // ---- Flag de PK ---------------------------------------------------------
+
+  function renderPk(): void {
+    pkBtn.textContent = pkOn ? 'PK: LIGADO' : 'PK: desligado';
+    pkBtn.classList.toggle('on', pkOn);
+  }
+  pkBtn.addEventListener('click', () => net.send({ t: 'pk', on: !pkOn }));
+  renderPk();
+  renderFriends();
+
+  // Botão direito: em cima de outro jogador abre o menu; no vazio, cancela a
+  // caminhada — que era o comportamento antigo e continua sendo o padrão.
   viewportEl.addEventListener('contextmenu', (ev) => {
     ev.preventDefault();
+    const t = tileDoEvento(ev);
+    const alvo = jogadoresPorTile.get(t.y * map.width + t.x);
+    if (alvo) {
+      abrirMenu(alvo, ev.clientX, ev.clientY);
+      return;
+    }
+    fecharMenu();
     cancelarRota();
   });
 
@@ -2923,7 +3297,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // TECLADO MANDA: se o jogador tocou numa tecla de direção, a rota do clique
     // morre. Duas fontes de movimento disputando o mesmo personagem é a receita
     // do "meu boneco anda sozinho".
-    if (heldKeys.size > 0 && caminho.length > 0) cancelarRota();
+    //
+    // Vale para o Seguir também, e com mais força: uma rota cancelada volta no
+    // frame seguinte enquanto o alvo estiver marcado, então sem soltar o
+    // `followId` o teclado perderia a disputa para sempre.
+    if (heldKeys.size > 0) {
+      if (followId) pararFollow();
+      if (caminho.length > 0) cancelarRota();
+    }
+    tickFollow();
 
     // Consome a rota, um passo por vez, na MESMA cadência do teclado — então
     // andar por clique e por tecla tem exatamente a mesma velocidade.
@@ -3243,6 +3625,45 @@ function drawConditionGlyph(
       g.stroke({ width: linha, color: cor });
       break;
   }
+}
+
+/**
+ * ⚪ Caveira sobre o personagem — a marca de "alvo livre".
+ *
+ * Desenhada com `Graphics` e não com o emoji 💀 por um motivo prático: emoji
+ * renderiza colorido e em fonte do sistema, então a caveira mudaria de cara
+ * conforme a máquina e não daria para distinguir a branca da vermelha e da preta
+ * quando elas chegarem (Etapa 17). Aqui a cor é um parâmetro.
+ *
+ * Fica **acima** da fita de condição (que senta em y=-20), à direita, para não
+ * cobrir o nome nem a barra de vida.
+ */
+function makeSkullMark(): { node: Container; set: (kind?: SkullKind) => void } {
+  const node = new Container();
+  const g = new Graphics();
+  node.addChild(g);
+  node.x = TS / 2 + 8;
+  node.y = -30;
+  let anterior: SkullKind | undefined;
+
+  function set(kind?: SkullKind): void {
+    if (kind === anterior) return;
+    anterior = kind;
+    g.clear();
+    node.visible = kind !== undefined;
+    if (!kind) return;
+
+    const cor = 0xf2f2f2; // vermelha/preta entram aqui na Etapa 17
+    // Crânio + mandíbula, com contorno escuro: sem o contorno, uma caveira
+    // branca sobre a neve ou sobre pedra clara simplesmente some.
+    g.circle(0, 0, 5).fill({ color: cor }).stroke({ width: 1, color: 0x1a1a1a });
+    g.rect(-2.5, 3.5, 5, 3.5).fill({ color: cor }).stroke({ width: 1, color: 0x1a1a1a });
+    // Órbitas: os dois pontos são o que faz o disco virar caveira a 10 px.
+    g.circle(-1.9, -0.6, 1.5).fill(0x1a1a1a);
+    g.circle(1.9, -0.6, 1.5).fill(0x1a1a1a);
+  }
+
+  return { node, set };
 }
 
 function makeConditionStrip(): { node: Container; set: (ids?: ConditionId[]) => void } {

@@ -1,6 +1,18 @@
 /**
- * Party, Shared XP e distribuição de loot — Etapa 9 do roadmap,
+ * Party, Shared XP e distribuição de loot — Etapa 9,
  * `DD-PARTY-001` a `DD-PARTY-026`.
+ *
+ * 🔴 **Este arquivo é a UNIÃO de dois trabalhos paralelos** (merge de
+ * 2026-07-30). Dois irmãos partiram do mesmo commit sem saber e escreveram
+ * metades complementares:
+ *
+ * - **Formação** (`PARTY_MAX`, `canInvite`, `removeMember`) — quem entra, quem
+ *   sai, quem lidera.
+ * - **Distribuição** (`distributeXp`, regras de loot, votação, loot de chefe) —
+ *   o que o grupo ganha por existir.
+ *
+ * Uma sem a outra não fecha a etapa: formar grupo que não divide nada é lista de
+ * amigos, e dividir XP sem poder formar grupo não roda.
  *
  * Só as REGRAS moram aqui: nada de rede, nada de estado de servidor. É o que
  * permite testar "um Lv.300 não rouba XP de um Lv.20" sem subir um servidor e
@@ -18,20 +30,105 @@
  *    quantidade real de drops, com 2 ou com 10 jogadores.
  */
 
-/** Um membro, com o que o servidor precisa saber para distribuir a XP. */
-export interface PartyMember {
+// ---------------------------------------------------------------------------
+// Formação
+// ---------------------------------------------------------------------------
+
+/**
+ * Tamanho máximo de uma party.
+ *
+ * ⚠️ **REFERÊNCIA, não canônico.** `DD-PARTY-001` a `026` não fixam tamanho de
+ * grupo em lugar nenhum, e `DD-PARTY-026` chega a dizer que **boss não tem
+ * número mínimo obrigatório de jogadores**. O 5 sai do único número que o doc
+ * usa — o exemplo de distribuição de XP do `35.x` (*"monstro de 1.000 XP com 5
+ * jogadores"*). É ponto de partida para teste, não decisão fechada.
+ */
+export const PARTY_MAX = 5;
+
+/** Um membro, do ponto de vista das regras (o servidor tem muito mais estado). */
+export interface PartyMemberRef {
   id: string;
   level: number;
-  /**
-   * Causou dano à criatura? `DD-PARTY-008` exige **participação válida** — sem
-   * isso, entrar no grupo e ficar parado renderia XP.
-   */
-  participated: boolean;
-  /**
-   * Estava perto o bastante na hora da morte? Também `DD-PARTY-008`. Separado de
-   * `participated` porque são coisas diferentes: dá para bater e fugir.
-   */
-  nearby: boolean;
+}
+
+export interface PartyState {
+  id: string;
+  /** Quem lidera. `DD-PARTY-015`: ele **não** muda a regra de loot sozinho. */
+  leaderId: string;
+  /** Ordem de entrada; o líder não é necessariamente o primeiro depois de repassada. */
+  memberIds: string[];
+}
+
+export type InviteVeto =
+  | 'self'          // convidou a si mesmo
+  | 'full'          // grupo cheio
+  | 'already-mine'  // já está neste grupo
+  | 'in-other'      // já está em outro grupo
+  | 'not-leader';   // só o líder convida
+
+export interface InviteDecision {
+  allowed: boolean;
+  veto?: InviteVeto;
+}
+
+/**
+ * Pode `inviterId` convidar `targetId`?
+ *
+ * `party` ausente = quem convida ainda não tem grupo (o convite CRIA a party no
+ * aceite). Esse é o caso comum: dois jogadores soltos no mapa.
+ */
+export function canInvite(
+  inviterId: string,
+  targetId: string,
+  party: PartyState | undefined,
+  targetParty: PartyState | undefined,
+): InviteDecision {
+  if (inviterId === targetId) return { allowed: false, veto: 'self' };
+  if (targetParty) {
+    // Distinguir "já está comigo" de "está em outro grupo" existe para a
+    // mensagem: as duas recusas parecem iguais para o código e são muito
+    // diferentes para quem clicou.
+    if (party && targetParty.id === party.id) return { allowed: false, veto: 'already-mine' };
+    return { allowed: false, veto: 'in-other' };
+  }
+  if (party) {
+    // 🔴 Só o líder convida. Sem isso, qualquer membro encheria o grupo de
+    // desconhecidos e o líder descobriria depois — que é a versão social do
+    // problema que `DD-PARTY-015` resolve para o loot.
+    if (party.leaderId !== inviterId) return { allowed: false, veto: 'not-leader' };
+    if (party.memberIds.length >= PARTY_MAX) return { allowed: false, veto: 'full' };
+  }
+  return { allowed: true };
+}
+
+/** Mensagem de recusa, na voz do jogo. */
+export function inviteVetoText(veto: InviteVeto, targetName: string): string {
+  switch (veto) {
+    case 'self': return 'Você não pode convidar a si mesmo.';
+    case 'full': return `O grupo já está cheio (${PARTY_MAX}).`;
+    case 'already-mine': return `${targetName} já está no seu grupo.`;
+    case 'in-other': return `${targetName} já está em outro grupo.`;
+    case 'not-leader': return 'Só o líder do grupo pode convidar.';
+  }
+}
+
+/**
+ * Tira um membro e devolve o estado resultante — `null` quando o grupo deixa de
+ * existir.
+ *
+ * 🔴 **Party de um membro é dissolvida.** Manter alguém "em grupo" sozinho o
+ * deixaria com o friendly fire e a UI de party sem nenhum benefício, e é estado
+ * fantasma que reaparece como bug depois.
+ *
+ * Se quem sai é o líder, a liderança passa ao **membro mais antigo restante** —
+ * o doc não trata sucessão, e ordem de entrada é o critério que não precisa de
+ * decisão de design nem de votação (que `DD-PARTY-016` reserva ao loot).
+ */
+export function removeMember(party: PartyState, memberId: string): PartyState | null {
+  const memberIds = party.memberIds.filter((id) => id !== memberId);
+  if (memberIds.length <= 1) return null;
+  const leaderId = party.leaderId === memberId ? memberIds[0]! : party.leaderId;
+  return { ...party, leaderId, memberIds };
 }
 
 // ---------------------------------------------------------------------------
@@ -42,12 +139,19 @@ export interface PartyMember {
  * Largura da faixa de nível que ainda divide XP.
  *
  * `DD-PARTY-004` dá ~10 níveis até o Lv.100 e `DD-PARTY-005` dá ~20 entre 100 e
- * 200. ⚠️ `DD-PARTY-006` diz, com todas as letras, que acima do Lv.200 as faixas
- * "serão balanceadas posteriormente" — o 20 continua valendo lá como REFERÊNCIA,
- * porque a alternativa seria travar a party em nível alto.
+ * 200.
+ *
+ * ⚠️ **O Lv.100 exato é ambíguo no documento** — ele aparece nas duas frases
+ * ("até Lv.100" e "Lv.100–200"). Fica na faixa de **10**, porque "até Lv.100" lê
+ * mais fortemente como inclusivo. As duas leituras eram defensáveis; esta foi a
+ * escolhida no merge.
+ *
+ * 🔴 `DD-PARTY-006` diz, com todas as letras, que acima do Lv.200 as faixas
+ * "serão balanceadas posteriormente". Seguimos com 20, que é a última que o doc
+ * fecha — a alternativa seria travar a party em nível alto.
  */
 export function sharedXpBand(level: number): number {
-  return level < 100 ? 10 : 20;
+  return level <= 100 ? 10 : 20;
 }
 
 /**
@@ -57,10 +161,11 @@ export function sharedXpBand(level: number): number {
  * aproximadamente 10 níveis", o que comporta as duas leituras — mas a faixa fixa
  * (1–10, 11–20) cria um penhasco absurdo: um Lv.10 e um Lv.11 não poderiam
  * jogar juntos, enquanto um Lv.1 e um Lv.10 poderiam. A relativa não tem esse
- * buraco e entrega a mesma intenção, que é `DD-PARTY-003`: diferença de level
- * limita Shared XP.
+ * buraco e entrega a mesma intenção, que é `DD-PARTY-003`.
  *
- * ⚠️ Interpretação, não citação. Registrada aqui para quem for revisar.
+ * A janela usada é a do **maior** nível dos dois: é o que impede o Lv.101 de
+ * usar a janela larga para puxar o Lv.85 e, ao mesmo tempo, o Lv.99 de reclamar
+ * de uma janela estreita contra alguém que já está na faixa de 20.
  */
 export function sharesXp(levelA: number, levelB: number): boolean {
   return Math.abs(levelA - levelB) <= sharedXpBand(Math.max(levelA, levelB));
@@ -95,8 +200,24 @@ export function partyXpBonus(eligibleCount: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// Distribuição
+// Distribuição de XP
 // ---------------------------------------------------------------------------
+
+/** Um membro, com o que o servidor precisa saber para distribuir a XP. */
+export interface PartyMember {
+  id: string;
+  level: number;
+  /**
+   * Causou dano à criatura? `DD-PARTY-008` exige **participação válida** — sem
+   * isso, entrar no grupo e ficar parado renderia XP.
+   */
+  participated: boolean;
+  /**
+   * Estava perto o bastante na hora da morte? Também `DD-PARTY-008`. Separado de
+   * `participated` porque são coisas diferentes: dá para bater e fugir.
+   */
+  nearby: boolean;
+}
 
 /**
  * Quem tem direito à XP desta morte.

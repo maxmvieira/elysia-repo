@@ -47,24 +47,13 @@ import {
   rollAffixNames,
   addProfessionXp,
   canCraft,
-  craftableModel,
   craftXp,
   rollCraft,
-  MODEL_ENTRIES,
-  MODEL_INDEX,
-  applyLootVote,
-  canProposeLootRule,
-  distributeXp,
-  rollBossLootWinner,
-  sharesXp,
-  tallyLootVote,
-  LOOT_RULE_LABEL,
-  type AffixId,
-  type LootRule,
   FRAGMENTS_PER_CRAFT,
   MIN_FRAGMENTS_FOR_CHANCE,
   RARITIES,
   type C2S_Craft,
+  type C2S_Party,
   type FragmentBundle,
   type Professions,
   type Rarity,
@@ -73,6 +62,16 @@ import {
   rollFragmentDrop,
   rollRecipeDrop,
   type FragmentSource,
+  canHarm,
+  WHITE_SKULL_MS,
+  type Combatant,
+  type HarmVeto,
+  canInvite,
+  inviteVetoText,
+  removeMember,
+  PARTY_MAX,
+  type PartyState,
+  type PartyMemberView,
   CONDITIONS,
   CONDITION_IDS,
   emptyCcState,
@@ -167,6 +166,20 @@ import {
   starterTown,
   townAt,
   TOWNS,
+  // --- Vindos do merge de 2026-07-30 (catálogo do Doc 4 + distribuição de party)
+  MODEL_ENTRIES,
+  MODEL_INDEX,
+  craftableModel,
+  applyLootVote,
+  canProposeLootRule,
+  distributeXp,
+  rollBossLootWinner,
+  sharesXp,
+  tallyLootVote,
+  LOOT_RULES,
+  LOOT_RULE_LABEL,
+  type AffixId,
+  type LootRule,
 } from '@dominion/shared';
 import { openStore } from './store/store.js';
 import { fromStored, rowsToItems, toStored } from './store/serialize.js';
@@ -249,10 +262,6 @@ interface Player {
   lastAttackAt: number;
   lastMoveAt: number;
   lastAckSeq: number;
-  /** Party atual (Etapa 9). Ausente = anda sozinho. */
-  partyId?: string;
-  /** Convite recebido e ainda não respondido. Um de cada vez. */
-  pendingInvite?: { fromId: string; partyId?: string };
   joined: boolean;
   /**
    * Condições ativas (Etapa 8). Não persiste no banco de propósito: sair do
@@ -293,6 +302,41 @@ interface Player {
   wasAtDepot: boolean;
   wasNearVendor: boolean;
   wasNearBank: boolean;
+  /**
+   * Flag de PK (32.57–32.61). Começa DESLIGADO: o doc trata PvP como opção
+   * consciente, e nascer agressor seria o contrário disso.
+   *
+   * 🔴 É o flag de **agredir**, não o de ser agredido. Desligado, este jogador
+   * não acerta outro jogador; não impede que outro jogador o acerte. Ver
+   * `canHarm` em `shared/src/pvp.ts`.
+   *
+   * Não persiste no banco — pelo mesmo motivo das condições. Relogar já é jeito
+   * de sair do PvP (o personagem some do mapa); o que não pode é sair sem sair,
+   * e disso cuidam o `pkLockedUntil` e a caveira.
+   */
+  pkEnabled: boolean;
+  /**
+   * Até quando não pode DESLIGAR o PK.
+   *
+   * 🔴 Sem isto o flag vira o golpe que ele existe para impedir: bater e
+   * desligar o PK no mesmo segundo para o menu do outro dizer "ligue o seu PK".
+   * Ligar é livre e imediato; desligar espera. Armado a cada agressão.
+   */
+  pkLockedUntil: number;
+  /**
+   * ⚪ Até quando este jogador carrega a **Caveira Branca**.
+   *
+   * `0` (ou já passado) = sem caveira. Enquanto estiver de pé, qualquer jogador
+   * pode atacá-lo sem ligar o próprio PK e sem consequência — é a contrapartida
+   * de ter agredido alguém, e o que sustenta o PK ON não ser um escudo.
+   *
+   * Não persiste, pelo mesmo motivo do `pkEnabled`: dura 5 min e o personagem
+   * some do mapa ao deslogar. Persistir isto é assunto da Etapa 17, junto com a
+   * contagem de assassinatos que gera vermelha e preta.
+   */
+  whiteSkullUntil: number;
+  /** Grupo atual (`parties`), quando há. */
+  partyId: string | null;
 }
 
 interface Creature {
@@ -418,6 +462,474 @@ function broadcastFloor(floor: number, msg: ServerMessage): void {
   for (const p of players.values()) {
     if (p.joined && p.floor === floor && p.socket.readyState === p.socket.OPEN) p.socket.send(raw);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Party, PK e amigos
+// ---------------------------------------------------------------------------
+// As regras puras moram em `shared/src/party.ts` e `shared/src/pvp.ts`; aqui
+// fica só o estado de sessão e a entrega das mensagens.
+
+/** Grupos ativos. Não persiste: party é estado de sessão, morre com o servidor. */
+/**
+ * A party como o SERVIDOR a guarda: as regras de formação (`PartyState`, do
+ * shared) mais o estado de distribuição.
+ *
+ * 🔴 A separação é deliberada — `PartyState` é o que as regras puras precisam
+ * ver para decidir convite e saída, e o teste delas não deve conhecer votação
+ * nem regra de loot.
+ */
+interface ServerParty extends PartyState {
+  lootRule: LootRule;
+  vote?: { proposal: LootRule; votes: Map<string, boolean> };
+}
+
+/**
+ * Regra de loot com que toda party nasce.
+ *
+ * ⚠️ **Livre é o padrão porque é o que o jogo já fazia**: o loot cai no chão e
+ * quem chega primeiro pega. Nascer em qualquer outra regra mudaria o
+ * comportamento de quem nunca abriu o painel de party.
+ */
+const DEFAULT_LOOT_RULE: LootRule = 'free';
+
+const parties = new Map<string, ServerParty>();
+
+/**
+ * Convites pendentes: id do CONVIDADO -> quem convidou e quando expira.
+ *
+ * Um convite por pessoa de propósito. Permitir vários empilharia caixas de
+ * diálogo na tela de quem está caçando, que é exatamente o vetor de importunação
+ * que qualquer MMO acaba tendo de fechar depois.
+ */
+const partyInvites = new Map<string, { fromId: string; expiresAt: number }>();
+
+/** Convite não aceito some sozinho — senão vira lixo eterno no mapa. */
+const PARTY_INVITE_MS = 30_000;
+
+/**
+ * Tempo mínimo com o PK ligado depois de trocar dano com outro jogador.
+ *
+ * ⚠️ REFERÊNCIA: nenhum documento dá este número. O que o doc fecha é que PK é
+ * escolha consciente (32.57–32.61); 10 s é o ponto de partida para que essa
+ * escolha não possa ser desfeita no meio do golpe. Ajustar aqui.
+ */
+const PK_COMBAT_LOCK_MS = 10_000;
+
+/** Tem caveira branca de pé agora? Fonte única — não comparar o prazo à mão. */
+function hasWhiteSkull(player: Player, now = Date.now()): boolean {
+  return player.whiteSkullUntil > now;
+}
+
+/** O jogador como o `canHarm` o enxerga. Guilda entra na Etapa 20. */
+function combatantOf(player: Player): Combatant {
+  return {
+    id: player.id,
+    kind: 'player',
+    pkEnabled: player.pkEnabled,
+    skull: hasWhiteSkull(player) ? 'white' : undefined,
+    partyId: player.partyId ?? undefined,
+  };
+}
+
+function partyOf(player: Player): ServerParty | undefined {
+  return player.partyId ? parties.get(player.partyId) : undefined;
+}
+
+/** Algum membro está brigando com um chefe agora? Para `DD-PARTY-019`. */
+function partyInBossFight(party: ServerParty): boolean {
+  for (const id of party.memberIds) {
+    const p = players.get(id);
+    const alvo = p?.targetId ? creatures.get(p.targetId) : undefined;
+    if (alvo?.def.boss && alvo.alive) return true;
+  }
+  return false;
+}
+
+/**
+ * Raio de proximidade do grupo (`DD-PARTY-008`), em tiles.
+ *
+ * 🔴 **É o MESMO número para o HUD e para o Shared XP, de propósito.** A marca
+ * de "perto" no painel existe para o grupo ver quem se afastou; se ela usasse um
+ * raio diferente do que decide a XP, o painel mentiria — alguém apareceria perto
+ * e não receberia nada, sem explicação na tela.
+ *
+ * ⚠️ REFERÊNCIA: o doc não dá raio. 15 tiles é pouco mais que uma tela — perto o
+ * bastante para exigir estar na mesma briga, longe o bastante para o arqueiro no
+ * fundo e o mago na retaguarda contarem.
+ */
+const PARTY_NEAR_TILES = 15;
+
+function partyMemberViews(party: PartyState, viewer: Player): PartyMemberView[] {
+  const saida: PartyMemberView[] = [];
+  for (const id of party.memberIds) {
+    const p = players.get(id);
+    if (!p) continue;
+    saida.push({
+      id: p.id,
+      name: p.name,
+      level: p.level,
+      hp: Math.round(p.hp),
+      maxHp: p.maxHp,
+      charClass: p.cls.id,
+      nearby: p.floor === viewer.floor
+        && chebyshev(p.tileX, p.tileY, viewer.tileX, viewer.tileY) <= PARTY_NEAR_TILES,
+      // 🔴 `DD-PARTY-007` visível na tela: sem isto, quem chama um amigo de nível
+      // muito diferente não entende por que não ganha XP, e a regra parece bug.
+      sharesXp: sharesXp(p.level, viewer.level),
+    });
+  }
+  return saida;
+}
+
+/**
+ * Manda a composição do grupo a todos os membros.
+ *
+ * Um envio por membro, e não um broadcast: `nearby` é calculado do ponto de
+ * vista de cada um, então a mensagem é genuinamente diferente para cada
+ * destinatário.
+ */
+function sendParty(party: ServerParty): void {
+  for (const id of party.memberIds) {
+    const p = players.get(id);
+    if (!p) continue;
+    send(p, {
+      t: 'party',
+      party: {
+        id: party.id,
+        leaderId: party.leaderId,
+        members: partyMemberViews(party, p),
+        lootRule: party.lootRule,
+        ...(party.vote
+          ? {
+            vote: {
+              proposal: party.vote.proposal,
+              ...tallyLootVote({ proposal: party.vote.proposal, votes: party.vote.votes }),
+              pending: !party.vote.votes.has(p.id),
+            },
+          }
+          : {}),
+      },
+    });
+  }
+}
+
+function partyChat(party: PartyState, text: string): void {
+  for (const id of party.memberIds) {
+    const p = players.get(id);
+    if (p) send(p, { t: 'chat', from: 'Grupo', text });
+  }
+}
+
+/**
+ * Tira o jogador do grupo dele, dissolvendo quando sobra um só.
+ *
+ * Seguro chamar em quem não está em grupo nenhum — é o que permite usá-la no
+ * `close` do socket sem checar antes.
+ */
+function leaveParty(player: Player, motivo: string): void {
+  const party = partyOf(player);
+  player.partyId = null;
+  if (!party) return;
+  const restante = removeMember(party, player.id);
+  send(player, { t: 'party', party: null });
+  if (!restante) {
+    // Dissolveu: o outro membro também sai, e precisa saber por quê.
+    parties.delete(party.id);
+    for (const id of party.memberIds) {
+      const p = players.get(id);
+      if (!p || p.id === player.id) continue;
+      p.partyId = null;
+      send(p, { t: 'party', party: null });
+      send(p, { t: 'chat', from: 'Grupo', text: `${player.name} ${motivo}. O grupo foi desfeito.` });
+    }
+    return;
+  }
+  // `removeMember` é regra pura e só conhece `PartyState` — a regra de loot e a
+  // votação são estado de servidor e voltam por cima. Sem isto, sair do grupo
+  // silenciosamente resetaria a regra para Livre, desfazendo uma votação.
+  const atualizada: ServerParty = {
+    ...restante,
+    lootRule: party.lootRule,
+    ...(party.vote ? { vote: party.vote } : {}),
+  };
+  // E o voto de quem saiu some: senão a apuração conta um fantasma e a votação
+  // nunca fecha, porque `votes.size` nunca alcança `memberIds.length`.
+  atualizada.vote?.votes.delete(player.id);
+  parties.set(atualizada.id, atualizada);
+  partyChat(atualizada, `${player.name} ${motivo}.`);
+  if (atualizada.leaderId !== party.leaderId) {
+    const novo = players.get(atualizada.leaderId);
+    if (novo) partyChat(atualizada, `${novo.name} agora lidera o grupo.`);
+  }
+  sendParty(atualizada);
+}
+
+// ------------------------------------------------------------------ Amigos --
+
+/**
+ * A lista de amigos da conta, com quem está online agora.
+ *
+ * Online é decidido pelos jogadores CONECTADOS, não por uma coluna no banco:
+ * coluna de presença mente quando o servidor cai, e aí a lista fica cheia de
+ * gente eternamente online. Aqui a fonte é a mesma que o resto do jogo usa.
+ */
+function sendFriends(player: Player): void {
+  if (!player.accountId) return;
+  const lista = store.listFriends(player.accountId).map((f) => {
+    let charName: string | undefined;
+    for (const p of players.values()) {
+      if (p.joined && p.accountId === f.accountId) { charName = p.name; break; }
+    }
+    return { name: f.name, online: charName !== undefined, charName };
+  });
+  send(player, { t: 'friends', list: lista });
+}
+
+/**
+ * Reenvia a lista a todo mundo que está online.
+ *
+ * Chamado quando alguém entra ou sai, que é quando o `online` de outra pessoa
+ * muda. Custo: uma consulta por jogador conectado, em evento raro — barato
+ * comparado a manter um índice reverso de quem-é-amigo-de-quem em memória.
+ */
+function broadcastFriendPresence(): void {
+  for (const p of players.values()) if (p.joined) sendFriends(p);
+}
+
+/**
+ * Por que o golpe não sai, na voz do jogo.
+ *
+ * 🔴 `pk-off` agora só pode ser o flag de QUEM ATACOU — o do alvo deixou de ser
+ * consultado. A mensagem não tem mais dois casos, e é isso que a torna acionável:
+ * a recusa sempre tem a mesma cura.
+ */
+function harmVetoText(veto: HarmVeto | undefined, target: Player): string {
+  switch (veto) {
+    case 'ally':
+      return `${target.name} está no seu grupo.`;
+    case 'self':
+      return 'Você não pode atacar a si mesmo.';
+    case 'pk-off':
+      return 'Ligue o seu PK para atacar outro jogador.';
+    default:
+      return 'Você não pode atacar esse alvo.';
+  }
+}
+
+/**
+ * Consequências de uma agressão consumada, do lado do agressor.
+ *
+ * Duas, e são diferentes:
+ *
+ * 1. **Trava do flag** (10 s) — impede bater e desligar o PK no mesmo segundo.
+ *    Vale para qualquer golpe entre jogadores, justificado ou não.
+ * 2. **⚪ Caveira Branca** (5 min) — só quando `marksAsPk`, isto é, quando a
+ *    agressão foi injustificada. Revidar em quem já está de caveira não dá
+ *    caveira a ninguém (17.38).
+ *
+ * ⚠️ **Só o agressor é travado.** A versão anterior travava os dois, porque o
+ * flag do alvo o protegia e desligá-lo no meio da briga era exploração. Agora o
+ * flag do alvo não faz nada pela defesa dele — travá-lo seria punir a vítima por
+ * ter sido atacada.
+ */
+function applyAggression(attacker: Player, marksAsPk: boolean, now: number): void {
+  attacker.pkLockedUntil = now + PK_COMBAT_LOCK_MS;
+  if (!marksAsPk) return;
+
+  const jaTinha = hasWhiteSkull(attacker, now);
+  // Renova, não soma: cada nova agressão reinicia os 5 minutos. Somar faria de
+  // uma briga longa uma caveira de horas, que é papel da vermelha, não da branca.
+  attacker.whiteSkullUntil = now + WHITE_SKULL_MS;
+  if (!jaTinha) {
+    send(attacker, {
+      t: 'chat', from: 'Sistema',
+      text: '⚪ Você recebeu a Caveira Branca — por 5 minutos qualquer jogador '
+        + 'pode atacá-lo sem punição.',
+    });
+  }
+}
+
+/** As seis ações de grupo. A validação pura vem de `shared/src/party.ts`. */
+function handleParty(player: Player, msg: C2S_Party): void {
+  const agora = Date.now();
+
+  if (msg.action === 'leave') {
+    if (!player.partyId) {
+      send(player, { t: 'denied', reason: 'Você não está em um grupo.' });
+      return;
+    }
+    leaveParty(player, 'saiu do grupo');
+    return;
+  }
+
+  if (msg.action === 'accept' || msg.action === 'decline') {
+    const convite = partyInvites.get(player.id);
+    if (!convite || agora > convite.expiresAt) {
+      partyInvites.delete(player.id);
+      send(player, { t: 'denied', reason: 'Nenhum convite de grupo pendente.' });
+      return;
+    }
+    partyInvites.delete(player.id);
+    const quemConvidou = players.get(convite.fromId);
+    if (!quemConvidou || !quemConvidou.joined) {
+      send(player, { t: 'denied', reason: 'Quem convidou não está mais no jogo.' });
+      return;
+    }
+    if (msg.action === 'decline') {
+      send(quemConvidou, { t: 'chat', from: 'Grupo', text: `${player.name} recusou o convite.` });
+      send(player, { t: 'chat', from: 'Grupo', text: 'Convite recusado.' });
+      return;
+    }
+    // 🔴 Revalidado no ACEITE, não só no convite. Entre um e outro o grupo pode
+    // ter enchido, ou quem convidou pode ter entrado em outro grupo. Sem esta
+    // segunda checagem, um convite guardado 29 s vira o furo do `PARTY_MAX`.
+    const partyDele = partyOf(quemConvidou);
+    const d = canInvite(quemConvidou.id, player.id, partyDele, partyOf(player));
+    if (!d.allowed) {
+      send(player, { t: 'denied', reason: inviteVetoText(d.veto!, quemConvidou.name) });
+      return;
+    }
+    if (partyDele) {
+      partyDele.memberIds.push(player.id);
+      player.partyId = partyDele.id;
+      partyChat(partyDele, `${player.name} entrou no grupo.`);
+      sendParty(partyDele);
+    } else {
+      // Não havia grupo: o aceite é que CRIA a party, com quem convidou de líder.
+      const nova: ServerParty = {
+        id: newId('party'),
+        leaderId: quemConvidou.id,
+        memberIds: [quemConvidou.id, player.id],
+        lootRule: DEFAULT_LOOT_RULE,
+      };
+      parties.set(nova.id, nova);
+      quemConvidou.partyId = nova.id;
+      player.partyId = nova.id;
+      partyChat(nova, `Grupo formado: ${quemConvidou.name} e ${player.name}.`);
+      sendParty(nova);
+    }
+    return;
+  }
+
+  // --- Distribuição de loot (`DD-PARTY-013..020`) ---------------------------
+  if (msg.action === 'loot' || msg.action === 'vote') {
+    const minha = partyOf(player);
+    if (!minha) {
+      send(player, { t: 'denied', reason: 'Você não está em um grupo.' });
+      return;
+    }
+    if (msg.action === 'loot') {
+      const regra = msg.rule;
+      if (!regra || !LOOT_RULES.includes(regra)) return;
+      if (minha.lootRule === regra) {
+        send(player, { t: 'denied', reason: 'O grupo já usa essa regra.' });
+        return;
+      }
+      if (minha.vote) {
+        send(player, { t: 'denied', reason: 'Já há uma votação em andamento.' });
+        return;
+      }
+      // 🔴 `DD-PARTY-019`: travada durante combate de chefe. Anti-golpe — sem
+      // isso o líder propõe "Loot do Líder" no instante antes de o chefe cair.
+      if (!canProposeLootRule(partyInBossFight(minha))) {
+        send(player, { t: 'denied', reason: 'Não dá para mudar a regra durante um chefe.' });
+        return;
+      }
+      // Quem propõe vota a favor: propor é a forma mais clara de dizer "sou a
+      // favor", e obrigá-lo a votar de novo seria cerimônia sem sentido.
+      minha.vote = { proposal: regra, votes: new Map([[player.id, true]]) };
+      partyChat(minha, `${player.name} propôs: ${LOOT_RULE_LABEL[regra]}.`);
+      sendParty(minha);
+      return;
+    }
+    // Voto.
+    if (!minha.vote) return;
+    minha.vote.votes.set(player.id, msg.agree === true);
+    // Apura quando todo mundo votou. Empate mantém a regra (`DD-PARTY-018`).
+    if (minha.vote.votes.size < minha.memberIds.length) {
+      sendParty(minha);
+      return;
+    }
+    const antes = minha.lootRule;
+    minha.lootRule = applyLootVote(antes, {
+      proposal: minha.vote.proposal,
+      votes: minha.vote.votes,
+    });
+    const aprovado = minha.lootRule !== antes;
+    minha.vote = undefined;
+    partyChat(
+      minha,
+      aprovado
+        ? `Aprovado: ${LOOT_RULE_LABEL[minha.lootRule]}.`
+        : `Recusado. O grupo segue em ${LOOT_RULE_LABEL[antes]}.`,
+    );
+    sendParty(minha);
+    return;
+  }
+
+  // As três restantes miram outro jogador.
+  //
+  // 🔴 Por id OU por nome: o menu de contexto clica em quem está visível e tem o
+  // id do snapshot; o comando de chat (`/convidar Fulano`) só tem o que a pessoa
+  // digitou. Exigir id mataria o comando.
+  const alvo = msg.targetId
+    ? players.get(msg.targetId)
+    : [...players.values()].find(
+      (p) => p.joined && p.name.toLowerCase() === (msg.name ?? '').trim().toLowerCase(),
+    );
+  if (!alvo || !alvo.joined) {
+    send(player, { t: 'denied', reason: 'Jogador não encontrado.' });
+    return;
+  }
+
+  if (msg.action === 'invite') {
+    const d = canInvite(player.id, alvo.id, partyOf(player), partyOf(alvo));
+    if (!d.allowed) {
+      send(player, { t: 'denied', reason: inviteVetoText(d.veto!, alvo.name) });
+      return;
+    }
+    const pendente = partyInvites.get(alvo.id);
+    if (pendente && agora < pendente.expiresAt) {
+      send(player, { t: 'denied', reason: `${alvo.name} já tem um convite pendente.` });
+      return;
+    }
+    const expiresAt = agora + PARTY_INVITE_MS;
+    partyInvites.set(alvo.id, { fromId: player.id, expiresAt });
+    send(alvo, { t: 'partyinvite', fromId: player.id, fromName: player.name, expiresAt });
+    send(player, { t: 'chat', from: 'Grupo', text: `Convite enviado a ${alvo.name}.` });
+    return;
+  }
+
+  const party = partyOf(player);
+  if (!party) {
+    send(player, { t: 'denied', reason: 'Você não está em um grupo.' });
+    return;
+  }
+  if (party.leaderId !== player.id) {
+    send(player, { t: 'denied', reason: 'Só o líder do grupo pode fazer isso.' });
+    return;
+  }
+  if (alvo.partyId !== party.id) {
+    send(player, { t: 'denied', reason: `${alvo.name} não está no seu grupo.` });
+    return;
+  }
+
+  if (msg.action === 'kick') {
+    if (alvo.id === player.id) {
+      send(player, { t: 'denied', reason: 'Para sair do grupo, use "Sair do grupo".' });
+      return;
+    }
+    send(alvo, { t: 'chat', from: 'Grupo', text: 'Você foi removido do grupo.' });
+    leaveParty(alvo, 'foi removido do grupo');
+    return;
+  }
+
+  // promote — passar a liderança.
+  if (alvo.id === player.id) return;
+  party.leaderId = alvo.id;
+  partyChat(party, `${alvo.name} agora lidera o grupo.`);
+  sendParty(party);
 }
 
 // ---------------------------------------------------------------------------
@@ -1020,33 +1532,24 @@ function expireGroundItems(now: number): void {
 const DROP_LEVEL_PER_XP = 0.6;
 
 /**
- * Nível de equipamento que esta criatura larga, e o piso da faixa.
- *
- * A faixa vai da METADE do nível até ele: sem o piso, todo monstro do jogo
- * continuaria largando as peças de nível 1 na maior parte das vezes, porque elas
- * são a maioria do que cabe no filtro. Com ele, matar coisa mais forte muda o que
- * cai — que é o ponto inteiro de ter 177 modelos.
- */
-function dropLevelRange(c: Creature): { min: number; max: number } {
-  const max = Math.max(1, Math.round((c.def.xpReward ?? 0) * DROP_LEVEL_PER_XP));
-  return { min: Math.max(1, Math.floor(max / 2)), max };
-}
-
-/**
  * Equipamentos que podem cair de uma criatura desta faixa de nível.
  *
  * 🔴 Antes do catálogo do Doc 4 isto era uma lista fixa de 13 peças, e não havia
- * o que filtrar. Com 177 modelos, sortear uniformemente faria um Slime Verde
+ * o que filtrar. Com 205 modelos, sortear uniformemente faria um Slime Verde
  * largar o Machado Primordial.
+ *
+ * A faixa vai da METADE do nível até ele: sem o piso, todo monstro do jogo
+ * continuaria largando as peças de nível 1 na maior parte das vezes, porque elas
+ * são a maioria do que cabe no filtro.
  *
  * Artefato único fica fora: o cap. 40 diz que existe UM no mundo, e pool
  * aleatório é a definição do contrário.
  */
-function dropPoolFor(arma: boolean, min: number, max: number): string[] {
+function dropPoolFor(c: Creature, arma: boolean): string[] {
+  const max = Math.max(1, Math.round((c.def.xpReward ?? 0) * DROP_LEVEL_PER_XP));
+  const min = Math.max(1, Math.floor(max / 2));
   const cabe = MODEL_ENTRIES.filter(
-    (e) => !e.unique
-      && (e.slot === 'weapon') === arma
-      && e.level >= min && e.level <= max,
+    (e) => !e.unique && (e.slot === 'weapon') === arma && e.level >= min && e.level <= max,
   );
   // Se a faixa não pegou nada (criatura muito fraca), cai no piso do catálogo —
   // largar nada seria pior que largar a peça mais simples.
@@ -1152,8 +1655,7 @@ function dropLoot(c: Creature, recipient?: Player): void {
   if (Math.random() < (c.def.boss ? 1 : EQUIP_DROP_CHANCE)) {
     const arma = Math.random() < 0.5;
     // A faixa vem da XP da criatura: bicho mais forte larga modelo mais fundo.
-    const faixa = dropLevelRange(c);
-    const pool = dropPoolFor(arma, faixa.min, faixa.max);
+    const pool = dropPoolFor(c, arma);
     const kind = pool[Math.floor(Math.random() * pool.length)]!;
     const rarity = rollRarity(c.def.boss ? 35 : 0);
     // Cap. 46: o item nasce com NOME. `rollAffixNames` vem separado de
@@ -1168,12 +1670,9 @@ function dropLoot(c: Creature, recipient?: Player): void {
  *
  * ⚠️ **Baixou de 0,18 para 0,08 em 2026-07-30**, e o motivo é o catálogo: antes
  * havia 13 peças, todas de nível 1, e quase 1 em cada 5 abates largar equipamento
- * só enchia a mochila de repetição. Com 177 modelos escalonados por nível, cada
+ * só enchia a mochila de repetição. Com 205 modelos escalonados por nível, cada
  * peça que cai é uma peça que pode ser melhor que a atual — e a mesma frequência
  * viraria progressão de graça.
- *
- * REFERÊNCIA: nenhum doc dá a chance. O que o doc fecha é o princípio de que
- * equipamento é conquista, não enchimento.
  */
 const EQUIP_DROP_CHANCE = 0.08;
 
@@ -1549,9 +2048,9 @@ function handleCraft(player: Player, msg: C2S_Craft): void {
   // nível 1. Ver `CRAFT_TIER_CAP` para a escada e o porquê de ser a raridade que
   // limita, e não um requisito de nível novo.
   //
-  // ⚠️ A trava vale só para PEÇA DE CATÁLOGO. Mochila, bolsa e as peças de couro
-  // não são modelos do Doc 4 e continuam fabricáveis como sempre foram — negar
-  // por elas não estarem no catálogo tiraria do jogo algo que já funcionava.
+  // ⚠️ A trava vale só para PEÇA DE CATÁLOGO. Mochila e bolsa não são modelos do
+  // Doc 4 e continuam fabricáveis como sempre foram — negar por elas não estarem
+  // no catálogo tiraria do jogo algo que já funcionava.
   const entry = MODEL_INDEX[msg.kind];
   if (entry && !craftableModel(msg.kind, msg.recipeRarity)) {
     return deny(`${def.name} exige uma receita melhor — é equipamento de nível ${entry.level}.`);
@@ -1658,234 +2157,14 @@ function bestiarySee(player: Player, c: Creature): BestiaryEntry {
   return e;
 }
 
-// ---------------------------------------------------------------------------
-// Party (Etapa 9 — `DD-PARTY-001` a `026`)
-// ---------------------------------------------------------------------------
-
-interface Party {
-  id: string;
-  /** Ordem de entrada. O primeiro é o líder. */
-  memberIds: string[];
-  lootRule: LootRule;
-  vote?: { proposal: LootRule; votes: Map<string, boolean> };
-}
-
-const parties = new Map<string, Party>();
-
 /**
- * Distância máxima, em tiles, para contar como "estava junto na hora da morte".
- *
- * ⚠️ REFERÊNCIA: `DD-PARTY-008` exige proximidade sem dar número. 12 é pouco
- * mais que a tela do jogador — perto o bastante para exigir estar na mesma
- * briga, longe o bastante para o arqueiro no fundo e o mago na retaguarda
- * contarem.
+ * Estava junto na hora da morte? Mesmo raio que a marca de "perto" do painel
+ * (`PARTY_NEAR_TILES`), medido contra a CRIATURA em vez de contra o outro
+ * jogador — ver o comentário lá para o motivo de ser um número só.
  */
-const PARTY_XP_RANGE = 12;
-
-function partyOf(player: Player): Party | undefined {
-  return player.partyId ? parties.get(player.partyId) : undefined;
-}
-
-function partyMembers(party: Party): Player[] {
-  return party.memberIds
-    .map((id) => players.get(id))
-    .filter((p): p is Player => !!p);
-}
-
-function isPartyLeader(player: Player): boolean {
-  const party = partyOf(player);
-  return !!party && party.memberIds[0] === player.id;
-}
-
-/** Reenvia o estado completo da party a todos os membros. Ver `S2C_Party`. */
-function sendParty(party: Party): void {
-  const membros = partyMembers(party);
-  for (const p of membros) {
-    send(p, {
-      t: 'party',
-      members: membros.map((m) => ({
-        id: m.id,
-        name: m.name,
-        level: m.level,
-        hp: m.hp,
-        maxHp: m.maxHp,
-        leader: party.memberIds[0] === m.id,
-        // A elegibilidade é a informação que mais surpreende quem chama um amigo
-        // de nível muito diferente e não entende por que não ganha XP.
-        sharesXp: sharesXp(m.level, p.level),
-      })),
-      lootRule: party.lootRule,
-      ...(party.vote
-        ? {
-          vote: {
-            proposal: party.vote.proposal,
-            ...tallyLootVote({ proposal: party.vote.proposal, votes: party.vote.votes }),
-            pending: !party.vote.votes.has(p.id),
-          },
-        }
-        : {}),
-    });
-  }
-}
-
-/** Avisa um jogador que ele ficou sem party (painel some no cliente). */
-function sendNoParty(player: Player): void {
-  send(player, { t: 'party', members: [], lootRule: 'free' });
-}
-
-function partyBroadcast(party: Party, text: string): void {
-  for (const p of partyMembers(party)) send(p, { t: 'chat', from: 'Grupo', text });
-}
-
-/**
- * Tira um jogador da party e cuida das consequências.
- *
- * 🔴 **Se o líder sai, a liderança passa ao membro mais antigo** em vez de a
- * party se dissolver. Dissolver puniria todo o grupo pela desconexão de um.
- * E party de um membro só não existe — vira ninguém, senão ficaria um painel
- * aberto anunciando um grupo que não é grupo.
- */
-function removeFromParty(player: Player): void {
-  const party = partyOf(player);
-  player.partyId = undefined;
-  sendNoParty(player);
-  if (!party) return;
-  party.memberIds = party.memberIds.filter((id) => id !== player.id);
-  // Voto em aberto perde o voto de quem saiu — senão a apuração conta fantasma.
-  party.vote?.votes.delete(player.id);
-  if (party.memberIds.length <= 1) {
-    for (const p of partyMembers(party)) {
-      p.partyId = undefined;
-      sendNoParty(p);
-      send(p, { t: 'chat', from: 'Grupo', text: 'O grupo se desfez.' });
-    }
-    parties.delete(party.id);
-    return;
-  }
-  partyBroadcast(party, `${player.name} saiu do grupo.`);
-  sendParty(party);
-}
-
-function handlePartyInvite(player: Player, name: string): void {
-  const alvo = [...players.values()].find(
-    (p) => p.name.toLowerCase() === name.trim().toLowerCase(),
-  );
-  if (!alvo) return send(player, { t: 'denied', reason: `Ninguém chamado "${name}" por aqui.` });
-  if (alvo.id === player.id) {
-    return send(player, { t: 'denied', reason: 'Você já anda com você mesmo.' });
-  }
-  if (alvo.partyId) return send(player, { t: 'denied', reason: `${alvo.name} já está em um grupo.` });
-  if (alvo.pendingInvite) {
-    return send(player, { t: 'denied', reason: `${alvo.name} já tem um convite em aberto.` });
-  }
-  const party = partyOf(player);
-  if (party && !isPartyLeader(player)) {
-    return send(player, { t: 'denied', reason: 'Só o líder convida.' });
-  }
-  alvo.pendingInvite = { fromId: player.id, partyId: party?.id };
-  send(alvo, {
-    t: 'partyinvited',
-    fromName: player.name,
-    lootRule: party?.lootRule ?? DEFAULT_LOOT_RULE,
-  });
-  send(player, { t: 'chat', from: 'Grupo', text: `Convite enviado a ${alvo.name}.` });
-}
-
-/**
- * Regra de loot com que toda party nasce.
- *
- * ⚠️ **Livre é o padrão porque é o que o jogo já fazia**: o loot cai no chão e
- * quem chega primeiro pega. Nascer em qualquer outra regra mudaria o
- * comportamento de quem nunca abriu o painel de party.
- */
-const DEFAULT_LOOT_RULE: LootRule = 'free';
-
-function handlePartyRespond(player: Player, accept: boolean): void {
-  const convite = player.pendingInvite;
-  player.pendingInvite = undefined;
-  if (!convite) return;
-  const quemConvidou = players.get(convite.fromId);
-  if (!accept) {
-    if (quemConvidou) {
-      send(quemConvidou, { t: 'chat', from: 'Grupo', text: `${player.name} recusou o convite.` });
-    }
-    return;
-  }
-  if (!quemConvidou) {
-    return send(player, { t: 'denied', reason: 'Quem convidou não está mais por aqui.' });
-  }
-  let party = partyOf(quemConvidou);
-  if (!party) {
-    party = {
-      id: newId('party'),
-      memberIds: [quemConvidou.id],
-      lootRule: DEFAULT_LOOT_RULE,
-    };
-    parties.set(party.id, party);
-    quemConvidou.partyId = party.id;
-  }
-  party.memberIds.push(player.id);
-  player.partyId = party.id;
-  partyBroadcast(party, `${player.name} entrou no grupo.`);
-  sendParty(party);
-}
-
-function handlePartyKick(player: Player, targetId: string): void {
-  if (!isPartyLeader(player)) return send(player, { t: 'denied', reason: 'Só o líder expulsa.' });
-  if (targetId === player.id) return send(player, { t: 'denied', reason: 'Para sair, use Sair.' });
-  const alvo = players.get(targetId);
-  if (!alvo || alvo.partyId !== player.partyId) return;
-  send(alvo, { t: 'chat', from: 'Grupo', text: 'Você foi removido do grupo.' });
-  removeFromParty(alvo);
-}
-
-function handlePartyProposeLoot(player: Player, rule: LootRule): void {
-  const party = partyOf(player);
-  if (!party) return;
-  if (party.lootRule === rule) {
-    return send(player, { t: 'denied', reason: 'O grupo já usa essa regra.' });
-  }
-  if (party.vote) return send(player, { t: 'denied', reason: 'Já há uma votação em andamento.' });
-  // 🔴 `DD-PARTY-019`: travada durante combate de chefe. Anti-golpe — sem isso o
-  // líder propõe "Loot do Líder" no instante antes de o chefe cair.
-  if (!canProposeLootRule(partyInBossFight(party))) {
-    return send(player, { t: 'denied', reason: 'Não dá para mudar a regra durante um chefe.' });
-  }
-  // Quem propõe vota a favor: propor é a forma mais clara de dizer "sou a favor".
-  party.vote = { proposal: rule, votes: new Map([[player.id, true]]) };
-  partyBroadcast(party, `${player.name} propôs: ${LOOT_RULE_LABEL[rule]}.`);
-  sendParty(party);
-}
-
-function handlePartyVote(player: Player, agree: boolean): void {
-  const party = partyOf(player);
-  if (!party?.vote) return;
-  party.vote.votes.set(player.id, agree);
-  // Apura quando todo mundo votou. Empate mantém a regra (`DD-PARTY-018`).
-  if (party.vote.votes.size < party.memberIds.length) return sendParty(party);
-  const antes = party.lootRule;
-  party.lootRule = applyLootVote(antes, {
-    proposal: party.vote.proposal,
-    votes: party.vote.votes,
-  });
-  const aprovado = party.lootRule !== antes;
-  party.vote = undefined;
-  partyBroadcast(
-    party,
-    aprovado
-      ? `Aprovado: ${LOOT_RULE_LABEL[party.lootRule]}.`
-      : `Recusado. O grupo segue em ${LOOT_RULE_LABEL[antes]}.`,
-  );
-  sendParty(party);
-}
-
-/** Algum membro está brigando com um chefe agora? Para `DD-PARTY-019`. */
-function partyInBossFight(party: Party): boolean {
-  for (const p of partyMembers(party)) {
-    const alvo = p.targetId ? creatures.get(p.targetId) : undefined;
-    if (alvo?.def.boss && alvo.alive) return true;
-  }
-  return false;
+function nearCreature(p: Player, c: Creature): boolean {
+  return p.floor === c.floor
+    && chebyshev(p.tileX, p.tileY, c.tileX, c.tileY) <= PARTY_NEAR_TILES;
 }
 
 /**
@@ -1899,13 +2178,15 @@ function partyInBossFight(party: Party): boolean {
 function lootRecipientFor(creature: Creature, killer: Player): Player | undefined {
   const party = partyOf(killer);
   if (!party) return undefined;
-  const presentes = partyMembers(party).filter((p) => nearCreature(p, creature));
+  const presentes = party.memberIds
+    .map((id) => players.get(id))
+    .filter((p): p is Player => !!p && nearCreature(p, creature));
   if (presentes.length === 0) return undefined;
   switch (party.lootRule) {
     case 'free':
       return undefined;
     case 'leader':
-      return presentes.find((p) => p.id === party.memberIds[0]);
+      return presentes.find((p) => p.id === party.leaderId);
     case 'random': {
       // Em chefe, a contribuição pondera o sorteio (`DD-PARTY-021`) e o last hit
       // não vale nada (`DD-PARTY-022`). Em criatura comum não há por que pesar:
@@ -1917,30 +2198,26 @@ function lootRecipientFor(creature: Creature, killer: Player): Player | undefine
           if (dano > 0) porJogador.set(p.id, dano);
         }
         const vencedor = rollBossLootWinner(porJogador);
-        if (vencedor) return players.get(vencedor);
-        return undefined;
+        return vencedor ? players.get(vencedor) : undefined;
       }
       return presentes[Math.floor(Math.random() * presentes.length)];
     }
   }
 }
 
-function nearCreature(p: Player, c: Creature): boolean {
-  return p.floor === c.floor
-    && Math.abs(p.tileX - c.tileX) <= PARTY_XP_RANGE
-    && Math.abs(p.tileY - c.tileY) <= PARTY_XP_RANGE;
-}
-
 /**
  * Distribui a XP de uma morte, respeitando as regras de `party.ts`.
  *
- * Sem party, é o caminho de sempre: quem matou leva tudo.
+ * 🔴 **É o que faltava para a Etapa 9 existir de verdade.** Sem party, é o
+ * caminho de sempre: quem matou leva tudo.
  */
 function grantKillXp(killer: Player, creature: Creature, baseXp: number): void {
   const party = partyOf(killer);
   if (!party) return grantXp(killer, baseXp);
 
-  const membros = partyMembers(party);
+  const membros = party.memberIds
+    .map((id) => players.get(id))
+    .filter((p): p is Player => !!p);
   const partes = distributeXp(
     baseXp,
     membros.map((p) => ({
@@ -2067,6 +2344,81 @@ function playerAttack(player: Player, creature: Creature, now: number): void {
     });
   }
   damageCreature(player, creature, dmg, crit, now);
+}
+
+/**
+ * Golpe básico de um jogador em OUTRO jogador.
+ *
+ * ⚠️ **Isto ainda não é a Etapa 17.** A ⚪ Caveira Branca existe (é a marca de
+ * agressor recente, e o que faz o alvo poder revidar), mas amarela, vermelha e
+ * preta não — elas dependem de contagem de assassinatos persistida. Reação dos
+ * guardas e duelo consensual também continuam de fora.
+ *
+ * 🔴 A penalidade de morte por PvP já é a certa: `killPlayer(..., byPlayer)`
+ * usa a tabela cheia em vez dos 70 % do PvE. Isso já estava implementado — só
+ * não havia como um jogador matar outro para chegar lá.
+ */
+function playerAttackPlayer(player: Player, alvo: Player, now: number): void {
+  const d = player.derived;
+  const isMagic = d.attackType === 'magic';
+  const restr = restrictionsOf(player.conditions);
+  if (!restr.canAttack) return;
+  if (isMagic && !restr.canCast) return;
+  if (isMagic && player.mana < d.manaCost) return;
+
+  // 🔴 Reconferido AQUI, e não só no clique. Entre selecionar o alvo e o golpe
+  // sair passam tiques inteiros: dá tempo de os dois entrarem no mesmo grupo, de
+  // o atacante desligar o PK ou de a caveira do alvo expirar. Confiar na
+  // checagem do clique deixaria passar o golpe em quem já não é alvo válido.
+  const decisao = canHarm(combatantOf(player), combatantOf(alvo));
+  if (!decisao.allowed) {
+    player.targetId = null;
+    send(player, { t: 'denied', reason: harmVetoText(decisao.veto, alvo) });
+    return;
+  }
+
+  if (isMagic) player.mana -= d.manaCost;
+  player.lastAttackAt = now;
+
+  const bonus = equipBonus(player);
+  const power = (isMagic ? d.magicAtk : d.physAtk)
+    * offenseMult(player)
+    * (1 + bonus.physDamage);
+  const { amount, crit } = computeHit(power, d.critChance, d.critMult);
+  const tipo = playerDamageType(player);
+  // Mesma pilha de defesa em camadas que o jogador usa contra monstro — é o
+  // ponto do cap. 31: uma ordem só de resolução, não uma para PvE e outra para
+  // PvP. Esquivável porque é golpe corpo a corpo/à distância de alguém visível.
+  const res = resolveDamage(amount, tipo, playerDefenseProfile(alvo, true));
+  const dmg = res.amount;
+  const dodged = res.outcome === 'dodged';
+  applyLifeSteal(player, dmg);
+  gainSkill(player);
+
+  if (d.attackType !== 'melee') {
+    broadcastFloor(player.floor, {
+      t: 'projectile', fromId: player.id, toX: alvo.tileX, toY: alvo.tileY,
+      floor: player.floor, kind: player.cls.projectile ?? 'arrow',
+    });
+  }
+
+  alvo.hp = Math.max(0, alvo.hp - dmg);
+  if (dmg > 0) onDamaged(alvo);
+  // Cobrado no golpe que SAIU, não no alvo escolhido: mirar não é agredir.
+  // `marksAsPk` é falso quando o alvo já estava de caveira — revidar é de graça.
+  applyAggression(player, decisao.marksAsPk, now);
+  const fatal = alvo.hp <= 0;
+  broadcastFloor(player.floor, {
+    t: 'hit', attackerId: player.id, targetId: alvo.id, amount: dmg, crit, dodged,
+    hp: Math.round(alvo.hp), maxHp: alvo.maxHp, fatal,
+  });
+  if (fatal) {
+    // `byPlayer: true` é o que troca a penalidade de PvE (70 %) pela de PvP
+    // cheia — a tabela branda confirmada pelo dono em 30/07, com teto de um
+    // nível. Ver `shared/src/death.ts`; não reverter para os 200–300 % do Doc 1.
+    killPlayer(alvo, player.name, true);
+    player.targetId = null;
+  }
 }
 
 /**
@@ -2460,80 +2812,6 @@ function summonMinion(boss: Creature): void {
  * Devolve true quando consumiu o texto (não deve virar chat).
  */
 const DEV_MODE = process.env.ELYSIA_DEV === '1';
-/**
- * Comandos de party no chat. **Não são comandos de teste** — valem em produção.
- *
- * O convite precisa de um jeito de o jogador digitar o nome de alguém, e um
- * comando de chat é o caminho mais curto entre "vi um cara na tela" e "convidei
- * o cara". O painel mostra o estado; o chat é o que age.
- */
-function handlePartyCommand(player: Player, text: string): boolean {
-  const [cmd, ...resto] = text.slice(1).split(/\s+/);
-  const arg = resto.join(' ');
-  const aviso = (t: string): void => send(player, { t: 'chat', from: 'Grupo', text: t });
-
-  switch (cmd) {
-    case 'convidar':
-    case 'invite': {
-      if (!arg) return aviso('uso: /convidar <nome>'), true;
-      handlePartyInvite(player, arg);
-      return true;
-    }
-    case 'sim':
-    case 'aceitar': {
-      // Serve para as duas respostas possíveis: convite pendente e votação.
-      if (player.pendingInvite) return handlePartyRespond(player, true), true;
-      if (partyOf(player)?.vote) return handlePartyVote(player, true), true;
-      return aviso('Não há nada para aceitar.'), true;
-    }
-    case 'nao':
-    case 'não':
-    case 'recusar': {
-      if (player.pendingInvite) return handlePartyRespond(player, false), true;
-      if (partyOf(player)?.vote) return handlePartyVote(player, false), true;
-      return aviso('Não há nada para recusar.'), true;
-    }
-    case 'sairdogrupo': {
-      if (!player.partyId) return aviso('Você não está em grupo.'), true;
-      removeFromParty(player);
-      return true;
-    }
-    case 'expulsar': {
-      const alvo = [...players.values()].find(
-        (p) => p.name.toLowerCase() === arg.toLowerCase(),
-      );
-      if (!alvo) return aviso(`Ninguém chamado "${arg}" no grupo.`), true;
-      handlePartyKick(player, alvo.id);
-      return true;
-    }
-    case 'loot': {
-      const mapa: Record<string, LootRule> = {
-        livre: 'free', free: 'free',
-        lider: 'leader', líder: 'leader', leader: 'leader',
-        aleatorio: 'random', aleatório: 'random', random: 'random',
-      };
-      const regra = mapa[arg.toLowerCase()];
-      if (!regra) return aviso('uso: /loot <livre|lider|aleatorio>'), true;
-      if (!player.partyId) return aviso('Você não está em grupo.'), true;
-      handlePartyProposeLoot(player, regra);
-      return true;
-    }
-    case 'grupo': {
-      const party = partyOf(player);
-      if (!party) return aviso('Você anda sozinho. Use /convidar <nome>.'), true;
-      aviso(LOOT_RULE_LABEL[party.lootRule]);
-      for (const m of partyMembers(party)) {
-        const marca = party.memberIds[0] === m.id ? '★ ' : '  ';
-        const xp = sharesXp(m.level, player.level) ? '' : ' (fora da faixa de XP)';
-        aviso(`${marca}${m.name} — Lv.${m.level}${xp}`);
-      }
-      return true;
-    }
-    default:
-      return false;
-  }
-}
-
 function handleDevCommand(player: Player, text: string): boolean {
   if (!DEV_MODE) return false;
   const [cmd, arg] = text.slice(1).split(/\s+/);
@@ -2819,38 +3097,6 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       break;
     }
 
-    // --- Party (Etapa 9) ---------------------------------------------------
-    case 'partyinvite': {
-      if (!player.joined) return;
-      handlePartyInvite(player, msg.name);
-      break;
-    }
-    case 'partyrespond': {
-      if (!player.joined) return;
-      handlePartyRespond(player, msg.accept);
-      break;
-    }
-    case 'partyleave': {
-      if (!player.joined) return;
-      removeFromParty(player);
-      break;
-    }
-    case 'partykick': {
-      if (!player.joined) return;
-      handlePartyKick(player, msg.playerId);
-      break;
-    }
-    case 'partyproposeloot': {
-      if (!player.joined) return;
-      handlePartyProposeLoot(player, msg.rule);
-      break;
-    }
-    case 'partyvote': {
-      if (!player.joined) return;
-      handlePartyVote(player, msg.agree);
-      break;
-    }
-
     case 'setrespawn': {
       if (!player.characterId) return;
       // Só libera se ELE já pisou lá. Conhecer o mapa é da conta; renascer é
@@ -2896,6 +3142,9 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       sendStats(player);
       sendInventory(player);
       sendTowns(player);
+      sendFriends(player);
+      // Quem tem este jogador na lista precisa ver o "online" acender agora.
+      broadcastFriendPresence();
       console.log(`[join] ${player.name} — ${player.cls.name} nv.${player.level} (${player.id})`);
       break;
     }
@@ -2946,8 +3195,24 @@ function handleMessage(player: Player, msg: ClientMessage): void {
     case 'attack': {
       if (!player.joined || !player.alive) return;
       const target = creatures.get(msg.targetId);
-      if (target && target.alive && target.floor === player.floor) player.targetId = msg.targetId;
-      else send(player, { t: 'denied', reason: 'Alvo inválido.' });
+      if (target && target.alive && target.floor === player.floor) {
+        player.targetId = msg.targetId;
+        break;
+      }
+      // Alvo JOGADOR (o "Atacar" do menu de contexto). Passa pelo mesmo
+      // `canHarm` que o dano vai passar — recusar aqui, na hora do clique, é o
+      // que dá a mensagem certa em vez de um auto-ataque que nunca acerta.
+      const outro = players.get(msg.targetId);
+      if (outro && outro.joined && outro.alive && outro.floor === player.floor) {
+        const d = canHarm(combatantOf(player), combatantOf(outro));
+        if (!d.allowed) {
+          send(player, { t: 'denied', reason: harmVetoText(d.veto, outro) });
+          return;
+        }
+        player.targetId = msg.targetId;
+        break;
+      }
+      send(player, { t: 'denied', reason: 'Alvo inválido.' });
       break;
     }
     case 'cancel': {
@@ -3082,6 +3347,71 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       send(player, { t: 'chat', from: 'Sistema', text: `Skills resetadas: ${gastos} pontos devolvidos.` });
       break;
     }
+
+    case 'pk': {
+      if (!player.joined) return;
+      const agora = Date.now();
+      // Ligar é imediato; desligar espera a trava de combate. Ver `pkLockedUntil`.
+      if (!msg.on && agora < player.pkLockedUntil) {
+        const seg = Math.ceil((player.pkLockedUntil - agora) / 1000);
+        send(player, { t: 'denied', reason: `Você está em combate PvP — espere ${seg}s para desligar o PK.` });
+        return;
+      }
+      if (player.pkEnabled === msg.on) return;
+      player.pkEnabled = msg.on;
+      // Desligar o PK derruba um alvo jogador que já estava mirado — a menos que
+      // o alvo esteja de caveira, porque nesse caso o golpe continua valendo e
+      // derrubar a mira tiraria da vítima o alvo que ela tem direito de bater.
+      if (!msg.on && player.targetId) {
+        const alvo = players.get(player.targetId);
+        if (alvo && !hasWhiteSkull(alvo, agora)) player.targetId = null;
+      }
+      send(player, {
+        t: 'chat', from: 'Sistema',
+        // 🔴 O texto do "desligado" mentia: dizia "intocável". Nunca foi
+        // verdade depois da correção de 30/07 — o flag é de agredir, e a defesa
+        // contra o agressor é a caveira dele, não o flag da vítima.
+        text: msg.on
+          ? 'PK LIGADO — você pode atacar outros jogadores. Agredir quem não está '
+            + 'de caveira lhe dará a Caveira Branca.'
+          : 'PK desligado — você não ataca outros jogadores (mas ainda pode ser '
+            + 'atacado, e revidar em quem estiver de caveira).',
+      });
+      break;
+    }
+
+    case 'party': {
+      if (!player.joined) return;
+      handleParty(player, msg);
+      break;
+    }
+
+    case 'friend': {
+      if (!player.joined || !player.accountId) return;
+      const nome = (msg.name ?? '').trim();
+      if (msg.action === 'remove') {
+        if (store.removeFriend(player.accountId, nome)) {
+          send(player, { t: 'chat', from: 'Sistema', text: `${nome} saiu da sua lista de amigos.` });
+        } else {
+          send(player, { t: 'denied', reason: `${nome} não está na sua lista.` });
+        }
+        sendFriends(player);
+        return;
+      }
+      const r = store.addFriend(player.accountId, nome);
+      if (!r.ok) {
+        const motivo = r.reason === 'nao_existe'
+          ? `Não existe personagem chamado ${nome}.`
+          : r.reason === 'voce_mesmo'
+            ? 'Esse personagem é seu.'
+            : `${nome} já está na sua lista.`;
+        send(player, { t: 'denied', reason: motivo });
+        return;
+      }
+      send(player, { t: 'chat', from: 'Sistema', text: `${nome} entrou na sua lista de amigos.` });
+      sendFriends(player);
+      break;
+    }
     case 'allocate': {
       if (!player.joined) return;
       if (!ATTRIBUTE_KEYS.includes(msg.attr)) return;
@@ -3104,10 +3434,6 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       if (!player.joined) return;
       const text = msg.text.trim().slice(0, 200);
       if (text.length === 0) return;
-      // Comandos de party vêm ANTES dos de dev, e valem sempre: são jogo, não
-      // ferramenta de teste. Sem eles a party só existiria para quem abrisse o
-      // painel, e o convite precisa de um jeito de digitar o nome de alguém.
-      if (text.startsWith('/') && handlePartyCommand(player, text)) return;
       if (text.startsWith('/') && handleDevCommand(player, text)) return;
       broadcastFloor(player.floor, { t: 'chat', from: player.name, text });
       break;
@@ -3492,7 +3818,22 @@ function updatePlayers(now: number): void {
     }
     if (player.targetId) {
       const target = creatures.get(player.targetId);
-      if (!target || !target.alive || target.floor !== player.floor) {
+      // Alvo jogador (PvP): mesma cadência e mesmo alcance do PvE, resolvido
+      // por `playerAttackPlayer`. O `else` abaixo cuida do alvo criatura.
+      const alvoJogador = target ? undefined : players.get(player.targetId);
+      if (alvoJogador) {
+        if (!alvoJogador.joined || !alvoJogador.alive || alvoJogador.floor !== player.floor) {
+          player.targetId = null;
+        } else if (chebyshev(player.tileX, player.tileY, alvoJogador.tileX, alvoJogador.tileY) <= player.derived.attackRange) {
+          player.direction = dirFromDelta(
+            alvoJogador.tileX - player.tileX, alvoJogador.tileY - player.tileY, player.direction,
+          );
+          const cadencia = player.fury
+            ? player.derived.attackCooldownMs * (1 - furyStats(player.fury.level).attackSpeedBonus)
+            : player.derived.attackCooldownMs;
+          if (now - player.lastAttackAt >= cadencia) playerAttackPlayer(player, alvoJogador, now);
+        }
+      } else if (!target || !target.alive || target.floor !== player.floor) {
         player.targetId = null;
       } else if (chebyshev(player.tileX, player.tileY, target.tileX, target.tileY) <= player.derived.attackRange) {
         player.direction = dirFromDelta(target.tileX - player.tileX, target.tileY - player.tileY, player.direction);
@@ -3666,12 +4007,23 @@ function regen(now: number): void {
 
 function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
   const out: EntitySnapshot[] = [];
+  // Um relógio só para o snapshot inteiro: com um `Date.now()` por jogador, dois
+  // observadores poderiam ver a mesma caveira expirar em tiques diferentes.
+  const agoraSnapshot = Date.now();
   for (const p of players.values()) {
     if (!p.joined || p.floor !== viewer.floor) continue;
     out.push({
       id: p.id, name: p.name, tileX: p.tileX, tileY: p.tileY, floor: p.floor,
       direction: p.direction, kind: 'player', hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
       charClass: p.cls.id, gender: p.gender,
+      // Mesma economia do `conditions` abaixo: só vai quando é verdade/existe.
+      // PK ligado é minoria, grupo também e caveira mais ainda, então na prática
+      // nenhum dos três campos viaja no caso comum.
+      pkEnabled: p.pkEnabled ? true : undefined,
+      // Sem prazo junto, de propósito: o relógio do cliente não é confiável e o
+      // snapshot já vai a cada tique. Quando o campo sumir, a caveira acabou.
+      skull: hasWhiteSkull(p, agoraSnapshot) ? 'white' : undefined,
+      partyId: p.partyId ?? undefined,
       // Só manda o campo quando há algo: um array vazio em cada entidade a cada
       // tique é peso de rede por nada.
       conditions: p.conditions.length ? p.conditions.map((c) => c.id) : undefined,
@@ -3716,6 +4068,56 @@ function expireCorpses(now: number): void {
   }
 }
 
+/** Convite não respondido cai sozinho, e quem convidou fica sabendo. */
+function expirePartyInvites(now: number): void {
+  for (const [alvoId, convite] of partyInvites) {
+    if (now <= convite.expiresAt) continue;
+    partyInvites.delete(alvoId);
+    const quemConvidou = players.get(convite.fromId);
+    const alvo = players.get(alvoId);
+    if (quemConvidou && alvo) {
+      send(quemConvidou, { t: 'chat', from: 'Grupo', text: `${alvo.name} não respondeu ao convite.` });
+    }
+  }
+}
+
+/**
+ * Reenvia a composição do grupo periodicamente.
+ *
+ * Precisa existir porque duas coisas do painel mudam SEM mudança de membro: a
+ * vida de cada um e o `nearby` de quem se afastou. Enviar junto do snapshot (15
+ * Hz) seria desperdício — a barra de vida do companheiro não precisa dessa
+ * resolução — então vai a ~2 Hz.
+ */
+const PARTY_REFRESH_MS = 500;
+let lastPartyRefreshAt = 0;
+
+function refreshParties(now: number): void {
+  if (now - lastPartyRefreshAt < PARTY_REFRESH_MS) return;
+  lastPartyRefreshAt = now;
+  for (const party of parties.values()) sendParty(party);
+}
+
+/**
+ * Avisa quem acabou de perder a caveira, e zera o prazo.
+ *
+ * O snapshot já para de mandar o campo sozinho — isto existe só pelo aviso: o
+ * agressor precisa saber a hora exata em que deixou de ser alvo livre, senão
+ * fica cinco minutos sem saber se já pode voltar a andar pela vila.
+ *
+ * Zerar (em vez de deixar o prazo velho) é o que faz a comparação `> 0` valer
+ * como "tem caveira" em qualquer lugar que precise dela sem um relógio à mão.
+ */
+function expireWhiteSkulls(now: number): void {
+  for (const p of players.values()) {
+    if (p.whiteSkullUntil === 0 || p.whiteSkullUntil > now) continue;
+    p.whiteSkullUntil = 0;
+    if (p.joined) {
+      send(p, { t: 'chat', from: 'Sistema', text: '⚪ Sua Caveira Branca desapareceu.' });
+    }
+  }
+}
+
 function gameTick(): void {
   tick++;
   const now = Date.now();
@@ -3726,6 +4128,9 @@ function gameTick(): void {
   isNight = worldHour < 6 || worldHour >= 18;
   updateCreatures(now);
   updatePlayers(now);
+  expirePartyInvites(now);
+  expireWhiteSkulls(now);
+  refreshParties(now);
   // Antes do regen: uma parcela de veneno que mata não deve ser desfeita pela
   // regeneração do mesmo tique.
   tickConditionsAll(now);
@@ -3772,6 +4177,7 @@ wss.on('connection', (socket) => {
     spellReadyAt: {}, skillPoints: 0, skillLevels: {}, skillResets: 0,
     fury: null, stance: false, proficiencies: {}, professions: {}, bestiary: {},
     wasAtDepot: false, wasNearVendor: false, wasNearBank: false,
+    pkEnabled: false, pkLockedUntil: 0, whiteSkullUntil: 0, partyId: null,
   };
   addToBackpack(player, 'mana_potion', 5);
   setGold(player, 50);
@@ -3789,11 +4195,18 @@ wss.on('connection', (socket) => {
   socket.on('close', () => {
     // Grava ANTES de tirar da lista: é a última chance de não perder a sessão.
     saveCharacter(player);
-    // Sai da party antes de sumir do mapa de jogadores, senão `partyMembers` já
-    // não o encontra e os outros ficam com um fantasma no painel.
-    removeFromParty(player);
+    // Sair do jogo é sair do grupo. Party não persiste (é estado de sessão), e
+    // manter o fantasma faria o grupo contar um membro que ninguém enxerga —
+    // ocupando vaga do `PARTY_MAX` e travando o convite do próximo.
+    leaveParty(player, 'saiu do jogo');
+    partyInvites.delete(id);
     players.delete(id);
     for (const c of creatures.values()) if (c.targetId === id) c.targetId = null;
+    // Quem tinha este jogador como alvo perde o alvo — senão o auto-ataque
+    // ficaria mirando um id que não existe mais.
+    for (const p of players.values()) if (p.targetId === id) p.targetId = null;
+    // A lista de amigos de quem está online mostra o status dele; avisa.
+    broadcastFriendPresence();
     console.log(`[disc] ${player.name} saiu (${players.size} online)`);
   });
   socket.on('error', (err) => console.error(`[erro] socket ${id}:`, err.message));
