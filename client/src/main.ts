@@ -27,6 +27,8 @@ import {
   EQUIP_SLOT_LABEL,
   ITEMS,
   MAX_SKILL_LEVEL,
+  NIGHT_SPEED_MULT,
+  SERVER_TICK_MS,
   SKILLS,
   SKILL_BAR,
   TILE_SIZE,
@@ -75,6 +77,7 @@ import {
 import { loadGroundTiles, type GroundTiles } from './tileset.js';
 import {
   loadCharacterAnims,
+  loadSlimeVariants,
   BOSS_SLIME_CFG,
   PLAYER_CFG,
   SLIME_CFG,
@@ -93,16 +96,26 @@ const TS = TILE_SIZE;
 const WALL_H = 18; // altura visual das paredes em pixels (efeito 2.5D)
 
 /**
- * Fração do intervalo entre passos que a CRIATURA gasta deslizando de um tile
- * ao outro. O resto ela passa parada.
+ * Fração do intervalo entre passos que a CRIATURA gasta deslizando, para o caso
+ * em que o cliente **não sabe** a velocidade dela (`creatureType` desconhecido).
+ * O resto ela passa parada.
  *
- * Com 1.0 o bicho desliza sem parar e parece patinar; com um valor muito baixo
- * ele "salta" o tile e congela. Perto de 0.6 ele anda com passo visível e
- * descansa entre um e outro — que é a sensação de criatura, não de veículo.
- *
- * Jogadores NÃO usam isto: quem segura a tecla espera movimento contínuo.
+ * 🔴 Quem tem ficha no bestiário NÃO passa por aqui — usa `creatureStepMs`, que
+ * é exato. Este 0.6 era o padrão de todas as criaturas e era ele que dava o
+ * "anda um tile, para, anda outro, para" na perseguição.
  */
-const CREATURE_GLIDE = 0.6;
+const CREATURE_GLIDE_DESCONHECIDA = 0.6;
+
+/**
+ * Folga somada à duração do deslize de uma criatura, em ms.
+ *
+ * O servidor decide os passos no tique de 15 Hz: um `moveCooldownMs` de 1500 vira,
+ * na prática, um passo a cada 1500–1566 ms, e a entrega do snapshot ainda soma
+ * jitter. Deslizar 1500 cravado terminaria alguns milissegundos ANTES do próximo
+ * passo chegar, e essa fresta é exatamente o engasgo por tile que se quer matar.
+ * Um tique de folga cobre a granularidade e o deslize emenda no passo seguinte.
+ */
+const CREATURE_STEP_SLACK_MS = SERVER_TICK_MS;
 
 // Trava o zoom do navegador (Ctrl+scroll e Ctrl +/−/0) — estava bugando o layout.
 window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
@@ -448,6 +461,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   // Animações de personagem (player + slime). Null => cai no desenho por código.
   const anims: CharacterAnims | null = await loadCharacterAnims();
+  // Slime Azul e Vermelho: mesma arte do Verde, matiz rotacionado (ver sprites.ts).
+  const slimeVariants = await loadSlimeVariants();
 
   // Sprites MiniWorld: 4 direções por classe + slime. Estilo unificado do mundo.
   const classAnims = await loadClassAnims();
@@ -1885,7 +1900,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       let view = sprites.get(e.id);
       if (!view) {
         view = makeEntity(e, isSelf, isSelf ? selfTex : otherTex, anims, setTarget, {
-          classAnims, slimeAnim, zombieAnim, zombieIdleAnim, knightArt, npcAnim,
+          classAnims, slimeAnim, slimeVariants, zombieAnim, zombieIdleAnim, knightArt, npcAnim,
           selfClass: charClass, selfGender: gender, openShop, openCorpse,
         });
         sprites.set(e.id, view);
@@ -2340,9 +2355,11 @@ const PLAYER_STEP_MS_SEED = 480;
  * intervalo entre um passo e o próximo (sem isso o sprite ou patina, ou salta o
  * tile e congela).
  *
- * Guarda o intervalo CRU: quem desliza só uma fração dele (criatura, ver
- * `CREATURE_GLIDE`) aplica o fator na hora de usar. Ver `STEP_MS_SLOWER_RAMP`
- * para o porquê do filtro ser assimétrico.
+ * Serve para quem o cliente NÃO tem tabela: jogadores, e criatura de espécie
+ * desconhecida. Criatura com ficha no bestiário não chega aqui — ver
+ * `stepDurationFor`. Guarda o intervalo cru; quem desliza só uma fração dele
+ * aplica o fator na hora de usar. Ver `STEP_MS_SLOWER_RAMP` para o porquê do
+ * filtro ser assimétrico.
  */
 function makeStepCadence(initial: number) {
   let cadence = initial;
@@ -2369,8 +2386,69 @@ function makeStepCadence(initial: number) {
  * variante, buff).
  */
 function initialCadence(e: EntitySnapshot, fallback: number): number {
+  return creatureStepMs(e) ?? fallback;
+}
+
+/**
+ * Quanto uma CRIATURA leva para deslizar um tile, ou `null` se o cliente não
+ * conhece a espécie.
+ *
+ * Sai do bestiário, **não de medição do relógio** — e essa troca é o conserto de
+ * dois problemas relatados como bug:
+ *
+ * 1. *"Alguns Slimes Verdes se movem muito rápido e outros normais."* Perambulando,
+ *    o servidor só dá um passo a cada `moveCd × 2` **e ainda por sorteio de 30 %**
+ *    (`updateCreatures`): o intervalo é irregular por natureza. Aprender dele fazia
+ *    cada indivíduo travar num número diferente, e dois bichos idênticos deslizavam
+ *    em velocidades visivelmente distintas. Medir estava certo para o jogador, cuja
+ *    cadência o cliente não conhece, e errado aqui, onde ele conhece.
+ * 2. *"Anda um tile, para, anda outro, para."* Perseguindo, o servidor dá um passo
+ *    a cada `moveCd` **cravado**, então o deslize tem que durar o intervalo INTEIRO
+ *    para a perseguição sair contínua. O antigo `CREATURE_GLIDE = 0.6` gastava só
+ *    60 % dele e transformava os outros 40 % em pausa, a cada tile.
+ *
+ * Perambular continua parecendo perambular, de graça: o passo vem a cada 2×, o
+ * deslize dura 1×, e a criatura descansa a diferença sozinha. Ou seja, a pausa
+ * some da perseguição sem sumir da vida cotidiana do bicho.
+ *
+ * `nightMode` entra aqui e não no cache do ator porque a noite cai no meio do
+ * jogo, e é o servidor que manda o horário.
+ */
+function creatureStepMs(e: EntitySnapshot): number | null {
   const def = e.creatureType ? CREATURES[e.creatureType] : undefined;
-  return def?.moveCooldownMs ?? fallback;
+  if (!def) return null;
+  return def.moveCooldownMs * (nightMode ? NIGHT_SPEED_MULT : 1) + CREATURE_STEP_SLACK_MS;
+}
+
+type StepCadence = ReturnType<typeof makeStepCadence>;
+
+/** Piso do deslize: abaixo disto o passo vira teleporte. */
+const STEP_MS_FLOOR = 90;
+
+/**
+ * Quanto o deslize até o próximo tile deve durar, para qualquer ator.
+ *
+ * Uma porta só, com duas respostas conforme o cliente saiba ou não a velocidade
+ * do dono do sprite:
+ *
+ * - **criatura com ficha** → valor exato do bestiário (`creatureStepMs`), sem
+ *   aprender nada do relógio;
+ * - **jogador, ou criatura de espécie desconhecida** → cadência medida
+ *   (`makeStepCadence`), que é o único caminho possível quando não há tabela.
+ *
+ * `measured = 0` significa "ainda não houve passo": `observe` ignora e devolve o
+ * chute inicial.
+ */
+function stepDurationFor(
+  e: EntitySnapshot,
+  isCreature: boolean,
+  cadence: StepCadence,
+  measured: number,
+): number {
+  const doBestiario = creatureStepMs(e);
+  if (doBestiario !== null) return doBestiario;
+  const glide = isCreature ? CREATURE_GLIDE_DESCONHECIDA : 1;
+  return Math.max(STEP_MS_FLOOR, cadence.observe(measured) * glide);
 }
 
 /** Escurece uma cor 0xRRGGBB por uma fração (0..1). Usado no contorno do blob. */
@@ -2406,6 +2484,8 @@ function nameLabel(text: string, color: number): Text {
 interface MiniAssets {
   classAnims: Record<PlayerClass, DirAnim> | null;
   slimeAnim: Texture[] | null;
+  /** Slime Azul e Vermelho: a arte do Verde recolorida, por `creatureType`. */
+  slimeVariants: Record<string, AnimSet> | null;
   zombieAnim: DirAnim | null;
   zombieIdleAnim: DirAnim | null;
   knightArt: Record<Gender, KnightArt> | null;
@@ -2553,7 +2633,7 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   let toX = fromX;
   let toY = fromY;
   const cadence = makeStepCadence(initialCadence(e, PLAYER_STEP_MS_SEED));
-  let stepMs = cadence.value * (opts.creatureTint ? CREATURE_GLIDE : 1);
+  let stepMs = stepDurationFor(e, !!opts.creatureTint, cadence, 0);
   let moveStart = performance.now();
   let movingUntil = 0;
   c.x = fromX;
@@ -2622,8 +2702,7 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
       // A CRIATURA desliza só uma fração do intervalo e descansa o resto; o
       // JOGADOR usa o intervalo inteiro, porque quem segura a tecla espera
       // movimento contínuo.
-      const glide = opts.creatureTint ? CREATURE_GLIDE : 1;
-      stepMs = Math.max(90, cadence.observe(now - moveStart) * glide);
+      stepMs = stepDurationFor(e, !!opts.creatureTint, cadence, now - moveStart);
       movingUntil = now + stepMs + 80;
     }
     moveStart = now;
@@ -2709,7 +2788,7 @@ function makeSpriteActor(opts: SpriteActorOpts): EntityView {
   let toX = fromX;
   let toY = fromY;
   const cadence = makeStepCadence(initialCadence(e, PLAYER_STEP_MS_SEED));
-  let stepMs = cadence.value * (opts.creatureTint ? CREATURE_GLIDE : 1);
+  let stepMs = stepDurationFor(e, !!opts.creatureTint, cadence, 0);
   let moveStart = performance.now();
   let movingUntil = 0;
   c.x = fromX;
@@ -2785,8 +2864,7 @@ function makeSpriteActor(opts: SpriteActorOpts): EntityView {
       // A CRIATURA desliza só uma fração do intervalo e descansa o resto; o
       // JOGADOR usa o intervalo inteiro, porque quem segura a tecla espera
       // movimento contínuo.
-      const glide = opts.creatureTint ? CREATURE_GLIDE : 1;
-      stepMs = Math.max(90, cadence.observe(now - moveStart) * glide);
+      stepMs = stepDurationFor(e, !!opts.creatureTint, cadence, now - moveStart);
       movingUntil = now + stepMs + 80;
     }
     moveStart = now;
@@ -2843,7 +2921,7 @@ function makePlayerView(e: EntitySnapshot, isSelf: boolean, tex: CharacterTextur
   let toX = fromX;
   let toY = fromY;
   const cadence = makeStepCadence(initialCadence(e, PLAYER_STEP_MS_SEED));
-  let stepMs = cadence.value; // até medir a cadência real do servidor
+  let stepMs = stepDurationFor(e, false, cadence, 0); // jogador: sempre medido
   let moveStart = performance.now();
   let movingUntil = 0;
   c.x = fromX;
@@ -2880,7 +2958,7 @@ function makePlayerView(e: EntitySnapshot, isSelf: boolean, tex: CharacterTextur
       // Duração do deslize = intervalo real entre passos (sincroniza com o
       // servidor). Jogador desliza o intervalo INTEIRO: quem segura a tecla
       // espera movimento contínuo, sem pausa entre um tile e outro.
-      stepMs = Math.max(90, cadence.observe(now - moveStart));
+      stepMs = stepDurationFor(e, false, cadence, now - moveStart);
       movingUntil = now + stepMs + 80; // segue animando entre passos consecutivos
     }
     moveStart = now;
@@ -2945,6 +3023,21 @@ function makeCreatureView(
       idleAnim: mini.zombieIdleAnim ?? undefined,
       idleSpeed: 0.035,
       nameColor: 0x9fbf7f, creatureTint: true, onClick: onTargetClick,
+    });
+  }
+
+  // SLIME AZUL e VERMELHO: a arte do Verde com o matiz rotacionado, gerada no
+  // carregamento (ver `loadSlimeVariants`). Decisão do dono: reusar o corpo do
+  // Verde em vez de desenhar sprite novo — são a mesma criatura um degrau acima.
+  //
+  // O nome sai na cor da espécie que já estava na tabela de placeholder, então a
+  // leitura no mapa não muda: azul continua lendo azul.
+  const slimeVariant = e.creatureType ? mini.slimeVariants?.[e.creatureType] : undefined;
+  if (slimeVariant) {
+    return makeSpriteActor({
+      e, anim: slimeVariant, cfg: SLIME_CFG, creatureTint: true,
+      nameColor: lighten(CREATURE_PLACEHOLDER_COLORS[e.creatureType!] ?? 0x5fae5f, 0.45),
+      onClick: onTargetClick,
     });
   }
 
@@ -3133,7 +3226,7 @@ function makeCreatureView(
   // faria o PRIMEIRO passo saltar. Na prática quase nunca é usado: toda criatura
   // tem `creatureType`, e aí a cadência vem exata do bestiário.
   const cadence = makeStepCadence(initialCadence(e, 500));
-  let stepMs = cadence.value * CREATURE_GLIDE;
+  let stepMs = stepDurationFor(e, true, cadence, 0);
   let moveStart = performance.now();
   c.x = fromX;
   c.y = fromY;
@@ -3161,8 +3254,7 @@ function makeCreatureView(
       return;
     }
     if (!far) {
-      // Sempre criatura aqui: desliza uma fração e descansa o resto.
-      stepMs = Math.max(120, cadence.observe(now - moveStart) * CREATURE_GLIDE);
+      stepMs = stepDurationFor(e, true, cadence, now - moveStart);
     }
     moveStart = now;
   }

@@ -117,7 +117,7 @@ são objetivos e podem ser feitos já, expostos por comando de teste.
 |---|---|---|
 | 1 | **Urso Pardo** | ficou `territorial` por **inferência** — a ficha não dá comportamento |
 | 2 | **Tier do Slime Azul** | o Doc 3 se contradiz: linha 1906 diz Tier II, a ficha na linha 3155 diz Tier I. Implementado como **Tier I** |
-| 3 | **Slime Azul e Vermelho dormentes** | definidos mas não nascem no mapa. A fauna foi removida a pedido do dono e isso não foi desfeito sem confirmação |
+| 3 | ~~**Slime Azul e Vermelho dormentes**~~ | ✅ **RESOLVIDO 2026-07-29.** O dono mandou reusarem a arte do Verde recolorida; ganharam sprite e **nascem no mapa** (4 azuis, 3 vermelhos) |
 | 4 | **`DD-LOR-127..133` duplicados** | aparecem duas vezes no Doc 3 com conteúdos diferentes. Um bloco precisa ser renumerado |
 | 5 | **"Água" não é elemento** | a linha 1670 dá `Slime Azul → Água`, mas `DD-ELM-002` fecha os sete tipos e Água não está entre eles. Provável intenção: **Gelo** |
 

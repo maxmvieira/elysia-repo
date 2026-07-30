@@ -11,7 +11,7 @@ precisa**. Gerado em **2026-07-29** a partir do bestiário real
 
 ## 1. Onde colocar
 
-Uma pasta por criatura, **nomeada pelo `creatureType` do código** — as 22 pastas
+Uma pasta por criatura, **nomeada pelo `creatureType` do código** — as 20 pastas
 já existem, vazias:
 
 ```
@@ -103,24 +103,29 @@ aqui** — o gatilho de cada animação já existe no servidor:
 
 ---
 
-## 5. As 22 criaturas
+## 5. As criaturas
 
 Velocidade em ms por passo: **700 = muito alta**, 900 = alta, 1200 = média,
 1500 = baixa, 2000 = muito lenta. Importa para o ritmo do ciclo de passos.
 
-### 🟢 Tier I — 2 pastas (as mais baratas do lote)
+### ✅ Tier I — RESOLVIDO, não precisa desenhar
 
-Mesmo corpo do Slime Verde, outra cor. Se preferir, mande só a paleta e eu
-tingo — mas a arte própria fica melhor.
+**Decisão do dono (2026-07-29): Slime Azul e Slime Vermelho reusam a arte do
+Slime Verde, recolorida.** Já está no jogo e os dois **nascem no mapa** (o que
+também encerra a pendência nº 3 do `HANDOFF.md`).
 
-| Pasta | Criatura | HP | Vel. | Animações |
-|---|---|---|---|---|
-| `slime_blue` | Slime Azul | 70 | 1500 | walk · idle · attack · hurt · death |
-| `slime_red` | Slime Vermelho | 100 | 1500 | walk · idle · attack · hurt · death |
+| Criatura | HP | Como ficou |
+|---|---|---|
+| Slime Azul | 70 | as 5 animações do Verde com matiz +120° |
+| Slime Vermelho | 100 | as 5 animações do Verde com matiz −120° |
 
-> ⚠️ **Os dois estão definidos mas não nascem no mapa** (pendência nº 3 do
-> `HANDOFF.md`). Desenhar não é desperdício — ligar o spawn é uma linha — mas
-> saiba que hoje você não os encontra jogando.
+O recolorir é por **rotação de matiz em canvas**, não por `sprite.tint`. Tint
+multiplica, e multiplicar arte verde por azul dá verde-escuro sujo — o canal que
+domina continua dominando. Rotacionar o matiz troca a cor e preserva o sombreado.
+Ver `loadSlimeVariants` em `client/src/sprites.ts`.
+
+Se um dia quiser sprite dedicado para eles, é só mandar e eu troco — mas hoje não
+é gargalo de nada.
 
 ### 🟡 Tier II — 9 pastas · **a prioridade**
 
@@ -198,8 +203,9 @@ o golpe normal e o `slam` (Salto Esmagador). Para ele, `slam.png` não é cosmé
 2. **Super Slime** (1) — é o MVP e hoje é um slime roxo grande
 3. **Tier III** (9)
 4. **Zumbi**: `attack` · `hurt` · `death` (3 arquivos, monstro que já existe)
-5. **Slime Azul e Vermelho** (2) — baratos, mas nem nascem no mapa ainda
-6. `attack2` de quem sobrar tempo
+5. `attack2` de quem sobrar tempo
+
+São **20 criaturas** no total — o Tier I saiu da lista (§5).
 
 Dentro de cada monstro, a ordem que mais rende: **`walk` → `attack` → `death` →
 `idle` → `hurt`**. `walk` tira do placeholder; `attack` faz o combate ler;

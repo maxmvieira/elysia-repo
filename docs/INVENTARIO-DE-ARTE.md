@@ -26,13 +26,14 @@ desconhecido. Hoje cada espécie tem **cor própria + nome sobre a cabeça**
 | Slime Verde | animação própria (`loadSlimeAnim`) |
 | Zumbi | folha LPC 64px, andar + idle **gerado** (`Zombie-alfa.png`) |
 | Super Slime | reusa o sprite do Slime, maior e tingido de roxo |
+| **Slime Azul** | as 5 animações do Verde, matiz +120° (`loadSlimeVariants`) |
+| **Slime Vermelho** | as 5 animações do Verde, matiz −120° |
 
-### 🔴 Tier I — sem arte
-
-| Criatura | Cor da bolha | Identidade a transmitir |
-|---|---|---|
-| Slime Azul | azul | mesmo corpo do Verde, um degrau acima |
-| Slime Vermelho | vermelho | o mais forte da família antes do MVP |
+✅ **Tier I resolvido em 2026-07-29 por decisão do dono:** os dois reusam a arte
+do Verde recolorida, e agora **nascem no mapa** — o que encerra a pendência nº 3
+do `HANDOFF.md`. Não é `sprite.tint`: tint multiplica, e verde × azul dá
+verde-escuro sujo. É rotação de matiz em canvas, que troca a cor e preserva o
+sombreado.
 
 ### 🔴 Tier II — sem arte
 

@@ -197,7 +197,11 @@ const IDLE_DIRS: IdleDir[] = [
   { key: 'right', row: 11, col: 3, base: 0 },
 ];
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+/**
+ * Carrega uma imagem crua, fora do `Assets` do Pixi. Serve para quando os pixels
+ * precisam passar por canvas antes de virar textura (recompor, recolorir).
+ */
+export function loadImage(src: string): Promise<HTMLImageElement> {
   const img = new Image();
   img.src = src;
   return img.decode().then(() => img);

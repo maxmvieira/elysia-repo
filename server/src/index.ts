@@ -26,6 +26,7 @@ import {
   EQUIP_SLOTS,
   GOLD_TIERS,
   ITEMS,
+  NIGHT_SPEED_MULT,
   POINTS_PER_LEVEL,
   PROTOCOL_VERSION,
   SERVER_TICK_HZ,
@@ -164,9 +165,8 @@ let worldHour = 8; // 0..24
 let isNight = false;
 /** À noite os monstros ficam mais fortes/rápidos. Multiplicadores. */
 const NIGHT_DMG_MULT = 1.5;
-// Cooldowns menores = mais rápido. Suave de propósito: os monstros já se movem
-// devagar e a noite não pode desfazer isso.
-const NIGHT_SPEED_MULT = 0.85;
+// NIGHT_SPEED_MULT mora em `shared` porque o cliente também depende dele para
+// deslizar a criatura na velocidade certa (ver o comentário lá).
 
 interface Player {
   id: string;
@@ -654,6 +654,18 @@ function spawnInitialCreatures(): void {
   // CreatureDefs e os desenhos continuam no código, só não nascem mais. Para
   // reintroduzir qualquer uma, basta voltar a chamar spawnCreature aqui.
   for (const [x, y] of slimeSpots) spawnCreature('slime', x, y);
+
+  // SLIME AZUL e VERMELHO (`DD-BAL-034/035`): um degrau acima do Verde. Estavam
+  // definidos e sem nascer — a pendência nº 3 do HANDOFF — e entram agora porque
+  // ganharam arte: a do Verde com o matiz rotacionado (ver `loadSlimeVariants`).
+  //
+  // A distribuição segue o mesmo princípio dos Tiers: quem sai da vila encontra
+  // Verde (50 HP), depois Azul (70), depois Vermelho (100), e só então o Tier II.
+  // É o ambiente avisando da dificuldade, sem placa.
+  const slimeAzulSpots: Array<[number, number]> = [[7, 16], [33, 16], [16, 7], [24, 34]];
+  const slimeVermelhoSpots: Array<[number, number]> = [[5, 24], [35, 25], [25, 5]];
+  for (const [x, y] of slimeAzulSpots) spawnCreature('slime_blue', x, y);
+  for (const [x, y] of slimeVermelhoSpots) spawnCreature('slime_red', x, y);
   // ZUMBIS: ficam FORA da muralha da vila (x/y 10..30) e longe da zona segura
   // do centro.
   //

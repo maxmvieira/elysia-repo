@@ -194,6 +194,17 @@ export const SPEED = {
   muitoAlta: 700,
 } as const;
 
+/**
+ * Quanto os cooldowns de criatura encurtam à noite (menor = mais rápido). Suave
+ * de propósito: os monstros já se movem devagar e a noite não pode desfazer isso.
+ *
+ * Vive aqui, e não no servidor, porque o CLIENTE também precisa dele: a duração
+ * do deslize de uma criatura sai de `moveCooldownMs`, e à noite esse número muda.
+ * Com o valor duplicado nos dois lados, uma noite deixaria o sprite andando numa
+ * velocidade e a posição autoritativa em outra.
+ */
+export const NIGHT_SPEED_MULT = 0.85;
+
 export const CREATURES: Record<string, CreatureDef> = {
   rabbit: {
     type: 'rabbit',
