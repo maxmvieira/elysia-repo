@@ -18,12 +18,13 @@ travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa).
 
 | | 29/07 | 30/07 manhã | **30/07 noite** |
 |---|---|---|---|
-| Testes | 223 | 237 | **288** (276 shared + 12 server) |
+| Testes | 223 | 237 | **296** (284 shared + 12 server) |
 | Typecheck | limpo | limpo | limpo nos 3 pacotes |
 | Criaturas vivas no mapa | 59 | 32 | 32 |
 | Espécies definidas | 23 | 23 | 23 |
 | Schema do banco | v2 | v3 | v3 |
 | Itens no catálogo | ~25 | ~32 | **~85** |
+| Modelos canônicos registrados | — | — | **113** (só 8 são itens) |
 
 `npm run dev:test` sobe tudo com os comandos de teste ligados.
 
@@ -82,6 +83,84 @@ chance: é aposta informada, não caixa-surpresa.
 🔴 **Um vazamento de desempenho corrigido no caminho:** item no chão **nunca
 expirava**. Com 32 criaturas renascendo para sempre, o mapa acumulava centenas de
 entidades, e todas iam no snapshot de todo jogador a cada tique.
+
+### ✅ O gargalo da ARTE foi destravado
+
+🔴 **A seção 4 da [`SPEC-SPRITES-MONSTROS.md`](./SPEC-SPRITES-MONSTROS.md) está
+desatualizada de propósito? Não — foi reescrita.** O bloqueio que ela descrevia
+(*"hoje não há como um monstro ter 4 direções E animação de ataque"*) **não existe
+mais.**
+
+`makeMiniActor` aceita **`attack`, `hurt` e `death` por direção**, e
+`loadCreatureSheets` lê exatamente o formato da spec: 4 linhas = 4 direções, com
+suporte a folha de **3 linhas** (espelhando a esquerda) e a **entrega em partes**
+(só `walk.png` é obrigatório).
+
+**Para ligar uma espécie quando a arte chegar, é UMA linha** em `CREATURE_SHEETS`
+(`client/src/miniworld.ts`):
+
+```ts
+forest_spider: 32,   // nome da pasta: lado da célula em px
+```
+
+🔴 **Quem desenha precisa informar o lado da célula.** É a única coisa que o
+código não consegue adivinhar: uma folha de 4×4 células de 32 px tem exatamente as
+mesmas dimensões de uma de 2×2 de 64 px.
+
+Três comportamentos que valem saber ao desenhar: **golpe não é interrompido por
+dano** (senão bastaria bater sem parar para desarmar qualquer inimigo), **morte é
+terminal** (o sprite para no último quadro — desenhe-o pensando nisso), e o
+**golpe fatal toca morte, não dano**.
+
+O **Zumbi não entrou na lista**: usa `Zombie-alfa.png` na raiz, formato LPC antigo,
+com loader próprio. Quando for redesenhado na spec, entra e o loader antigo sai.
+
+### ✅ Legibilidade: ícones de condição e de loot
+
+**As 10 condições ganharam FORMA**, não só cor — cristal, pedra, círculo cortado,
+bolhas, gota, chama, ampulheta, seta, raízes. E o HUD lista as condições do
+próprio jogador **com nome**, porque símbolo de 9 px não ensina o que significa; o
+tooltip diz o que ainda dá para fazer.
+
+**Os 38 itens novos ganharam ícone por identidade.** Eram todos a mesma elipse
+mudando de cor — problema que a própria sessão criou ao adicionar 7 fragmentos, 7
+receitas e 24 materiais. Agora fragmento é lasca angular, receita é pergaminho, e
+material tem forma **por família** (osso, couro, tecido, escama, presa, frasco,
+orbe), usando a taxonomia do cap. 44.
+
+O raciocínio nos dois casos é o mesmo: **cor sozinha não serve.** Ninguém memoriza
+38 tons, e quem tem daltonismo não distingue nenhum.
+
+### ✅ Modelos canônicos — e quatro nomes errados corrigidos
+
+Os cap. 13–23 listam **113 modelos** de equipamento. **Não foram criados como
+itens**, e o motivo é o documento: dos onze capítulos, só o das Espadas tem
+descrição qualitativa; os outros dez são lista de nome pura, sem um único número.
+Criar 130 itens exigiria inventar `atk` e `def` de cada um — **decisão de
+balanceamento do dono**.
+
+O que entrou (`shared/src/models.ts`) foi o que o doc realmente fecha: os **nomes
+canônicos**. E o teste imediatamente apanhou quatro divergências que já existiam:
+
+| Estava | Canônico |
+|---|---|
+| Machadinha | **Machado de Lenhador** |
+| Adaga | **Adaga Curta** |
+| Lança | **Lança Curta** |
+| Cajado de Aprendiz | **Cajado do Aprendiz** |
+
+Nome divergente é retrabalho silencioso: descobre-se meses depois, quando o item
+já está em save de jogador — e aí renomear é migração, não edição.
+
+⚠️ **O tier dos modelos foi INFERIDO da ordem da lista** (o doc só rotula no cap.
+13). Há teste garantindo que nenhum tipo regrida de faixa: se alguém embaralhar a
+lista, a inferência se perde e o teste avisa.
+
+🔴 **Três categorias que o doc cria e o código não tem:** Varinhas (cap. 21) e
+Livros Arcanos (cap. 22) exigiriam `WeaponType` **novos**, com proficiência própria
+(`DD-PROG-011` prevê **Magic Level**) — é decisão do dono. Escudos (cap. 23) não
+são `WeaponType`, ocupam o slot `shield`, e só o de Madeira existe. Os 23 nomes
+estão em `PENDING_MODEL_CATEGORIES` para ninguém reinventá-los.
 
 ---
 
@@ -372,18 +451,20 @@ O dono está **desenhando os sprites** — não mexa no bestiário nem adicione 
 enquanto isso. O que rende agora é código que a arte vai precisar, e o que
 está pela metade.
 
-1. 🔴 **Animação de ataque por direção.** Hoje nenhum monstro consegue ter 4
-   direções E ataque (ver o gargalo de arte acima). É o que bloqueia metade do que
-   o dono está desenhando, e os gatilhos já existem no servidor. **Continua sendo
-   o item mais valioso da lista.**
-2. **Ícones das 10 condições** — hoje são quadrados coloridos sem significado, e as
-   aranhas já aplicam Lentidão de verdade.
-3. **Continuar o Doc 4 na ordem aprovada.** Os três primeiros sistemas estão
-   feitos; o próximo é o **resto do catálogo de equipamentos** (cap. 13–43): os
-   modelos de arma e armadura por família, que também destravam os "materiais
-   complementares" nas receitas de fabricação.
-4. **Etapa 9 — Party e shared XP**, se o dono quiser avançar o roadmap em vez do
-   Doc 4.
+1. ✅ ~~Animação de ataque por direção~~ — **feito.** O caminho está pronto e
+   esperando arte.
+2. ✅ ~~Ícones das 10 condições~~ — **feito**, com nome no HUD.
+3. 🔴 **DAR NÚMEROS AOS MODELOS.** É o próximo passo natural e depende do dono: os
+   113 nomes canônicos estão registrados em `models.ts`, mas só 8 são itens
+   jogáveis. Preencher exige `atk`/`def` por modelo, e **o documento não dá
+   nenhum**. Sugestão: definir uma progressão por tier (inicial/intermediário/
+   avançado) e derivar, em vez de escolher 113 números à mão.
+4. **Decidir Varinha, Livro e Escudo** — as três categorias pendentes acima. A
+   primeira que precisa de decisão é se Varinha e Livro viram `WeaponType`
+   próprios, porque isso muda proficiência e identidade de classe.
+5. **Etapa 9 — Party e shared XP**, se o dono quiser avançar o roadmap em vez do
+   Doc 4. É um sistema inteiro (protocolo, estado no servidor, UI) e não depende
+   de arte.
 
 O que **não** vale a pena agora:
 
