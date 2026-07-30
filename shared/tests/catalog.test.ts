@@ -44,7 +44,8 @@ test('todo modelo virou item, e nenhum kind colidiu', () => {
     assert.equal(ITEMS[e.kind]!.name, e.name, `${e.kind} tem nome divergente`);
     assert.equal(ITEMS[e.kind]!.category, 'equip');
   }
-  assert.equal(MODEL_ENTRIES.length, 113);
+  // 113 de arma/mão-secundária (cap. 13–23) + 64 de proteção (cap. 24–27).
+  assert.equal(MODEL_ENTRIES.length, 177);
 });
 
 test('o kind sobrevive aos acentos do português', () => {
@@ -73,19 +74,29 @@ test('o nível de cada modelo cabe na faixa do tier dele', () => {
   }
 });
 
-test('a escada de cada família nunca desce', () => {
+test('a escada de cada família nunca desce, dentro da mesma classe', () => {
   // Modelo mais avançado não pode ser mais fraco que um anterior — seria degrau
   // de progressão que pune quem sobe.
+  //
+  // ⚠️ A comparação é **por classe de armadura**, não por família. Os Capacetes
+  // misturam as quatro classes, e um Capuz do Aprendiz (Veste, ×0,75) É mais
+  // fraco que um Elmo de Bronze (Pesada, ×1,25) de nível menor — de propósito.
+  // Essa é a troca que a classe representa, não um degrau invertido.
   for (const fam of MODEL_FAMILIES) {
+    const porClasse = new Map<string, number>();
     const gerados = MODEL_ENTRIES
-      .filter((e) => e.familyId === fam.id && e.generated)
+      .filter((e) => e.familyId === fam.id && e.generated && !e.unique)
       .sort((x, y) => x.level - y.level);
-    let anterior = 0;
     for (const e of gerados) {
       const it = ITEMS[e.kind]!;
       const poder = (it.atk ?? 0) + (it.def ?? 0);
-      assert.ok(poder >= anterior, `${fam.name}: ${e.name} é mais fraco que o degrau anterior`);
-      anterior = poder;
+      const classe = e.armorClass ?? 'sem-classe';
+      const anterior = porClasse.get(classe) ?? 0;
+      assert.ok(
+        poder >= anterior,
+        `${fam.name}: ${e.name} (${classe}, Lv.${e.level}) é mais fraco que o degrau anterior`,
+      );
+      porClasse.set(classe, poder);
     }
   }
 });
@@ -197,9 +208,13 @@ test('a trava de fabricação vale só para peça de catálogo', () => {
   // fabricáveis antes do catálogo, e negar por não estarem nele tiraria do jogo
   // algo que funcionava. Quem chama é que decide — `craftableModel` responde
   // "não" para o desconhecido, que é o lado seguro para um handler de rede.
-  assert.equal(craftableModel('leather_armor', 'common'), false);
+  assert.equal(craftableModel('backpack', 'common'), false);
   assert.equal(craftableModel('health_potion', 'relic'), false);
-  assert.equal(MODEL_INDEX.leather_armor, undefined);
+  assert.equal(MODEL_INDEX.backpack, undefined);
+  // O Colete de Couro, por outro lado, virou peça de catálogo no cap. 25 — e por
+  // isso passou a obedecer à trava como qualquer outro modelo.
+  assert.ok(MODEL_INDEX.leather_armor, 'o Colete de Couro é modelo do cap. 25');
+  assert.equal(craftableModel('leather_armor', 'common'), true);
 });
 
 test('a escada de raridade cobre o catálogo inteiro, sem modelo inalcançável', () => {
@@ -210,6 +225,46 @@ test('a escada de raridade cobre o catálogo inteiro, sem modelo inalcançável'
     if (e.unique) continue; // cap. 40: artefato único não sai de bancada
     assert.ok(alcancados.has(e.kind), `${e.name} não é fabricável por receita nenhuma`);
   }
+});
+
+test('matar coisa mais forte muda o que cai', () => {
+  // O servidor monta o pool de drop filtrando os modelos pela XP da criatura
+  // (`dropPoolFor`, faixa da metade do nível até ele, com o piso do catálogo como
+  // rede quando a faixa vem vazia). É o que dá função às 177 peças: sem isso, um
+  // Slime Verde largaria o Machado Primordial.
+  const nivelDe = (xp: number): number => Math.max(1, Math.round(xp * 0.6));
+  const poolDe = (xp: number, arma: boolean): typeof MODEL_ENTRIES => {
+    const max = nivelDe(xp);
+    const min = Math.max(1, Math.floor(max / 2));
+    const cabe = MODEL_ENTRIES.filter(
+      (e) => !e.unique && (e.slot === 'weapon') === arma && e.level >= min && e.level <= max,
+    );
+    return cabe.length > 0
+      ? cabe
+      : MODEL_ENTRIES.filter((e) => !e.unique && (e.slot === 'weapon') === arma && e.level === 1);
+  };
+
+  // Nenhuma criatura pode ficar sem nada para largar — inclusive as fracas, que
+  // caem na rede. ⚠️ Existe buraco real de nível 2 a 4 no catálogo de arma: o
+  // degrau era da Espada Curta, que é âncora e foi fixada no Lv.1. A rede é
+  // justamente para isso.
+  for (const c of Object.values(CREATURES)) {
+    for (const arma of [true, false]) {
+      assert.ok(
+        poolDe(c.xpReward ?? 0, arma).length > 0,
+        `${c.name} não tem ${arma ? 'arma' : 'proteção'} para largar`,
+      );
+    }
+  }
+
+  // E a progressão tem que ser visível: o que o Zumbi larga não pode ser o mesmo
+  // que o Slime Verde larga.
+  const tetoSlime = Math.max(...poolDe(CREATURES.slime!.xpReward, true).map((e) => e.level));
+  const tetoZumbi = Math.max(...poolDe(CREATURES.zombie!.xpReward, true).map((e) => e.level));
+  assert.ok(
+    tetoZumbi > tetoSlime * 3,
+    `o Zumbi larga até Lv.${tetoZumbi} e o Slime até Lv.${tetoSlime} — pouca diferença`,
+  );
 });
 
 test('modelLevelOf conhece as peças do catálogo e ignora o resto', () => {

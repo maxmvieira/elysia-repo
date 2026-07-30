@@ -784,12 +784,60 @@ ficam fixadas em Lv.1 mesmo quando o documento as lista no meio da escada inicia
 a posição delas** na distribuição dos outros: tirá-las da contagem fazia o
 Machado de Ferro empatar em Lv.1 com o Lenhador e depois pular para Lv.20.
 
+### Armadura e drop por nível — segunda parte (2026-07-30)
+
+Mais **64 modelos** (cap. 24–27): 21 capacetes, 23 peitorais, 10 calças, 10
+botas. O catálogo foi a **177 modelos**, com 13 âncoras.
+
+🔴 **Os peitorais viraram QUATRO famílias**, não uma. O cap. 25 subdivide em
+Leves / Médias / Pesadas / Vestes e ordena por poder **dentro de cada
+subdivisão** — numa lista só, o tier desceria toda vez que uma subdivisão
+recomeçasse. O cap. 42 até prevê "Subcategoria" como campo; aqui ela virou
+família.
+
+⚠️ **A classe de armadura de capacetes, calças e botas é INFERIDA do nome**, e a
+regra é do português, não do documento: Capuz e Tecido → Veste · Couro e Élfico →
+Leve · Capacete e Militar → Média · Elmo, Perneiras, Ferro, Aço e Anão → Pesada.
+Só o cap. 25 diz a classe de cada peça.
+
+**Mais dois nomes corrigidos para o canônico:** "Elmo de Couro" → **Capuz de
+Couro** (cap. 24) e "Armadura de Couro" → **Colete de Couro** (cap. 25). O `kind`
+não muda, então save continua válido.
+
+**O "Tier Final" do cap. 24 não é um quarto degrau** — são os Artefatos Únicos do
+cap. 40 (Coroa dos Primeiros Reis, Elmo do Primeiro Guardião, Coroa da Criação).
+Entraram como `unique`: sem preço, fora do pool de drop e fora da bancada. Ainda
+não há fonte de obtenção.
+
+**Drop por nível.** `DROP_POOL_WEAPON`/`ARMOR` eram listas fixas de 13 peças.
+Agora o pool sai do catálogo filtrado pela **XP da criatura** (`DROP_LEVEL_PER_XP
+= 0,6`, ⚠️ REFERÊNCIA), na faixa da metade do nível até ele. A XP é o medidor de
+dificuldade canônico do bestiário — o Slime Verde é a âncora do Doc 3 — e não
+existe campo de nível na criatura. O Slime larga peça de Lv.6; o Zumbi, de Lv.57.
+
+⚠️ **Existe um buraco de nível 2 a 4 no catálogo de arma**: o degrau era da
+Espada Curta, que é âncora e ficou fixada no Lv.1. `dropPoolFor` cai no piso do
+catálogo quando a faixa vem vazia, e há teste cobrindo criatura por criatura.
+
+### Anéis e colares ficaram de fora, e o motivo importa
+
+🔴 Acessório não é peça de proteção — a graça é o que ele **faz**. E os nomes do
+cap. 30 são inteiramente sobre efeito: Anel da Vida, da Mana, do Crítico, da
+Precisão, da Fortuna, e um para cada classe.
+
+`ItemDef` só sabe expressar `atk` e `def`, e a curva de defesa é rasa de
+propósito — então os 18 anéis sairiam todos com **`def: 1`**: dezoito itens
+mecanicamente idênticos com nomes diferentes. É o mesmo problema dos 38 ícones
+iguais que a sessão de 30/07 já corrigiu, e o que `DD-MAT-001` proíbe.
+
+O que destrava os três de uma vez (anel, Veste e Livro Arcano): **bônus fixo de
+equipamento** — vida, mana, poder mágico — em `ItemDef`, somado por `equipBonus`.
+
 ### O que falta
 
-Armadura dos slots que existem (cap. 24–27, 30–31, 92 modelos) · limitar o
-**drop** por nível (`DROP_POOL_WEAPON`/`ARMOR` continuam sendo as 13 âncoras, então
-os 104 modelos novos só se obtêm fabricando) · os 41 modelos que exigem slot novo
-no paperdoll (cap. 28–29, 32–34).
+Os 41 modelos que exigem `EquipSlot` novo no paperdoll (cap. 28–29, 32–34:
+luvas, capas, braceletes, cintos, broches) · anéis e colares, que esperam bônus
+fixo de equipamento · fonte de obtenção para os três artefatos únicos.
 
 ## Armadilha conhecida
 

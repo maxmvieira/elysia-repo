@@ -50,6 +50,7 @@ import {
   craftableModel,
   craftXp,
   rollCraft,
+  MODEL_ENTRIES,
   MODEL_INDEX,
   FRAGMENTS_PER_CRAFT,
   MIN_FRAGMENTS_FOR_CHANCE,
@@ -951,14 +952,55 @@ function expireGroundItems(now: number): void {
   }
 }
 
-/** Equipamentos que podem cair de monstros, por slot. */
-const DROP_POOL_WEAPON = [
-  'short_sword', 'hand_axe', 'club', 'dagger', 'spear', 'short_bow',
-  'light_crossbow', 'apprentice_staff',
-];
-const DROP_POOL_ARMOR = [
-  'leather_helmet', 'leather_armor', 'leather_pants', 'leather_boots', 'wooden_shield',
-];
+/**
+ * Quanto de nível de equipamento vale um ponto de XP da criatura.
+ *
+ * 🔴 **A XP é o medidor de dificuldade canônico do bestiário** — o Slime Verde,
+ * com 10 de XP, é a "âncora de balanceamento de todo o bestiário" segundo o Doc
+ * 3, e não existe campo de nível na criatura. Ancorar aqui é reusar a escala que
+ * o documento já fechou em vez de inventar uma segunda.
+ *
+ * ⚠️ REFERÊNCIA: o fator é ajuste de sensação. Com 0,6, o Slime Verde (10 XP)
+ * larga peça de Lv.6 e o Zumbi (95 XP, conteúdo de nível 50–100) larga de Lv.57.
+ */
+const DROP_LEVEL_PER_XP = 0.6;
+
+/**
+ * Nível de equipamento que esta criatura larga, e o piso da faixa.
+ *
+ * A faixa vai da METADE do nível até ele: sem o piso, todo monstro do jogo
+ * continuaria largando as peças de nível 1 na maior parte das vezes, porque elas
+ * são a maioria do que cabe no filtro. Com ele, matar coisa mais forte muda o que
+ * cai — que é o ponto inteiro de ter 177 modelos.
+ */
+function dropLevelRange(c: Creature): { min: number; max: number } {
+  const max = Math.max(1, Math.round((c.def.xpReward ?? 0) * DROP_LEVEL_PER_XP));
+  return { min: Math.max(1, Math.floor(max / 2)), max };
+}
+
+/**
+ * Equipamentos que podem cair de uma criatura desta faixa de nível.
+ *
+ * 🔴 Antes do catálogo do Doc 4 isto era uma lista fixa de 13 peças, e não havia
+ * o que filtrar. Com 177 modelos, sortear uniformemente faria um Slime Verde
+ * largar o Machado Primordial.
+ *
+ * Artefato único fica fora: o cap. 40 diz que existe UM no mundo, e pool
+ * aleatório é a definição do contrário.
+ */
+function dropPoolFor(arma: boolean, min: number, max: number): string[] {
+  const cabe = MODEL_ENTRIES.filter(
+    (e) => !e.unique
+      && (e.slot === 'weapon') === arma
+      && e.level >= min && e.level <= max,
+  );
+  // Se a faixa não pegou nada (criatura muito fraca), cai no piso do catálogo —
+  // largar nada seria pior que largar a peça mais simples.
+  const escolhidos = cabe.length > 0
+    ? cabe
+    : MODEL_ENTRIES.filter((e) => !e.unique && (e.slot === 'weapon') === arma && e.level === 1);
+  return escolhidos.map((e) => e.kind);
+}
 
 /**
  * Que tipo de fonte esta criatura é, para o teto de raridade do fragmento.
@@ -1028,7 +1070,9 @@ function dropLoot(c: Creature): void {
   // raridade para cima — mas Lendário+ segue sendo evento raro.
   if (Math.random() < (c.def.boss ? 1 : EQUIP_DROP_CHANCE)) {
     const arma = Math.random() < 0.5;
-    const pool = arma ? DROP_POOL_WEAPON : DROP_POOL_ARMOR;
+    // A faixa vem da XP da criatura: bicho mais forte larga modelo mais fundo.
+    const faixa = dropLevelRange(c);
+    const pool = dropPoolFor(arma, faixa.min, faixa.max);
     const kind = pool[Math.floor(Math.random() * pool.length)]!;
     const rarity = rollRarity(c.def.boss ? 35 : 0);
     // Cap. 46: o item nasce com NOME. `rollAffixNames` vem separado de

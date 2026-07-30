@@ -253,10 +253,132 @@ const OFFHAND_FAMILIES: ModelFamily[] = [
   },
 ];
 
+/**
+ * Proteção do corpo — cap. 24 a 27.
+ *
+ * 🔴 **Os peitorais são QUATRO famílias, não uma.** O cap. 25 subdivide as peças
+ * em Leves / Médias / Pesadas / Vestes Mágicas e ordena por poder **dentro de
+ * cada subdivisão**. Numa lista só, o tier desceria toda vez que uma subdivisão
+ * recomeçasse — a Cota de Malha (primeira Média) vem logo depois das Vestes do
+ * Explorador (última Leve). O cap. 42 até prevê "Subcategoria" como campo; aqui
+ * ela vira família, que é a unidade que já ordena o resto do catálogo.
+ *
+ * ⚠️ **A classe de armadura das outras três famílias é INFERIDA do nome.** Só o
+ * cap. 25 diz a classe de cada peça; os cap. 24, 26 e 27 são lista pura. A regra
+ * usada, e ela é do português, não do documento: Capuz e Tecido → Veste ·
+ * Couro e Élfico → Leve · Capacete e Militar → Média · Elmo, Perneiras, Ferro,
+ * Aço e Anão → Pesada.
+ */
+const ARMOR_FAMILIES: ModelFamily[] = [
+  {
+    // O cap. 24 é o único capítulo de armadura que rotula o tier explicitamente.
+    id: 'capacete', name: 'Capacetes', chapter: 24,
+    slot: 'helmet', armorClass: 'medium', color: 0x8a6a3a,
+    models: [
+      { ...i('Capuz de Tecido'), armorClass: 'robe' },
+      // ⚠️ Renomeado para o canônico: era "Elmo de Couro", e o cap. 24 diz
+      // "Capuz de Couro". Mesmo tratamento que os quatro nomes corrigidos em
+      // 2026-07-30 — o `kind` não muda, então o save continua válido.
+      { ...i('Capuz de Couro', 'leather_helmet'), armorClass: 'light' },
+      { ...i('Elmo de Bronze'), armorClass: 'heavy' },
+      i('Capacete do Recruta'),
+      { ...i('Elmo do Caçador'), armorClass: 'light' },
+      { ...i('Capuz do Aprendiz'), armorClass: 'robe' },
+      { ...m('Elmo de Ferro'), armorClass: 'heavy' },
+      m('Capacete Militar'),
+      { ...m('Capacete do Cavaleiro'), armorClass: 'heavy' },
+      { ...m('Capuz Arcano'), armorClass: 'robe' },
+      { ...m('Elmo Élfico'), armorClass: 'light' },
+      { ...m('Elmo Anão'), armorClass: 'heavy' },
+      m('Capacete do Patrulheiro'),
+      { ...a('Elmo do Guardião'), armorClass: 'heavy' },
+      a('Elmo Rúnico'),
+      { ...a('Elmo Dracônico'), armorClass: 'heavy' },
+      { ...a('Elmo Celestial'), armorClass: 'heavy' },
+      a('Elmo Abissal'),
+      // 🔴 O "Tier Final" do cap. 24 não é um quarto degrau de progressão: são os
+      // **Artefatos Únicos** do cap. 40. Existe UM de cada, sem versão por
+      // raridade, e por isso entram como `unique` — sem preço de balcão, fora de
+      // pool de drop e fora da bancada. Não há fonte de obtenção ainda.
+      { ...a('Coroa dos Primeiros Reis'), armorClass: 'heavy', unique: true },
+      { ...a('Elmo do Primeiro Guardião'), armorClass: 'heavy', unique: true },
+      { ...a('Coroa da Criação'), armorClass: 'robe', unique: true },
+    ],
+  },
+  {
+    id: 'peitoral_leve', name: 'Peitorais Leves', chapter: 25,
+    slot: 'armor', armorClass: 'light', color: 0x7a5230,
+    models: [
+      i('Túnica Simples'),
+      // ⚠️ Renomeado para o canônico: era "Armadura de Couro"; o cap. 25 diz
+      // "Colete de Couro".
+      i('Colete de Couro', 'leather_armor'),
+      m('Armadura de Caçador'), m('Armadura Élfica'),
+      a('Vestes do Explorador'),
+    ],
+  },
+  {
+    id: 'peitoral_medio', name: 'Peitorais Médios', chapter: 25,
+    slot: 'armor', armorClass: 'medium', color: 0x8a7a5a,
+    models: [
+      i('Cota de Malha'), i('Armadura Militar'),
+      m('Armadura do Patrulheiro'), m('Armadura do Mercenário'),
+      a('Armadura do Guardião'),
+    ],
+  },
+  {
+    id: 'peitoral_pesado', name: 'Peitorais Pesados', chapter: 25,
+    slot: 'armor', armorClass: 'heavy', color: 0x9aa2ac,
+    models: [
+      i('Armadura de Ferro'), i('Armadura de Aço'),
+      m('Armadura do Cavaleiro'), m('Armadura Rúnica'), m('Armadura Dracônica'),
+      a('Armadura Celestial'), a('Armadura Primordial'),
+    ],
+  },
+  {
+    id: 'veste', name: 'Vestes Mágicas', chapter: 25,
+    slot: 'armor', armorClass: 'robe', color: 0x6a5a9a,
+    models: [
+      i('Vestes do Aprendiz'), i('Vestes do Mago'),
+      m('Vestes Arcanas'), m('Vestes do Sábio'),
+      a('Vestes Celestiais'), a('Vestes Primordiais'),
+    ],
+  },
+  {
+    id: 'calca', name: 'Calças', chapter: 26,
+    slot: 'pants', armorClass: 'heavy', color: 0x6e4a2a,
+    models: [
+      { ...i('Calça de Tecido'), armorClass: 'robe' },
+      { ...i('Calça de Couro', 'leather_pants'), armorClass: 'light' },
+      { ...i('Calça Militar'), armorClass: 'medium' },
+      m('Perneiras de Ferro'), m('Perneiras de Aço'),
+      { ...m('Perneiras Élficas'), armorClass: 'light' },
+      m('Perneiras Anãs'),
+      { ...m('Perneiras Rúnicas'), armorClass: 'medium' },
+      a('Perneiras Celestiais'), a('Perneiras Primordiais'),
+    ],
+  },
+  {
+    id: 'bota', name: 'Botas', chapter: 27,
+    slot: 'boots', armorClass: 'light', color: 0x5a3a20,
+    models: [
+      { ...i('Sandálias'), armorClass: 'robe' },
+      i('Botas de Couro', 'leather_boots'),
+      { ...i('Botas Militares'), armorClass: 'medium' },
+      m('Botas do Caçador'), m('Botas do Explorador'), m('Botas Élficas'),
+      { ...m('Botas Anãs'), armorClass: 'heavy' },
+      { ...m('Botas Rúnicas'), armorClass: 'medium' },
+      { ...a('Botas Celestiais'), armorClass: 'heavy' },
+      { ...a('Botas Primordiais'), armorClass: 'heavy' },
+    ],
+  },
+];
+
 /** Todas as famílias do catálogo, na ordem dos capítulos. */
 export const MODEL_FAMILIES: ModelFamily[] = [
   ...WEAPON_FAMILIES,
   ...OFFHAND_FAMILIES,
+  ...ARMOR_FAMILIES,
 ];
 
 // ---------------------------------------------------------------------------
@@ -288,6 +410,39 @@ export const WEAPON_MODELS: Record<WeaponType, EquipModel[]> = (() => {
  * viraram famílias de verdade acima.
  */
 export const PENDING_MODEL_CATEGORIES = {
+  /**
+   * 🔴 **Cap. 30–31. O slot existe; o que falta é o EFEITO.**
+   *
+   * Acessório não é peça de proteção — a graça dele é o que faz, não quanto
+   * apara. E os nomes do documento são inteiramente sobre efeito: Anel da Vida,
+   * da Mana, do Crítico, da Precisão, da Fortuna, e um anel para cada classe.
+   *
+   * `ItemDef` só sabe expressar `atk` e `def`, e a curva de defesa é rasa de
+   * propósito — então os 18 anéis sairiam todos com **`def: 1`**, dezoito itens
+   * mecanicamente idênticos com nomes diferentes. É exatamente o problema que a
+   * sessão de 30/07 já teve com os 38 ícones iguais, e o que `DD-MAT-001` proíbe:
+   * item que "existe apenas para ocupar espaço".
+   *
+   * O que destrava: bônus fixo de equipamento (vida, mana, crítico) em
+   * `ItemDef`, somado por `equipBonus` no servidor. É a mesma peça que falta
+   * para a Veste valer a troca e para o Livro Arcano ter identidade — os três
+   * esperam a mesma coisa.
+   *
+   * O Colar de Cobre continua escrito à mão: ele não tem equivalente canônico no
+   * cap. 31, que começa em Colar de Couro.
+   */
+  aneis: [
+    'Anel de Bronze', 'Anel de Ferro', 'Anel de Prata', 'Anel de Ouro',
+    'Anel Arcano', 'Anel do Guerreiro', 'Anel do Arqueiro', 'Anel do Assassino',
+    'Anel do Druida', 'Anel do Feiticeiro', 'Anel da Vida', 'Anel da Mana',
+    'Anel do Crítico', 'Anel da Precisão', 'Anel da Resistência',
+    'Anel da Fortuna', 'Anel Celestial', 'Anel Primordial',
+  ],
+  colares: [
+    'Colar de Couro', 'Amuleto de Pedra', 'Colar de Prata', 'Colar de Ouro',
+    'Amuleto Arcano', 'Amuleto Sagrado', 'Amuleto Sombrio', 'Amuleto Dracônico',
+    'Amuleto Celestial', 'Relicário Primordial',
+  ],
   /**
    * Cap. 28–29 e 32–34. Os cinco exigem **`EquipSlot` novo**, e slot novo não é
    * só um campo: é mexer no paperdoll da interface. Decisão do dono.

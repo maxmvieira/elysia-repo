@@ -254,8 +254,13 @@ const HAND_WRITTEN: Record<string, ItemDef> = {
   wooden_shield: { kind: 'wooden_shield', name: 'Escudo de Madeira', category: 'equip', stackable: false, buyPrice: 40, slot: 'shield', def: 4, color: 0x8a5a2f },
   // Couro é armadura LEVE (cap. 38): Archer e Assassin priorizam. As categorias
   // Pesada e Veste existem no tipo e esperam o catálogo do cap. 13–43.
-  leather_helmet: { kind: 'leather_helmet', name: 'Elmo de Couro', category: 'equip', stackable: false, buyPrice: 30, slot: 'helmet', def: 2, armorClass: 'light', color: 0x8a6a3a },
-  leather_armor: { kind: 'leather_armor', name: 'Armadura de Couro', category: 'equip', stackable: false, buyPrice: 60, slot: 'armor', def: 5, armorClass: 'light', color: 0x7a5230 },
+  // ⚠️ Dois nomes corrigidos para os CANÔNICOS do cap. 24 e 25 em 2026-07-30:
+  // "Elmo de Couro" → **Capuz de Couro** e "Armadura de Couro" → **Colete de
+  // Couro**. Mesmo tratamento das quatro armas renomeadas antes — o `kind` não
+  // muda, então save de jogador continua válido; só o nome exibido. `models.ts`
+  // tem teste travando os dois.
+  leather_helmet: { kind: 'leather_helmet', name: 'Capuz de Couro', category: 'equip', stackable: false, buyPrice: 30, slot: 'helmet', def: 2, armorClass: 'light', color: 0x8a6a3a },
+  leather_armor: { kind: 'leather_armor', name: 'Colete de Couro', category: 'equip', stackable: false, buyPrice: 60, slot: 'armor', def: 5, armorClass: 'light', color: 0x7a5230 },
   leather_pants: { kind: 'leather_pants', name: 'Calça de Couro', category: 'equip', stackable: false, buyPrice: 35, slot: 'pants', def: 3, armorClass: 'light', color: 0x6e4a2a },
   leather_boots: { kind: 'leather_boots', name: 'Botas de Couro', category: 'equip', stackable: false, buyPrice: 25, slot: 'boots', def: 2, armorClass: 'light', color: 0x5a3a20 },
   copper_necklace: { kind: 'copper_necklace', name: 'Colar de Cobre', category: 'equip', stackable: false, buyPrice: 45, slot: 'necklace', atk: 2, def: 1, color: 0xb87333 },
