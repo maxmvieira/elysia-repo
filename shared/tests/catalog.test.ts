@@ -181,9 +181,12 @@ test('🔴 a defesa de um set completo não pode zerar o dano do bestiário', ()
 
   // ⚠️ E o aviso de para onde isso vai: em algum ponto do meio do jogo a curva
   // cruza o teto, porque não existe criatura de Tier IV para bater mais forte.
-  // O que impede o problema hoje é a OBTENÇÃO — VENDOR_STOCK é lista curada, e o
-  // drop e a bancada são limitados. Se este teste começar a falhar, a resposta
-  // não é baixar DEF_COEF: é o bestiário que precisa crescer.
+  //
+  // 🔴 Isso deixou de ser fatal em 30/07: `MIN_DAMAGE_AFTER_ARMOR` garante que a
+  // armadura sozinha nunca apare mais que três quartos do golpe, então passar do
+  // teto não zera mais o dano — só o reduz ao mínimo. Este teste continua aqui
+  // como termômetro: quando ele parar de valer, é porque o bestiário cresceu, e
+  // aí `DEF_COEF` pode subir junto.
   const setNoTopo = equipDefPower(100) * somaDosShares;
   assert.ok(setNoTopo > tetoDeDano, 'se o topo couber no teto, o bestiário já cresceu');
 });

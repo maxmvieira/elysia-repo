@@ -1130,8 +1130,19 @@ function dropLoot(c: Creature, recipient?: Player): void {
   }
 }
 
-/** Chance de um monstro comum largar uma peça de equipamento. */
-const EQUIP_DROP_CHANCE = 0.18;
+/**
+ * Chance de um monstro comum largar uma peça de equipamento.
+ *
+ * ⚠️ **Baixou de 0,18 para 0,08 em 2026-07-30**, e o motivo é o catálogo: antes
+ * havia 13 peças, todas de nível 1, e quase 1 em cada 5 abates largar equipamento
+ * só enchia a mochila de repetição. Com 177 modelos escalonados por nível, cada
+ * peça que cai é uma peça que pode ser melhor que a atual — e a mesma frequência
+ * viraria progressão de graça.
+ *
+ * REFERÊNCIA: nenhum doc dá a chance. O que o doc fecha é o princípio de que
+ * equipamento é conquista, não enchimento.
+ */
+const EQUIP_DROP_CHANCE = 0.08;
 
 function grantXp(player: Player, amount: number): void {
   player.xp += amount;

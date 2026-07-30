@@ -134,9 +134,39 @@ test('31.56: a ordem inversa (armadura antes do escudo) dá resultado diferente'
   assert.notEqual(diagrama.amount, texto.amount);
 });
 
-test('armadura absurda não cura o alvo nem devolve negativo', () => {
+test('🔴 armadura sozinha nunca apara mais que três quartos do golpe', () => {
+  // Corte plano não tem retorno decrescente: sem teto, defesa acima do dano
+  // bruto zera o golpe (piso de 1) e o jogador vira intocável. Com o catálogo do
+  // Doc 4 completo, um set pesado de meio de jogo já passa dos 24 de força do
+  // Zumbi, que é a criatura mais forte que existe — o jogo se resolveria sozinho.
   const r = resolveDamage(10, 'physical', emptyDefense({ defense: 9999 }), semSorte);
-  assert.equal(r.amount, 1);
+  assert.equal(r.amount, 3, '25 % de 10, arredondado');
+  assert.ok(r.amount > 0, 'nem cura o alvo nem devolve negativo');
+  // Escala com o golpe: quanto mais forte a pancada, mais passa pela armadura.
+  assert.equal(resolveDamage(100, 'physical', emptyDefense({ defense: 9999 }), semSorte).amount, 25);
+});
+
+test('o teto da armadura não muda o balanceamento de hoje', () => {
+  // 🔴 O ponto: é grade de proteção, não nerf. Com o set de couro completo (17 de
+  // defesa somada) contra o Zumbi (24 de força), o corte plano já entrega 7 — bem
+  // acima do teto de 25 %, então ele nem entra em ação.
+  const couro = emptyDefense({ defense: 17 });
+  assert.equal(resolveDamage(24, 'physical', couro, semSorte).amount, 7);
+  // Ele só age quando a armadura passaria a dominar.
+  const setPesadoDeEndgame = emptyDefense({ defense: 60 });
+  assert.equal(resolveDamage(24, 'physical', setPesadoDeEndgame, semSorte).amount, 6);
+});
+
+test('o teto vale só para a ARMADURA — resistência e redução agem depois', () => {
+  // `DD-ELM-003` e o cap. 31 preveem que as camadas seguintes reduzam mais. Se o
+  // teto fosse no dano final, resistência elemental deixaria de valer a pena.
+  const resistente = emptyDefense({ defense: 9999, resistances: { fire: 0.5 } });
+  const semResistencia = emptyDefense({ defense: 9999 });
+  assert.ok(
+    resolveDamage(100, 'fire', resistente, semSorte).amount
+    < resolveDamage(100, 'fire', semResistencia, semSorte).amount,
+    'resistir a fogo tem que continuar valendo mesmo com armadura enorme',
+  );
 });
 
 test('damageTakenMult pode AUMENTAR o dano — é a Fúria de Batalha', () => {

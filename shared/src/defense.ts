@@ -70,6 +70,20 @@ export const BLOCK_CAP = 0.25;
 export const MAGIC_BLOCK_CAP = 0.10;
 
 /** Teto de bloqueio que vale para este tipo de dano. */
+/**
+ * Fração do golpe que a ARMADURA sozinha nunca consegue aparar.
+ *
+ * 🔴 Um quarto: por mais defesa que se acumule, um golpe que conectou entrega ao
+ * menos 25 % do que chegou nela. **Só a camada de armadura** — resistência
+ * elemental e redução de skill agem depois e podem baixar mais, que é o que
+ * `DD-ELM-003` e o cap. 31 preveem.
+ *
+ * O teto existe porque corte plano não tem retorno decrescente: sem ele, defesa
+ * acima do dano bruto zera o golpe e o jogo acaba. Ver o comentário no
+ * `armorStep`.
+ */
+export const MIN_DAMAGE_AFTER_ARMOR = 0.25;
+
 export function blockCapFor(type: DamageType): number {
   return type === 'physical' ? BLOCK_CAP : MAGIC_BLOCK_CAP;
 }
@@ -227,8 +241,24 @@ export function resolveDamage(
   const shieldStep = (v: number): number => v * (1 - mitigation);
 
   // ── ARMADURA/DEF ── corte PLANO no dano bruto, não percentual.
+  //
+  // 🔴 **Mas o corte plano tem teto**, e sem ele o jogo se resolve sozinho. Corte
+  // plano não tem retorno decrescente: quando a defesa passa do dano bruto, o
+  // golpe cai para o piso de 1 e o jogador vira intocável. Com o catálogo de
+  // equipamento do Doc 4 completo, um set pesado de meio de jogo já soma mais que
+  // os 24 de força do Zumbi, que é a criatura mais forte que existe.
+  //
+  // O teto **não muda nada do balanceamento atual**: com as peças de couro (17 de
+  // defesa somada) contra um Zumbi, o corte já entrega 7 de dano, bem acima do
+  // piso. Ele só age quando a armadura passaria a dominar — é grade de proteção,
+  // não nerf.
+  //
+  // ⚠️ REFERÊNCIA: nenhum doc dá este número. A escolha segue a filosofia que o
+  // próprio `DD-DEF-012` estabeleceu para o bloqueio — defesa tem teto, e o teto
+  // é decisão consciente. A alternativa seria trocar o corte plano por redução
+  // com retorno decrescente, mas o cap. 31 fecha "corte plano no dano bruto".
   const flatDef = defenseFor(def, type);
-  const armorStep = (v: number): number => Math.max(0, v - flatDef);
+  const armorStep = (v: number): number => Math.max(v * MIN_DAMAGE_AFTER_ARMOR, v - flatDef);
 
   let afterShield: number;
   let afterArmor: number;
