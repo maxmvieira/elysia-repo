@@ -2073,6 +2073,31 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (d.startsWith('eq:')) net.send({ t: 'unequip', slot: d.slice(3) as EquipSlot });
   });
 
+  // ---- Soltar no chão ARRASTANDO para o mundo ------------------------------
+  //
+  // 🔴 **Este é o caminho principal, e o botão direito virou atalho.** O motivo é
+  // prático: o dono relatou que soltar item não funcionava, e o `contextmenu` num
+  // elemento com `draggable = true` é instável — no Windows ele dispara no
+  // RELEASE, e o navegador pode engolir o evento quando o mesmo elemento pode
+  // iniciar um arraste. Um gesto essencial não pode depender disso.
+  //
+  // E é o inverso exato do arraste do chão para a mochila, que já existe: tirar
+  // da bolsa jogando no mundo é o mesmo movimento ao contrário. Gesto simétrico
+  // não precisa ser ensinado duas vezes.
+  viewportEl.addEventListener('dragover', allowDrop);
+  viewportEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const d = e.dataTransfer?.getData('text/plain') ?? '';
+    if (!d.startsWith('bp:')) return;
+    const slot = Number(d.slice(3));
+    const stack = currentInv?.backpack[slot];
+    if (!stack) return;
+    // Shift solta a pilha inteira; sem shift, uma unidade. Mesma regra do botão
+    // direito — soltar 300 fragmentos por engano com um gesto seria irreversível.
+    const tudo = e.shiftKey || stack.amount === 1;
+    net.send({ t: 'drop', slot, ...(tudo ? {} : { amount: 1 }) });
+  });
+
   // Momento do último arraste de painel (para não minimizar no clique que segue).
   let lastDragEnd = 0;
 

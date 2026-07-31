@@ -60,7 +60,33 @@ bruto derruba o golpe ao piso e o jogador vira intocável.
 
 ---
 
-## 🔴 PARA QUEM FOR PEGAR AGORA: o que NUNCA rodou em tela
+## 🔴 A PRIMEIRA COISA A FAZER: confirmar se soltar item funciona
+
+O dono relatou que **soltar item no chão nunca funcionou**, e foram encontradas
+duas causas. A primeira está **provada e corrigida**; a segunda é diagnóstico por
+eliminação e **não foi vista em tela** — ele precisou desligar o PC.
+
+**Como confirmar (1 minuto):**
+
+1. Entre no jogo com um personagem que tenha itens.
+2. **Arraste um item da mochila para o mundo** — é o caminho novo e principal.
+   O item tem que cair no chão **e ficar lá**, mesmo você parado em cima.
+3. Ande para fora do tile e volte: aí sim ele é recolhido automaticamente.
+4. `Shift` enquanto arrasta solta a pilha inteira.
+5. O botão direito continua funcionando como atalho — **se ele não funcionar, é
+   esperado**: é justamente o mecanismo suspeito, e por isso o arraste virou o
+   caminho principal.
+
+Se o arraste também falhar, o console do navegador (F12) é o que falta — nenhum
+dos dois lados conseguiu olhar lá.
+
+📖 O diagnóstico completo das duas causas está no
+[`HISTORICO.md`](./HISTORICO.md), na seção "Soltar item no chão — a caçada ao
+bug".
+
+---
+
+## 🔴 O que NUNCA rodou em tela
 
 Teste passando não é o mesmo que funcionar. **Nada abaixo foi visto no jogo**, e
 duas dessas coisas exigem duas pessoas — que é justamente o que vocês são.

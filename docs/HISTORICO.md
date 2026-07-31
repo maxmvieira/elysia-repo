@@ -1236,6 +1236,53 @@ Duas decisões que o modo forçou:
   automático não roda enquanto houver tecla pressionada, e volta sozinho ao
   soltar.
 
+## Soltar item no chão — a caçada ao bug (2026-07-30)
+
+**Arquivos:** `server/src/index.ts` · `client/src/main.ts` · `client/index.html`
+
+O dono relatou que soltar item **nunca funcionou**. Foram **duas** causas, e a
+primeira estava escondida havia sessões.
+
+### 🔴 Causa 1 (servidor): o item caía e voltava no mesmo tique
+
+O `drop` põe a pilha no tile do **próprio jogador**. O laço de recolhimento
+automático de `updatePlayers` pega qualquer item no tile do jogador. Os dois
+rodam no mesmo tique — o item caía e era recolhido instantaneamente. De fora,
+parecia que o botão direito não fazia nada.
+
+**Correção:** `GroundItem.droppedBy` guarda quem acabou de soltar, e o
+recolhimento automático o ignora enquanto essa pessoa estiver em cima. A marca se
+apaga quando o jogador **sai do tile** — não por tempo. Prazo fixo teria o mesmo
+problema em câmera lenta: quem ficasse parado veria o item pular de volta.
+
+⚠️ Só bloqueia o recolhimento AUTOMÁTICO. Arrastar de volta funciona na hora, e
+outro jogador recolhe normalmente (a marca é por id).
+
+**Provado com cliente headless**, não por leitura: um script conecta, registra
+conta nova, solta um item e confere que o slot esvazia e **não volta**. Está em
+`docs/` como método, não no repositório — mas vale repetir quando algo "não
+funciona em tela e passa nos testes".
+
+### 🔴 Causa 2 (cliente): `contextmenu` em elemento `draggable`
+
+Mesmo com o servidor correto, nenhuma mensagem de `drop` chegava. O gesto era
+botão direito numa célula com `draggable = true` — combinação instável: no
+Windows o `contextmenu` dispara no **release**, e o navegador pode engolir o
+evento quando o mesmo elemento pode iniciar um arraste.
+
+**Correção:** o caminho principal passou a ser **arrastar da mochila para o
+mundo**, que usa o mesmo HTML5 drag que equipar/desequipar já usava e funciona.
+O botão direito continua como atalho.
+
+É o inverso exato do arraste do chão para a mochila: tirar da bolsa jogando no
+mundo é o mesmo movimento ao contrário, e gesto simétrico não precisa ser
+ensinado duas vezes.
+
+⚠️ **Não foi confirmado em tela** — a extensão de automação do Chrome não estava
+conectada e o dono precisou desligar. A causa 1 está provada; a causa 2 é
+diagnóstico por eliminação, e o conserto é um caminho novo que não depende do
+mecanismo suspeito.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os
