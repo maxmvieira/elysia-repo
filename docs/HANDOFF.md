@@ -9,23 +9,47 @@ regras de Party).
 
 ---
 
-## 🆕 A sessão mais recente, em seis linhas
+## 🆕 Onde o projeto está agora
 
-1. **Os 205 modelos canônicos do Doc 4 viraram itens jogáveis** — `atk`, `def`,
-   bônus fixo, nível recomendado e preço saem de **cinco constantes** em
-   `equipcurve.ts`, não de centenas de números escritos à mão.
-2. **Varinha, Livro Arcano e Escudo foram decididos** e saíram do pendente. O
-   Livro é **foco de mão secundária**, no slot do escudo.
-3. **A Etapa 9 está COMPLETA** — party, shared XP, três regras de loot com
-   votação, e loot de chefe por contribuição. Jogável por comandos de chat
-   (`/convidar`, `/loot`, `/grupo`) com painel na barra lateral.
-4. **Passe de balanceamento** — a armadura ganhou teto e o drop de equipamento
-   caiu para menos da metade.
-5. **`ItemDef.bonus`** — bônus fixo de equipamento. Destravou os anéis, os
-   colares, a Veste e o Livro Arcano de uma vez só.
-6. **`proficiency.ts`** — o vocabulário do `DD-PROG-011`. **Magic Level e Fist
-   passam a existir.** ⚠️ É camada de LEITURA: `Proficiencies` continua indexada
-   por `WeaponType` em save, e ligar de verdade exige migração.
+### ✅ Os dois branches foram fundidos, e a Etapa 9 fechou
+
+Party completa: formação (dele) + shared XP, três regras de loot com votação e
+loot de chefe por contribuição (do `main`). Mais menu de contexto, amigos
+(schema v4) e o PvP com Caveira Branca. Detalhe do merge em
+[`MERGE-PVP-CAVEIRA-BRANCA.md`](./MERGE-PVP-CAVEIRA-BRANCA.md).
+
+### ✅ Catálogo de equipamento inteiro
+
+**205 modelos** do Doc 4 viraram itens jogáveis. `atk`, `def`, bônus fixo, nível
+recomendado e preço saem de **cinco constantes** em `equipcurve.ts` — rebalancear
+o jogo é mudar uma delas, não reabrir centenas de números.
+
+Varinha virou família de `staff`, Livro Arcano virou **foco de mão secundária**
+no slot do escudo, e `ItemDef.bonus` destravou anéis, colares e Vestes.
+
+### ✅ Magic Level LIGADO
+
+`Proficiencies` agora é chaveada pelo vocabulário do `DD-PROG-011`: o Cajado sobe
+`magic`, arco e besta colapsam em `distance`, e **desarmado treina `fist`** — antes
+não treinava nada. A migração roda no carregamento e é idempotente.
+
+### ✅ Ciclo dia/noite de verdade
+
+**1 h dia · 30 min tarde · 1 h noite.** Dava a volta em 2 minutos antes.
+Comandos: `/dia` · `/tarde` · `/noite` · `/ciclo`.
+
+### ⏳ Coleta e mineração — REGRAS prontas, NÃO ligadas
+
+`gathering.ts` tem os cinco nós, ferramentas, cargas e rendimentos, testados. Os
+sete materiais que estavam **proibidos de existir** entraram (o Ferreiro tem
+minério, o Alquimista tem erva).
+
+🔴 **Mas nada disso está no mundo.** Faltam os nós como entidade no servidor
+(spawn, cargas, respawn), a mensagem de coleta e o desenho no cliente. É a
+próxima coisa a fazer, e a decisão de arquitetura já está tomada: **nós são
+ENTIDADES, não tiles** — o mapa é gerado deterministicamente pelos dois lados e
+não trafega pela rede, então mudar um tile ao cortar uma árvore dessincronizaria
+cliente e servidor.
 
 🔴 **Se você for mexer em equipamento ou defesa, leia as seções "curva" e
 "armadura ganha teto" do [`HISTORICO.md`](./HISTORICO.md) antes.** Ataque e
@@ -33,6 +57,26 @@ defesa têm curvas separadas, e a assimetria não é gosto: `resolveDamage` miti
 por **subtração plana**, que não tem retorno decrescente — defesa acima do dano
 bruto derruba o golpe ao piso e o jogador vira intocável.
 `MIN_DAMAGE_AFTER_ARMOR` é a grade que impede isso.
+
+---
+
+## 🔴 PARA QUEM FOR PEGAR AGORA: o que NUNCA rodou em tela
+
+Teste passando não é o mesmo que funcionar. **Nada abaixo foi visto no jogo**, e
+duas dessas coisas exigem duas pessoas — que é justamente o que vocês são.
+
+| O quê | Como testar | Por que ninguém testou |
+|---|---|---|
+| **Party de ponta a ponta** | dois clientes · `/convidar <nome>` · `/sim` · matar algo perto e conferir se a XP dividiu | exige duas janelas |
+| **PvP e Caveira Branca** | ligar PK · agredir · ver a caveira nos dois lados · revidar **sem** ligar o próprio PK · esperar 5 min | idem |
+| **Regras de loot** | `/loot lider` → abre votação → todos votam → matar algo e ver quem recebe | idem |
+| **Menu de contexto** | botão direito num jogador — "Informações" tem que ser o primeiro, "Atacar" o último, e atacar quem não tem caveira pede **dois cliques** | era o bug relatado; o conserto não foi visto rodando |
+| **Ciclo dia/noite** | `/tarde` e `/noite`, e conferir que amanhece sozinho depois | novo |
+| **Catálogo novo** | bancada do Ferreiro: a lista de peças muda conforme a receita escolhida | novo |
+
+⚠️ **Se algo estiver quebrado, suspeite primeiro do merge.** Dois branches
+paralelos foram fundidos à mão em `server/src/index.ts` e `client/src/main.ts`,
+que são os dois arquivos maiores do projeto.
 
 > **Comece por aqui**, depois vá para [`ROADMAP-elysia.md`](./ROADMAP-elysia.md)
 > (plano geral) e [`HISTORICO.md`](./HISTORICO.md) (detalhe de cada etapa).
@@ -72,11 +116,11 @@ Se o bug for de regra de PvP, **leia o bloco da Caveira Branca abaixo antes de
 git pull
 npm install          # confere; nenhuma dependência nova foi adicionada
 npm run typecheck    # tem que sair limpo nos 3 pacotes
-npm test             # tem que dar 377 passando, 0 falhando
+npm test             # tem que dar 397 passando, 0 falhando
 npm run dev:test     # sobe com os comandos de teste ligados
 ```
 
-Se o `npm test` não der 377, **não continue** — algo se perdeu no merge.
+Se o `npm test` não der 397, **não continue** — algo se perdeu no merge.
 
 ---
 
@@ -204,7 +248,7 @@ Corrigido: `backpackSizeFor()` é a fonte única, usada no carregamento **e** ao
 
 | | 30/07 manhã | 30/07 noite | 30/07 madrugada | **pós-merge** |
 |---|---|---|---|---|
-| Testes | 237 | 298 | 328 · 344 | **377** (357 shared + 20 server) |
+| Testes | 237 | 298 | 328 · 344 | **397** (377 shared + 20 server) |
 | Typecheck | limpo | limpo | limpo | limpo nos 3 pacotes |
 | Criaturas vivas no mapa | 32 | 32 | 32 | 32 |
 | Espécies definidas | 23 | 23 | 23 | 23 |
