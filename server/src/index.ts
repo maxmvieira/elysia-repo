@@ -444,6 +444,23 @@ interface GroundItem {
   /** Instância do equipamento (raridade/passivos), quando houver. */
   roll?: ItemRoll;
   /**
+   * 🔴 **Quem acabou de soltar este item, e ainda está em cima dele.**
+   *
+   * Sem isto, soltar item no chão simplesmente NÃO FUNCIONA: o `drop` põe a
+   * pilha no tile do próprio jogador, e o recolhimento automático de
+   * `updatePlayers` a pega de volta no mesmo tique. O item caía e voltava, e de
+   * fora parecia que o botão direito não fazia nada.
+   *
+   * A marca se apaga sozinha quando o jogador **sai do tile** — não por tempo.
+   * Prazo fixo teria o mesmo problema em câmera lenta: quem ficasse parado
+   * veria o item pular de volta para a mochila alguns segundos depois.
+   *
+   * ⚠️ Só bloqueia o recolhimento AUTOMÁTICO. Arrastar o item de volta para a
+   * mochila continua valendo na hora: é gesto deliberado, e desfazer um engano
+   * não pode exigir dar um passo para o lado.
+   */
+  droppedBy?: string;
+  /**
    * Timestamp em que o item some do chão.
    *
    * 🔴 Antes disto, item no chão **nunca expirava** — só corpo expirava. Com 32
@@ -1513,10 +1530,13 @@ const GROUND_LOOT_TTL_MS = 300000;
 function dropItem(
   kind: string, amount: number, x: number, y: number, floor: number, roll?: ItemRoll,
   ttlMs = GROUND_LOOT_TTL_MS,
+  /** Quem soltou, quando foi um jogador. Ver `GroundItem.droppedBy`. */
+  droppedBy?: string,
 ): void {
   const id = newId('i');
   items.set(id, {
     id, itemKind: kind, amount, tileX: x, tileY: y, floor, roll,
+    ...(droppedBy ? { droppedBy } : {}),
     expiresAt: Date.now() + ttlMs,
   });
 }
@@ -3333,9 +3353,12 @@ function handleMessage(player: Player, msg: ClientMessage): void {
         return;
       }
       const qtd = Math.min(slot.amount, Math.max(1, Math.floor(msg.amount ?? slot.amount)));
+      // 🔴 `player.id` no fim: marca o item como "acabei de soltar", para o
+      // recolhimento automático não o puxar de volta no mesmo tique. Sem isso o
+      // botão direito parecia não fazer nada.
       dropItem(
         slot.kind, qtd, player.tileX, player.tileY, player.floor,
-        slot.roll, PLAYER_DROP_TTL_MS,
+        slot.roll, PLAYER_DROP_TTL_MS, player.id,
       );
       slot.amount -= qtd;
       if (slot.amount <= 0) player.backpack[msg.slot] = null;
@@ -3979,17 +4002,25 @@ function updatePlayers(now: number): void {
       }
     }
     for (const item of items.values()) {
-      if (item.floor === player.floor && item.tileX === player.tileX && item.tileY === player.tileY) {
-        if (item.itemKind === 'gold') {
-          setGold(player, player.gold + item.amount);
-          items.delete(item.id);
-          sendStats(player);
-          sendInventory(player);
-        } else if (addToBackpack(player, item.itemKind, item.amount, item.roll)) {
-          // Só recolhe do chão se coube na mochila (senão fica lá).
-          items.delete(item.id);
-          sendInventory(player);
-        }
+      if (item.floor !== player.floor) continue;
+      const mesmoTile = item.tileX === player.tileX && item.tileY === player.tileY;
+      // 🔴 Item que ESTE jogador acabou de soltar não volta para a mochila
+      // enquanto ele estiver em cima. A marca se apaga quando ele sai do tile —
+      // é isso que faz soltar no chão funcionar de verdade.
+      if (item.droppedBy === player.id) {
+        if (!mesmoTile) item.droppedBy = undefined;
+        continue;
+      }
+      if (!mesmoTile) continue;
+      if (item.itemKind === 'gold') {
+        setGold(player, player.gold + item.amount);
+        items.delete(item.id);
+        sendStats(player);
+        sendInventory(player);
+      } else if (addToBackpack(player, item.itemKind, item.amount, item.roll)) {
+        // Só recolhe do chão se coube na mochila (senão fica lá).
+        items.delete(item.id);
+        sendInventory(player);
       }
     }
     // Reenvia o inventário quando entra/sai do Depósito, do alcance do vendedor
