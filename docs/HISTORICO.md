@@ -1182,6 +1182,60 @@ volta de inventário.
 pelos dois lados e não trafega pela rede — mudar um tile ao cortar uma árvore
 dessincronizaria cliente e servidor.
 
+## Três pedidos do dono: mochila, pegar do chão e modo de combate (2026-07-30)
+
+**Arquivos:** `protocol.ts` · `server/src/index.ts` · `client/src/main.ts` ·
+`client/index.html`
+
+### 1. Rearranjar a mochila arrastando (`C2S_MoveItem`)
+
+Troca as duas posições, ou **funde** quando são do mesmo empilhável — arrastar 3
+poções sobre 5 e ficar com 8 num slot só é o motivo de existir arrastar.
+
+⚠️ **Fundir exige que NENHUM dos dois tenha `roll`.** Duas espadas de raridades
+diferentes têm o mesmo `kind` e não são a mesma coisa; fundi-las apagaria os
+passivos de uma delas.
+
+🔴 O slot é alvo de soltura **mesmo vazio** — é justamente para o vazio que se
+arrasta ao arrumar a mochila. Vale também dentro do Depósito (`dp:`), e o
+prefixo diferente é o que impede arrastar de um para o outro por engano: a
+travessia continua sendo o clique, que valida proximidade do baú.
+
+### 2. Pegar do chão arrastando para a mochila (`C2S_PickUp`)
+
+🔴 **Arraste feito à mão, não HTML5.** O item no chão é um sprite dentro do canvas
+do Pixi, e `draggable` só existe em elemento do DOM — não há `dragstart` de lá.
+Então: `mousedown` no tile agarra, um ícone fantasma segue o cursor, `mouseup`
+sobre a mochila solta.
+
+⚠️ O fantasma precisa de `pointer-events: none`. Sem isso ele fica debaixo do
+cursor e o `mouseup` acerta o próprio fantasma em vez da mochila.
+
+**O recolhimento automático ao pisar em cima CONTINUA valendo** — isto se soma a
+ele. O alcance (`PICKUP_RANGE = 1`, ⚠️ REFERÊNCIA) é validado no **servidor**:
+id de item é fácil de forjar, e sem a checagem daria para limpar o mapa parado
+na vila.
+
+### 3. Perseguir / Parado, como no Tibia
+
+**Parado é o padrão**, e não por gosto: é o que o jogo já fazia. Quem nunca tocar
+no botão não pode ver o personagem começar a andar sozinho — mudança silenciosa
+de comportamento é a pior espécie.
+
+⚠️ **100 % cliente.** Reusa a rota por BFS e os PASSOS que o clique-para-andar já
+manda. Um "persiga o alvo X" no protocolo deixaria o cliente ditar posição — a
+mesma razão pela qual o "Seguir" do menu de contexto também não virou mensagem.
+
+Duas decisões que o modo forçou:
+
+- 🔴 **A distância de parada é o ALCANCE DA ARMA, não 1.** Um arqueiro que
+  colasse no monstro para atirar perderia a razão de ser arqueiro. Para o
+  "Seguir" social, 1 continua certo — ali a intenção é ficar do lado da pessoa.
+- 🔴 **"Teclado manda" passou a valer sem soltar o alvo.** Largar o alvo de
+  ataque a cada tecla apertada acabaria com o combate; em vez disso o passo
+  automático não roda enquanto houver tecla pressionada, e volta sozinho ao
+  soltar.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os

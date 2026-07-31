@@ -646,6 +646,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   /** Outros JOGADORES por tile — quem o botão direito abre o menu. */
   const jogadoresPorTile = new Map<number, EntitySnapshot>();
+  /**
+   * Itens no chão, por tile — para o arraste saber o que foi agarrado.
+   *
+   * Um tile pode ter várias pilhas; guarda-se a ÚLTIMA do snapshot, que é a que
+   * o render desenha por cima. Pegar o que se está vendo é a única regra que não
+   * surpreende.
+   */
+  const itensPorTile = new Map<number, EntitySnapshot>();
   /** Último snapshot indexado por id: a ficha do menu sai daqui, sem ida ao servidor. */
   const porId = new Map<string, EntitySnapshot>();
 
@@ -742,6 +750,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   function setTarget(id: string): void {
     targetId = id;
     net.send({ t: 'attack', targetId: id });
+    // Em modo Perseguir, mirar já começa a andar — senão o jogador teria que
+    // clicar em atacar E depois clicar no chão, que é exatamente o trabalho que
+    // o modo existe para poupar.
+    //
+    // `followUltimoTile` é zerado para forçar o recálculo: o alvo pode estar
+    // parado no mesmo tile de antes, e sem isso o `tickFollow` acharia que nada
+    // mudou e não traçaria rota nenhuma.
+    followUltimoTile = -1;
+    tickFollow();
   }
   function clearTarget(): void {
     if (!targetId) return;
@@ -1482,6 +1499,33 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         cell.addEventListener('dragstart', (e) => e.dataTransfer?.setData('text/plain', dragData));
       }
     }
+    // 🔴 O slot é alvo de soltura mesmo VAZIO — é justamente para o vazio que se
+    // arrasta ao arrumar a mochila. Por isso o `dragover` fica fora do `if
+    // (stack)`: célula vazia não tem ícone, mas tem posição.
+    if (dragData) {
+      const destino = dragData; // ex.: "bp:7" ou "dp:3"
+      cell.addEventListener('dragover', (e) => {
+        // Só aceita origem da MESMA lista: mochila com mochila, depósito com
+        // depósito. Cruzar as duas é o que o botão do Depósito já faz, e por um
+        // caminho que valida proximidade.
+        e.preventDefault();
+      });
+      cell.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // senão a grade também trata e vira desequipar
+        const d = e.dataTransfer?.getData('text/plain') ?? '';
+        const [prefOrigem, iOrigem] = d.split(':');
+        const [prefDestino, iDestino] = destino.split(':');
+        if (!prefOrigem || prefOrigem !== prefDestino) return;
+        const where = prefOrigem === 'bp' ? 'backpack' : 'depot';
+        net.send({
+          t: 'moveitem',
+          from: Number(iOrigem),
+          to: Number(iDestino),
+          where,
+        });
+      });
+    }
     return cell;
   }
 
@@ -1559,7 +1603,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       dpGrid.innerHTML = '';
       currentInv.depot.forEach((stack, i) => {
         dpGrid.appendChild(
-          makeItemCell(stack, () => { if (stack) net.send({ t: 'store', index: i, to: 'backpack' }); }),
+          // `dp:` habilita o rearranjo dentro do próprio Depósito, pelo mesmo
+          // caminho da mochila. O prefixo diferente é o que impede arrastar de
+          // um para o outro por engano — a travessia entre os dois continua
+          // sendo o clique, que valida proximidade do baú.
+          makeItemCell(
+            stack,
+            () => { if (stack) net.send({ t: 'store', index: i, to: 'backpack' }); },
+            `dp:${i}`,
+          ),
         );
       });
     }
@@ -1949,6 +2001,61 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   shopTabBuy.onclick = () => { shopTab = 'buy'; renderShop(); };
   shopTabSell.onclick = () => { shopTab = 'sell'; renderShop(); };
   el('shop-close').onclick = () => { shopEl.style.display = 'none'; };
+
+  // ---- Arrastar do CHÃO para a mochila -------------------------------------
+  //
+  // 🔴 **Arraste feito à mão, não HTML5.** O item no chão é um sprite dentro do
+  // canvas do Pixi, e `draggable` só existe em elemento do DOM — não há como
+  // iniciar um `dragstart` de lá. Então: `mousedown` no tile do item agarra,
+  // um ícone fantasma segue o cursor, e `mouseup` sobre a mochila solta.
+  //
+  // O recolhimento automático ao pisar em cima CONTINUA valendo. Isto se soma a
+  // ele: quem quer correr por cima do loot corre, quem quer escolher, arrasta.
+
+  /** Item do chão sendo arrastado agora. */
+  let arrastandoDoChao: EntitySnapshot | null = null;
+  const fantasma = document.createElement('img');
+  fantasma.id = 'dragghost';
+  fantasma.style.display = 'none';
+  document.body.appendChild(fantasma);
+
+  function pararArrasteDoChao(): void {
+    arrastandoDoChao = null;
+    fantasma.style.display = 'none';
+  }
+
+  viewportEl.addEventListener('mousedown', (ev) => {
+    if (ev.button !== 0) return;
+    const t = tileDoEvento(ev);
+    const item = itensPorTile.get(t.y * map.width + t.x);
+    if (!item) return;
+    arrastandoDoChao = item;
+    fantasma.src = itemIconUrl(item.itemKind ?? '');
+    fantasma.style.display = 'block';
+    fantasma.style.left = `${ev.clientX + 8}px`;
+    fantasma.style.top = `${ev.clientY + 8}px`;
+    // Impede que o mesmo gesto também vire caminhada até o tile.
+    ev.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (ev) => {
+    if (!arrastandoDoChao) return;
+    fantasma.style.left = `${ev.clientX + 8}px`;
+    fantasma.style.top = `${ev.clientY + 8}px`;
+  });
+
+  window.addEventListener('mouseup', (ev) => {
+    if (!arrastandoDoChao) return;
+    const item = arrastandoDoChao;
+    pararArrasteDoChao();
+    // Soltou sobre a mochila (ou sobre qualquer slot dela)? Então pega.
+    const alvo = ev.target as HTMLElement | null;
+    if (alvo && (bpGrid.contains(alvo) || alvo === bpGrid)) {
+      net.send({ t: 'pickup', itemId: item.id });
+    }
+    // Soltar em qualquer outro lugar simplesmente cancela — sem mensagem de
+    // erro, porque arrastar e desistir é gesto normal, não engano.
+  });
 
   // Arrastar-e-soltar: mochila -> paperdoll (equipar) e paperdoll -> mochila
   // (desequipar). O servidor valida e recalcula o dano/defesa.
@@ -2666,6 +2773,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // snapshot, como `tilesClicaveis` logo abaixo, e pelo mesmo motivo: é
     // exatamente isso que muda de um snapshot para o outro.
     jogadoresPorTile.clear();
+    itensPorTile.clear();
     porId.clear();
     // Reconstruídos a cada snapshot porque é exatamente isso que muda de um para
     // o outro: monstro andou, monstro morreu, corpo apareceu.
@@ -2680,6 +2788,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         if (e.kind === 'creature' || e.kind === 'player') tilesBloqueados.add(tile);
         tilesClicaveis.add(tile);
         if (e.kind === 'player') jogadoresPorTile.set(tile, e);
+        if (e.kind === 'item') itensPorTile.set(tile, e);
       }
       const isSelf = e.id === myId;
       let view = sprites.get(e.id);
@@ -2969,16 +3078,53 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * (é a regra de colisão de 30/07), então pedir rota até ele devolveria `[]`
    * sempre e o follow nunca sairia do lugar.
    */
+  /**
+   * Modo de combate, como no Tibia: **Perseguir** anda atrás do alvo,
+   * **Parado** deixa você onde está.
+   *
+   * 🔴 **Parado é o padrão**, e não é preferência minha: é o que o jogo já fazia.
+   * Quem nunca abrir esse botão não deve ver o personagem começar a andar
+   * sozinho — mudança silenciosa de comportamento é a pior espécie.
+   *
+   * ⚠️ Isto é 100 % CLIENTE, e de propósito. Reusa a mesma rota por BFS e os
+   * mesmos PASSOS que o clique-para-andar já manda. Criar um "persiga o alvo X"
+   * no protocolo seria deixar o cliente ditar posição — a mesma razão pela qual
+   * o "Seguir" do menu de contexto também não virou mensagem.
+   */
+  let chaseMode = false;
+
+  /**
+   * Quem a perseguição deve alcançar: o alvo de ataque quando o modo está
+   * ligado, senão o "Seguir" do menu de contexto.
+   *
+   * O alvo de ataque tem precedência porque é o mais recente e o mais urgente —
+   * quem mandou atacar quer chegar perto daquilo, não do que estava seguindo
+   * antes.
+   */
+  function alvoDePerseguicao(): string | null {
+    if (chaseMode && targetId) return targetId;
+    return followId;
+  }
+
   function tickFollow(): void {
-    if (!followId) return;
-    const alvo = porId.get(followId);
+    const id = alvoDePerseguicao();
+    if (!id) return;
+    const alvo = porId.get(id);
     // Sumiu do snapshot: saiu do andar, deslogou ou morreu.
-    if (!alvo) { pararFollow(); return; }
+    if (!alvo) {
+      if (id === followId) pararFollow();
+      return;
+    }
     const tile = alvo.tileY * map.width + alvo.tileX;
     if (tile === followUltimoTile) return;
     followUltimoTile = tile;
-    if (chebyshev(myTileX, myTileY, alvo.tileX, alvo.tileY) <= 1) {
-      cancelarRota(); // já está do lado; não fica trombando
+    // 🔴 A distância de parada é o ALCANCE DA ARMA, não 1. Um arqueiro que
+    // colasse no monstro para atirar perderia a razão de ser arqueiro — e o
+    // mago também. Para o "Seguir" social, 1 continua sendo o certo: ficar do
+    // lado da pessoa.
+    const parar = id === targetId ? Math.max(1, myAttackRange) : 1;
+    if (chebyshev(myTileX, myTileY, alvo.tileX, alvo.tileY) <= parar) {
+      cancelarRota(); // já está no alcance; não fica trombando
       return;
     }
     let melhor: Array<{ x: number; y: number }> = [];
@@ -3334,6 +3480,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     pkBtn.textContent = pkOn ? 'PK: LIGADO' : 'PK: desligado';
     pkBtn.classList.toggle('on', pkOn);
   }
+  // Modo de combate. Não vai ao servidor: é decisão de como o CLIENTE anda.
+  const chaseBtn = el('chase-toggle') as HTMLButtonElement;
+  chaseBtn.addEventListener('click', () => {
+    chaseMode = !chaseMode;
+    chaseBtn.textContent = chaseMode ? '🏃 Perseguir' : '🧍 Parado';
+    chaseBtn.classList.toggle('on', chaseMode);
+    if (chaseMode) {
+      followUltimoTile = -1;
+      tickFollow(); // liga e já sai andando, se houver alvo
+    } else {
+      // Desligar PARA na hora. Continuar a rota depois de pedir para ficar
+      // parado seria o oposto do que o botão promete.
+      cancelarRota();
+    }
+  });
+
   pkBtn.addEventListener('click', () => net.send({ t: 'pk', on: !pkOn }));
   renderPk();
   renderFriends();
@@ -3364,11 +3526,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // Vale para o Seguir também, e com mais força: uma rota cancelada volta no
     // frame seguinte enquanto o alvo estiver marcado, então sem soltar o
     // `followId` o teclado perderia a disputa para sempre.
+    //
+    // 🔴 Vale para o modo PERSEGUIR também, e por lá não dá para soltar o alvo:
+    // largar o alvo de ataque a cada tecla apertada acabaria com o combate. Em
+    // vez disso, o passo automático simplesmente não roda enquanto houver tecla
+    // pressionada — quem está dirigindo é quem manda, e ao soltar a tecla a
+    // perseguição volta sozinha.
     if (heldKeys.size > 0) {
       if (followId) pararFollow();
       if (caminho.length > 0) cancelarRota();
+    } else {
+      tickFollow();
     }
-    tickFollow();
 
     // Consome a rota, um passo por vez, na MESMA cadência do teclado — então
     // andar por clique e por tecla tem exatamente a mesma velocidade.

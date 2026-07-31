@@ -1691,6 +1691,16 @@ function dropLoot(c: Creature, recipient?: Player): void {
  */
 const EQUIP_DROP_CHANCE = 0.08;
 
+/**
+ * Alcance para pegar item do chão clicando, em tiles (Chebyshev).
+ *
+ * ⚠️ REFERÊNCIA. `1` = o próprio tile e os oito ao redor — a distância de um
+ * braço, que é o que o Tibia usa. Mais que isso viraria telecinese; menos
+ * obrigaria a pisar exatamente em cima, que é justamente o que o clique existe
+ * para evitar.
+ */
+const PICKUP_RANGE = 1;
+
 function grantXp(player: Player, amount: number): void {
   player.xp += amount;
   while (player.xp >= xpToNext(player.level)) {
@@ -3679,6 +3689,75 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       sendInventory(player);
       break;
     }
+    /**
+     * Reorganizar dentro da mochila ou do depósito. Troca as duas posições, ou
+     * FUNDE quando são do mesmo empilhável.
+     *
+     * 🔴 Nada entra nem sai: é rearranjo puro. Por isso não pede proximidade de
+     * NPC nenhum — arrumar a própria mochila é coisa que se faz andando.
+     */
+    case 'moveitem': {
+      if (!player.joined) return;
+      const lista = msg.where === 'depot' ? player.depot : player.backpack;
+      // Depósito só se mexe no Depósito; mochila, em qualquer lugar.
+      if (msg.where === 'depot' && !atDepot(player)) {
+        send(player, { t: 'denied', reason: 'Você precisa estar no Depósito.' });
+        return;
+      }
+      const { from, to } = msg;
+      if (from === to) return;
+      if (!Number.isInteger(from) || !Number.isInteger(to)) return;
+      if (from < 0 || to < 0 || from >= lista.length || to >= lista.length) return;
+      const origem = lista[from];
+      if (!origem) return; // arrastar de slot vazio não faz nada
+
+      const destino = lista[to];
+      const def = getItem(origem.kind);
+      // Fundir: mesmo kind, empilhável, e sem `roll` dos dois lados — duas
+      // espadas de raridades diferentes NÃO são a mesma coisa, mesmo com o mesmo
+      // `kind`, e fundi-las apagaria os passivos de uma delas.
+      if (destino && def?.stackable && destino.kind === origem.kind && !origem.roll && !destino.roll) {
+        destino.amount += origem.amount;
+        lista[from] = null;
+      } else {
+        lista[from] = destino ?? null;
+        lista[to] = origem;
+      }
+      sendInventory(player);
+      break;
+    }
+
+    /**
+     * Pegar item do chão sem pisar em cima.
+     *
+     * O alcance é validado AQUI, e não no cliente: um id de item é fácil de
+     * forjar, e sem esta checagem daria para limpar o mapa parado na vila.
+     */
+    case 'pickup': {
+      if (!player.joined || !player.alive) return;
+      const item = items.get(msg.itemId);
+      if (!item) return; // já foi de alguém, ou expirou
+      if (item.floor !== player.floor
+        || chebyshev(player.tileX, player.tileY, item.tileX, item.tileY) > PICKUP_RANGE) {
+        send(player, { t: 'denied', reason: 'Longe demais.' });
+        return;
+      }
+      if (item.itemKind === 'gold') {
+        setGold(player, player.gold + item.amount);
+        items.delete(item.id);
+        sendStats(player);
+        sendInventory(player);
+        break;
+      }
+      if (!addToBackpack(player, item.itemKind, item.amount, item.roll)) {
+        send(player, { t: 'denied', reason: 'Mochila cheia.' });
+        return;
+      }
+      items.delete(item.id);
+      sendInventory(player);
+      break;
+    }
+
     case 'store': {
       if (!player.joined) return;
       if (!atDepot(player)) {

@@ -221,6 +221,36 @@ export interface C2S_StoreMove {
   to: 'depot' | 'backpack';
 }
 
+/**
+ * Reorganizar itens DENTRO da mochila ou do depósito.
+ *
+ * 🔴 Puro arranjo: nada entra, nada sai, nada muda de dono. O servidor troca as
+ * duas posições — ou **funde** as pilhas, quando são do mesmo empilhável. Fundir
+ * é o que faz o gesto valer a pena: arrastar 3 poções sobre 5 e ficar com 8 num
+ * slot só é o motivo de existir arrastar.
+ */
+export interface C2S_MoveItem {
+  t: 'moveitem';
+  from: number;
+  to: number;
+  where: 'backpack' | 'depot';
+}
+
+/**
+ * Pegar um item do chão à distância de um braço.
+ *
+ * ⚠️ **Não substitui o recolhimento automático ao pisar em cima** — soma-se a
+ * ele. Quem quer correr por cima do loot continua podendo; quem quer escolher o
+ * que pega, agora clica.
+ *
+ * O alcance é validado no SERVIDOR (como tudo): sem isso, o cliente pegaria item
+ * do outro lado do mapa mandando um id.
+ */
+export interface C2S_PickUp {
+  t: 'pickup';
+  itemId: string;
+}
+
 /** Usar uma habilidade da barra de atalhos (F1, F2, …). */
 export interface C2S_Cast {
   t: 'cast';
@@ -366,6 +396,8 @@ export type ClientMessage =
   | C2S_Equip
   | C2S_Unequip
   | C2S_StoreMove
+  | C2S_MoveItem
+  | C2S_PickUp
   | C2S_Cast
   | C2S_SkillUp
   | C2S_SkillReset

@@ -588,6 +588,23 @@
        * `clientX/clientY` do evento, que já são coordenadas de viewport. Com
        * `absolute` ele saltaria junto com qualquer scroll de ancestral.
        */
+      /* Ícone fantasma que segue o cursor ao arrastar item do CHÃO para a
+         mochila. `pointer-events: none` é essencial: sem isso ele fica debaixo
+         do cursor e o `mouseup` acerta o próprio fantasma em vez da mochila. */
+      #dragghost {
+        position: fixed;
+        width: 26px;
+        height: 26px;
+        pointer-events: none;
+        z-index: 40;
+        image-rendering: pixelated;
+        filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
+      }
+      /* Modo Perseguir ligado: o botão fica âmbar, como o de PK. */
+      #chase-toggle.on {
+        color: #c9a86a;
+        border-color: #6a5a3a;
+      }
       /* Separador antes da ação destrutiva do menu de contexto. Distância é
          parte da proteção: "Atacar" não pode ser vizinho de "Adicionar aos
          amigos" na mesma pilha de botões idênticos. */
@@ -1652,6 +1669,14 @@
               escondido) quando não há condição nenhuma, que é o normal.
             -->
             <div id="mycond"></div>
+            <!--
+              Modo de combate, como no Tibia. "Parado" é o padrão porque é o que
+              o jogo já fazia: quem nunca tocar neste botão não pode ver o
+              personagem começar a andar sozinho.
+            -->
+            <button id="chase-toggle" class="minibtn" style="width: 100%; margin-top: 4px">
+              🧍 Parado
+            </button>
           </div>
         </div>
         <div class="box panel" id="attrbox">
