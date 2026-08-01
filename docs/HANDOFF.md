@@ -1,11 +1,128 @@
-# Handoff — estado do projeto em 2026-07-30
+# Handoff — estado do projeto em 2026-08-01
 
-Resumo para quem for continuar o trabalho. Quatro sessões registradas: **29/07**
+Resumo para quem for continuar o trabalho. Cinco sessões registradas: **29/07**
 (Etapa 8, bestiário do Doc 3, crafting), **30/07 manhã** (aba Vender, colisão,
 clique para andar, banco, curva de nível), **30/07 noite** (as 4 pendências que
-travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa) e
+travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa),
 **30/07 madrugada** (o catálogo de equipamento inteiro ganhou números, e as
-regras de Party).
+regras de Party) e **01/08** (a sessão abaixo: layout, e a primeira leva de bugs
+achados JOGANDO).
+
+---
+
+## 🆕 Sessão de 01/08 — a primeira vez que alguém jogou de verdade
+
+Esta sessão é diferente das anteriores: quase tudo aqui saiu de **jogar**, não de
+implementar etapa do roadmap. O aviso do handoff anterior — *"teste passando não é
+o mesmo que funcionar em tela"* — se confirmou inteiro. Sete bugs, e nenhum deles
+tinha teste que pudesse tê-los pego, porque todos moravam entre a rede, o
+navegador e o desenho.
+
+### 🔴 O bug que mais importa entender: o inventário sumido
+
+**Sintoma:** equipamento e mochila vaziam ao entrar. Console limpo, servidor sem
+erro, todos os `kind` salvos existiam no catálogo. Vida, atributos e battle list
+funcionavam.
+
+**Causa:** corrida no login. `routeServerMessage` dispara `startGame()`, que é
+**assíncrono** (Pixi, folhas de sprite, tiles) e só instala o `gameHandler` no
+fim. Mas o servidor manda `welcome`, `inventory`, `stats` e `towns` no MESMO
+tique do join. Tudo que vinha atrás do `welcome` caía em `gameHandler?.(msg)` com
+o handler ainda `null` — **descartado em silêncio pelo `?.`**.
+
+**Por que parecia "só a mochila":** `stats` e `snapshot` são reenviados a cada
+tique, então vida e atributos se recuperavam sozinhos em milissegundos.
+`inventory` é mensagem de **uma vez só** — só volta quando o inventário muda. Daí
+a mochila ficar vazia até o jogador pegar ou soltar algo.
+
+**Conserto:** fila (`pendingGameMessages`). O que chega durante o carregamento
+fica guardado e é drenado por `flushPendingGameMessages()` na **última linha** de
+`startGame`, na ordem original do servidor.
+
+🔴 **`flushPendingGameMessages()` tem que continuar sendo a última linha.** A
+primeira versão drenava dentro de `setGameHandler` (linha ~1009) e explodia com
+*"Cannot access 'goldEmMao' before initialization"*: o corpo de `startGame` vai
+até a ~3900 e ainda declara estado que os handlers usam. A flag `gameReady`
+existe só para garantir isso.
+
+### 🔴 PERDA DE SAVE — leia antes de mexer no caminho de entrada
+
+Durante esta sessão o personagem do dono **perdeu a mochila inteira, a arma e o
+ouro**. Foi restaurado (havia dump do banco de antes), mas o mecanismo merece
+registro porque é a classe de bug mais cara que existe aqui.
+
+O auto-login de desenvolvimento autenticava **duas vezes**: o callback de status
+roda dentro do `onopen` do `NetClient`, antes da linha `if (this.username)
+this.sendAuth('login')` que existe para reconexão. Dois `authresult` viraram dois
+`enterGame` (o NetClient reentra sozinho quando já tem `characterId`), o
+personagem entrou duas vezes e o save da desconexão gravou o estado meio-montado.
+
+Dois consertos, e o segundo é o que importa:
+
+1. Cliente: o auto-login foi adiado um tique (`setTimeout(…, 0)`).
+2. **Servidor: `case 'hello'` agora RECUSA entrar duas vezes na mesma conexão.**
+   O bloco já derrubava *outras* conexões no mesmo personagem, mas nada impedia a
+   mesma. Perda de save é irreversível — o servidor não pode depender de o
+   cliente se comportar.
+
+⚠️ **Faça backup de `server/data/elysia.db` antes de testar qualquer coisa que
+envolva entrar no mundo.** Custa um `Copy-Item` e teria evitado o susto inteiro.
+
+### ✅ O que mais foi corrigido
+
+| Bug | Causa real | Onde |
+|---|---|---|
+| Item solto virava **pilha de ouro** no chão | `makeItemView` desenhava três círculos dourados FIXOS, ignorando `itemKind`. O `drop` sempre funcionou — o desenho é que mentia | `main.ts` · agora usa `itemIconCanvas`, a mesma função do ícone da mochila |
+| **Botão direito atacava** criatura | `pointertap` do Pixi dispara para QUALQUER botão, não só o primário | `soBotaoEsquerdo()` envolve os 5 pontos clicáveis do mundo |
+| **Tiro atravessava muro** | O ataque só conferia distância | `hasLineOfSight()` em `tiles.ts`, ligado nos 3 caminhos (PvE, PvP e magia de criatura) |
+| **Chat sumia atrás do jogo** ao redimensionar | `resizeTo` do Pixi só escuta `window.resize`; a doca muda a altura do viewport sem a janela mudar, e o canvas ficava com o tamanho antigo | `ResizeObserver` no `#viewport` → `app.resize()` |
+| Personagem **andava um tile e parava** | O deslize usava cadência MEDIDA, e `makeStepCadence` trava no intervalo mais rápido já visto. Todo passo mais lento terminava o deslize antes do próximo | `heroiStepMs`: usa o `moveIntervalMs` que o servidor já mandava |
+
+🔴 **`hasLineOfSight` usa `blocksSight`, não `solid`.** Não é a mesma coisa: água
+é sólida e transparente. Usar `solid` proibiria atirar por cima de um rio. O
+campo já existia em `TileType`. Há 11 testes em `shared/tests/lineofsight.test.ts`
+travando isso, incluindo o caso da água.
+
+🔴 **Sobre o passo do herói:** este mesmo bug já tinha sido corrigido para as
+CRIATURAS (ver `CREATURE_GLIDE_DESCONHECIDA`, cujo comentário descreve o sintoma
+com estas palavras). O herói ficou de fora. A duração é `moveIntervalMs`
+**arredondado para cima ao tique** — o servidor testa o cooldown uma vez por
+tique de 15 Hz, então 278 ms nominais chegam na tela como ~334 ms. Outros
+jogadores continuam medidos: a velocidade deles este cliente não conhece.
+
+### ✅ O que ganhou comportamento novo (pedido do dono, estilo Tibia)
+
+- **Soltar item cai no tile do MOUSE**, não aos pés. Alcance
+  `DROP_THROW_RANGE = 3` (⚠️ REFERÊNCIA — nenhum doc fecha o número), e o
+  servidor valida alcance e andabilidade. Sem `tileX`/`tileY` cai aos pés, que é
+  o caso do botão direito.
+- **Arrastar item pelo CHÃO**, de tile em tile, sem pegá-lo
+  (`C2S_MoveGroundItem`). Duas distâncias diferentes de propósito: alcançar o
+  item usa `PICKUP_RANGE`, o destino usa `DROP_THROW_RANGE`.
+- **Loot de monstro vem numa BOLSA**, não em pilhas soltas empilhadas no mesmo
+  tile. Reusa o sistema de corpo que já existia (`Corpse` ganhou `source`), com
+  desenho e texto próprios. **Bolsa vazia some na hora** — corpo de jogador
+  mantém o TTL curto, porque ele também marca onde alguém morreu.
+- **Clicar na bolsa de longe anda até ela** e abre ao chegar, em vez de só dizer
+  "Aproxime-se".
+- **Doca do chat com altura arrastável**, salva em `localStorage`, com teto de
+  55 % da janela.
+
+### ⚠️ AUTO-LOGIN DE DESENVOLVIMENTO — TEMPORÁRIO, e é um bypass
+
+`npm run dev:test` entra direto no personagem, **sem senha**. Existe porque o
+Vite recarrega a cada edição e redigitar senha inviabiliza testar interface.
+
+Três travas: `ELYSIA_DEV=1` (só `dev.ts` liga), `ELYSIA_DEV_ACCOUNT` preenchida,
+e o nome bater. O servidor de verdade (`npm run dev` / `npm start`) não passa por
+`dev.ts`, então nada disso existe lá.
+
+🔴 **Isto é atalho de teste com cara de furo de autenticação.** Se algum dia
+produção definir `ELYSIA_DEV`, vira bypass real. **Apagar quando a fase de teste
+manual acabar** — `server/src/dev.ts`, o bloco no `case 'auth'`, o método
+`contaSemSenhaParaDesenvolvimento` do store e o `DEV_AUTOLOGIN` do cliente.
+A conta está fixada como `maxmurtesvieira`; sobrescreva com
+`ELYSIA_DEV_ACCOUNT=suaconta npm run dev:test`.
 
 ---
 
@@ -17,6 +134,55 @@ Party completa: formação (dele) + shared XP, três regras de loot com votaçã
 loot de chefe por contribuição (do `main`). Mais menu de contexto, amigos
 (schema v4) e o PvP com Caveira Branca. Detalhe do merge em
 [`MERGE-PVP-CAVEIRA-BRANCA.md`](./MERGE-PVP-CAVEIRA-BRANCA.md).
+
+### 🆕 Layout em três regiões (01/08) — o scroll eterno da barra acabou
+
+Pedido do dono: *"os menus do lado direito estão muito grandes, tem que ficar
+rolando o scroll"*. A causa era aritmética — a barra da direita sozinha somava
+**~760 px de painel numa janela de ~695**.
+
+**Como ficou** (`client/index.html`):
+
+| Região | O que mora lá | Critério |
+|---|---|---|
+| **Esquerda** | Mapa · Atributos · Battle · Grupo · Amigos | informação do **mundo** — o que o jogador *consulta* |
+| **Centro** | o jogo em cima, **chat docado no rodapé** | como no Tibia |
+| **Direita** | Servidor/relógio · Vitais · Equipamentos+Mochila · PvP | o **personagem** — o que o jogador *opera* |
+
+**Medido com carga realista** (mochila de 40 slots cheia, paperdoll, 6
+atributos, 8 alvos na battle), numa janela de 695 px:
+
+| | Conteúdo | Folga |
+|---|---|---|
+| Esquerda | 657 px | +38 |
+| Direita | 681 px | +14 |
+| ⚠️ Esquerda **com o painel de Grupo aberto** | 810 px | −115 |
+
+⚠️ **Estar em grupo ainda estoura a coluna esquerda** em janela baixa: o painel
+de Grupo pede ~810 px de altura de janela. Acima disso cabe tudo; abaixo, a
+coluna rola (o `overflow-y: auto` continua lá como rede). Não foi "resolvido"
+escondendo o painel porque quem está em grupo precisa ver o grupo.
+
+🔴 **`--slot` caiu de 28 → 24 px, e não foi gosto.** A mochila de 40 slots são
+8 linhas, mais 4 do paperdoll: **cada pixel de slot custa 12 px de altura**. Era
+o único corte de ~48 px que não escondia informação. Para os ícones voltarem a
+28, suba `--bar-w` junto — **214/28 fecha a conta** —, ao preço de 48 px de
+largura tirados do mundo. Os dois estão amarrados, com a conta no comentário do
+`:root`.
+
+Outras duas coisas que mudaram junto: o minimapa foi para 130 px (o atributo do
+`<canvas>` mudou junto — o JS deriva a escala de `miniCanvas.width`), e quatro
+blocos de dica viraram `title` (o texto completo continua lá, no tooltip).
+
+**Novo:** a doca do chat tem altura **arrastável** pelo pegador acima dela,
+salva em `localStorage` (`elysia_chat_h`), com teto de 55 % da janela para não
+dar para arrastar até o mundo sumir.
+
+🔴 **O reordenar-painéis agora é POR BARRA.** Era `sidebarEl` fixo; virou uma
+lista de barras, cada uma com a própria chave (`elysia_panel_order` e
+`elysia_panel_order_left`). Um painel arrastado não pula de coluna. Ordem antiga
+gravada não quebra: o teste `parentElement === bar.el` faz o id que mudou de
+barra simplesmente não casar.
 
 ### ✅ Catálogo de equipamento inteiro
 
@@ -99,6 +265,14 @@ duas dessas coisas exigem duas pessoas — que é justamente o que vocês são.
 | **Menu de contexto** | botão direito num jogador — "Informações" tem que ser o primeiro, "Atacar" o último, e atacar quem não tem caveira pede **dois cliques** | era o bug relatado; o conserto não foi visto rodando |
 | **Ciclo dia/noite** | `/tarde` e `/noite`, e conferir que amanhece sozinho depois | novo |
 | **Catálogo novo** | bancada do Ferreiro: a lista de peças muda conforme a receita escolhida | novo |
+| **Reordenar painéis nas DUAS barras** | arrastar painel pelo cabeçalho, em cada coluna, e recarregar | o layout foi verificado, o arraste entre colunas não |
+| **Linha de visão em PvP** | dois jogadores, um atrás de muro, tentar acertar | exige duas janelas |
+| **Bolsa de loot em GRUPO** | com regra de loot ligada, ver se o dono recebe na mochila e o resto vai para a bolsa | idem |
+
+✅ **Verificado JOGANDO em 01/08** (o dono, em tela): inventário aparecendo ao
+entrar · bolsa de loot caindo e abrindo · arrastar item pelo chão · soltar item
+no tile mirado · chat redimensionando sem cobrir o jogo · tiro parando no muro ·
+botão direito não atacando.
 
 ⚠️ **Se algo estiver quebrado, suspeite primeiro do merge.** Dois branches
 paralelos foram fundidos à mão em `server/src/index.ts` e `client/src/main.ts`,
@@ -272,9 +446,9 @@ Corrigido: `backpackSizeFor()` é a fonte única, usada no carregamento **e** ao
 
 ## Saúde do código
 
-| | 30/07 manhã | 30/07 noite | 30/07 madrugada | **pós-merge** |
+| | 30/07 noite | 30/07 madrugada | pós-merge | **01/08** |
 |---|---|---|---|---|
-| Testes | 237 | 298 | 328 · 344 | **397** (377 shared + 20 server) |
+| Testes | 298 | 328 · 344 | 397 | **408** (388 shared + 20 server) |
 | Typecheck | limpo | limpo | limpo | limpo nos 3 pacotes |
 | Criaturas vivas no mapa | 32 | 32 | 32 | 32 |
 | Espécies definidas | 23 | 23 | 23 | 23 |
@@ -721,6 +895,34 @@ quer ver.
 | `/grupo` | lista membros, líder (★) e a regra de loot ativa |
 | `/loot <livre\|lider\|aleatorio>` | **propõe** a regra — `DD-PARTY-015`, o líder não muda sozinho |
 | `/expulsar <nome>` · `/sairdogrupo` | só o líder expulsa |
+
+---
+
+## 🎯 PRÓXIMA ETAPA (definida em 01/08)
+
+**Ligar a coleta e a mineração no mundo.** É o que o handoff anterior já apontava
+e continua sendo o maior destravamento disponível — agora sem nada na frente.
+
+`shared/src/gathering.ts` está pronto e testado: cinco nós, ferramentas, cargas e
+rendimentos. **Nada disso existe no jogo.** Falta:
+
+1. o nó como **entidade** no servidor (spawn, cargas, respawn);
+2. a mensagem de coleta no protocolo;
+3. o desenho no cliente.
+
+🔴 **A decisão de arquitetura já está tomada: nós são ENTIDADES, não tiles.** O
+mapa é gerado deterministicamente pelos dois lados e não trafega pela rede —
+mudar um tile ao cortar uma árvore dessincronizaria cliente e servidor na hora.
+
+**Por que isto e não outra coisa:** os seis materiais de coleta (ervas, flores,
+cogumelos, minérios, madeiras, gemas) já entraram no catálogo, mas hoje são
+inalcançáveis. Isso deixa **o Ferreiro sem minério e o Alquimista sem erva** — as
+duas profissões existem e não funcionam de verdade. É a única pendência que
+destrava sistema já construído em vez de somar sistema novo.
+
+O padrão de entidade-no-chão para copiar é o desta sessão: a **bolsa de loot**
+(`Corpse` com `source`) atravessa servidor, protocolo, snapshot e desenho, e é
+exatamente a mesma forma que um nó de coleta precisa.
 
 ---
 
