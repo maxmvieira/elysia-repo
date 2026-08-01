@@ -11,7 +11,10 @@
  * precisa trafegar pela rede. Movimento continua autoritativo.
  */
 
-import { AnimatedSprite, Application, Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
+import {
+  AnimatedSprite, Application, Container, Graphics, Rectangle, Sprite, Text, Texture,
+  type FederatedPointerEvent,
+} from 'pixi.js';
 import {
   affixText,
   ATTRIBUTE_INFO,
@@ -213,8 +216,55 @@ function showScreen(which: keyof typeof screens | 'none'): void {
  * tudo que não for de login/seleção.
  */
 let gameHandler: ((msg: ServerMessage) => void) | null = null;
+
+/**
+ * Mensagens que chegaram DEPOIS do `welcome` e ANTES de o mundo terminar de
+ * carregar.
+ *
+ * 🔴 Isto conserta um bug real: o inventário nunca aparecia ao entrar.
+ *
+ * `startGame()` é assíncrono (Pixi, folhas de sprite, tiles do chão) e só
+ * instala o `gameHandler` no fim. Mas o servidor manda `welcome`, `inventory`,
+ * `stats` e `towns` no MESMO tique do join — tudo isso chegava com
+ * `gameHandler` ainda `null` e caía no `?.()`, silenciosamente descartado.
+ *
+ * O que mascarava o bug: `stats` e `snapshot` são reenviados a cada tique, então
+ * vida, atributos e battle list se recuperavam sozinhos. `inventory` é mensagem
+ * de UMA VEZ SÓ — só volta quando o inventário muda. Resultado: equipamento e
+ * mochila ficavam vazios até o jogador pegar ou soltar algo, o que parecia
+ * "a mochila não abre".
+ *
+ * Enfileirar preserva a ORDEM original do servidor, que importa: `welcome`
+ * define `myId`, e quem chega depois já conta com ele.
+ */
+const pendingGameMessages: ServerMessage[] = [];
+
+/**
+ * Só depois disto o handler pode receber mensagem.
+ *
+ * 🔴 Não basta ter `gameHandler` instalado. `setGameHandler` é chamado no MEIO
+ * de `startGame` (linha ~1009), e o corpo dela segue declarando estado que os
+ * handlers usam — `goldEmMao` (~2044) e `myCondKey` (~2907) entre outros.
+ * Entregar mensagem nesse intervalo bate na zona morta temporal do `const`/`let`
+ * e estoura com *"Cannot access 'goldEmMao' before initialization"*.
+ *
+ * Antes isso nunca acontecia por acidente: as mensagens chegavam pela rede, ou
+ * seja, sempre DEPOIS de o corpo inteiro ter rodado.
+ */
+let gameReady = false;
+
 function setGameHandler(fn: (msg: ServerMessage) => void): void {
   gameHandler = fn;
+}
+
+/**
+ * Libera a partida e entrega o que chegou durante o carregamento, na ordem.
+ * Chamada no FIM de `startGame`, quando todo o estado já existe.
+ */
+function flushPendingGameMessages(): void {
+  gameReady = true;
+  const fila = pendingGameMessages.splice(0, pendingGameMessages.length);
+  for (const m of fila) gameHandler?.(m);
 }
 
 /** Cidades visitadas por este personagem, e onde ele renasce hoje. */
@@ -246,19 +296,51 @@ function routeServerMessage(msg: ServerMessage): void {
         gameStarted = true;
         const escolhido = charSlots.find((c) => c.id === selectedChar);
         showScreen('none');
+        // Sem `.then(...)` para entregar o `welcome`: ele cai na fila abaixo
+        // como qualquer outra, e `setGameHandler` a drena na ordem certa. Antes,
+        // o `welcome` era o ÚNICO entregue — o que vinha logo atrás dele
+        // (inventário!) morria no `gameHandler?.()` com o handler ainda nulo.
         void startGame(
           escolhido?.name ?? 'Herói',
           escolhido?.charClass ?? 'knight',
           escolhido?.gender ?? 'male',
-        ).then(() => gameHandler?.(msg));
-        return;
+        );
       }
       break;
     default:
       break;
   }
-  gameHandler?.(msg);
+  // `gameReady` e não só `gameHandler`: entre instalar o handler e terminar o
+  // corpo de `startGame` há estado ainda não inicializado. Ver `gameReady`.
+  if (gameReady && gameHandler) {
+    gameHandler(msg);
+    return;
+  }
+  // Ainda carregando o mundo: guarda em vez de descartar. Só depois do
+  // `welcome` — antes disso o servidor não manda mensagem de partida, e
+  // enfileirar lixo de uma sessão anterior seria pior que perdê-lo.
+  if (gameStarted) pendingGameMessages.push(msg);
 }
+
+/*
+ * 🔴 AUTO-LOGIN DE DESENVOLVIMENTO — TEMPORÁRIO
+ *
+ * Pula a tela de login e entra direto no primeiro personagem da conta. Existe
+ * porque o Vite recarrega a página a cada edição, e redigitar a senha a cada
+ * recarga inviabiliza testar a interface.
+ *
+ * A senha vai VAZIA de propósito: quem libera a entrada é o servidor de
+ * desenvolvimento, comparando o nome com `ELYSIA_DEV_ACCOUNT`. O cliente não
+ * guarda, não conhece e não manda senha nenhuma.
+ *
+ * Travas: `import.meta.env.DEV` (some no build de produção) e a conta precisar
+ * estar nomeada aqui. Para desligar, ponha `VITE_DEV_ACCOUNT=` vazio.
+ */
+const DEV_AUTOLOGIN: string = import.meta.env.DEV
+  ? (import.meta.env.VITE_DEV_ACCOUNT ?? 'maxmurtesvieira')
+  : '';
+/** Já disparou o auto-login? Evita repetir a cada `charlist` que chegar. */
+let autoLoginFeito = false;
 
 // ---- Tela 1: login / criação de conta --------------------------------------
 function setupLoginScreen(): void {
@@ -362,6 +444,17 @@ function renderCharList(chars: CharacterSlot[], error?: string): void {
   enterBtn.disabled = selectedChar === null;
   hintEl.textContent = error ?? '';
   hintEl.style.color = error ? '#d98a7a' : '#7d7466';
+
+  // 🔴 TEMPORÁRIO: com auto-login, entra no primeiro personagem sem passar pela
+  // seleção. `autoLoginFeito` impede laço se o servidor reenviar a lista.
+  if (DEV_AUTOLOGIN && !gameStarted && !autoLoginFeito && chars.length > 0) {
+    autoLoginFeito = true;
+    selectedChar = chars[0]!.id;
+    console.warn(`[DEV] auto-login: entrando como "${chars[0]!.name}"`);
+    showScreen('none');
+    net.enterGame(selectedChar);
+    return;
+  }
 
   // Só troca de tela se o jogo ainda não começou — um `charlist` que chegue
   // durante a partida (após criar personagem noutra aba) não pode expulsar
@@ -1030,6 +1123,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           break;
         case 'stats':
           myAttackRange = msg.attackRange;
+          /*
+           * Velocidade autoritativa do herói, arredondada para CIMA ao tique.
+           *
+           * O servidor só libera um passo quando `now - lastMove >= moveInterval`,
+           * e ele testa isso uma vez por tique de 15 Hz. Então o intervalo que
+           * chega na tela não é o nominal: é o nominal subido ao próximo múltiplo
+           * do tique. Com 278 ms e tique de 66,7 ms, o passo real sai a cada
+           * ~333 ms.
+           *
+           * Arredondar é mais exato que somar um tique cheio de folga: acerta a
+           * duração em vez de ficar sempre um pouco longa, e deslize longo demais
+           * deixa o sprite arrastando atrás da posição real.
+           */
+          heroiStepMs = Math.ceil(msg.moveIntervalMs / SERVER_TICK_MS) * SERVER_TICK_MS;
           updateHud(msg);
           updateAttrHud(msg);
           updateCharPanel(msg);
@@ -1360,9 +1467,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
   }
 
-  function itemIconUrl(kind: string): string {
-    const c = itemIconCache.get(kind);
-    if (c) return c;
+  /**
+   * O desenho do item, em canvas — **fonte única do ícone**.
+   *
+   * A mochila consome como data URL (`itemIconUrl`) e o chão consome como
+   * textura do Pixi (`itemTexture`). Os dois têm que sair daqui: enquanto o
+   * chão desenhava por conta própria, ele desenhava **três círculos dourados
+   * para qualquer item** — poção solta no chão parecia pilha de ouro, e o
+   * jogador concluía (com razão) que tinha soltado a coisa errada.
+   */
+  const itemIconCanvasCache = new Map<string, HTMLCanvasElement>();
+  function itemIconCanvas(kind: string): HTMLCanvasElement {
+    const hit = itemIconCanvasCache.get(kind);
+    if (hit) return hit;
     const def = getItem(kind);
     const color = def?.color ?? 0x999999;
     const cv = document.createElement('canvas');
@@ -1393,9 +1510,33 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     } else {
       drawLootShape(g, kind, color);
     }
-    const url = cv.toDataURL();
+    itemIconCanvasCache.set(kind, cv);
+    return cv;
+  }
+
+  function itemIconUrl(kind: string): string {
+    const c = itemIconCache.get(kind);
+    if (c) return c;
+    const url = itemIconCanvas(kind).toDataURL();
     itemIconCache.set(kind, url);
     return url;
+  }
+
+  /**
+   * O mesmo ícone como textura do Pixi, para o item no chão.
+   *
+   * Cacheado por `kind`: sem isto, cada pilha caída no mapa criaria uma textura
+   * nova, e o vazamento seria proporcional ao chão sujo — que é justamente o
+   * cenário de uma caçada longa.
+   */
+  const itemTexCache = new Map<string, Texture>();
+  function itemTexture(kind: string): Texture {
+    let t = itemTexCache.get(kind);
+    if (!t) {
+      t = Texture.from(itemIconCanvas(kind));
+      itemTexCache.set(kind, t);
+    }
+    return t;
   }
 
   /** Silhueta fraca (cinza) para o slot de equipamento vazio. */
@@ -1635,15 +1776,49 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     openCorpseId = null;
   };
 
+  /**
+   * Corpo/bolsa que o jogador clicou de LONGE e quer abrir quando chegar lá.
+   *
+   * Antes, clicar de longe só devolvia "Aproxime-se do corpo" — e obrigava o
+   * jogador a fazer à mão o que o jogo sabia fazer: andar até lá. Matar à
+   * distância e ter que caminhar manualmente até o espólio é atrito puro.
+   */
+  let abrirAoChegar: string | null = null;
+
+  /** Distância de Chebyshev do herói até um tile. */
+  const distDoHeroi = (x: number, y: number): number =>
+    Math.max(Math.abs(x - myTileX), Math.abs(y - myTileY));
+
   function openCorpse(id: string): void {
-    openCorpseId = id;
-    net.send({ t: 'opencorpse', corpseId: id });
+    const alvo = porId.get(id);
+    // Perto o bastante (ou sumiu do snapshot): tenta abrir agora. O servidor
+    // continua sendo quem decide — aqui só se evita a ida inútil.
+    if (!alvo || distDoHeroi(alvo.tileX, alvo.tileY) <= 1) {
+      abrirAoChegar = null;
+      openCorpseId = id;
+      net.send({ t: 'opencorpse', corpseId: id });
+      return;
+    }
+    // Longe: anda até lá e abre ao chegar. O tile do corpo não bloqueia, então
+    // a rota pode terminar em cima dele.
+    abrirAoChegar = id;
+    irPara(alvo.tileX, alvo.tileY);
   }
 
   function renderCorpse(msg: S2C_CorpseContents): void {
+    // Bolsa de monstro esvaziada: o servidor já a apagou do mundo, então fechar
+    // a janela é a única leitura honesta — deixá-la aberta e vazia sugeriria que
+    // ainda há um recipiente ali para voltar.
+    if (msg.source === 'creature' && msg.items.every((s) => !s)) {
+      corpseWin.style.display = 'none';
+      openCorpseId = null;
+      return;
+    }
     openCorpseId = msg.corpseId;
     corpseWin.style.display = 'block';
-    corpseTitle.textContent = `☠️ Corpo de ${msg.owner}`;
+    corpseTitle.textContent = msg.source === 'creature'
+      ? `🎒 Bolsa de ${msg.owner}`
+      : `☠️ Corpo de ${msg.owner}`;
     corpseGrid.textContent = '';
     let vazio = true;
     msg.items.forEach((stack, i) => {
@@ -2014,6 +2189,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   /** Item do chão sendo arrastado agora. */
   let arrastandoDoChao: EntitySnapshot | null = null;
+  /**
+   * Quando terminou o último arraste de item do chão.
+   *
+   * O `mouseup` de um arraste que começa E termina dentro do viewport gera um
+   * `click` logo atrás — e o clique no mundo é "ande até aqui". Sem isto,
+   * empurrar uma pilha um tile ao lado também faria o personagem caminhar até
+   * lá, que é o oposto de mover a coisa sem sair do lugar.
+   */
+  let fimDoArrasteDeChao = 0;
   const fantasma = document.createElement('img');
   fantasma.id = 'dragghost';
   fantasma.style.display = 'none';
@@ -2029,6 +2213,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const t = tileDoEvento(ev);
     const item = itensPorTile.get(t.y * map.width + t.x);
     if (!item) return;
+    // Corpo e bolsa NÃO se arrastam: são recipientes, e o gesto neles é abrir.
+    // Sem isto, o arraste roubaria o clique e o espólio ficaria inacessível.
+    if (item.itemKind === 'corpse' || item.itemKind === 'lootbag') return;
     arrastandoDoChao = item;
     fantasma.src = itemIconUrl(item.itemKind ?? '');
     fantasma.style.display = 'block';
@@ -2048,10 +2235,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (!arrastandoDoChao) return;
     const item = arrastandoDoChao;
     pararArrasteDoChao();
+    fimDoArrasteDeChao = performance.now();
     // Soltou sobre a mochila (ou sobre qualquer slot dela)? Então pega.
     const alvo = ev.target as HTMLElement | null;
     if (alvo && (bpGrid.contains(alvo) || alvo === bpGrid)) {
       net.send({ t: 'pickup', itemId: item.id });
+      return;
+    }
+    // Soltou sobre o MUNDO? Empurra a pilha para aquele tile — o gesto do
+    // Tibia, que permite ir levando o item de tile em tile sem pegá-lo.
+    if (alvo && (viewportEl.contains(alvo) || alvo === viewportEl)) {
+      const destino = tileDoEvento(ev);
+      net.send({ t: 'movegrounditem', itemId: item.id, tileX: destino.x, tileY: destino.y });
+      return;
     }
     // Soltar em qualquer outro lugar simplesmente cancela — sem mensagem de
     // erro, porque arrastar e desistir é gesto normal, não engano.
@@ -2095,7 +2291,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // Shift solta a pilha inteira; sem shift, uma unidade. Mesma regra do botão
     // direito — soltar 300 fragmentos por engano com um gesto seria irreversível.
     const tudo = e.shiftKey || stack.amount === 1;
-    net.send({ t: 'drop', slot, ...(tudo ? {} : { amount: 1 }) });
+    // 🔴 O item cai ONDE O MOUSE SOLTOU, não aos pés do jogador (como no Tibia).
+    // `DragEvent` estende `MouseEvent`, então a mesma conversão tela->tile do
+    // clique-para-andar serve aqui.
+    const alvo = tileDoEvento(e);
+    net.send({
+      t: 'drop',
+      slot,
+      ...(tudo ? {} : { amount: 1 }),
+      tileX: alvo.x,
+      tileY: alvo.y,
+    });
   });
 
   // Momento do último arraste de painel (para não minimizar no clique que segue).
@@ -2119,37 +2325,54 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   // ---- Reordenar painéis arrastando pelo cabeçalho -----------------------
   // Clique curto = minimiza; arrastar (>6px) = reordena. A ordem fica salva.
-  const sidebarEl = el('sidebar');
-  const ORDER_KEY = 'elysia_panel_order';
   // Havia aqui uma "caixa de baixo" fixa (posição + atalhos de teclado) que servia
   // de âncora: os painéis arrastados eram inseridos ANTES dela. O dono mandou
   // removê-la em 30/07, então a barra passou a ser só painéis e o fim da lista é o
   // fim da barra — `insertBefore(x, null)` é exatamente `appendChild`.
-  const reorderable = (): HTMLElement[] =>
-    Array.from(sidebarEl.children).filter(
+  //
+  // Desde o layout de três regiões são DUAS barras de painel. Cada uma guarda a
+  // própria ordem, com chave própria, e o arraste acontece dentro da barra de
+  // origem: as duas têm a mesma largura, mas deixar o painel pular de coluna no
+  // meio do gesto tornaria o alvo do arraste ambíguo.
+  type Bar = { el: HTMLElement; key: string };
+  const BARS: readonly Bar[] = [
+    { el: el('sidebar'), key: 'elysia_panel_order' },
+    { el: el('leftbar'), key: 'elysia_panel_order_left' },
+  ];
+  const reorderable = (bar: HTMLElement): HTMLElement[] =>
+    Array.from(bar.children).filter(
       (c): c is HTMLElement => c instanceof HTMLElement && !!c.querySelector(':scope > .phead'),
     );
-  // Restaura a ordem salva reanexando os painéis na ordem gravada.
-  try {
-    const saved = JSON.parse(localStorage.getItem(ORDER_KEY) ?? 'null') as string[] | null;
-    if (saved) {
-      for (const id of saved) {
-        const p = document.getElementById(id);
-        if (p && p.parentElement === sidebarEl) sidebarEl.appendChild(p);
+  // Restaura a ordem salva reanexando os painéis na ordem gravada. O teste
+  // `parentElement === bar.el` é o que protege de ordem antiga: um id que mudou
+  // de barra (o layout mudou em 01/08) simplesmente não casa, e o painel fica
+  // onde o HTML o pôs em vez de migrar de volta para a coluna errada.
+  for (const bar of BARS) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(bar.key) ?? 'null') as string[] | null;
+      if (saved) {
+        for (const id of saved) {
+          const p = document.getElementById(id);
+          if (p && p.parentElement === bar.el) bar.el.appendChild(p);
+        }
       }
-    }
-  } catch { /* ordem inválida — ignora */ }
-  const saveOrder = (): void => {
-    localStorage.setItem(ORDER_KEY, JSON.stringify(reorderable().map((p) => p.id).filter(Boolean)));
+    } catch { /* ordem inválida — ignora */ }
+  }
+  const saveOrder = (bar: Bar): void => {
+    localStorage.setItem(
+      bar.key,
+      JSON.stringify(reorderable(bar.el).map((p) => p.id).filter(Boolean)),
+    );
   };
 
   let dragPanel: HTMLElement | null = null;
+  let dragBar: Bar | null = null;
   let dragStartY = 0;
   let dragMoved = false;
-  const panelAfter = (y: number): HTMLElement | null => {
+  const panelAfter = (bar: HTMLElement, y: number): HTMLElement | null => {
     let closest: HTMLElement | null = null;
     let closestOffset = -Infinity;
-    for (const p of reorderable()) {
+    for (const p of reorderable(bar)) {
       if (p === dragPanel) continue;
       const r = p.getBoundingClientRect();
       const offset = y - (r.top + r.height / 2);
@@ -2158,35 +2381,107 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     return closest;
   };
   document.addEventListener('pointermove', (e) => {
-    if (!dragPanel) return;
+    if (!dragPanel || !dragBar) return;
     if (!dragMoved) {
       if (Math.abs(e.clientY - dragStartY) < 6) return;
       dragMoved = true;
       dragPanel.classList.add('dragging');
     }
     e.preventDefault();
-    const after = panelAfter(e.clientY);
-    if (after) sidebarEl.insertBefore(dragPanel, after);
-    else sidebarEl.appendChild(dragPanel);
+    const after = panelAfter(dragBar.el, e.clientY);
+    if (after) dragBar.el.insertBefore(dragPanel, after);
+    else dragBar.el.appendChild(dragPanel);
   });
   document.addEventListener('pointerup', () => {
     if (!dragPanel) return;
     if (dragMoved) {
       dragPanel.classList.remove('dragging');
       lastDragEnd = performance.now(); // suprime o clique-minimizar que segue
-      saveOrder();
+      if (dragBar) saveOrder(dragBar);
     }
     dragPanel = null;
+    dragBar = null;
     dragMoved = false;
   });
-  for (const p of reorderable()) {
-    const head = p.querySelector<HTMLElement>(':scope > .phead')!;
-    head.addEventListener('pointerdown', (e) => {
+  for (const bar of BARS) {
+    for (const p of reorderable(bar.el)) {
+      const head = p.querySelector<HTMLElement>(':scope > .phead')!;
+      head.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        dragPanel = p;
+        dragBar = bar;
+        dragStartY = e.clientY;
+        dragMoved = false;
+      });
+    }
+  }
+
+  // ---- Altura da doca de chat --------------------------------------------
+  //
+  // O chat saiu da coluna esquerda e foi para o rodapé, como no Tibia. Quanto
+  // de tela ele merece é preferência pessoal (quem conversa quer mais, quem caça
+  // quer menos), então a altura é arrastável e fica salva.
+  //
+  // O arraste escreve em `--chat-h` no <html>: o CSS já deriva a altura da doca
+  // dessa variável, e o Pixi tem `resizeTo: viewportEl`, então o mundo se
+  // reajusta sozinho. Nenhum dos dois precisa saber que houve um arraste.
+  {
+    const dockEl = el('chatdock');
+    const gripEl = el('chatgrip');
+    const CHAT_H_KEY = 'elysia_chat_h';
+    const CHAT_MIN = 74; // cabeçalho + uma linha de log + a caixa de digitar
+    // Teto de 55 % da janela: sem ele dá para arrastar até o mundo sumir, e a
+    // única forma de voltar seria limpar o localStorage.
+    const clampH = (h: number): number =>
+      Math.max(CHAT_MIN, Math.min(Math.round(window.innerHeight * 0.55), Math.round(h)));
+    const applyH = (h: number): void => {
+      document.documentElement.style.setProperty('--chat-h', `${clampH(h)}px`);
+    };
+
+    /*
+     * 🔴 O Pixi PRECISA ser avisado — `resizeTo` não observa o elemento.
+     *
+     * `resizeTo: viewportEl` só reage a `window.resize`. Mudar a altura da doca
+     * encolhe o `#viewport` sem a janela mudar de tamanho, então o canvas ficava
+     * com a altura antiga e transbordava 46 px por cima do chat. Era o "chat
+     * sumindo atrás do jogo".
+     *
+     * Um `ResizeObserver` no próprio viewport cobre TODAS as causas de uma vez:
+     * arrastar a doca, minimizar o chat, minimizar painel, redimensionar a
+     * janela. Melhor que espalhar `app.resize()` por cada uma delas e esquecer
+     * da próxima.
+     */
+    const observador = new ResizeObserver(() => app.resize());
+    observador.observe(viewportEl);
+    const savedH = Number(localStorage.getItem(CHAT_H_KEY));
+    if (Number.isFinite(savedH) && savedH > 0) applyH(savedH);
+
+    let resizing = false;
+    let startY = 0;
+    let startH = 0;
+    gripEl.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
-      dragPanel = p;
-      dragStartY = e.clientY;
-      dragMoved = false;
+      resizing = true;
+      startY = e.clientY;
+      startH = dockEl.getBoundingClientRect().height;
+      dockEl.classList.add('resizing');
+      gripEl.setPointerCapture(e.pointerId);
+      e.preventDefault();
     });
+    gripEl.addEventListener('pointermove', (e) => {
+      // Arrastar para CIMA aumenta: a doca cresce a partir do rodapé.
+      if (resizing) applyH(startH + (startY - e.clientY));
+    });
+    const endResize = (): void => {
+      if (!resizing) return;
+      resizing = false;
+      dockEl.classList.remove('resizing');
+      localStorage.setItem(CHAT_H_KEY, String(Math.round(dockEl.getBoundingClientRect().height)));
+    };
+    gripEl.addEventListener('pointerup', endResize);
+    gripEl.addEventListener('pointercancel', endResize);
+    // Janela encolheu: reaplica o teto para a doca não engolir o mundo.
+    window.addEventListener('resize', () => applyH(dockEl.getBoundingClientRect().height));
   }
 
   // ---- Ciclo dia/noite + relógio -----------------------------------------
@@ -2822,6 +3117,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           classAnims, slimeAnim, slimeVariants, zombieAnim, zombieIdleAnim, creatureSheets,
           knightArt, npcAnim,
           selfClass: charClass, selfGender: gender, openShop, openBank, openCraft, openCorpse,
+          itemTexture,
         });
         sprites.set(e.id, view);
         objects.addChild(view.container);
@@ -3045,6 +3341,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // sistemas de evento disparam.
   viewportEl.addEventListener('click', (ev) => {
     if (ev.button !== 0) return;
+    // Acabou de arrastar item pelo chão: este clique é o rabo do gesto, não uma
+    // ordem de caminhada. Ver `fimDoArrasteDeChao`.
+    if (performance.now() - fimDoArrasteDeChao < 250) return;
     const t = tileDoEvento(ev);
     if (t.x < 0 || t.y < 0 || t.x >= map.width || t.y >= map.height) return;
     if (tilesClicaveis.has(t.y * map.width + t.x)) return; // é interação, não caminhada
@@ -3564,6 +3863,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       tickFollow();
     }
 
+    // Chegou perto do corpo/bolsa que se clicou de longe? Abre. Ver `openCorpse`.
+    if (abrirAoChegar) {
+      const alvo = porId.get(abrirAoChegar);
+      if (!alvo) {
+        abrirAoChegar = null; // expirou ou outro jogador levou
+      } else if (distDoHeroi(alvo.tileX, alvo.tileY) <= 1) {
+        const id = abrirAoChegar;
+        abrirAoChegar = null;
+        openCorpse(id);
+      } else if (caminho.length === 0) {
+        // A rota acabou (ou foi cancelada) sem chegar: desiste em silêncio, em
+        // vez de ficar com uma intenção pendurada esperando para sempre.
+        abrirAoChegar = null;
+      }
+    }
+
     // Consome a rota, um passo por vez, na MESMA cadência do teclado — então
     // andar por clique e por tecla tem exatamente a mesma velocidade.
     if (caminho.length > 0 && now - lastSentAt > 120) {
@@ -3729,6 +4044,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       nightTexture.source.update();
     }
   });
+
+  // 🔴 ÚLTIMA LINHA DE `startGame`, e tem que continuar sendo.
+  //
+  // Só aqui todo o estado da partida existe. Libera a entrega de mensagens e
+  // despeja o que chegou enquanto o mundo carregava — em especial o
+  // `inventory`, que o servidor manda uma única vez, no join, e que antes se
+  // perdia (equipamento e mochila ficavam vazios até o primeiro item mudar).
+  flushPendingGameMessages();
 }
 
 // ---- Entidades (jogador / criatura / item) ---------------------------------
@@ -4012,6 +4335,26 @@ const STEP_MS_SLOWER_RAMP = 1.12;
 const PLAYER_STEP_MS_SEED = 480;
 
 /**
+ * Intervalo entre passos do HERÓI LOCAL, como o SERVIDOR calculou — não medido.
+ *
+ * 🔴 Conserta o "anda um tile, dá uma paradinha, anda outro" do próprio
+ * personagem. Era o mesmo problema que as criaturas já tinham tido, e a solução
+ * é a mesma: **parar de adivinhar quando dá para saber.**
+ *
+ * A cadência aprendida (`makeStepCadence`) trava no intervalo MAIS RÁPIDO já
+ * visto, porque acelerar entra na hora e desacelerar entra por rampa. Basta um
+ * par de passos chegar junto — rajada de rede, dois tiques do servidor caindo no
+ * mesmo quadro — para a cadência descer abaixo do intervalo real. A partir daí
+ * TODO deslize termina antes do próximo passo, e a fresta entre os dois é a
+ * paradinha.
+ *
+ * O servidor manda `moveIntervalMs` em `stats` desde sempre; só ninguém o usava
+ * para o deslize. Medir continua certo para os OUTROS jogadores, cuja velocidade
+ * este cliente não conhece.
+ */
+let heroiStepMs: number | null = null;
+
+/**
  * Cadência de passo aprendida do servidor, para o deslize durar exatamente o
  * intervalo entre um passo e o próximo (sem isso o sprite ou patina, ou salta o
  * tile e congela).
@@ -4105,9 +4448,12 @@ function stepDurationFor(
   isCreature: boolean,
   cadence: StepCadence,
   measured: number,
+  isSelf = false,
 ): number {
   const doBestiario = creatureStepMs(e);
   if (doBestiario !== null) return doBestiario;
+  // Herói local: o servidor já disse a velocidade dele. Ver `heroiStepMs`.
+  if (isSelf && heroiStepMs !== null) return Math.max(STEP_MS_FLOOR, heroiStepMs);
   const glide = isCreature ? CREATURE_GLIDE_DESCONHECIDA : 1;
   return Math.max(STEP_MS_FLOOR, cadence.observe(measured) * glide);
 }
@@ -4165,6 +4511,14 @@ interface MiniAssets {
   openCraft: () => void;
   /** Abre o espólio de um corpo no chão. */
   openCorpse: (id: string) => void;
+  /**
+   * Ícone do item como textura, para desenhar a pilha caída no chão.
+   *
+   * É a MESMA função que gera o ícone da mochila. O jogador precisa reconhecer
+   * no chão o que acabou de soltar — quando não reconhece, ele conclui que o
+   * jogo soltou outra coisa.
+   */
+  itemTexture: (kind: string) => Texture;
 }
 
 function makeEntity(
@@ -4176,7 +4530,7 @@ function makeEntity(
   mini: MiniAssets,
 ): EntityView {
   if (e.kind === 'creature') return makeCreatureView(e, anims, onTargetClick, mini);
-  if (e.kind === 'item') return makeItemView(e, mini.openCorpse);
+  if (e.kind === 'item') return makeItemView(e, mini.itemTexture, mini.openCorpse);
   if (e.kind === 'npc') {
     // Clicar abre o painel da FUNÇÃO do NPC. Cada um tem cor própria: os três
     // ficam na mesma praça e usam o MESMO sprite placeholder, então a cor é a
@@ -4298,7 +4652,7 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     c.eventMode = 'static';
     c.cursor = 'crosshair';
     c.hitArea = new Rectangle(0, -8, TS, TS + 12);
-    c.on('pointertap', () => onClick(e.id));
+    c.on('pointertap', soBotaoEsquerdo(() => onClick(e.id)));
   }
 
   const shadow = new Graphics();
@@ -4527,7 +4881,7 @@ function makeSpriteActor(opts: SpriteActorOpts): EntityView {
     c.eventMode = 'static';
     c.cursor = 'crosshair';
     c.hitArea = new Rectangle(0, -8, TS, TS + 12);
-    c.on('pointertap', () => onClick(e.id));
+    c.on('pointertap', soBotaoEsquerdo(() => onClick(e.id)));
   }
 
   const sprite = new AnimatedSprite(anim.idle);
@@ -4681,7 +5035,8 @@ function makePlayerView(e: EntitySnapshot, isSelf: boolean, tex: CharacterTextur
   let toX = fromX;
   let toY = fromY;
   const cadence = makeStepCadence(initialCadence(e, PLAYER_STEP_MS_SEED));
-  let stepMs = stepDurationFor(e, false, cadence, 0); // jogador: sempre medido
+  // Herói local usa a velocidade autoritativa; outros jogadores, a medida.
+  let stepMs = stepDurationFor(e, false, cadence, 0, isSelf);
   let moveStart = performance.now();
   let movingUntil = 0;
   c.x = fromX;
@@ -4718,7 +5073,7 @@ function makePlayerView(e: EntitySnapshot, isSelf: boolean, tex: CharacterTextur
       // Duração do deslize = intervalo real entre passos (sincroniza com o
       // servidor). Jogador desliza o intervalo INTEIRO: quem segura a tecla
       // espera movimento contínuo, sem pausa entre um tile e outro.
-      stepMs = stepDurationFor(e, false, cadence, now - moveStart);
+      stepMs = stepDurationFor(e, false, cadence, now - moveStart, isSelf);
       movingUntil = now + stepMs + 80; // segue animando entre passos consecutivos
     }
     moveStart = now;
@@ -4842,7 +5197,7 @@ function makeCreatureView(
   c.eventMode = 'static';
   c.cursor = 'crosshair';
   c.hitArea = new Rectangle(0, -8, TS, TS + 12);
-  c.on('pointertap', () => onTargetClick(e.id));
+  c.on('pointertap', soBotaoEsquerdo(() => onTargetClick(e.id)));
 
   const isRotworm = e.creatureType === 'rotworm';
   const isSnake = e.creatureType === 'snake';
@@ -5258,11 +5613,48 @@ function creatureIconUrl(type: string | undefined): string {
 }
 
 /** Item no chão (ouro): pilha brilhante + quantidade. */
-function makeItemView(e: EntitySnapshot, onCorpseClick?: (id: string) => void): EntityView {
+function makeItemView(
+  e: EntitySnapshot,
+  itemTexture: (kind: string) => Texture,
+  onCorpseClick?: (id: string) => void,
+): EntityView {
   const c = new Container();
   c.x = e.tileX * TS;
   c.y = e.tileY * TS;
   const g = new Graphics();
+
+  if (e.itemKind === 'lootbag') {
+    /*
+     * Bolsa de loot da criatura: saquinho de couro amarrado, com sombra.
+     *
+     * Desenhada diferente do corpo (ossos) de propósito — o jogador precisa
+     * distinguir de longe "aqui tem meu espólio" de "alguém morreu aqui".
+     */
+    g.ellipse(TS / 2, TS - 4, 8, 3).fill({ color: 0x000000, alpha: 0.38 });
+    // Corpo do saco, mais largo embaixo.
+    g.moveTo(TS / 2 - 7, TS - 6);
+    g.quadraticCurveTo(TS / 2 - 9, TS - 15, TS / 2 - 4, TS - 17);
+    g.lineTo(TS / 2 + 4, TS - 17);
+    g.quadraticCurveTo(TS / 2 + 9, TS - 15, TS / 2 + 7, TS - 6);
+    g.quadraticCurveTo(TS / 2, TS - 3, TS / 2 - 7, TS - 6);
+    g.fill(0x9a6a3a).stroke({ width: 1, color: 0x4a3018 });
+    // Cordinha da boca do saco.
+    g.rect(TS / 2 - 5, TS - 19, 10, 3).fill(0x6a4a24).stroke({ width: 1, color: 0x3a2410 });
+    c.addChild(g);
+    c.eventMode = 'static';
+    c.cursor = 'pointer';
+    c.hitArea = new Rectangle(0, 0, TS, TS);
+    c.on('pointertap', soBotaoEsquerdo(() => onCorpseClick?.(e.id)));
+    c.addChild(nameLabel(e.name, 0xd9b26a));
+    c.zIndex = c.y / TS + 0.25;
+    return {
+      container: c,
+      setDirection: () => {},
+      setTarget: (x, y) => { c.x = x; c.y = y; },
+      setHp: () => {},
+      update: () => {},
+    };
+  }
 
   if (e.itemKind === 'corpse') {
     // Corpo de jogador: monte de ossos com uma poça escura. Clicável para
@@ -5276,7 +5668,7 @@ function makeItemView(e: EntitySnapshot, onCorpseClick?: (id: string) => void): 
     c.eventMode = 'static';
     c.cursor = 'pointer';
     c.hitArea = new Rectangle(0, 0, TS, TS);
-    c.on('pointertap', () => onCorpseClick?.(e.id));
+    c.on('pointertap', soBotaoEsquerdo(() => onCorpseClick?.(e.id)));
     c.addChild(nameLabel(e.name, 0xd8a0a0));
     c.zIndex = c.y / TS + 0.25;
     return {
@@ -5288,10 +5680,30 @@ function makeItemView(e: EntitySnapshot, onCorpseClick?: (id: string) => void): 
     };
   }
 
-  for (const [ox, oy] of [[-4, 2], [4, 2], [0, -1]] as const) {
-    g.circle(TS / 2 + ox, TS - 8 + oy, 4).fill(0xf4c542).stroke({ width: 1, color: 0x8a6a10 });
-  }
+  /*
+   * 🔴 BUG CORRIGIDO (01/08): aqui havia TRÊS CÍRCULOS DOURADOS FIXOS
+   *
+   *   for (const [ox, oy] of [[-4,2],[4,2],[0,-1]])
+   *     g.circle(...).fill(0xf4c542)
+   *
+   * desenhados para QUALQUER item, ignorando `e.itemKind`. O dono soltou poções
+   * e viu uma pilha de ouro no chão — e concluiu que soltar item estava soltando
+   * a coisa errada. Não estava: o `drop` sempre funcionou, o DESENHO é que
+   * mentia. Um bug de render que se disfarça de bug de lógica custa caro, então
+   * o desenho agora sai da mesma função que faz o ícone da mochila.
+   *
+   * O ouro continua parecendo ouro — `itemIconCanvas` desenha pilha de moedas
+   * para `category: 'currency'`. A diferença é que agora só o ouro parece ouro.
+   */
+  // Sombra elíptica: sem ela o ícone flutua, em vez de estar caído no tile.
+  g.ellipse(TS / 2, TS - 5, 9, 3.5).fill({ color: 0x000000, alpha: 0.38 });
   c.addChild(g);
+  const icon = new Sprite(itemTexture(e.itemKind ?? ''));
+  icon.width = TS - 8;
+  icon.height = TS - 8;
+  icon.x = (TS - icon.width) / 2;
+  icon.y = TS - 4 - icon.height; // assenta a base do ícone no chão do tile
+  c.addChild(icon);
   if (e.amount && e.amount > 1) {
     const t = new Text({
       text: String(e.amount),
@@ -5312,6 +5724,25 @@ function makeItemView(e: EntitySnapshot, onCorpseClick?: (id: string) => void): 
   };
 }
 
+/**
+ * Envolve um clique de entidade para que **só o botão ESQUERDO** conte.
+ *
+ * 🔴 Conserta um bug real: clicar com o botão DIREITO num monstro atacava.
+ *
+ * O `pointertap` do Pixi dispara para qualquer botão, não só o primário — então
+ * o mesmo gesto que deveria abrir o menu de contexto também mandava `attack`.
+ * Atacar sem querer é caro: em PvP dá ⚪ Caveira Branca, e num monstro forte
+ * começa uma luta que o jogador não escolheu.
+ *
+ * Vale para tudo que é clicável no mundo (monstro, jogador, NPC, corpo, bolsa):
+ * o botão direito fica reservado ao menu, em todos.
+ */
+function soBotaoEsquerdo(fn: () => void): (ev: FederatedPointerEvent) => void {
+  return (ev) => {
+    if (ev.button === 0) fn();
+  };
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (ch) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] ?? ch,
@@ -5320,10 +5751,32 @@ function escapeHtml(s: string): string {
 
 // ---- Bootstrap -------------------------------------------------------------
 // A conexão é criada ANTES de qualquer tela: o login já precisa dela.
+let autoAuthEnviado = false;
 net = new NetClient(routeServerMessage, (connected) => {
   statusEl.innerHTML = connected
     ? 'Servidor: <span class="on">conectado</span>'
     : 'Servidor: <span class="off">reconectando…</span>';
+  /*
+   * 🔴 TEMPORÁRIO: autentica sozinho quando o socket abre pela PRIMEIRA vez.
+   * Senha vazia — quem autoriza é o servidor de desenvolvimento, pelo nome da
+   * conta.
+   *
+   * O `setTimeout` NÃO é frescura. Este callback roda dentro do `onopen` do
+   * NetClient, ANTES da linha `if (this.username) this.sendAuth('login')` que
+   * existe para refazer o login em reconexão. Autenticando aqui de forma
+   * síncrona, `username` já estaria preenchido quando aquela linha rodasse — e
+   * o login sairia DUAS vezes. Dois `authresult` viram dois `enterGame` (o
+   * NetClient reentra sozinho quando já tem `characterId`), e o personagem
+   * entrava duas vezes no mundo, chegando sem estado nenhum.
+   *
+   * Adiando para o próximo tique, o `onopen` termina com `username` ainda vazio
+   * e só o nosso login acontece.
+   */
+  if (connected && DEV_AUTOLOGIN && !autoAuthEnviado) {
+    autoAuthEnviado = true;
+    console.warn(`[DEV] auto-login ligado para "${DEV_AUTOLOGIN}" — tela de login pulada`);
+    window.setTimeout(() => net.auth('login', DEV_AUTOLOGIN, ''), 0);
+  }
 });
 net.connect();
 

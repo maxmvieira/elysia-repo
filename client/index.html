@@ -22,12 +22,28 @@
          * ⚠️ `--slot` e `--bar-w` estão AMARRADOS: a mochila é uma grade de 5
          * colunas, e 5 × slot + 4 × 3 px de gap tem que caber em
          * `--bar-w` − 2 × (padding da barra) − 2 × (padding da .box).
-         * Com 190/28: 5×28+12 = 152, e o espaço útil é 190−14−12 = 164. Cabe.
+         * Com 190/24: 5×24+12 = 132, e o espaço útil é 190−14−12 = 164. Cabe.
          * Aumentar `--slot` sem aumentar `--bar-w` reintroduz o scroll.
+         *
+         * 🔴 `--slot` caiu de 28 para 24 em 01/08, e a razão é ARITMÉTICA, não
+         * gosto: a mochila de 40 slots são 8 linhas, então cada pixel de slot
+         * custa 8 px de altura na barra — mais o paperdoll, que são outras 4.
+         * Foi o único corte de ~48 px disponível que não esconde informação
+         * nenhuma do jogador.
+         *
+         * Quer os ícones maiores de volta? Suba `--bar-w` junto: com 214/28 a
+         * conta fecha (5×28+12 = 152 ≤ 214−26 = 188). O preço são 48 px de
+         * largura a menos para o mundo.
          */
         --bar-w: 190px;
-        --slot: 28px;
+        --slot: 24px;
         --bar-pad: 7px;
+        /*
+         * Altura da doca de chat (rodapé, estilo Tibia). É arrastável pelo
+         * "pegador" e o JS grava o valor aqui mesmo, em `--chat-h` no <html>,
+         * para o layout inteiro reagir com uma linha só.
+         */
+        --chat-h: 148px;
       }
       * {
         box-sizing: border-box;
@@ -45,16 +61,116 @@
         display: flex;
         height: 100vh;
       }
+      /*
+       * Coluna central: o mundo em cima, o chat docado embaixo (estilo Tibia).
+       * `min-width: 0` é obrigatório — sem ele um filho largo (o canvas) impede
+       * o flex de encolher a coluna e as barras laterais são empurradas para
+       * fora da tela.
+       */
+      #center {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
       #viewport {
         flex: 1;
+        min-height: 0;
         position: relative;
+        /*
+         * 🔴 `overflow: hidden` conserta o chat sumindo atrás do jogo.
+         *
+         * O Pixi redimensiona o canvas por `resizeTo: viewportEl`, o que é
+         * ASSÍNCRONO (ResizeObserver). Ao arrastar a doca para cima, esta div
+         * encolhe na hora, mas o canvas fica com a altura antiga por um quadro —
+         * e, sem corte, ele transborda e cobre o chat inteiro.
+         *
+         * Cortar aqui resolve na origem: o canvas nunca desenha fora do lugar
+         * dele, esteja o Pixi atualizado ou não.
+         */
+        overflow: hidden;
       }
       #viewport canvas {
         display: block;
       }
+      /* ---- Doca do chat (rodapé) ------------------------------------------
+       *
+       * O chat era uma coluna inteira à esquerda, o que gastava 190 px de
+       * largura para exibir texto de 10 px. No rodapé ele usa a largura toda e
+       * devolve a coluna esquerda para os painéis.
+       */
+      #chatdock {
+        height: var(--chat-h);
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        background: var(--panel);
+        border-top: 2px solid var(--border);
+        padding: 0 var(--bar-pad) var(--bar-pad);
+        /* Cinto de segurança do corte acima: mesmo que algo escape do
+           `#viewport`, a doca fica por cima. Empilhamento precisa de
+           `position` — sem ela o `z-index` é ignorado. */
+        position: relative;
+        z-index: 1;
+      }
+      /* Chat minimizado: a doca encolhe para a altura do cabeçalho em vez de
+         manter um vazio de 148 px reservado. */
+      #chatdock:has(.panel.collapsed) {
+        height: auto;
+      }
+      /* Faixa de arrasto para redimensionar a doca. Fica ACIMA do painel e
+         ocupa a largura toda: alvo grande, do jeito que um resize precisa ser. */
+      /*
+       * Alvo GORDO de propósito: 14 px de altura.
+       *
+       * Com 7 px, errar por três pixels significava clicar no mundo — e clique
+       * no mundo é "ande até aqui". Tentar ajustar o chat e ver o personagem
+       * sair andando é pior que não ter o ajuste.
+       *
+       * O desenho continua uma listra fina (o `background` só pinta o meio, via
+       * `background-size`), então o alvo é maior do que parece — que é o certo
+       * para um pegador de redimensionar.
+       */
+      #chatgrip {
+        height: 14px;
+        flex: none;
+        cursor: ns-resize;
+        background-image: repeating-linear-gradient(
+          to right,
+          #4a4238 0 2px,
+          transparent 2px 6px
+        );
+        background-size: 100% 4px;
+        background-position: center;
+        background-repeat: no-repeat;
+        opacity: 0.5;
+        border-radius: 3px;
+        /* Sem isto, arrastar no touch vira rolagem da página. */
+        touch-action: none;
+      }
+      #chatgrip:hover {
+        opacity: 0.9;
+      }
+      #chatdock.resizing #chatgrip {
+        opacity: 1;
+        background: #c9a86a;
+      }
+      #chatpanel {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      #chatpanel .pbody {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
       /* Painel lateral estilo MMORPG clássico (doc 16). */
       #sidebar {
         width: var(--bar-w);
+        flex: none;
         background: var(--panel);
         border-left: 2px solid var(--border);
         display: flex;
@@ -125,10 +241,12 @@
         border: 1px solid #000;
         border-radius: 3px;
         box-shadow: inset 0 0 0 1px #2b2620;
-        /* Fixo em 150 (= o atributo do canvas): esticar por % reamostrava a
-           imagem e deixava o minimapa levemente borrado. Agora é 1 px = 1 px. */
-        width: 150px;
-        height: 150px;
+        /* Fixo em 130 (= o atributo do canvas): esticar por % reamostrava a
+           imagem e deixava o minimapa levemente borrado. Agora é 1 px = 1 px.
+           ⚠️ Mudar aqui exige mudar `width`/`height` do <canvas> junto — o JS
+           deriva a escala de `miniCanvas.width`. */
+        width: 130px;
+        height: 130px;
         align-self: center;
       }
       #chatlog {
@@ -156,6 +274,11 @@
       .hint {
         color: #8a8272;
         font-size: 9.5px;
+      }
+      /* Dica vazia não reserva altura. `#invhint` e `#partyloot` só recebem
+         texto em certas situações, e antes gastavam a margem o tempo todo. */
+      .hint:empty {
+        display: none;
       }
       /* Grupo (Etapa 9). Uma linha por membro, compacta: a barra tem 190 px. */
       .partyrow {
@@ -568,7 +691,10 @@
         display: flex;
         flex-direction: column;
         gap: 2px;
-        max-height: 160px;
+        /* 112 e não 160: com muitos alvos na tela este painel era o que mais
+           crescia, e ele tem scroll próprio — cortar aqui não esconde nada,
+           só obriga a rolar DENTRO da lista (≈7 alvos visíveis). */
+        max-height: 112px;
         overflow-y: auto;
       }
       .brow {
@@ -803,14 +929,27 @@
         font-size: 10px;
         font-style: italic;
       }
-      /* Painel de chat à esquerda */
+      /* ---- Coluna ESQUERDA: informação do mundo ---------------------------
+       *
+       * Antes era só o chat. Passou a receber os painéis "do mundo" (mapa,
+       * battle, atributos, social) porque a barra da direita sozinha somava
+       * ~760 px de painel e a tela tem ~700 — daí o scroll eterno.
+       *
+       * `overflow-y: auto` continua aqui, mas como REDE DE PROTEÇÃO (janela
+       * muito baixa, todos os painéis abertos), não como funcionamento normal.
+       */
       #leftbar {
         width: var(--bar-w);
+        flex: none;
         background: var(--panel);
         border-right: 2px solid var(--border);
         display: flex;
         flex-direction: column;
         padding: var(--bar-pad);
+        gap: 6px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #3a352d transparent;
       }
       /* Painéis retráteis (+/−) */
       .phead {
@@ -1625,30 +1764,101 @@
     </style>
   </head>
   <body>
+    <!--
+      ---- Layout em três regiões (estilo Tibia) ----------------------------
+
+      ESQUERDA  o mundo: mapa, atributos, alvos, social
+      CENTRO    o jogo em cima, o chat docado no rodapé
+      DIREITA   o personagem: vitais e equipamento
+
+      A divisão não é estética: a barra da direita sozinha somava ~760 px de
+      painel numa tela de ~700, e por isso vivia com scroll. Painel que o
+      jogador consulta ("onde estou", "o que está me batendo") foi para a
+      esquerda; painel que ele OPERA (vida, mochila) ficou à direita, perto de
+      onde a mão já está.
+    -->
     <div id="app">
       <aside id="leftbar">
-        <div class="box panel" id="chatpanel" style="flex: 1; display: flex; flex-direction: column; min-height: 0">
-          <div class="phead"><span>💬 Chat</span><button class="pt" title="Minimizar">−</button></div>
-          <div class="pbody" style="flex: 1; display: flex; flex-direction: column; min-height: 0">
-            <div id="chatlog"></div>
-            <input id="chatinput" placeholder="Enter para conversar…" maxlength="200" />
+        <div class="box panel" id="mapbox">
+          <div class="phead"><span>🗺️ Mapa</span><button class="pt" title="Minimizar">−</button></div>
+          <div class="pbody" style="display: flex; justify-content: center">
+            <!-- 140 e não 150: o JS deriva a escala de `miniCanvas.width`,
+                 então mudar o atributo aqui (junto com o CSS) basta. -->
+            <canvas id="minimap" width="130" height="130"></canvas>
+          </div>
+        </div>
+        <div class="box panel" id="attrbox">
+          <div class="phead">
+            <span>Atributos · <b id="attr-points">0</b> pts</span>
+            <button class="pt" id="attr-toggle" title="Minimizar">−</button>
+          </div>
+          <div class="pbody"><div id="attrlist"></div></div>
+        </div>
+        <div class="box panel" id="battlebox">
+          <div class="phead"><span>⚔️ Battle</span><button class="pt" title="Minimizar">−</button></div>
+          <div class="pbody"><div id="battlelist"></div></div>
+        </div>
+        <!--
+          Grupo. Fica ESCONDIDO enquanto o jogador não está em nenhum: um painel
+          permanentemente vazio na barra rouba altura de quem joga sozinho, que
+          é a maioria do tempo.
+        -->
+        <div class="box panel" id="partybox" style="display: none">
+          <div class="phead"><span>👥 Grupo</span><button class="pt" title="Minimizar">−</button></div>
+          <div class="pbody">
+            <!--
+              A regra de loot fica sempre visível: `DD-PARTY-014` exige, e é o
+              tipo de coisa que o jogador só descobre que precisava saber depois
+              de perder um item.
+            -->
+            <div id="partyloot" class="hint"></div>
+            <div id="partylist"></div>
+            <div id="partyvote" style="display: none"></div>
+            <button id="party-leave" class="minibtn">Sair do grupo</button>
+            <div
+              class="hint"
+              style="margin-top: 6px"
+              title="/loot livre — cada um pega o que cair · /loot lider — só o líder pega · /loot aleatorio — sorteia entre os membros. O comando ABRE UMA VOTAÇÃO: o líder não muda a regra sozinho (DD-PARTY-015)."
+            >
+              <code>/loot</code> muda a regra (votação).
+            </div>
+          </div>
+        </div>
+        <div class="box panel" id="friendsbox">
+          <div class="phead">
+            <span>🤝 Amigos</span><button class="pt" title="Minimizar">−</button>
+          </div>
+          <div class="pbody">
+            <div id="friendlist"></div>
+            <div class="hint" style="margin-top: 4px" title="Botão direito em outro jogador para adicionar aos amigos.">
+              Botão direito para adicionar.
+            </div>
           </div>
         </div>
       </aside>
-      <div id="viewport"></div>
+      <div id="center">
+        <div id="viewport"></div>
+        <!--
+          Doca do chat. No rodapé, como no Tibia: usa a largura toda da tela em
+          vez de uma coluna de 190 px, e o "pegador" acima dela permite ajustar
+          a altura (o valor fica salvo).
+        -->
+        <div id="chatdock">
+          <div id="chatgrip" title="Arraste para mudar a altura do chat"></div>
+          <div class="box panel" id="chatpanel">
+            <div class="phead"><span>💬 Chat</span><button class="pt" title="Minimizar">−</button></div>
+            <div class="pbody">
+              <div id="chatlog"></div>
+              <input id="chatinput" placeholder="Enter para conversar…" maxlength="200" />
+            </div>
+          </div>
+        </div>
+      </div>
       <aside id="sidebar">
         <h1>ELYSIA ONLINE</h1>
         <div class="box" id="status">
           <span id="conn">Servidor: <span class="off">conectando…</span></span>
           <span id="clock" title="Hora do mundo (ciclo dia/noite)">☀️ 08:00</span>
-        </div>
-        <div class="box panel" id="mapbox">
-          <div class="phead"><span>🗺️ Mapa</span><button class="pt" title="Minimizar">−</button></div>
-          <div class="pbody" style="display: flex; justify-content: center">
-            <!-- 150 e não 180: era o painel mais alto da barra. O JS deriva a
-                 escala de `miniCanvas.width`, então mudar aqui basta. -->
-            <canvas id="minimap" width="150" height="150"></canvas>
-          </div>
         </div>
         <div class="box panel" id="vitalsbox">
           <div class="phead">
@@ -1679,24 +1889,24 @@
             </button>
           </div>
         </div>
-        <div class="box panel" id="attrbox">
-          <div class="phead">
-            <span>Atributos · <b id="attr-points">0</b> pts</span>
-            <button class="pt" id="attr-toggle" title="Minimizar">−</button>
-          </div>
-          <div class="pbody"><div id="attrlist"></div></div>
-        </div>
         <div class="box panel" id="invbox">
           <div class="phead"><span>🛡️ Equipamentos</span><button class="pt" title="Minimizar">−</button></div>
           <div class="pbody">
             <div id="equipgrid"></div>
             <div class="subhead" id="bpsubhead">🎒 Mochila</div>
             <div id="bpgrid"></div>
-            <div class="hint" style="margin-top: 4px">
-              <b>Arraste para o mundo</b> para soltar no chão · <b>Shift</b> solta a
-              pilha inteira. Arraste do chão para cá para pegar. Botão direito
-              também solta. Arraste entre slots para arrumar a mochila.
-              O que fica no chão desaparece em 3 minutos.
+            <!--
+              Encurtada de 5 linhas para 1 (o resto foi para o `title`): este
+              bloco sozinho comia ~60 px da barra. A frase que sobrou é a que
+              NÃO pode sumir — arrastar para o mundo é o caminho principal de
+              soltar item, e ninguém descobre isso sozinho.
+            -->
+            <div
+              class="hint"
+              style="margin-top: 4px"
+              title="Shift enquanto arrasta solta a pilha inteira. Arraste do chão para cá para pegar. Botão direito também solta. Arraste entre slots para arrumar a mochila. O que fica no chão desaparece em 3 minutos."
+            >
+              <b>Arraste para o mundo</b> para soltar no chão.
             </div>
             <div id="depotbox" style="display: none">
               <div class="subhead">🏦 Depósito</div>
@@ -1705,51 +1915,21 @@
             <div id="invhint" class="hint" style="margin-top: 6px"></div>
           </div>
         </div>
-        <div class="box panel" id="battlebox">
-          <div class="phead"><span>⚔️ Battle</span><button class="pt" title="Minimizar">−</button></div>
-          <div class="pbody"><div id="battlelist"></div></div>
-        </div>
         <!--
-          Grupo. Fica ESCONDIDO enquanto o jogador não está em nenhum: um painel
-          permanentemente vazio na barra rouba altura de quem joga sozinho, que
-          é a maioria do tempo.
+          PvP fica na DIREITA, junto dos vitais: é um interruptor de estado do
+          personagem ("estou atacável"), não informação do mundo. E é o painel
+          mais baixo do jogo, o que o torna o único que ainda cabia aqui.
         -->
-        <div class="box panel" id="partybox" style="display: none">
-          <div class="phead"><span>👥 Grupo</span><button class="pt" title="Minimizar">−</button></div>
-          <div class="pbody">
-            <!--
-              A regra de loot fica sempre visível: `DD-PARTY-014` exige, e é o
-              tipo de coisa que o jogador só descobre que precisava saber depois
-              de perder um item.
-            -->
-            <div id="partyloot" class="hint"></div>
-            <div id="partylist"></div>
-            <div id="partyvote" style="display: none"></div>
-            <button id="party-leave" class="minibtn">Sair do grupo</button>
-            <div class="hint" style="margin-top: 6px">
-              Regra de loot: <code>/loot livre|lider|aleatorio</code> — abre votação.
-            </div>
-          </div>
-        </div>
-        <div class="box panel" id="friendsbox">
-          <div class="phead">
-            <span>🤝 Amigos</span><button class="pt" title="Minimizar">−</button>
-          </div>
-          <div class="pbody">
-            <div id="friendlist"></div>
-            <div class="hint" style="margin-top: 4px">
-              Botão direito em outro jogador para adicionar.
-            </div>
-          </div>
-        </div>
         <div class="box panel" id="pkbox">
           <div class="phead"><span>⚔️ PvP</span><button class="pt" title="Minimizar">−</button></div>
           <div class="pbody">
             <button id="pk-toggle" class="minibtn">PK: desligado</button>
-            <div class="hint" style="margin-top: 4px">
-              Ligue o PK para poder atacar outros jogadores. Quem agride ganha a
-              ⚪ Caveira Branca por 5 min — e quem está de caveira pode ser
-              atacado por qualquer um, sem punição.
+            <div
+              class="hint"
+              style="margin-top: 4px"
+              title="Ligue o PK para poder atacar outros jogadores. Quem agride ganha a ⚪ Caveira Branca por 5 min — e quem está de caveira pode ser atacado por qualquer um, sem punição e sem precisar ligar o próprio PK."
+            >
+              Ligue para atacar jogadores.
             </div>
           </div>
         </div>

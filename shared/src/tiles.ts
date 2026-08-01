@@ -127,6 +127,52 @@ export function isWalkable(map: GameMap, x: number, y: number, floor: number): b
   return !getTileType(tileAt(map, x, y, floor)).solid;
 }
 
+/**
+ * Existe linha de visão livre entre dois tiles?
+ *
+ * 🔴 Criada para um bug real: **tiro de besta atravessava parede.** O ataque só
+ * conferia distância, então bastava estar dentro do alcance para acertar alguém
+ * do outro lado de um muro — e, pior, o alvo não tinha como revidar nem fugir,
+ * porque para ele o atacante estava atrás de pedra.
+ *
+ * Bresenham entre os dois tiles, testando os do MEIO: origem e destino ficam de
+ * fora de propósito. O destino pode bloquear visão (atirar num bicho encostado
+ * na parede é válido), e a origem é onde o atirador está.
+ *
+ * 🔴 Usa `blocksSight`, **não** `solid`. Não é a mesma coisa e a diferença
+ * importa: água é sólida (não se anda nela) e transparente (vê-se através).
+ * Atirar por cima de um rio tem que funcionar; atirar através de um muro, não.
+ * O campo já existia em `TileType` esperando por isto.
+ *
+ * Serve tanto para o jogador quanto para a criatura: quem não vê, não acerta.
+ */
+export function hasLineOfSight(
+  map: GameMap,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  floor: number,
+): boolean {
+  let x = ax;
+  let y = ay;
+  const dx = Math.abs(bx - ax);
+  const dy = Math.abs(by - ay);
+  const passoX = ax < bx ? 1 : -1;
+  const passoY = ay < by ? 1 : -1;
+  let erro = dx - dy;
+
+  for (;;) {
+    if (x === bx && y === by) return true;
+    const e2 = 2 * erro;
+    if (e2 > -dy) { erro -= dy; x += passoX; }
+    if (e2 < dx) { erro += dx; y += passoY; }
+    // Chegou ao destino: o tile final não bloqueia (ver o comentário acima).
+    if (x === bx && y === by) return true;
+    if (getTileType(tileAt(map, x, y, floor)).blocksSight) return false;
+  }
+}
+
 /** Retorna a ligação de andar naquela célula, se houver. */
 export function floorLinkAt(
   map: GameMap,

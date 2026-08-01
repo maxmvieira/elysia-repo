@@ -19,6 +19,7 @@ import {
   attributeCost,
   BACKPACK_SIZE,
   backpackSizeFor,
+  DROP_THROW_RANGE,
   CLASSES,
   CREATURES,
   DEFAULT_SERVER_PORT,
@@ -124,6 +125,7 @@ import {
   WEAPON_IDENTITY,
   isSkillUsable,
   isWalkable,
+  hasLineOfSight,
   getSkill,
   ruptureDefReduction,
   SKILLS,
@@ -432,6 +434,14 @@ interface Corpse {
   items: (ItemStack | null)[];
   /** Instante em que some do mundo. */
   expiresAt: number;
+  /**
+   * Corpo de jogador ou **bolsa de loot** de criatura.
+   *
+   * As duas coisas são o mesmo mecanismo — recipiente no chão, aberto por
+   * clique, saqueável por qualquer um, com validade. Só mudam o desenho e o
+   * texto. Reusar evita um segundo sistema de container fazendo o mesmo.
+   */
+  source: 'player' | 'creature';
 }
 
 interface GroundItem {
@@ -1084,6 +1094,7 @@ function sendCorpse(player: Player, corpse: Corpse): void {
     owner: corpse.ownerName,
     items: corpse.items,
     secondsLeft: Math.max(0, Math.round((corpse.expiresAt - Date.now()) / 1000)),
+    source: corpse.source,
   });
 }
 
@@ -1639,6 +1650,15 @@ function dropLoot(c: Creature, recipient?: Player): void {
    * Entrega uma pilha. Mochila cheia **cai no chão** em vez de sumir: perder
    * loot por falta de espaço seria pior que a regra de loot não valer.
    */
+  /*
+   * 🔴 O que não vai para a mochila de alguém entra numa BOLSA, não no chão.
+   *
+   * Antes cada `entrega` virava uma pilha solta no mesmo tile, e uma morte com
+   * ouro + fragmento + material + equipamento deixava quatro pilhas empilhadas,
+   * onde só a de cima aparecia. A bolsa junta tudo num recipiente clicável — o
+   * mesmo mecanismo do corpo de jogador, que já existia.
+   */
+  const paraBolsa: ItemStack[] = [];
   const entrega = (kind: string, amount: number, roll?: ItemRoll): void => {
     if (recipient?.alive && addToBackpack(recipient, kind, amount, roll)) {
       sendInventory(recipient);
@@ -1648,7 +1668,7 @@ function dropLoot(c: Creature, recipient?: Player): void {
       });
       return;
     }
-    dropItem(kind, amount, c.tileX, c.tileY, c.floor, roll);
+    paraBolsa.push({ kind, amount, ...(roll ? { roll } : {}) });
   };
 
   const gold = c.def.goldMin + Math.floor(Math.random() * (c.def.goldMax - c.def.goldMin + 1));
@@ -1698,6 +1718,25 @@ function dropLoot(c: Creature, recipient?: Player): void {
     const nomes = rollAffixNames(arma ? 'weapon' : 'armor', rarity);
     entrega(kind, 1, rollItem(rarity, arma ? 'weapon' : 'armor', Math.random, nomes));
   }
+
+  // Nada sobrou para o chão (tudo coube na mochila do dono do loot): sem bolsa.
+  // Criatura que não larga nada também não deixa bolsa vazia sujando o mapa.
+  if (paraBolsa.length === 0) return;
+
+  const bolsa: Corpse = {
+    id: newId('corpse'),
+    // Criatura não tem id de jogador. O nome é o da espécie, e é o que aparece
+    // no título da janela ("Bolsa de Slime Verde").
+    ownerId: c.id,
+    ownerName: c.def.name,
+    tileX: c.tileX,
+    tileY: c.tileY,
+    floor: c.floor,
+    items: paraBolsa,
+    expiresAt: Date.now() + CORPSE_TTL_MS,
+    source: 'creature',
+  };
+  corpses.set(bolsa.id, bolsa);
 }
 
 /**
@@ -1860,6 +1899,7 @@ function dropCorpse(player: Player): Corpse {
     floor: player.floor,
     items: espolio,
     expiresAt: Date.now() + CORPSE_TTL_MS,
+    source: 'player',
   };
   corpses.set(corpse.id, corpse);
   return corpse;
@@ -2859,6 +2899,15 @@ function summonMinion(boss: Creature): void {
  * Devolve true quando consumiu o texto (não deve virar chat).
  */
 const DEV_MODE = process.env.ELYSIA_DEV === '1';
+
+/**
+ * Conta que o servidor de desenvolvimento deixa entrar **sem senha**.
+ *
+ * 🔴 TEMPORÁRIO — atalho para testar a interface sem redigitar a senha a cada
+ * recarga do Vite. Vazia (o padrão fora do `dev.ts`) desliga o auto-login.
+ * Ver o bloco comentado no `case 'auth'`.
+ */
+const DEV_ACCOUNT = (process.env.ELYSIA_DEV_ACCOUNT ?? '').trim().toLowerCase();
 function handleDevCommand(player: Player, text: string): boolean {
   if (!DEV_MODE) return false;
   const [cmd, arg] = text.slice(1).split(/\s+/);
@@ -3141,9 +3190,34 @@ function handleMessage(player: Player, msg: ClientMessage): void {
         send(player, { t: 'denied', reason: 'Versão de protocolo incompatível.' });
         return;
       }
-      const res = msg.mode === 'register'
-        ? store.registerAccount(msg.username, msg.password)
-        : store.login(msg.username, msg.password);
+      /*
+       * 🔴 AUTO-LOGIN DE DESENVOLVIMENTO — TEMPORÁRIO
+       *
+       * Entra sem senha, para não ter que digitá-la a cada recarga do Vite
+       * enquanto se testa a interface. Três travas, todas necessárias:
+       *
+       *   1. `DEV_MODE`   só `npm run dev:test` liga (`ELYSIA_DEV=1`). O
+       *                   servidor de verdade nunca passa por `dev.ts`.
+       *   2. `DEV_ACCOUNT` precisa ser preenchida à mão em `ELYSIA_DEV_ACCOUNT`.
+       *                   Vazia (o padrão) desliga tudo isto.
+       *   3. nome bate    só a conta nomeada ali entra assim.
+       *
+       * ⚠️ Isto é um ATALHO DE TESTE com cara de furo de autenticação. Se algum
+       * dia o servidor de produção passar a definir `ELYSIA_DEV`, isto vira um
+       * bypass real. Apagar quando a fase de teste manual acabar.
+       */
+      const autoLoginDev = DEV_MODE
+        && DEV_ACCOUNT !== ''
+        && msg.mode === 'login'
+        && msg.username.trim().toLowerCase() === DEV_ACCOUNT;
+      if (autoLoginDev) {
+        console.warn(`[DEV] auto-login SEM SENHA para "${DEV_ACCOUNT}" (ELYSIA_DEV_ACCOUNT)`);
+      }
+      const res = autoLoginDev
+        ? store.contaSemSenhaParaDesenvolvimento(msg.username)
+        : msg.mode === 'register'
+          ? store.registerAccount(msg.username, msg.password)
+          : store.login(msg.username, msg.password);
       if (!res.ok) {
         send(player, { t: 'authresult', ok: false, message: res.message });
         return;
@@ -3204,6 +3278,23 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       }
       if (!player.accountId) {
         send(player, { t: 'denied', reason: 'Faça login primeiro.' });
+        return;
+      }
+      /*
+       * 🔴 ENTRAR DUAS VEZES NA MESMA CONEXÃO — recusado.
+       *
+       * O bloco abaixo derruba OUTRAS conexões no mesmo personagem, mas nada
+       * impedia a MESMA de mandar `hello` de novo. Isso aconteceu de verdade em
+       * 01/08: um cliente autenticou duas vezes, virou dois `enterGame`, e o
+       * segundo join reinicializou o personagem por cima do primeiro. O save da
+       * desconexão gravou o estado meio-montado e o jogador perdeu a mochila
+       * inteira, a arma e o ouro.
+       *
+       * O bug do cliente foi corrigido, mas a trava fica: perda de save é
+       * irreversível, e o servidor não deve depender de o cliente se comportar.
+       */
+      if (player.joined) {
+        send(player, { t: 'denied', reason: 'Você já está no mundo.' });
         return;
       }
       // Confere que o personagem é DESTA conta — senão qualquer um entraria
@@ -3353,11 +3444,41 @@ function handleMessage(player: Player, msg: ClientMessage): void {
         return;
       }
       const qtd = Math.min(slot.amount, Math.max(1, Math.floor(msg.amount ?? slot.amount)));
+      /*
+       * Onde o item cai: no tile MIRADO pelo mouse, como no Tibia.
+       *
+       * 🔴 Coordenada vinda do cliente NÃO se usa crua. Duas checagens antes de
+       * aceitar, e qualquer falha vira recusa COM MOTIVO — deixar cair aos pés
+       * em silêncio seria pior: o jogador repetiria o gesto sem entender.
+       *
+       *   1. alcance — `DROP_THROW_RANGE` tiles (Chebyshev, diagonal conta)
+       *   2. andável — nada de plantar item dentro de parede ou fora do mapa
+       *
+       * Sem `tileX`/`tileY` cai aos pés, que é o caso do botão direito: ali não
+       * há posição de mouse envolvida.
+       */
+      let alvoX = player.tileX;
+      let alvoY = player.tileY;
+      if (msg.tileX !== undefined && msg.tileY !== undefined) {
+        const tx = Math.floor(msg.tileX);
+        const ty = Math.floor(msg.tileY);
+        if (!Number.isFinite(tx) || !Number.isFinite(ty)) return;
+        if (chebyshev(player.tileX, player.tileY, tx, ty) > DROP_THROW_RANGE) {
+          send(player, { t: 'denied', reason: 'Longe demais para arremessar.' });
+          return;
+        }
+        if (!isWalkable(map, tx, ty, player.floor)) {
+          send(player, { t: 'denied', reason: 'Não dá para soltar aí.' });
+          return;
+        }
+        alvoX = tx;
+        alvoY = ty;
+      }
       // 🔴 `player.id` no fim: marca o item como "acabei de soltar", para o
       // recolhimento automático não o puxar de volta no mesmo tique. Sem isso o
       // botão direito parecia não fazer nada.
       dropItem(
-        slot.kind, qtd, player.tileX, player.tileY, player.floor,
+        slot.kind, qtd, alvoX, alvoY, player.floor,
         slot.roll, PLAYER_DROP_TTL_MS, player.id,
       );
       slot.amount -= qtd;
@@ -3403,9 +3524,20 @@ function handleMessage(player: Player, msg: ClientMessage): void {
         return;
       }
       corpse.items[msg.index] = null;
-      // Corpo vazio some rápido: o mundo não fica poluído de cadáveres.
       if (corpse.items.every((s) => s === null)) {
-        corpse.expiresAt = Math.min(corpse.expiresAt, Date.now() + CORPSE_EMPTY_TTL_MS);
+        if (corpse.source === 'creature') {
+          // 🔴 Bolsa de monstro vazia some NA HORA, não por validade.
+          //
+          // Uma caçada gera uma bolsa por morte; com TTL, o campo de caça vira
+          // um tapete de saquinhos vazios que ainda pedem clique para descobrir
+          // que não têm nada. Esvaziou, acabou a função.
+          //
+          // Corpo de JOGADOR continua com o TTL curto: ele também marca onde
+          // alguém morreu, e essa informação sobrevive ao espólio.
+          corpses.delete(corpse.id);
+        } else {
+          corpse.expiresAt = Math.min(corpse.expiresAt, Date.now() + CORPSE_EMPTY_TTL_MS);
+        }
       }
       sendCorpse(player, corpse);
       sendStats(player);
@@ -3781,6 +3913,46 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       break;
     }
 
+    /*
+     * Empurrar uma pilha do chão para outro tile, arrastando — o gesto do Tibia.
+     *
+     * Duas distâncias diferentes, de propósito:
+     *   ORIGEM  `PICKUP_RANGE`      — precisa alcançar o item para mexer nele
+     *   DESTINO `DROP_THROW_RANGE`  — o mesmo alcance de arremesso da mochila
+     *
+     * Fossem a mesma, ou dava para mexer no que não se alcança, ou dava para
+     * varrer item pelo mapa em saltos sucessivos sem sair do lugar.
+     */
+    case 'movegrounditem': {
+      if (!player.joined || !player.alive) return;
+      const item = items.get(msg.itemId);
+      if (!item) return; // expirou, ou outro jogador levou
+      if (item.floor !== player.floor
+        || chebyshev(player.tileX, player.tileY, item.tileX, item.tileY) > PICKUP_RANGE) {
+        send(player, { t: 'denied', reason: 'Longe demais para mexer nesse item.' });
+        return;
+      }
+      const tx = Math.floor(msg.tileX);
+      const ty = Math.floor(msg.tileY);
+      if (!Number.isFinite(tx) || !Number.isFinite(ty)) return;
+      if (tx === item.tileX && ty === item.tileY) return; // não saiu do lugar
+      if (chebyshev(player.tileX, player.tileY, tx, ty) > DROP_THROW_RANGE) {
+        send(player, { t: 'denied', reason: 'Longe demais para arremessar.' });
+        return;
+      }
+      if (!isWalkable(map, tx, ty, player.floor)) {
+        send(player, { t: 'denied', reason: 'Não dá para soltar aí.' });
+        return;
+      }
+      item.tileX = tx;
+      item.tileY = ty;
+      // 🔴 Remarca quem mexeu por último. Sem isto, empurrar a pilha para o tile
+      // onde o jogador está faria o recolhimento automático engoli-la no mesmo
+      // tique — e mover item para perto de si é justamente um uso esperado.
+      item.droppedBy = player.id;
+      break;
+    }
+
     case 'store': {
       if (!player.joined) return;
       if (!atDepot(player)) {
@@ -3934,6 +4106,10 @@ function updateCreatures(now: number): void {
       } else if (
         c.def.spell && dist >= c.def.spell.rangeMin && dist <= c.def.spell.range &&
         now - c.lastSpellAt >= c.def.spell.cooldownMs
+        // Mesma regra do jogador: magia à distância não atravessa parede. Sem
+        // isto o muro protegeria só de um lado, e esconder-se atrás dele viraria
+        // armadilha em vez de defesa.
+        && hasLineOfSight(map, c.tileX, c.tileY, target.tileX, target.tileY, c.floor)
       ) {
         // Longe demais para o corpo a corpo, perto o bastante para a magia.
         creatureCastSpell(c, target, now);
@@ -3981,7 +4157,16 @@ function updatePlayers(now: number): void {
       if (alvoJogador) {
         if (!alvoJogador.joined || !alvoJogador.alive || alvoJogador.floor !== player.floor) {
           player.targetId = null;
-        } else if (chebyshev(player.tileX, player.tileY, alvoJogador.tileX, alvoJogador.tileY) <= player.derived.attackRange) {
+        } else if (
+          chebyshev(player.tileX, player.tileY, alvoJogador.tileX, alvoJogador.tileY)
+            <= player.derived.attackRange
+          // 🔴 Alcance NÃO basta: precisa enxergar. Sem isto, o tiro atravessava
+          // muro e acertava quem estava do outro lado — que não via o atirador,
+          // não podia revidar e não sabia de onde vinha o dano.
+          && hasLineOfSight(
+            map, player.tileX, player.tileY, alvoJogador.tileX, alvoJogador.tileY, player.floor,
+          )
+        ) {
           player.direction = dirFromDelta(
             alvoJogador.tileX - player.tileX, alvoJogador.tileY - player.tileY, player.direction,
           );
@@ -3992,7 +4177,14 @@ function updatePlayers(now: number): void {
         }
       } else if (!target || !target.alive || target.floor !== player.floor) {
         player.targetId = null;
-      } else if (chebyshev(player.tileX, player.tileY, target.tileX, target.tileY) <= player.derived.attackRange) {
+      } else if (
+        chebyshev(player.tileX, player.tileY, target.tileX, target.tileY)
+          <= player.derived.attackRange
+        // Mesma regra do PvP acima: quem não vê, não acerta.
+        && hasLineOfSight(
+          map, player.tileX, player.tileY, target.tileX, target.tileY, player.floor,
+        )
+      ) {
         player.direction = dirFromDelta(target.tileX - player.tileX, target.tileY - player.tileY, player.direction);
         // Em Fúria o Knight bate mais rápido.
         const cadencia = player.fury
@@ -4211,9 +4403,16 @@ function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
   }
   for (const c of corpses.values()) {
     if (c.floor !== viewer.floor) continue;
+    // `lootbag` desenha uma bolsa; `corpse` desenha ossos. Mesmo mecanismo,
+    // leituras diferentes: o jogador precisa distinguir de longe o espólio de
+    // uma caçada do corpo de alguém que morreu ali.
+    const bolsa = c.source === 'creature';
     out.push({
-      id: c.id, name: `Corpo de ${c.ownerName}`, tileX: c.tileX, tileY: c.tileY, floor: c.floor,
-      direction: 'down', kind: 'item', itemKind: 'corpse', corpseOwner: c.ownerName,
+      id: c.id,
+      name: bolsa ? `Bolsa de ${c.ownerName}` : `Corpo de ${c.ownerName}`,
+      tileX: c.tileX, tileY: c.tileY, floor: c.floor,
+      direction: 'down', kind: 'item', itemKind: bolsa ? 'lootbag' : 'corpse',
+      corpseOwner: c.ownerName,
     });
   }
   for (const n of npcs) {

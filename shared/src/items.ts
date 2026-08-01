@@ -391,6 +391,24 @@ export function backpackSizeFor(containerKind?: string): number {
 }
 export const DEPOT_SIZE = 40;
 
+/**
+ * Até onde o jogador consegue ARREMESSAR um item ao soltá-lo, em tiles.
+ *
+ * Distância de Chebyshev (o quadrado ao redor do jogador, diagonal incluída),
+ * a mesma métrica que o resto do jogo usa para proximidade. `3` dá o quadrado
+ * 7×7 centrado no jogador.
+ *
+ * ⚠️ **REFERÊNCIA.** Nenhum documento fecha este número. O que o Tibia ensina —
+ * e é o que se está copiando — é que soltar item tem alcance CURTO e exige o
+ * tile estar livre: sem limite, a mochila viraria um teletransporte de carga, e
+ * dava para abastecer um aliado do outro lado da tela.
+ *
+ * Fonte única de propósito: o cliente usa para não deixar mirar longe demais, e
+ * o servidor usa para recusar. Se divergissem, o jogador miraria num tile que a
+ * interface aceita e o servidor nega, sem explicação na tela.
+ */
+export const DROP_THROW_RANGE = 3;
+
 export function getItem(kind: string): ItemDef | undefined {
   return ITEMS[kind];
 }

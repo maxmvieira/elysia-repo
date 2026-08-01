@@ -293,6 +293,38 @@ export interface C2S_Drop {
   slot: number;
   /** Quantas unidades soltar. Ausente ou maior que a pilha = solta tudo. */
   amount?: number;
+  /**
+   * Tile ALVO do arremesso — para onde o mouse apontava ao soltar.
+   *
+   * Ausente = cai aos pés do jogador (é o que o botão direito faz, porque ali
+   * não há posição de mouse envolvida).
+   *
+   * 🔴 O servidor NUNCA confia nisto. Ele valida alcance (`DROP_THROW_RANGE`),
+   * andabilidade e andar antes de usar — é coordenada vinda do cliente, e
+   * aceitá-la de olhos fechados deixaria qualquer um plantar item do outro lado
+   * do mapa.
+   */
+  tileX?: number;
+  tileY?: number;
+}
+
+/**
+ * Empurrar um item que JÁ ESTÁ no chão para outro tile, arrastando com o mouse.
+ *
+ * É o gesto do Tibia: dá para ir levando a pilha de tile em tile sem pegá-la, o
+ * que serve para organizar loot, desobstruir passagem e deixar coisa marcada
+ * onde se quer.
+ *
+ * Mesmas travas do arremesso: o servidor confere que o jogador ALCANÇA o item
+ * (`PICKUP_RANGE`) e que o destino está dentro de `DROP_THROW_RANGE` e é
+ * andável — senão daria para varrer item pelo mapa inteiro à distância.
+ */
+export interface C2S_MoveGroundItem {
+  t: 'movegrounditem';
+  /** Id da pilha no chão. */
+  itemId: string;
+  tileX: number;
+  tileY: number;
 }
 
 /** Abrir o corpo de alguém que morreu (precisa estar perto). */
@@ -405,6 +437,7 @@ export type ClientMessage =
   | C2S_LootCorpse
   | C2S_Craft
   | C2S_Drop
+  | C2S_MoveGroundItem
   | C2S_SetPk
   | C2S_Party
   | C2S_Friend;
@@ -620,11 +653,21 @@ export interface S2C_Died {
 export interface S2C_CorpseContents {
   t: 'corpse';
   corpseId: string;
-  /** Nome de quem morreu. */
+  /** Nome de quem morreu, ou da criatura que largou a bolsa. */
   owner: string;
   items: (ItemStack | null)[];
   /** Segundos até o corpo sumir. */
   secondsLeft: number;
+  /**
+   * De onde veio este espólio.
+   *
+   * `player` é o corpo de quem morreu; `creature` é a **bolsa de loot** que a
+   * criatura larga. Muda só o desenho e o texto — as regras de saque (estar
+   * perto, qualquer um pode abrir, some com o tempo) são as mesmas para os dois.
+   *
+   * Ausente = `player`, para não quebrar cliente antigo.
+   */
+  source?: 'player' | 'creature';
 }
 
 /** O próprio jogador renasceu. */

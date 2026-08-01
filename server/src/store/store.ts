@@ -225,6 +225,34 @@ export class Store {
     return { ok: true, account: { id: row.id, username: row.username } };
   }
 
+  /**
+   * Conta pelo nome de usuário, **sem verificar senha**.
+   *
+   * 🔴 EXISTE PARA UMA COISA SÓ: o auto-login do servidor de desenvolvimento
+   * (`ELYSIA_DEV=1`, `npm run dev:test`), que evita digitar senha a cada
+   * recarga do Vite enquanto se testa a interface.
+   *
+   * ⚠️ **Nunca chame isto no caminho de autenticação de verdade.** É deliberado
+   * que seja um método separado com nome feio, e não um parâmetro opcional de
+   * `login()`: um `login(user, pass, { pularSenha: true })` seria uma linha de
+   * distância de virar bypass em produção. Aqui, qualquer uso indevido salta aos
+   * olhos em revisão.
+   *
+   * Quem protege o jogo é o chamador: o único é o `case 'auth'` do servidor,
+   * atrás de `DEV_MODE`, que só é verdade quando `dev.ts` liga a flag.
+   */
+  contaSemSenhaParaDesenvolvimento(username: string): AuthResult {
+    const key = (username ?? '').trim().toLowerCase();
+    const row = this.db
+      .prepare('SELECT id, username FROM account WHERE username_key = ?')
+      .get(key) as { id: number; username: string } | undefined;
+    if (!row) {
+      return { ok: false, reason: 'nao_existe', message: 'Conta de desenvolvimento não existe.' };
+    }
+    this.db.prepare('UPDATE account SET last_login_at = ? WHERE id = ?').run(Date.now(), row.id);
+    return { ok: true, account: { id: row.id, username: row.username } };
+  }
+
   // ------------------------------------------------------- Personagens ----
 
   isNameTaken(name: string): boolean {
