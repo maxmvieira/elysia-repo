@@ -226,13 +226,25 @@ export const FRAGMENT_ITEM: Record<Rarity, string> = {
 };
 
 /**
- * Profissões. Começa só com Ferreiro, que é a que o Doc 3 detalha.
+ * Profissões. Nasceu só com Ferreiro, que é a que o Doc 3 detalha.
  *
  * 🔴 `DD-PROF-004` **não há limite de profissões** por personagem — "o gargalo é
  * tempo, receitas e materiais", não uma escolha exclusiva. Por isso o estado é
  * um mapa que cresce, e não um campo único.
+ *
+ * 🆕 **As três de coleta entraram com a mineração, e não foram inventadas.**
+ * `DD-NPC-005` lista os NPCs de profissão do mundo e nomeia, com todas as
+ * letras, *Instrutor Minerador*, *Instrutor Lenhador* e *Instrutor Herbalista* —
+ * ou seja, o documento já trata as três como profissões próprias. O que faltava
+ * era a atividade que as pratica.
+ *
+ * ⚠️ O que o doc **não** dá é o que cada nível de coleta concede. Hoje o nível
+ * sobe e aparece, e nada mais depende dele: a estrutura existe, o efeito é
+ * pendência consciente (o `DD-PROF-023` só descreve o efeito do nível na
+ * FABRICAÇÃO). Ligar rendimento ou chance de raro ao nível é decisão de
+ * balanceamento do dono.
  */
-export type ProfessionId = 'blacksmith';
+export type ProfessionId = 'blacksmith' | 'miner' | 'lumberjack' | 'herbalist';
 
 export interface ProfessionState {
   level: number;
@@ -244,6 +256,9 @@ export type Professions = Partial<Record<ProfessionId, ProfessionState>>;
 
 export const PROFESSION_NAME: Record<ProfessionId, string> = {
   blacksmith: 'Ferreiro',
+  miner: 'Minerador',
+  lumberjack: 'Lenhador',
+  herbalist: 'Herbalista',
 };
 
 /**

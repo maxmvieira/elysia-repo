@@ -1,12 +1,120 @@
-# Handoff — estado do projeto em 2026-08-01
+# Handoff — estado do projeto em 2026-08-02
 
-Resumo para quem for continuar o trabalho. Cinco sessões registradas: **29/07**
+Resumo para quem for continuar o trabalho. Seis sessões registradas: **29/07**
 (Etapa 8, bestiário do Doc 3, crafting), **30/07 manhã** (aba Vender, colisão,
 clique para andar, banco, curva de nível), **30/07 noite** (as 4 pendências que
 travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa),
 **30/07 madrugada** (o catálogo de equipamento inteiro ganhou números, e as
-regras de Party) e **01/08** (a sessão abaixo: layout, e a primeira leva de bugs
-achados JOGANDO).
+regras de Party), **01/08** (layout, e a primeira leva de bugs achados JOGANDO)
+e **02/08** (a sessão abaixo: **coleta e mineração ligadas no mundo**).
+
+---
+
+## 🆕 Sessão de 02/08 — a coleta saiu do papel
+
+Era a próxima etapa apontada pelo handoff anterior, e fechou: os cinco nós de
+`gathering.ts` existem no mundo, o jogador clica e coleta, e as seis famílias de
+material que estavam inalcançáveis passaram a ter origem.
+
+### ✅ Nós de recurso — as três peças que faltavam
+
+| Peça | Onde |
+|---|---|
+| Nó como **entidade** (spawn, cargas, respawn) | `ResourceNode` + `spawnInitialNodes` + `respawnNodes` em `server/src/index.ts` |
+| Mensagem no protocolo | `C2S_Gather` e `S2C_Gathered` em `shared/src/protocol.ts` |
+| Desenho e clique no cliente | `makeNodeView` em `client/src/main.ts` |
+
+**46 nós no mapa inicial:** 25 Árvores, 8 Veios de Minério, 5 Cogumelos, 5 Ervas
+e 3 Veios de Cristal.
+
+🔴 **Nós são ENTIDADES, não tiles — e a decisão continua valendo.** O mapa é
+gerado deterministicamente pelos dois lados e não trafega pela rede: cliente e
+servidor concordam porque *calculam* a mesma coisa. Trocar um tile ao cortar uma
+árvore quebraria esse acordo na hora. Por isso **cortar não derruba a árvore** —
+o que se esgota é o nó, e o tile continua sendo árvore.
+
+🔴 **A madeira mora EM CIMA do tile de árvore, que é sólido.** Não se pisa nele;
+alcança-se de qualquer um dos oito lados (`GATHER_RANGE = 1`, o mesmo de pegar
+item e de saquear corpo). O desenho é um **machado fincado no tronco** — a árvore
+já está lá, o que faltava era dizer quais dá para cortar.
+
+**Onde nasce cada coisa** (`buildResourceNodes`, em `shared/src/gathering.ts` —
+puro e determinístico, então reiniciar o servidor devolve os nós aos mesmos
+tiles):
+
+| Nó | Distância do nascimento | Ferramenta |
+|---|---|---|
+| Cogumelos | 11–12 | **nenhuma** — é a porta de entrada |
+| Ervas | 12–18 | Foice (70 de ouro no Comerciante) |
+| Minério | 14–24 | Picareta (90) |
+| Madeira | 11+ | Machado **equipado** |
+| Cristal | **32+**, no território do Tier III | Picareta |
+
+🔴 **Nenhum nó nasce dentro da vila** (`NODE_MIN_SPAWN_DIST = 11`, o primeiro
+tile fora da muralha). Recurso dentro dos muros faria o jogador coletar sem sair
+do lugar mais seguro do mapa, e coleta que não expõe a nada é só um clique
+repetido. Há teste travando isso, mais alcançabilidade, determinismo e o fato de
+madeira cair em árvore e o resto em chão andável.
+
+### 🆕 Três profissões novas — e elas NÃO foram inventadas
+
+`Minerador`, `Lenhador` e `Herbalista` entraram em `ProfessionId`. O
+**`DD-NPC-005` nomeia as três** ("Instrutor Minerador", "Instrutor Lenhador",
+"Instrutor Herbalista") — o documento já as tratava como profissões; o que
+faltava era a atividade que as pratica. Cristal treina Minerador (é picareta) e
+cogumelo treina Herbalista (nenhuma profissão do doc colhe cogumelo, e criar uma
+quarta para um nó só seria profissão de fachada).
+
+⚠️ **O nível de coleta sobe e aparece, e nada mais depende dele.** O
+`DD-PROF-023` só descreve o efeito do nível na FABRICAÇÃO. Ligar rendimento ou
+chance de raro ao nível de coleta é decisão de balanceamento do dono.
+
+⚠️ **`GATHER_COOLDOWN_MS = 1200` é REFERÊNCIA** — nenhum doc dá tempo de coleta.
+Sem ele, um nó de 3 cargas se esvazia num clique triplo e coletar vira um botão.
+O limite mora no JOGADOR, não no nó: guardado no nó, bastaria alternar entre dois
+veios para burlá-lo.
+
+### 🔴 Parar AO LADO, nunca em cima (pedido do dono, vendo em tela)
+
+Clicar numa moita levava o personagem para **dentro** do tile dela, e ele ficava
+plantado por cima do que estava colhendo. Agora `irParaPerto` mira sempre um
+vizinho — e **vale também para corpo e bolsa de loot**, que antes usavam
+`irPara` direto. Quem colhe fica ao lado do que colhe; ninguém saqueia pisando no
+morto.
+
+Ele tenta os vizinhos do mais perto ao mais longe e fica no primeiro com rota de
+verdade: o mais próximo em linha reta pode estar do outro lado de um muro, e aí a
+distância mente.
+
+### 🔴 BUG GRAVE ACHADO DE RASPÃO: o jogo nunca carregava em aba OCULTA
+
+Achado ao testar: o carregamento parava sempre no mesmo ponto, **sem erro nenhum
+no console**, e `document.visibilityState` era `hidden`.
+
+**Causa:** `loadImage` era `img.decode().then(() => img)`. O Chrome **adia a
+decodificação de imagem em aba de segundo plano**, e a promessa do `decode()`
+simplesmente nunca resolve. Como todo o carregamento do mundo espera por essas
+imagens, abrir Elysia numa aba que não está na frente bastava para ficar na tela
+preta **para sempre**.
+
+**Conserto:** `loadImage` espera `onload` (que dispara normalmente em aba
+oculta); a decodificação acontece depois, no primeiro `drawImage`. Custa um
+engasgo no primeiro quadro e devolve a garantia de que o jogo sempre carrega.
+`trees.ts` tinha a mesma armadilha e passou a usar o mesmo `loadImage`.
+
+🔴 **Não volte para `img.decode()`** em nada que o carregamento espere. É um bug
+que não aparece em nenhum teste e some assim que alguém olha para a aba.
+
+### ✅ Verificado JOGANDO (02/08)
+
+Minério (3 cargas, esgotou e sumiu do mundo) · cogumelo sem ferramenta · erva com
+Foice · recusa por falta de ferramenta nos três · número flutuante subindo do nó ·
+XP de profissão chegando · nome do nó no **hover** com as cargas restantes ·
+carregamento com a aba oculta.
+
+⚠️ **NÃO foram vistos em tela:** o corte de **árvore** (o único nó em tile
+sólido) e a parada **ao lado** depois do conserto acima. Os dois dependem do
+mesmo `irParaPerto`.
 
 ---
 
@@ -204,18 +312,11 @@ não treinava nada. A migração roda no carregamento e é idempotente.
 **1 h dia · 30 min tarde · 1 h noite.** Dava a volta em 2 minutos antes.
 Comandos: `/dia` · `/tarde` · `/noite` · `/ciclo`.
 
-### ⏳ Coleta e mineração — REGRAS prontas, NÃO ligadas
+### ✅ ~~Coleta e mineração — REGRAS prontas, NÃO ligadas~~ — **LIGADA em 02/08**
 
-`gathering.ts` tem os cinco nós, ferramentas, cargas e rendimentos, testados. Os
-sete materiais que estavam **proibidos de existir** entraram (o Ferreiro tem
-minério, o Alquimista tem erva).
-
-🔴 **Mas nada disso está no mundo.** Faltam os nós como entidade no servidor
-(spawn, cargas, respawn), a mensagem de coleta e o desenho no cliente. É a
-próxima coisa a fazer, e a decisão de arquitetura já está tomada: **nós são
-ENTIDADES, não tiles** — o mapa é gerado deterministicamente pelos dois lados e
-não trafega pela rede, então mudar um tile ao cortar uma árvore dessincronizaria
-cliente e servidor.
+`gathering.ts` já tinha os cinco nós, ferramentas, cargas e rendimentos testados,
+e os sete materiais no catálogo. Faltavam as três peças de mundo — entidade,
+protocolo e desenho —, e elas entraram. Ver a sessão de 02/08 no topo.
 
 🔴 **Se você for mexer em equipamento ou defesa, leia as seções "curva" e
 "armadura ganha teto" do [`HISTORICO.md`](./HISTORICO.md) antes.** Ataque e
@@ -268,6 +369,8 @@ duas dessas coisas exigem duas pessoas — que é justamente o que vocês são.
 | **Reordenar painéis nas DUAS barras** | arrastar painel pelo cabeçalho, em cada coluna, e recarregar | o layout foi verificado, o arraste entre colunas não |
 | **Linha de visão em PvP** | dois jogadores, um atrás de muro, tentar acertar | exige duas janelas |
 | **Bolsa de loot em GRUPO** | com regra de loot ligada, ver se o dono recebe na mochila e o resto vai para a bolsa | idem |
+| 🆕 **Cortar ÁRVORE** | machado equipado, clicar numa árvore com machado fincado no tronco | é o único nó em tile SÓLIDO — depende do `irParaPerto` |
+| 🆕 **Parar AO LADO** | clicar num nó/corpo de longe: o herói tem que parar no tile vizinho, nunca em cima | o conserto é de 02/08 e não foi visto rodando |
 
 ✅ **Verificado JOGANDO em 01/08** (o dono, em tela): inventário aparecendo ao
 entrar · bolsa de loot caindo e abrindo · arrastar item pelo chão · soltar item
@@ -320,7 +423,8 @@ npm test             # tem que dar 397 passando, 0 falhando
 npm run dev:test     # sobe com os comandos de teste ligados
 ```
 
-Se o `npm test` não der 397, **não continue** — algo se perdeu no merge.
+Se o `npm test` não der **415** (395 shared + 20 server), **não continue** — algo
+se perdeu no caminho.
 
 ---
 
@@ -446,15 +550,17 @@ Corrigido: `backpackSizeFor()` é a fonte única, usada no carregamento **e** ao
 
 ## Saúde do código
 
-| | 30/07 noite | 30/07 madrugada | pós-merge | **01/08** |
+| | 30/07 madrugada | pós-merge | 01/08 | **02/08** |
 |---|---|---|---|---|
-| Testes | 298 | 328 · 344 | 397 | **408** (388 shared + 20 server) |
+| Testes | 328 · 344 | 397 | 408 | **415** (395 shared + 20 server) |
 | Typecheck | limpo | limpo | limpo | limpo nos 3 pacotes |
 | Criaturas vivas no mapa | 32 | 32 | 32 | 32 |
+| **Nós de recurso no mapa** | — | — | — | **46** |
 | Espécies definidas | 23 | 23 | 23 | 23 |
-| Schema do banco | v3 | v3 | **v4** (`account_friend`) | v4 (a caveira não persiste) |
-| Itens no catálogo | ~32 | ~85 | ~85 | **~256** |
-| Modelos canônicos registrados | — | 113 | 113 | **205 — todos jogáveis** |
+| Schema do banco | v3 | **v4** (`account_friend`) | v4 | v4 (nó não persiste) |
+| Itens no catálogo | ~85 | ~85 | **~256** | ~256 |
+| Profissões | 1 (Ferreiro) | 1 | 1 | **4** (+ Minerador, Lenhador, Herbalista) |
+| Modelos canônicos registrados | 113 | 113 | **205 — todos jogáveis** | 205 |
 
 ⚠️ A coluna "30/07 madrugada" tem **dois** números de teste porque foram duas
 sessões paralelas: 328 no branch do PvP, 344 no `main` do catálogo.
@@ -898,31 +1004,30 @@ quer ver.
 
 ---
 
-## 🎯 PRÓXIMA ETAPA (definida em 01/08)
+## 🎯 PRÓXIMA ETAPA (definida em 02/08)
 
-**Ligar a coleta e a mineração no mundo.** É o que o handoff anterior já apontava
-e continua sendo o maior destravamento disponível — agora sem nada na frente.
+**Ligar a coleta à FABRICAÇÃO** — é o degrau que a coleta abriu e ninguém subiu
+ainda.
 
-`shared/src/gathering.ts` está pronto e testado: cinco nós, ferramentas, cargas e
-rendimentos. **Nada disso existe no jogo.** Falta:
+Hoje o jogador colhe Minério de Ferro, Tora de Carvalho, Erva Comum e Cristal de
+Mana, e **não tem o que fazer com eles**: a bancada do Ferreiro só consome
+fragmentos e receitas de monstro. O material entrou no mundo pela porta da
+frente e continua sem destino, que é a mesma acusação que o `DD-MAT-001` faz.
 
-1. o nó como **entidade** no servidor (spawn, cargas, respawn);
-2. a mensagem de coleta no protocolo;
-3. o desenho no cliente.
+Duas frentes, nesta ordem:
 
-🔴 **A decisão de arquitetura já está tomada: nós são ENTIDADES, não tiles.** O
-mapa é gerado deterministicamente pelos dois lados e não trafega pela rede —
-mudar um tile ao cortar uma árvore dessincronizaria cliente e servidor na hora.
+1. **Receitas que usam material de coleta** na bancada do Ferreiro
+   (`shared/src/crafting.ts`) — barra de ferro a partir de minério, etc.
+2. **A bancada do Alquimista**, que o `DD-DROP-013` desenha inteira (Ervas,
+   Flores, Essências, Venenos) e que hoje não existe como NPC. Precisa de um
+   `NpcRole` novo em `tiles.ts`, no mesmo molde do `blacksmith`.
 
-**Por que isto e não outra coisa:** os seis materiais de coleta (ervas, flores,
-cogumelos, minérios, madeiras, gemas) já entraram no catálogo, mas hoje são
-inalcançáveis. Isso deixa **o Ferreiro sem minério e o Alquimista sem erva** — as
-duas profissões existem e não funcionam de verdade. É a única pendência que
-destrava sistema já construído em vez de somar sistema novo.
+⚠️ Antes disso, **confirme as duas coisas que não foram vistas em tela** (corte
+de árvore e parada ao lado) — ver o fim da sessão de 02/08 lá em cima.
 
-O padrão de entidade-no-chão para copiar é o desta sessão: a **bolsa de loot**
-(`Corpse` com `source`) atravessa servidor, protocolo, snapshot e desenho, e é
-exatamente a mesma forma que um nó de coleta precisa.
+**O que continua parado por falta de duas pessoas:** party de ponta a ponta, PvP
+e Caveira Branca, regras de loot e linha de visão em PvP. Ver a tabela "O que
+NUNCA rodou em tela".
 
 ---
 
@@ -980,12 +1085,10 @@ O que **não** vale a pena agora:
 - **Mítico e Relíquia são infabricáveis.** `DD-PROF-028` reserva os dois aos
   **dois Mestres Ferreiros do mundo**, que dependem de cidades (Etapa 16). A
   bancada recusa com mensagem explicando.
-- **Ervas, Flores, Cogumelos, Minérios, Madeiras e Gemas não existem** como
-  material. Dependem de **coleta e mineração**, que não foram feitas. Há teste
-  impedindo que entrem antes — criar o item sem forma de obtê-lo seria item
-  inalcançável, e `DD-MAT-001` proíbe material que "existe apenas para ocupar
-  espaço". **Consequência prática: o Ferreiro não tem minério e o Alquimista não
-  tem erva.** As profissões dependem da coleta para funcionarem de verdade.
+- ✅ ~~**Ervas, Flores, Cogumelos, Minérios, Madeiras e Gemas não existem**~~ —
+  **resolvido em 02/08.** A coleta ligou no mundo e as seis famílias passaram a
+  ter origem. O que ainda falta é o DESTINO delas: nenhuma receita as consome
+  ainda (ver "PRÓXIMA ETAPA").
 
 ### ⚠️ A inconsistência que já apareceu QUATRO vezes
 
@@ -1018,6 +1121,7 @@ elemento entre por descuido.
 
 | Assunto | Arquivo |
 |---|---|
+| Nós de coleta: regras e onde nascem | `shared/src/gathering.ts` |
 | Curva de nível, bestiário, dano | `shared/src/combat.ts` |
 | Itens, preço de venda | `shared/src/items.ts` |
 | Elementos · condições · defesa | `shared/src/{elements,conditions,defense}.ts` |

@@ -42,6 +42,8 @@ import {
   getItem,
   getTileType,
   isWalkable,
+  NODES,
+  PROFESSION_NAME,
   type AttributeKey,
   type Direction,
   type EntitySnapshot,
@@ -1223,6 +1225,25 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         case 'corpse':
           renderCorpse(msg);
           break;
+        case 'gathered': {
+          // O ganho sobe DO NÓ, e não do rodapé do chat: é onde os olhos do
+          // jogador estão no instante em que ele coleta, e é a mesma gramática
+          // do número de dano subindo do monstro.
+          const nome = getItem(msg.itemKind)?.name ?? msg.itemKind;
+          spawnFloater(msg.x * TS, msg.y * TS - 8, `+${msg.amount} ${nome}`, 0xa9e0a0, false);
+          if (msg.levelUp) {
+            spawnFloater(
+              msg.x * TS, msg.y * TS - 30,
+              `${PROFESSION_NAME[msg.profession]} ${msg.levelUp}!`, 0xffd97a, true,
+            );
+          }
+          logChat(
+            `Você coletou <b>${escapeHtml(nome)}</b> `
+            + `(+${msg.xp} de ${escapeHtml(PROFESSION_NAME[msg.profession])})`
+            + `${msg.depleted ? ' — e o recurso se esgotou.' : '.'}`,
+          );
+          break;
+        }
         case 'respawn':
           hud.death.style.display = 'none';
           break;
@@ -1799,10 +1820,71 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       net.send({ t: 'opencorpse', corpseId: id });
       return;
     }
-    // Longe: anda até lá e abre ao chegar. O tile do corpo não bloqueia, então
-    // a rota pode terminar em cima dele.
+    // Longe: anda até AO LADO e abre ao chegar. Parar em cima do corpo era o que
+    // acontecia antes; é a mesma regra da coleta (ver `irParaPerto`) e vale para
+    // tudo que se clica no chão — ninguém saqueia pisando no morto.
     abrirAoChegar = id;
-    irPara(alvo.tileX, alvo.tileY);
+    irParaPerto(alvo.tileX, alvo.tileY);
+  }
+
+  // ---- Coleta e mineração ------------------------------------------------
+  //
+  // Mesmo par de gestos do espólio: clique perto coleta na hora, clique de longe
+  // anda até lá e coleta ao chegar. É de propósito que seja o mesmo — para o
+  // jogador, "clicar naquilo ali" é um gesto só, e ele não deveria precisar
+  // saber se aquilo é uma bolsa ou um veio de minério para prever o que acontece.
+
+  /** Nó clicado de longe, a coletar quando o herói chegar. */
+  let coletarAoChegar: string | null = null;
+
+  /**
+   * Anda até ficar AO LADO de (tx,ty) — nunca em cima.
+   *
+   * 🔴 **Parar ao lado é o comportamento, não um detalhe da rota.** Decisão do
+   * dono, vendo em tela: clicar numa moita de ervas levava o personagem para
+   * dentro do tile dela, e ele ficava plantado por cima do que estava colhendo.
+   * Quem colhe fica ao lado do que colhe — e isso vale para tudo que se clica
+   * no chão para interagir, não só para o nó de recurso.
+   *
+   * 🔴 Também é o que faz a MADEIRA funcionar: o nó de madeira mora em cima do
+   * tile de árvore, que é **sólido**. `irPara` devolveria rota vazia e o clique
+   * na árvore não faria nada — o jogador clicaria, veria o personagem parado e
+   * concluiria que cortar árvore não funciona.
+   *
+   * Tenta os vizinhos do mais perto ao mais longe e fica no primeiro que tem
+   * rota de verdade: o mais próximo em linha reta pode estar do outro lado de um
+   * muro, e nesse caso a distância mente.
+   */
+  function irParaPerto(tx: number, ty: number): void {
+    const candidatos: Array<{ x: number; y: number }> = [];
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const x = tx + dx;
+        const y = ty + dy;
+        if (podeAndar(x, y)) candidatos.push({ x, y });
+      }
+    }
+    candidatos.sort((a, b) => distDoHeroi(a.x, a.y) - distDoHeroi(b.x, b.y));
+    for (const c of candidatos) {
+      const rota = rotaAte(myTileX, myTileY, c.x, c.y);
+      if (rota.length === 0) continue;
+      irPara(c.x, c.y);
+      return;
+    }
+    cancelarRota();
+  }
+
+  function gatherNode(id: string): void {
+    const alvo = porId.get(id);
+    if (!alvo) return;
+    if (distDoHeroi(alvo.tileX, alvo.tileY) <= 1) {
+      coletarAoChegar = null;
+      net.send({ t: 'gather', nodeId: id });
+      return;
+    }
+    coletarAoChegar = id;
+    irParaPerto(alvo.tileX, alvo.tileY);
   }
 
   function renderCorpse(msg: S2C_CorpseContents): void {
@@ -3117,6 +3199,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           classAnims, slimeAnim, slimeVariants, zombieAnim, zombieIdleAnim, creatureSheets,
           knightArt, npcAnim,
           selfClass: charClass, selfGender: gender, openShop, openBank, openCraft, openCorpse,
+          gatherNode,
           itemTexture,
         });
         sprites.set(e.id, view);
@@ -3879,6 +3962,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       }
     }
 
+    // Chegou ao nó que se clicou de longe? Coleta. Mesmas três saídas do bloco
+    // acima — sumiu, chegou, ou a rota morreu no caminho.
+    if (coletarAoChegar) {
+      const alvo = porId.get(coletarAoChegar);
+      if (!alvo) {
+        coletarAoChegar = null; // esgotou, ou outro jogador levou a última carga
+      } else if (distDoHeroi(alvo.tileX, alvo.tileY) <= 1) {
+        const id = coletarAoChegar;
+        coletarAoChegar = null;
+        gatherNode(id);
+      } else if (caminho.length === 0) {
+        coletarAoChegar = null;
+      }
+    }
+
     // Consome a rota, um passo por vez, na MESMA cadência do teclado — então
     // andar por clique e por tecla tem exatamente a mesma velocidade.
     if (caminho.length > 0 && now - lastSentAt > 120) {
@@ -4511,6 +4609,8 @@ interface MiniAssets {
   openCraft: () => void;
   /** Abre o espólio de um corpo no chão. */
   openCorpse: (id: string) => void;
+  /** Coleta de um nó de recurso (anda até lá antes, se for preciso). */
+  gatherNode: (id: string) => void;
   /**
    * Ícone do item como textura, para desenhar a pilha caída no chão.
    *
@@ -4531,6 +4631,7 @@ function makeEntity(
 ): EntityView {
   if (e.kind === 'creature') return makeCreatureView(e, anims, onTargetClick, mini);
   if (e.kind === 'item') return makeItemView(e, mini.itemTexture, mini.openCorpse);
+  if (e.kind === 'node') return makeNodeView(e, mini.gatherNode);
   if (e.kind === 'npc') {
     // Clicar abre o painel da FUNÇÃO do NPC. Cada um tem cor própria: os três
     // ficam na mesma praça e usam o MESMO sprite placeholder, então a cor é a
@@ -5715,6 +5816,114 @@ function makeItemView(
     c.addChild(t);
   }
   c.zIndex = c.y / TS + 0.2; // itens ficam abaixo dos personagens no mesmo tile
+  return {
+    container: c,
+    setDirection: () => {},
+    setTarget: (x, y) => { c.x = x; c.y = y; },
+    setHp: () => {},
+    update: () => {},
+  };
+}
+
+/**
+ * Nó de recurso no chão: veio, árvore marcada, moita, cogumelos, cristal.
+ *
+ * Desenhado por código, como o resto do mundo enquanto a arte não chega — mas
+ * com uma exigência a mais que o placeholder de criatura não tem: **os cinco
+ * precisam ser distinguíveis à primeira vista**, senão o jogador anda até o
+ * outro lado do mapa para descobrir que aquilo pedia uma picareta que ele não
+ * tem. Por isso cada um tem FORMA própria, e não só a cor do `NODES[kind].color`
+ * — a mesma lição dos ícones de condição: cor sozinha não serve.
+ *
+ * O nome só aparece ao passar o mouse. São ~50 nós no mapa; rótulo fixo em todos
+ * cobriria o bosque inteiro de texto.
+ */
+function makeNodeView(e: EntitySnapshot, onGather: (id: string) => void): EntityView {
+  const c = new Container();
+  c.x = e.tileX * TS;
+  c.y = e.tileY * TS;
+  const g = new Graphics();
+  const kind = e.nodeKind ?? 'ore';
+  const cor = NODES[kind]?.color ?? 0x9a8a7a;
+  const cx = TS / 2;
+  const base = TS - 4;
+
+  if (kind === 'wood') {
+    /*
+     * 🔴 A árvore JÁ está desenhada — este tile é um tile de árvore. O que se
+     * desenha aqui é a MARCA de que ela pode ser cortada: um machado fincado no
+     * tronco. Desenhar outra árvore por cima da árvore seria dizer duas vezes a
+     * mesma coisa e esconder a informação nova.
+     *
+     * Fica por cima do tronco porque o `zIndex` de entidade (y + fração) vence o
+     * do tile de árvore (y inteiro).
+     */
+    g.moveTo(cx + 1, base - 2).lineTo(cx + 9, base - 12)
+      .stroke({ width: 2.5, color: 0x6b4a2a });
+    g.moveTo(cx + 7, base - 15).lineTo(cx + 13, base - 9).lineTo(cx + 8, base - 7)
+      .closePath().fill(0xc9ccd4).stroke({ width: 1, color: 0x5a5f68 });
+    // Lasca cortada, no pé do tronco: a marca de que já bateram ali.
+    g.ellipse(cx - 4, base - 3, 3, 1.6).fill({ color: 0xe0c48a, alpha: 0.9 });
+  } else if (kind === 'ore') {
+    // Pedra baixa com veios expostos.
+    g.ellipse(cx, base, 11, 4).fill({ color: 0x000000, alpha: 0.32 });
+    g.moveTo(cx - 11, base).lineTo(cx - 8, base - 11).lineTo(cx - 1, base - 15)
+      .lineTo(cx + 8, base - 10).lineTo(cx + 11, base)
+      .closePath().fill(0x5f5a54).stroke({ width: 1, color: 0x33302c });
+    for (const [ox, oy, r] of [[-4, -4, 2], [2, -7, 2.4], [5, -3, 1.8]] as const) {
+      g.circle(cx + ox, base + oy, r).fill(cor);
+    }
+  } else if (kind === 'crystal') {
+    // Cacho de cristais, com brilho: o nó mais valioso tem que puxar o olho de
+    // longe — é o que justifica atravessar território de Tier III para chegar.
+    g.ellipse(cx, base, 10, 3.5).fill({ color: 0x000000, alpha: 0.3 });
+    g.circle(cx, base - 9, 11).fill({ color: cor, alpha: 0.16 });
+    for (const [ox, alt, larg] of [[-5, 11, 3], [0, 17, 4], [5, 13, 3.2]] as const) {
+      g.moveTo(cx + ox - larg, base).lineTo(cx + ox, base - alt).lineTo(cx + ox + larg, base)
+        .closePath().fill({ color: cor, alpha: 0.92 }).stroke({ width: 1, color: 0xdff6fb });
+    }
+  } else if (kind === 'herb') {
+    // Moita de folhas longas com duas flores.
+    g.ellipse(cx, base, 9, 3).fill({ color: 0x000000, alpha: 0.28 });
+    for (const [ox, alt] of [[-6, 10], [-2, 15], [3, 13], [7, 9]] as const) {
+      g.moveTo(cx, base).quadraticCurveTo(cx + ox * 1.6, base - alt * 0.6, cx + ox, base - alt)
+        .stroke({ width: 2, color: cor });
+    }
+    g.circle(cx - 2, base - 16, 2.2).fill(0xe8e2a0);
+    g.circle(cx + 4, base - 13, 1.8).fill(0xe8e2a0);
+  } else {
+    // Cogumelos: dois chapéus com pintas. É o nó que não pede ferramenta, e o
+    // desenho mais amigável do conjunto de propósito.
+    g.ellipse(cx, base, 9, 3).fill({ color: 0x000000, alpha: 0.28 });
+    const cogumelo = (ox: number, escala: number): void => {
+      g.rect(cx + ox - 1.5, base - 7 * escala, 3, 7 * escala).fill(0xe8dfc8);
+      g.ellipse(cx + ox, base - 7 * escala, 6 * escala, 4 * escala)
+        .fill(cor).stroke({ width: 1, color: 0x5f3a5a });
+      g.circle(cx + ox - 2 * escala, base - 8 * escala, 1.1).fill({ color: 0xf4e8f2, alpha: 0.9 });
+      g.circle(cx + ox + 2 * escala, base - 7 * escala, 0.9).fill({ color: 0xf4e8f2, alpha: 0.9 });
+    };
+    cogumelo(-5, 1);
+    cogumelo(4, 0.75);
+  }
+
+  c.addChild(g);
+  c.eventMode = 'static';
+  c.cursor = 'pointer';
+  c.hitArea = new Rectangle(0, 0, TS, TS);
+  c.on('pointertap', soBotaoEsquerdo(() => onGather(e.id)));
+
+  // Rótulo sob demanda: as cargas restantes entram porque são o que decide se
+  // vale a pena andar até lá.
+  const rotulo = nameLabel(
+    e.charges && e.charges > 1 ? `${e.name} (${e.charges})` : e.name,
+    cor,
+  );
+  rotulo.visible = false;
+  c.addChild(rotulo);
+  c.on('pointerover', () => { rotulo.visible = true; });
+  c.on('pointerout', () => { rotulo.visible = false; });
+
+  c.zIndex = c.y / TS + 0.3;
   return {
     container: c,
     setDirection: () => {},

@@ -7,6 +7,7 @@
  */
 
 import { Texture } from 'pixi.js';
+import { loadImage } from './miniworld.js';
 
 const BASE = '/assets/trees/cut';
 const COUNT = 6;
@@ -20,10 +21,10 @@ const COUNT = 6;
  */
 async function loadTex(url: string): Promise<Texture | null> {
   try {
-    const img = new Image();
-    img.decoding = 'async';
-    img.src = url;
-    await img.decode();
+    // 🔴 `onload`, não `img.decode()`: em aba OCULTA o Chrome adia a
+    // decodificação e a promessa do `decode()` nunca resolve, travando o
+    // carregamento do jogo para sempre. Ver `loadImage` em `miniworld.ts`.
+    const img = await loadImage(url);
     const cv = document.createElement('canvas');
     cv.width = img.naturalWidth;
     cv.height = img.naturalHeight;

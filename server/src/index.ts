@@ -47,6 +47,16 @@ import {
   materialsOf,
   rollAffixNames,
   addProfessionXp,
+  buildResourceNodes,
+  GATHER_COOLDOWN_MS,
+  GATHER_PROFESSION,
+  GATHER_RANGE,
+  GATHER_XP,
+  NODES,
+  PROFESSION_NAME,
+  hasToolFor,
+  rollGather,
+  type NodeKind,
   canCraft,
   craftXp,
   rollCraft,
@@ -313,6 +323,14 @@ interface Player {
    * Persistido na coluna `professions` desde a migração v2.
    */
   professions: Professions;
+  /**
+   * Quando coletou pela última vez, para impor `GATHER_COOLDOWN_MS`.
+   *
+   * Mora no jogador, e não no nó: o limite é do braço de quem trabalha, não da
+   * pedra. Guardado no nó, bastaria alternar entre dois veios para coletar na
+   * velocidade do clique.
+   */
+  lastGatherAt: number;
   /** O que ele já conhece de cada criatura (encontros e abates). */
   bestiary: BestiaryState;
   /** Última leitura das zonas, p/ reenviar inventário só quando muda. */
@@ -482,10 +500,35 @@ interface GroundItem {
   expiresAt: number;
 }
 
+/**
+ * Nó de recurso vivo no mundo (veio, árvore marcada, moita, cogumelos).
+ *
+ * 🔴 **É ENTIDADE, não tile — e a decisão não é de gosto.** O mapa é gerado
+ * deterministicamente pelos DOIS lados (`buildStarterMap`) e não trafega pela
+ * rede: cliente e servidor concordam porque calculam a mesma coisa, não porque
+ * um conta ao outro. Trocar o tile ao cortar uma árvore quebraria esse acordo na
+ * hora — o servidor teria um mapa e o cliente, outro.
+ *
+ * Como entidade, o nó viaja no snapshot junto com criaturas e itens, some quando
+ * esgota e volta quando renasce, sem que uma única célula do mapa mude.
+ */
+interface ResourceNode {
+  id: string;
+  kind: NodeKind;
+  tileX: number;
+  tileY: number;
+  floor: number;
+  /** Cargas restantes. `0` = esgotado, esperando renascer (não vai no snapshot). */
+  charges: number;
+  /** Instante em que volta a ter cargas. Só vale quando `charges === 0`. */
+  respawnAt: number;
+}
+
 const players = new Map<string, Player>();
 const creatures = new Map<string, Creature>();
 const items = new Map<string, GroundItem>();
 const corpses = new Map<string, Corpse>();
+const nodes = new Map<string, ResourceNode>();
 // NPCs fixos (comerciante etc.) — vêm do mapa, com um id estável.
 const npcs = (map.npcs ?? []).map((n, i) => ({ id: `npc${i}`, ...n }));
 let nextId = 1;
@@ -1455,6 +1498,42 @@ function spawnInitialCreatures(): void {
   // na borda da zona central (`avoidCenter`).
   spawnCreature('super_slime', 48, 48);
   console.log(`[mundo] ${creatures.size} criaturas geradas.`);
+}
+
+/**
+ * Povoa o mundo de nós de recurso.
+ *
+ * Roda a cada boot, como `spawnInitialCreatures` e pela mesma razão: nó não
+ * persiste. As posições vêm de `buildResourceNodes`, que é pura e determinística
+ * — então "não persistir" não significa "muda de lugar": reiniciar o servidor
+ * devolve exatamente os mesmos nós aos mesmos tiles, cheios.
+ */
+function spawnInitialNodes(): void {
+  for (const spot of buildResourceNodes(map)) {
+    const id = newId('node');
+    nodes.set(id, {
+      id,
+      kind: spot.kind,
+      tileX: spot.x,
+      tileY: spot.y,
+      floor: spot.floor,
+      charges: NODES[spot.kind].charges,
+      respawnAt: 0,
+    });
+  }
+  const porTipo = new Map<NodeKind, number>();
+  for (const n of nodes.values()) porTipo.set(n.kind, (porTipo.get(n.kind) ?? 0) + 1);
+  const resumo = [...porTipo].map(([k, n]) => `${n} ${NODES[k].name}`).join(', ');
+  console.log(`[mundo] ${nodes.size} nós de recurso: ${resumo}.`);
+}
+
+/** Nó esgotado volta ao mundo quando o prazo dele vence. */
+function respawnNodes(now: number): void {
+  for (const n of nodes.values()) {
+    if (n.charges > 0 || now < n.respawnAt) continue;
+    n.charges = NODES[n.kind].charges;
+    n.respawnAt = 0;
+  }
 }
 
 /**
@@ -3486,6 +3565,69 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       sendInventory(player);
       return;
     }
+    case 'gather': {
+      if (!player.joined || !player.alive) return;
+      const node = nodes.get(msg.nodeId);
+      if (!node || node.charges <= 0) {
+        send(player, { t: 'denied', reason: 'Não há mais nada aqui.' });
+        return;
+      }
+      const def = NODES[node.kind];
+      if (node.floor !== player.floor
+        || chebyshev(player.tileX, player.tileY, node.tileX, node.tileY) > GATHER_RANGE) {
+        send(player, { t: 'denied', reason: `Aproxime-se: ${def.name}.` });
+        return;
+      }
+      // Ferramenta. `hasToolFor` é a regra, e vive no shared com os testes —
+      // aqui só se responde às duas perguntas que dependem deste jogador.
+      const armaEquipada = player.equipment.weapon
+        ? getItem(player.equipment.weapon.kind)?.weaponType
+        : undefined;
+      const temNaMochila = (kind: string): boolean =>
+        player.backpack.some((s) => s?.kind === kind);
+      if (!hasToolFor(def, { equippedWeapon: armaEquipada, hasItem: temNaMochila })) {
+        send(player, { t: 'denied', reason: def.toolHint });
+        return;
+      }
+      // Ritmo. Ver `GATHER_COOLDOWN_MS`: sem isto o nó se esvazia num clique
+      // triplo, e coletar deixa de ser uma atividade para virar um botão.
+      const agora = Date.now();
+      if (agora - player.lastGatherAt < GATHER_COOLDOWN_MS) return;
+
+      const saiu = rollGather(def);
+      if (!addToBackpack(player, saiu, 1)) {
+        send(player, { t: 'denied', reason: 'Mochila cheia.' });
+        return;
+      }
+      player.lastGatherAt = agora;
+      node.charges -= 1;
+      const esgotou = node.charges <= 0;
+      if (esgotou) node.respawnAt = agora + def.respawnMs;
+
+      // XP da profissão que ESTE nó treina (ver `GATHER_PROFESSION`).
+      const prof = GATHER_PROFESSION[node.kind];
+      const antes = player.professions[prof] ?? { level: 1, xp: 0 };
+      const { state, levelsGained } = addProfessionXp(antes, GATHER_XP[node.kind]);
+      player.professions[prof] = state;
+
+      send(player, {
+        t: 'gathered',
+        x: node.tileX, y: node.tileY,
+        itemKind: saiu, amount: 1,
+        profession: prof, xp: GATHER_XP[node.kind],
+        ...(levelsGained > 0 ? { levelUp: state.level } : {}),
+        depleted: esgotou,
+      });
+      if (levelsGained > 0) {
+        send(player, {
+          t: 'chat', from: PROFESSION_NAME[prof],
+          text: `${PROFESSION_NAME[prof]} subiu para o nível ${state.level}.`,
+        });
+      }
+      sendInventory(player);
+      sendStats(player);
+      break;
+    }
     case 'opencorpse': {
       if (!player.joined || !player.alive) return;
       const corpse = corpses.get(msg.corpseId);
@@ -4415,6 +4557,14 @@ function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
       corpseOwner: c.ownerName,
     });
   }
+  for (const n of nodes.values()) {
+    // Esgotado não viaja: some da tela até renascer. Ver `nodeKind` no protocolo.
+    if (n.floor !== viewer.floor || n.charges <= 0) continue;
+    out.push({
+      id: n.id, name: NODES[n.kind].name, tileX: n.tileX, tileY: n.tileY, floor: n.floor,
+      direction: 'down', kind: 'node', nodeKind: n.kind, charges: n.charges,
+    });
+  }
   for (const n of npcs) {
     if (n.floor !== viewer.floor) continue;
     out.push({
@@ -4487,6 +4637,7 @@ function gameTick(): void {
   const now = Date.now();
   expireCorpses(now);
   expireGroundItems(now);
+  respawnNodes(now);
   // Relógio do mundo. As três fases e o mapa de horas moram no shared.
   const t = worldTimeAt(now + cycleOffset);
   worldHour = t.hour;
@@ -4542,6 +4693,7 @@ wss.on('connection', (socket) => {
     conditions: [], cc: emptyCcState(),
     spellReadyAt: {}, skillPoints: 0, skillLevels: {}, skillResets: 0,
     fury: null, stance: false, proficiencies: {}, professions: {}, bestiary: {},
+    lastGatherAt: 0,
     wasAtDepot: false, wasNearVendor: false, wasNearBank: false,
     pkEnabled: false, pkLockedUntil: 0, whiteSkullUntil: 0, partyId: null,
   };
@@ -4579,6 +4731,7 @@ wss.on('connection', (socket) => {
 });
 
 spawnInitialCreatures();
+spawnInitialNodes();
 setInterval(gameTick, SERVER_TICK_MS);
 
 /**

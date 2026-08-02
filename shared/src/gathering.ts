@@ -33,6 +33,9 @@
 
 import type { WeaponType } from './weapons.js';
 import type { Rarity } from './weapons.js';
+import type { ProfessionId } from './crafting.js';
+import type { GameMap } from './tiles.js';
+import { getTileType, inDepotZone, isWalkable, tileAt } from './tiles.js';
 
 /** O que um nó de recurso é. */
 export type NodeKind = 'ore' | 'wood' | 'herb' | 'mushroom' | 'crystal';
@@ -202,3 +205,178 @@ export const NODE_RARITY: Record<NodeKind, Rarity> = {
   mushroom: 'common',
   crystal: 'rare',
 };
+
+/**
+ * Qual profissão cada nó treina.
+ *
+ * As três de coleta são as do `DD-NPC-005` (Instrutor Minerador, Lenhador e
+ * Herbalista) — ver o comentário de `ProfessionId` em `crafting.ts`.
+ *
+ * ⚠️ Duas escolhas que o doc não fecha e que valem registro:
+ *
+ * - **Cristal treina Minerador**, e não uma quarta profissão. O `DD-DROP-013`
+ *   dá Cristais como MATERIAL de Ferreiro e Joalheiro, mas material não é
+ *   profissão: quem pica pedra com picareta está minerando, e o cristal usa a
+ *   mesma ferramenta do minério.
+ * - **Cogumelo treina Herbalista.** O 44.1 chama cogumelo de "recurso
+ *   subterrâneo" e não de erva, mas nenhuma profissão do documento colhe
+ *   cogumelo — e criar uma quarta para um nó só seria profissão de fachada.
+ */
+export const GATHER_PROFESSION: Record<NodeKind, ProfessionId> = {
+  ore: 'miner',
+  crystal: 'miner',
+  wood: 'lumberjack',
+  herb: 'herbalist',
+  mushroom: 'herbalist',
+};
+
+/**
+ * Distância máxima (Chebyshev) para coletar.
+ *
+ * O mesmo `1` de pegar item do chão e de saquear corpo, e de propósito: as três
+ * são "mexer em algo que está ali", e alcances diferentes para o mesmo gesto só
+ * ensinariam o jogador a duvidar da distância.
+ *
+ * 🔴 É o que permite o nó de MADEIRA morar num tile de árvore, que é sólido: não
+ * se pisa nele, mas se alcança de qualquer um dos oito lados.
+ */
+export const GATHER_RANGE = 1;
+
+/**
+ * Intervalo mínimo entre duas coletas do mesmo jogador, em ms.
+ *
+ * ⚠️ REFERÊNCIA — nenhum documento dá tempo de coleta. Existe por uma razão
+ * concreta: sem ele, um nó de 3 cargas se esvazia em três cliques no mesmo
+ * quadro, e a coleta vira um botão em vez de uma atividade. Perto de um segundo
+ * é o bastante para o gesto ter peso sem virar espera.
+ */
+export const GATHER_COOLDOWN_MS = 1_200;
+
+/** Um nó posicionado no mundo, antes de virar entidade viva no servidor. */
+export interface ResourceNodeSpot {
+  kind: NodeKind;
+  x: number;
+  y: number;
+  floor: number;
+}
+
+/**
+ * 🔴 **Nós ficam FORA da vila**, a pelo menos isto de distância do ponto de
+ * nascimento (Chebyshev).
+ *
+ * A muralha de Valoria fica a exatamente 10 tiles do centro, então `11` é o
+ * primeiro tile do lado de fora. Não é decoração: recurso dentro dos muros faria
+ * o jogador coletar sem nunca sair do lugar mais seguro do mapa, e coleta que
+ * não expõe a nada é só um clique repetido.
+ */
+export const NODE_MIN_SPAWN_DIST = 11;
+
+/** Um a cada quantas árvores do bosque vira nó de madeira. ⚠️ REFERÊNCIA. */
+const WOOD_EVERY = 6;
+
+/**
+ * Onde nasce cada nó que NÃO é madeira, em faixas de distância do nascimento.
+ *
+ * Mesma lógica do povoamento de criaturas (`spawnInitialCreatures`): a
+ * dificuldade de chegar é a curva. Cogumelo e erva ficam no primeiro anel,
+ * minério mais fora, e **cristal a 32+ tiles, dentro do território do Tier III** —
+ * é o material mais valioso do conjunto, e o preço dele é a vizinhança.
+ *
+ * ⚠️ São coordenadas ESCRITAS À MÃO, mas não frágeis: `buildResourceNodes`
+ * empurra para o tile válido mais próximo qualquer ponto que caia em água,
+ * árvore ou parede. Mudar o mapa reposiciona o nó, não o apaga.
+ */
+const HAND_PLACED: Array<[NodeKind, number, number]> = [
+  // Cogumelo — a porta de entrada: não pede ferramenta, então nasce no anel
+  // mais próximo, onde chega quem acabou de sair da vila sem nada.
+  ['mushroom', 8, 18], ['mushroom', 18, 8], ['mushroom', 31, 12],
+  ['mushroom', 26, 32], ['mushroom', 12, 32],
+  // Ervas — logo depois, e já exigindo a Foice comprada do comerciante.
+  ['herb', 8, 14], ['herb', 32, 8], ['herb', 14, 34], ['herb', 34, 30], ['herb', 2, 24],
+  // Minério — o segundo anel, junto do Tier II.
+  ['ore', 4, 20], ['ore', 36, 20], ['ore', 20, 4], ['ore', 20, 36],
+  ['ore', 6, 6], ['ore', 34, 34], ['ore', 44, 20], ['ore', 20, 44],
+  // Cristal — leste e sul profundos, onde mora o Tier III.
+  ['crystal', 52, 32], ['crystal', 32, 52], ['crystal', 54, 54],
+];
+
+const chebyshev = (ax: number, ay: number, bx: number, by: number): number =>
+  Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+
+/**
+ * Onde os nós do mundo nascem, derivado do MAPA.
+ *
+ * Determinístico e puro: as mesmas entradas dão a mesma saída sempre, o que
+ * permite testar o povoamento sem subir servidor — e é o que garante que reiniciar
+ * o mundo devolva os nós aos mesmos lugares.
+ *
+ * 🔴 **A madeira sai das ÁRVORES que já existem no mapa**, uma a cada
+ * `WOOD_EVERY`. Não se desenha uma árvore nova ao lado da árvore: o bosque já
+ * está lá, e o que faltava era dizer quais dele se pode cortar. O nó por cima do
+ * tile também resolve sozinho a pergunta "por que esta árvore e não aquela" —
+ * quem tem marca, corta.
+ *
+ * ⚠️ Cortar **não derruba** a árvore. O tile continua sendo árvore porque o mapa
+ * é gerado dos dois lados e não trafega pela rede: mudar o tile aqui
+ * dessincronizaria cliente e servidor na hora. O que se esgota é o nó.
+ */
+export function buildResourceNodes(map: GameMap): ResourceNodeSpot[] {
+  const out: ResourceNodeSpot[] = [];
+  const tomados = new Set<number>();
+  const chave = (x: number, y: number): number => y * map.width + x;
+  const { x: sx, y: sy, floor } = map.spawn;
+
+  /** Serve para nó que se PISA ao lado: andável, fora da vila e fora do DP. */
+  const valido = (x: number, y: number): boolean =>
+    x >= 0 && y >= 0 && x < map.width && y < map.height
+    && isWalkable(map, x, y, floor)
+    && !inDepotZone(map, x, y)
+    && chebyshev(x, y, sx, sy) >= NODE_MIN_SPAWN_DIST
+    && !tomados.has(chave(x, y));
+
+  for (const [kind, x0, y0] of HAND_PLACED) {
+    // Anéis crescentes ao redor do ponto pedido. O raio pequeno é intencional:
+    // se nada serve a 3 tiles, o ponto está errado o bastante para merecer
+    // conserto à mão, e empurrar 10 tiles esconderia isso.
+    let posto = false;
+    for (let r = 0; r <= 3 && !posto; r++) {
+      for (let dy = -r; dy <= r && !posto; dy++) {
+        for (let dx = -r; dx <= r && !posto; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // só a casca do anel
+          const x = x0 + dx;
+          const y = y0 + dy;
+          if (!valido(x, y)) continue;
+          tomados.add(chave(x, y));
+          out.push({ kind, x, y, floor });
+          posto = true;
+        }
+      }
+    }
+  }
+
+  // Madeira: as árvores do bosque, uma a cada `WOOD_EVERY`, desde que dê para
+  // ficar ao lado delas (árvore cercada de água ou de outras árvores seria nó
+  // visível e inalcançável).
+  const temVizinhoAndavel = (x: number, y: number): boolean => {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        if (isWalkable(map, x + dx, y + dy, floor)) return true;
+      }
+    }
+    return false;
+  };
+  let vistas = 0;
+  for (let y = 0; y < map.height; y++) {
+    for (let x = 0; x < map.width; x++) {
+      if (getTileType(tileAt(map, x, y, floor)).name !== 'tree') continue;
+      if (chebyshev(x, y, sx, sy) < NODE_MIN_SPAWN_DIST) continue;
+      if (!temVizinhoAndavel(x, y)) continue;
+      if (vistas++ % WOOD_EVERY !== 0) continue;
+      tomados.add(chave(x, y));
+      out.push({ kind: 'wood', x, y, floor });
+    }
+  }
+
+  return out;
+}

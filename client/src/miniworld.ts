@@ -200,11 +200,30 @@ const IDLE_DIRS: IdleDir[] = [
 /**
  * Carrega uma imagem crua, fora do `Assets` do Pixi. Serve para quando os pixels
  * precisam passar por canvas antes de virar textura (recompor, recolorir).
+ *
+ * 🔴 **Espera `onload`, e NÃO `img.decode()`.** A versão anterior era
+ * `img.decode().then(() => img)`, e isso trava o jogo inteiro quando a aba está
+ * **oculta**: o Chrome adia a decodificação de imagem em aba de segundo plano e a
+ * promessa do `decode()` simplesmente nunca resolve. Como todo o carregamento do
+ * mundo espera por estas imagens, o jogo ficava na tela preta **para sempre** —
+ * abrir Elysia numa aba que não está na frente bastava para nunca entrar.
+ *
+ * Achado testando: `document.visibilityState === 'hidden'` e o carregamento
+ * parava sempre no mesmo ponto, sem erro nenhum no console.
+ *
+ * `onload` dispara normalmente em aba oculta; a decodificação acontece depois,
+ * no primeiro `drawImage`. Custa um engasgo no primeiro quadro e devolve a
+ * garantia de que o jogo sempre carrega.
  */
 export function loadImage(src: string): Promise<HTMLImageElement> {
-  const img = new Image();
-  img.src = src;
-  return img.decode().then(() => img);
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`imagem não carregou: ${src}`));
+    img.src = src;
+    // Cache do navegador pode ter resolvido antes dos handlers entrarem.
+    if (img.complete && img.naturalWidth > 0) resolve(img);
+  });
 }
 
 export async function loadZombieIdleAnim(): Promise<DirAnim | null> {

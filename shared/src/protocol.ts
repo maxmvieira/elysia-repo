@@ -17,8 +17,9 @@ import type { SkullKind } from './pvp.js';
 import type { LootRule } from './party.js';
 import type { DayPhase } from './daynight.js';
 import type { Rarity } from './weapons.js';
-import type { Professions } from './crafting.js';
+import type { ProfessionId, Professions } from './crafting.js';
 import type { NpcRole } from './tiles.js';
+import type { NodeKind } from './gathering.js';
 
 /** Versão do protocolo. Incrementar em mudanças incompatíveis. */
 export const PROTOCOL_VERSION = 1;
@@ -33,7 +34,7 @@ export interface EntitySnapshot {
   /** Andar (z-level) — múltiplos andares estilo Tibia (doc 6.1). */
   floor: number;
   direction: Direction;
-  kind: 'player' | 'creature' | 'item' | 'npc';
+  kind: 'player' | 'creature' | 'item' | 'npc' | 'node';
   /** Papel do NPC (ex.: 'vendor' abre a loja ao clicar). */
   npcRole?: NpcRole;
   /** Vida atual/máxima (jogador e criatura). */
@@ -52,6 +53,22 @@ export interface EntitySnapshot {
   amount?: number;
   /** Corpo de jogador: nome de quem morreu (o cliente rotula o cadáver). */
   corpseOwner?: string;
+  /**
+   * Nó de recurso: que tipo é, para o cliente escolher o desenho.
+   *
+   * 🔴 **Nó esgotado simplesmente NÃO VEM no snapshot.** Não há campo de
+   * "vazio": o nó some do mundo quando acaba e volta quando renasce. Mandá-lo
+   * apagado seria pedir ao jogador que descobrisse, por clique, que aquilo não
+   * serve — e é exatamente o atrito que a bolsa de loot vazia já ensinou a
+   * evitar.
+   */
+  nodeKind?: NodeKind;
+  /**
+   * Cargas restantes do nó. Só informativo — o servidor é quem decide se a
+   * coleta acontece; isto existe para o cliente poder mostrar que o veio está
+   * no fim.
+   */
+  charges?: number;
   /**
    * Condições ativas (Etapa 8), para o cliente desenhar os ícones de estado.
    *
@@ -327,6 +344,19 @@ export interface C2S_MoveGroundItem {
   tileY: number;
 }
 
+/**
+ * Coletar de um nó de recurso (minerar, cortar, colher).
+ *
+ * Uma mensagem para os cinco nós: o gesto é o mesmo, e o que muda — ferramenta
+ * exigida, rendimento, profissão treinada — é atributo do NÓ, que o servidor já
+ * conhece pelo id. Mandar "minerar" e "cortar" separados só daria ao cliente a
+ * chance de discordar do servidor sobre o que ele está clicando.
+ */
+export interface C2S_Gather {
+  t: 'gather';
+  nodeId: string;
+}
+
 /** Abrir o corpo de alguém que morreu (precisa estar perto). */
 export interface C2S_OpenCorpse {
   t: 'opencorpse';
@@ -435,6 +465,7 @@ export type ClientMessage =
   | C2S_SkillReset
   | C2S_OpenCorpse
   | C2S_LootCorpse
+  | C2S_Gather
   | C2S_Craft
   | C2S_Drop
   | C2S_MoveGroundItem
@@ -670,6 +701,31 @@ export interface S2C_CorpseContents {
   source?: 'player' | 'creature';
 }
 
+/**
+ * Uma coleta deu certo (vai só para quem coletou).
+ *
+ * Existe em vez de um `chat` seco porque a coleta precisa aparecer **no mundo**,
+ * onde os olhos do jogador estão: o número sobe do nó, como o dano sobe do
+ * monstro. Recompensa que só aparece no rodapé do chat é recompensa que passa
+ * despercebida.
+ */
+export interface S2C_Gathered {
+  t: 'gathered';
+  /** Onde flutuar o texto. */
+  x: number;
+  y: number;
+  /** O que saiu, e quanto. */
+  itemKind: string;
+  amount: number;
+  /** Profissão treinada e quanto rendeu. */
+  profession: ProfessionId;
+  xp: number;
+  /** Nível novo, quando a coleta subiu a profissão. */
+  levelUp?: number;
+  /** O nó acabou com esta coleta (o cliente já pode apagá-lo da tela). */
+  depleted: boolean;
+}
+
 /** O próprio jogador renasceu. */
 export interface S2C_Respawn {
   t: 'respawn';
@@ -793,6 +849,7 @@ export type ServerMessage =
   | S2C_Cast
   | S2C_Effect
   | S2C_CorpseContents
+  | S2C_Gathered
   | S2C_Died
   | S2C_Respawn
   | S2C_LevelUp
