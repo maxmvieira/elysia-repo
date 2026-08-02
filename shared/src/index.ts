@@ -3,6 +3,7 @@ export * from './daynight.js';
 export * from './protocol.js';
 export * from './tiles.js';
 export * from './worldgen.js';
+export * from './regions.js';
 export * from './combat.js';
 export * from './elements.js';
 export * from './defense.js';

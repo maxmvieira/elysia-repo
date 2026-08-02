@@ -1,0 +1,392 @@
+MAPA GLOBAL DE ELYSIA ONLINE
+Tamanho do Mundo
+
+Mapa: 300 x 300 regiões (expandível futuramente)
+
+Cada região representa aproximadamente uma área explorável do mundo.
+
+O mundo é totalmente aberto, sem telas de carregamento.
+
+As futuras expansões poderão adicionar novos continentes sem alterar os atuais.
+
+Progressão do Mundo
+
+A dificuldade aumenta naturalmente conforme o jogador se afasta de Lumindale.
+
+Não existem "paredes invisíveis".
+
+O próprio perigo do mundo impede o avanço precoce.
+
+REGIÕES OFICIAIS
+1. Lumindale
+
+Posição
+
+Centro do Reino de Valdor
+
+Bioma
+
+Campos e pradarias
+
+Nível
+
+1–10
+
+Características
+
+Cidade inicial
+Missões iniciais
+Primeiros NPCs
+Pequenas fazendas
+Lobos
+Javalis
+Goblins
+2. Campos de Valdor
+
+Posição
+
+Ao redor de Lumindale
+
+Bioma
+
+Planícies
+
+Nível
+
+5–15
+
+Monstros
+
+Lobos
+Javalis
+Bandidos
+Aranhas
+3. Floresta de Eldor
+
+Posição
+
+Noroeste
+
+Bioma
+
+Floresta
+
+Nível
+
+15–35
+
+Monstros
+
+Orcs
+Trolls
+Ursos
+Ents
+Aranhas Gigantes
+
+Cidade
+
+Valen
+
+4. Montanhas de Ferro
+
+Posição
+
+Sudoeste
+
+Bioma
+
+Montanhas
+
+Nível
+
+25–50
+
+Monstros
+
+Anões Corrompidos
+Golems
+Morcegos
+Ogros
+
+Cidade
+
+Kazdur
+
+5. Costa de Olyn
+
+Posição
+
+Oeste
+
+Bioma
+
+Costa
+
+Nível
+
+20–40
+
+Monstros
+
+Piratas
+Caranguejos Gigantes
+Serpentes Marinhas
+Sahuagins
+
+Cidade
+
+Lyon
+
+6. Planícies Centrais
+
+Posição
+
+Centro
+
+Bioma
+
+Campos
+
+Nível
+
+30–50
+
+Monstros
+
+Cavaleiros Renegados
+Lobos Negros
+Centauros
+
+Capital
+
+Valdor
+
+7. Vale dos Dragões
+
+Posição
+
+Leste
+
+Bioma
+
+Montanhas Vulcânicas
+
+Nível
+
+70–100
+
+Monstros
+
+Wyrms
+Drake
+Dragões Jovens
+Dragões Antigos
+
+Grande Chefe
+
+Dragão Ancestral
+
+8. Deserto de Kharzan
+
+Posição
+
+Sudeste
+
+Bioma
+
+Deserto
+
+Nível
+
+50–80
+
+Monstros
+
+Escorpiões
+Múmias
+Djinns
+Vermes Gigantes
+
+Cidade
+
+Zahir
+
+9. Selva de Yoruba
+
+Posição
+
+Extremo Sudeste
+
+Bioma
+
+Selva
+
+Nível
+
+60–90
+
+Monstros
+
+Hidras
+Cobras
+Gorilas
+Tribos Selvagens
+
+Cidade
+
+Illara
+
+Grande Chefe
+
+Hidra Anciã
+
+10. Terras de Fogo
+
+Posição
+
+Nordeste
+
+Bioma
+
+Vulcânico
+
+Nível
+
+80–110
+
+Monstros
+
+Demônios
+Elementais de Fogo
+Salamandras
+Gigantes de Lava
+
+Cidade
+
+Draikor
+
+11. Northland
+
+Posição
+
+Norte
+
+Bioma
+
+Neve
+
+Nível
+
+70–100
+
+Monstros
+
+Yetis
+Lobos Árticos
+Gigantes do Gelo
+Espíritos Congelados
+
+Cidade
+
+Skald
+
+12. Pântano de Umbria
+
+Posição
+
+Sudoeste
+
+Bioma
+
+Pântano
+
+Nível
+
+55–85
+
+Monstros
+
+Mortos-vivos
+Aranhas
+Sapos Gigantes
+Bruxas
+
+Cidade
+
+Mortaine
+
+13. Terras Amaldiçoadas
+
+Posição
+
+Sul
+
+Bioma
+
+Corrupção
+
+Nível
+
+100–130
+
+Monstros
+
+Demônios
+Mortos-vivos
+Aberrações
+Cavaleiros Corrompidos
+
+Cidade
+
+Cidade das Sombras
+
+DUNGEONS LENDÁRIAS
+
+Castelo do Rei Esquecido
+
+Nível
+
+60+
+
+Covil da Hidra
+
+70+
+
+Fortaleza do General Demoníaco
+
+100+
+
+Cripta do Lich Supremo
+
+90+
+
+Abismo do Dragão
+
+110+
+
+Templo do Arcanjo
+
+120+
+
+Progressão resumida
+Região	Nível
+Lumindale	1–10
+Campos de Valdor	5–15
+Floresta de Eldor	15–35
+Costa de Olyn	20–40
+Montanhas de Ferro	25–50
+Planícies Centrais	30–50
+Deserto de Kharzan	50–80
+Pântano de Umbria	55–85
+Selva de Yoruba	60–90
+Northland	70–100
+Vale dos Dragões	70–100
+Terras de Fogo	80–110
+Terras Amaldiçoadas	100–130
+Minha única sugestão de alteração no mapa
+
+O mapa ficou excelente, mas eu aumentaria bastante sua escala.
+
+Em vez de tratar os continentes como relativamente pequenos, faria cada grande região ter quilômetros de exploração, com estradas, fazendas, ruínas, cavernas, lagos, pequenas aldeias, torres abandonadas e dezenas de pontos de interesse entre uma cidade e outra.
+
+Na prática, eu imaginaria um mundo entre 300×300 e 500×500 regiões, dependendo da tecnologia da engine. Isso dá espaço para inserir centenas de locais interessantes ao longo dos anos sem que o mundo pareça apertado ou exija um redesenho completo no futuro. É um investimento inicial que facilita muito a expansão de Elysia Online.
