@@ -105,16 +105,32 @@ engasgo no primeiro quadro e devolve a garantia de que o jogo sempre carrega.
 🔴 **Não volte para `img.decode()`** em nada que o carregamento espere. É um bug
 que não aparece em nenhum teste e some assim que alguém olha para a aba.
 
+### 🔴 Toda árvore tinha um QUADRADO PRETO em volta
+
+Relatado pelo dono, com print (`erros/arvore-bug.png`). A causa estava no laço de
+`rebuildFloor`: **só tile de `height === 0` ganhava piso**, e árvore tem altura 1.
+
+Para muro isso nunca apareceu, porque a face 2.5D cobre o tile inteiro. A árvore
+é só tronco e copa, então nos cantos aparecia o fundo da página — que é preto.
+
+**Conserto:** o chão passa a ser desenhado **sempre**, e embaixo de tile alto usa
+**grama** — o `worldgen` preenche o mapa inteiro de grama antes de pintar
+qualquer coisa por cima, e só planta árvore onde já era grama. Onde a escolha
+poderia estar errada (parede sobre pedra, dentro da casa), o bloco cobre tudo e
+ninguém vê.
+
 ### ✅ Verificado JOGANDO (02/08)
 
 Minério (3 cargas, esgotou e sumiu do mundo) · cogumelo sem ferramenta · erva com
 Foice · recusa por falta de ferramenta nos três · número flutuante subindo do nó ·
 XP de profissão chegando · nome do nó no **hover** com as cargas restantes ·
-carregamento com a aba oculta.
+carregamento com a aba oculta · **corte de árvore** (confirmado pelo dono) ·
+árvore sem o quadrado preto.
 
-⚠️ **NÃO foram vistos em tela:** o corte de **árvore** (o único nó em tile
-sólido) e a parada **ao lado** depois do conserto acima. Os dois dependem do
-mesmo `irParaPerto`.
+⚠️ **NÃO foi visto em tela:** a parada **ao lado** depois do conserto do
+`irParaPerto`. O corte de árvore, que depende do mesmo código, funciona — então
+o caminho do tile sólido está provado; falta ver o herói parando no vizinho em
+vez de em cima.
 
 ---
 
@@ -369,7 +385,6 @@ duas dessas coisas exigem duas pessoas — que é justamente o que vocês são.
 | **Reordenar painéis nas DUAS barras** | arrastar painel pelo cabeçalho, em cada coluna, e recarregar | o layout foi verificado, o arraste entre colunas não |
 | **Linha de visão em PvP** | dois jogadores, um atrás de muro, tentar acertar | exige duas janelas |
 | **Bolsa de loot em GRUPO** | com regra de loot ligada, ver se o dono recebe na mochila e o resto vai para a bolsa | idem |
-| 🆕 **Cortar ÁRVORE** | machado equipado, clicar numa árvore com machado fincado no tronco | é o único nó em tile SÓLIDO — depende do `irParaPerto` |
 | 🆕 **Parar AO LADO** | clicar num nó/corpo de longe: o herói tem que parar no tile vizinho, nunca em cima | o conserto é de 02/08 e não foi visto rodando |
 
 ✅ **Verificado JOGANDO em 01/08** (o dono, em tela): inventário aparecendo ao

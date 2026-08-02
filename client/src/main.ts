@@ -44,6 +44,7 @@ import {
   isWalkable,
   NODES,
   PROFESSION_NAME,
+  TILE_TYPES,
   type AttributeKey,
   type Direction,
   type EntitySnapshot,
@@ -982,6 +983,31 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // Quanto o tile de 64px "sobe" na tela sobre a célula lógica de 32px.
   const groundOverhang = ground ? ground.cell - TS : 0;
 
+  /** Id do piso desenhado embaixo de tile alto (árvore, muro). Ver `rebuildFloor`. */
+  const CHAO_SOB_TILE_ALTO = Number(
+    Object.keys(TILE_TYPES).find((id) => TILE_TYPES[Number(id)]?.name === 'grass'),
+  );
+
+  /** Um tile de piso na posição, do tileset quando há sprite, ou cor chapada. */
+  function desenhaChao(x: number, y: number, tileId: number): void {
+    const tex = ground?.byId.get(tileId);
+    if (tex) {
+      // Sprite real do tileset (64px), com sobreposição oblíqua.
+      const s = new Sprite(tex);
+      s.x = x * TS;
+      s.y = y * TS - groundOverhang;
+      s.width = ground!.cell;
+      s.height = ground!.cell;
+      floorRoot.addChild(s);
+      return;
+    }
+    // Placeholder: retângulo colorido.
+    const g = new Graphics();
+    g.rect(x * TS, y * TS, TS, TS).fill(getTileType(tileId).color);
+    g.rect(x * TS, y * TS, TS, TS).stroke({ width: 1, color: 0x000000, alpha: 0.12 });
+    floorRoot.addChild(g);
+  }
+
   function rebuildFloor(floor: number): void {
     // Limpa o andar anterior.
     for (const w of wallSprites) w.destroy();
@@ -997,26 +1023,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         const t = getTileType(layer[y * map.width + x]!);
         if (t.name === 'void') continue;
 
-        if (t.height === 0) {
-          const tex = ground?.byId.get(t.id);
-          if (tex) {
-            // Sprite real do tileset (64px), com sobreposição oblíqua.
-            const s = new Sprite(tex);
-            s.x = x * TS;
-            s.y = y * TS - groundOverhang;
-            s.width = ground!.cell;
-            s.height = ground!.cell;
-            floorRoot.addChild(s);
-          } else {
-            // Placeholder: retângulo colorido.
-            const g = new Graphics();
-            g.rect(x * TS, y * TS, TS, TS);
-            g.fill(t.color);
-            g.rect(x * TS, y * TS, TS, TS);
-            g.stroke({ width: 1, color: 0x000000, alpha: 0.12 });
-            floorRoot.addChild(g);
-          }
-        } else if (t.name === 'tree' && treeTex.length) {
+        /*
+         * 🔴 O CHÃO É DESENHADO SEMPRE, inclusive debaixo de tile ALTO.
+         *
+         * Bug relatado pelo dono: **toda árvore ficava com um quadrado preto em
+         * volta.** A causa era este laço: só tile de `height === 0` ganhava
+         * piso, e árvore tem altura 1. Para muro isso nunca apareceu, porque a
+         * face 2.5D cobre o tile inteiro; a árvore é só tronco e copa, então o
+         * fundo da página aparecia nos cantos — e "fundo da página" é preto.
+         *
+         * O piso usado embaixo do tile alto é GRAMA: o `worldgen` preenche o
+         * mapa inteiro de grama e só depois pinta por cima, e só planta árvore
+         * onde já era grama. Onde a escolha poderia estar errada (paredes sobre
+         * pedra, dentro da casa), o bloco cobre tudo e ninguém vê.
+         */
+        desenhaChao(x, y, t.height === 0 ? t.id : CHAO_SOB_TILE_ALTO);
+
+        if (t.height === 0) continue;
+        if (t.name === 'tree' && treeTex.length) {
           // Árvore com sprite HD (variante estável por célula).
           wallSprites.push(makeTree(x, y, treeTex[treeIndexFor(x, y, treeTex.length)]!));
         } else {
