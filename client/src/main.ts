@@ -622,6 +622,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   app.stage.addChild(world);
 
   const floorRoot = new Container(); // pisos (sprites reais ou placeholder)
+  /*
+   * 🔴 O piso é ordenado por PEDAÇO (chunk), não pela ordem de inserção.
+   *
+   * O tile do tileset é de 64 px numa célula de 32, então cada linha se
+   * sobrepõe obliquamente à de trás — o efeito depende de as linhas do norte
+   * serem desenhadas ANTES. Com os pedaços entrando e saindo conforme a câmera
+   * anda, a ordem de inserção deixa de acompanhar a geografia: um pedaço ao
+   * norte carregado depois cobriria o do sul. O `zIndex` por linha de pedaço
+   * devolve a ordem que o desenho pressupõe.
+   */
+  floorRoot.sortableChildren = true;
   world.addChild(floorRoot);
 
   // Paredes, árvores E entidades convivem aqui, ordenados por profundidade (y).
@@ -629,7 +640,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   objects.sortableChildren = true;
   world.addChild(objects);
 
-  const wallSprites: Container[] = [];
   const sprites = new Map<string, EntityView>();
   /** Fitas de ícone de condição, por id de entidade (criadas sob demanda). */
   const condStrips = new Map<string, ReturnType<typeof makeConditionStrip>>();
@@ -989,7 +999,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   );
 
   /** Um tile de piso na posição, do tileset quando há sprite, ou cor chapada. */
-  function desenhaChao(x: number, y: number, tileId: number): void {
+  function desenhaChao(pai: Container, x: number, y: number, tileId: number): void {
     const tex = ground?.byId.get(tileId);
     if (tex) {
       // Sprite real do tileset (64px), com sobreposição oblíqua.
@@ -998,28 +1008,76 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       s.y = y * TS - groundOverhang;
       s.width = ground!.cell;
       s.height = ground!.cell;
-      floorRoot.addChild(s);
+      pai.addChild(s);
       return;
     }
     // Placeholder: retângulo colorido.
     const g = new Graphics();
     g.rect(x * TS, y * TS, TS, TS).fill(getTileType(tileId).color);
     g.rect(x * TS, y * TS, TS, TS).stroke({ width: 1, color: 0x000000, alpha: 0.12 });
-    floorRoot.addChild(g);
+    pai.addChild(g);
   }
 
-  function rebuildFloor(floor: number): void {
-    // Limpa o andar anterior.
-    for (const w of wallSprites) w.destroy();
-    wallSprites.length = 0;
-    for (const c of floorRoot.removeChildren()) c.destroy();
+  /*
+   * ==========================================================================
+   * CENÁRIO POR PEDAÇOS (chunks)
+   * ==========================================================================
+   *
+   * 🔴 **Só existe na tela o que está PERTO da câmera.** Antes, `rebuildFloor`
+   * montava o andar INTEIRO de uma vez: um sprite por tile, mais um objeto por
+   * parede e por árvore. Com Valoria (60×60 = 3.600 tiles) isso passava sem
+   * ninguém notar.
+   *
+   * O mundo de Elysia tem **300×300 = 90.000 tiles**. Vinte e cinco vezes mais
+   * objetos, montados de uma vez, no carregamento — não é lentidão, é a aba
+   * morrendo. Este é o pré-requisito do mapa grande, e é por isso que ele veio
+   * antes de gerar o terreno novo.
+   *
+   * O que muda: o mapa é cortado em quadrados de `CHUNK` tiles, e só os que
+   * cruzam a tela (mais uma margem) ficam montados. O custo passa a ser o
+   * TAMANHO DA TELA, não o tamanho do mundo — 300×300 e 3000×3000 pesam igual.
+   */
+  const CHUNK = 16;
 
-    const layer = map.floors[floor];
-    if (!layer) return;
+  /**
+   * Margem, em pedaços, montada além do que a tela mostra.
+   *
+   * ⚠️ REFERÊNCIA. Com `0`, o pedaço nasceria exatamente quando entrasse no
+   * quadro e o jogador veria o cenário aparecer na borda. Com `1` ele já está
+   * pronto um pedaço antes — e é também a histerese que impede o liga-desliga
+   * de quem anda em cima da divisa.
+   */
+  const CHUNK_MARGEM = 1;
 
-    // Desenha os pisos de baixo para cima: linhas da frente sobrepõem as de trás.
-    for (let y = 0; y < map.height; y++) {
-      for (let x = 0; x < map.width; x++) {
+  interface ChunkView {
+    /** Container do piso; sai inteiro de uma vez. */
+    piso: Container;
+    /**
+     * Paredes e árvores.
+     *
+     * 🔴 Ficam SOLTAS em `objects`, e não num container do pedaço, porque
+     * precisam ser ordenadas por `y` **junto com as entidades** — é o que faz o
+     * jogador passar por trás de uma árvore. Agrupá-las por pedaço as ordenaria
+     * entre si e depois o grupo inteiro contra os personagens, e aí um monstro
+     * dois tiles à frente da árvore apareceria atrás dela.
+     */
+    altos: Container[];
+  }
+
+  const chunksVivos = new Map<string, ChunkView>();
+  let chunkRangeAtual = '';
+
+  function montaChunk(cx: number, cy: number, layer: number[]): ChunkView {
+    const piso = new Container();
+    // Ver o comentário de `floorRoot.sortableChildren`: a linha do pedaço é o
+    // que devolve a sobreposição oblíqua entre pedaços vizinhos.
+    piso.zIndex = cy;
+    const altos: Container[] = [];
+
+    const x1 = Math.min(map.width, (cx + 1) * CHUNK);
+    const y1 = Math.min(map.height, (cy + 1) * CHUNK);
+    for (let y = cy * CHUNK; y < y1; y++) {
+      for (let x = cx * CHUNK; x < x1; x++) {
         const t = getTileType(layer[y * map.width + x]!);
         if (t.name === 'void') continue;
 
@@ -1027,7 +1085,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
          * 🔴 O CHÃO É DESENHADO SEMPRE, inclusive debaixo de tile ALTO.
          *
          * Bug relatado pelo dono: **toda árvore ficava com um quadrado preto em
-         * volta.** A causa era este laço: só tile de `height === 0` ganhava
+         * volta.** A causa era o laço antigo: só tile de `height === 0` ganhava
          * piso, e árvore tem altura 1. Para muro isso nunca apareceu, porque a
          * face 2.5D cobre o tile inteiro; a árvore é só tronco e copa, então o
          * fundo da página aparecia nos cantos — e "fundo da página" é preto.
@@ -1037,20 +1095,82 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
          * onde já era grama. Onde a escolha poderia estar errada (paredes sobre
          * pedra, dentro da casa), o bloco cobre tudo e ninguém vê.
          */
-        desenhaChao(x, y, t.height === 0 ? t.id : CHAO_SOB_TILE_ALTO);
+        desenhaChao(piso, x, y, t.height === 0 ? t.id : CHAO_SOB_TILE_ALTO);
 
         if (t.height === 0) continue;
         if (t.name === 'tree' && treeTex.length) {
           // Árvore com sprite HD (variante estável por célula).
-          wallSprites.push(makeTree(x, y, treeTex[treeIndexFor(x, y, treeTex.length)]!));
+          altos.push(makeTree(x, y, treeTex[treeIndexFor(x, y, treeTex.length)]!));
         } else {
           // Parede (e árvore sem sprite) desenhadas por código (2.5D).
-          wallSprites.push(makeBlock(x, y, t.name, t.color));
+          altos.push(makeBlock(x, y, t.name, t.color));
         }
       }
     }
-    for (const w of wallSprites) objects.addChild(w);
+
+    floorRoot.addChild(piso);
+    for (const a of altos) objects.addChild(a);
+    return { piso, altos };
+  }
+
+  function descartaChunk(view: ChunkView): void {
+    view.piso.destroy({ children: true });
+    for (const a of view.altos) a.destroy();
+  }
+
+  /** Joga fora todos os pedaços montados (troca de andar). */
+  function limpaChunks(): void {
+    for (const v of chunksVivos.values()) descartaChunk(v);
+    chunksVivos.clear();
+    chunkRangeAtual = '';
+  }
+
+  /**
+   * Monta o que entrou na tela e joga fora o que saiu.
+   *
+   * Roda a cada quadro, mas só faz trabalho quando a **faixa de pedaços** muda —
+   * ou seja, uma vez a cada 16 tiles andados, não 60 vezes por segundo.
+   */
+  function atualizaChunks(): void {
+    const layer = map.floors[renderedFloor];
+    if (!layer) return;
+
+    // Retângulo do mundo que a tela cobre, em tiles. `world.x/y` é o
+    // deslocamento da câmera e `ZOOM` a escala — o inverso de `tileDoEvento`.
+    const tx0 = Math.floor(-world.x / ZOOM / TS);
+    const ty0 = Math.floor(-world.y / ZOOM / TS);
+    const tx1 = Math.ceil((-world.x + app.screen.width) / ZOOM / TS);
+    const ty1 = Math.ceil((-world.y + app.screen.height) / ZOOM / TS);
+
+    const cx0 = Math.max(0, Math.floor(tx0 / CHUNK) - CHUNK_MARGEM);
+    const cy0 = Math.max(0, Math.floor(ty0 / CHUNK) - CHUNK_MARGEM);
+    const cx1 = Math.min(Math.ceil(map.width / CHUNK) - 1, Math.floor(tx1 / CHUNK) + CHUNK_MARGEM);
+    const cy1 = Math.min(Math.ceil(map.height / CHUNK) - 1, Math.floor(ty1 / CHUNK) + CHUNK_MARGEM);
+
+    const assinatura = `${renderedFloor}:${cx0},${cy0},${cx1},${cy1}`;
+    if (assinatura === chunkRangeAtual) return;
+    chunkRangeAtual = assinatura;
+
+    for (let cy = cy0; cy <= cy1; cy++) {
+      for (let cx = cx0; cx <= cx1; cx++) {
+        const k = `${cx},${cy}`;
+        if (!chunksVivos.has(k)) chunksVivos.set(k, montaChunk(cx, cy, layer));
+      }
+    }
+    for (const [k, v] of chunksVivos) {
+      const [cx, cy] = k.split(',').map(Number) as [number, number];
+      if (cx < cx0 || cx > cx1 || cy < cy0 || cy > cy1) {
+        descartaChunk(v);
+        chunksVivos.delete(k);
+      }
+    }
+  }
+
+  function rebuildFloor(floor: number): void {
+    limpaChunks();
     renderedFloor = floor;
+    if (!map.floors[floor]) return;
+    atualizaChunks();
   }
 
   /** Árvore com sprite HD: base no rodapé do tile, copa subindo, oclusão por y. */
@@ -4124,6 +4244,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const targetY = app.screen.height / 2 - (cy + TS / 2) * ZOOM;
     world.x += (targetX - world.x) * 0.2;
     world.y += (targetY - world.y) * 0.2;
+
+    // Cenário sob demanda: monta o que entrou na tela, joga fora o que saiu.
+    // Depois da câmera de propósito — é a posição DELA que decide o que existe.
+    atualizaChunks();
 
     // Overlay de noite: escurece a tela com um buraco de luz seguindo o herói.
     if (nightDarkness <= 0.02) {

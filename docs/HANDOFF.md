@@ -10,6 +10,105 @@ e **02/08** (a sessão abaixo: **coleta e mineração ligadas no mundo**).
 
 ---
 
+## 🗺️ 02/08 (tarde) — O MUNDO DE ELYSIA COMEÇOU. Leia isto antes de tudo.
+
+O dono entregou o **mapa oficial** (`map/mapa-oficial/`: o PNG do mundo, o
+`message.txt` com as regiões, e as pranchas da capital e do vilarejo) e pediu
+para **antecipar a etapa de mundo**. O trabalho começou; está no meio.
+
+### 🔴 Quatro decisões do dono que REVOGAM documento
+
+Estas valem como canônicas e contrariam o que está escrito nos docs antigos. Não
+"conserte" de volta.
+
+| Decisão | O que morreu |
+|---|---|
+| **A capital é ARCADIA** (Valdor é o **reino**) | o nome **Asteria**, do `GDD-doc1-destilado.md`, está descartado |
+| **O mundo é inteiramente visível desde o início** | `DD-MAP-001/002` (névoa de guerra) — **revogado** |
+| idem | `DD-MAP-009` (exploração pertence à conta) — **revogado**, não há mais estado de descoberta para persistir |
+| **Valem as 6 dungeons do PNG** | a outra lista de 6, do `message.txt` |
+
+O que protege o novato agora **não é a ignorância do terreno, é a distância**: o
+jogador vê o mundo inteiro e não sabe o que mora em cada lugar.
+
+### ✅ O mapa virou tabela — `shared/src/regions.ts`
+
+**12 regiões · 11 cidades · 6 dungeons de 6 andares**, com 13 testes travando as
+regras. É **dado autoral, não geração procedural**: ruído daria um mundo
+plausível e errado, porque o mapa do dono tem intenção (capital no centro, gelo
+ao norte, deserto a sudeste) e intenção não sai de PRNG.
+
+🔴 **A trava de coerência que o dono pediu com todas as letras:** região a menos
+de 40 tiles do berço não começa acima do Lv.30, e região de Lv.70+ fica a pelo
+menos 60. **É de um lado só de propósito** — floresta fácil longe é legítima,
+porque *bioma não determina nível*.
+
+🔴 **A ordem da lista é PRIORIDADE.** Campos de Valdor (Lv.1–15) é um bolsão
+manso encravado nas Planícies de Verídia (Lv.30–50) e vem antes justamente por
+isso. Sem essa ordem, quem sai de Lumindale cai direto em conteúdo de nível 30.
+
+🔴 **O mar não é região.** Tile que ninguém reivindica é água.
+
+⚠️ `species` (existe hoje) e `wanted` (espera o bestiário crescer) são campos
+**separados** para que nenhuma região pareça pronta e nasça vazia. Hoje só
+Campos de Valdor, Floresta de Eldor e pedaços de Montanhas/Pântano/Amaldiçoadas
+têm bicho; **7 das 12 regiões não têm nenhuma espécie**, e isso é honesto, não
+esquecimento. O `64.51` fixa a ordem: bestiário fechado → faixas → números →
+loot → sprites.
+
+### ✅ O motor passou a aguentar mundo grande (o passo 1)
+
+Duas coisas quebrariam **antes** de o mapa novo ficar bonito, e as duas foram
+consertadas:
+
+🔴 **O cliente montava o andar INTEIRO de uma vez** — um objeto por tile, por
+parede e por árvore. Valoria tem 3.600 tiles e passava despercebido; Elysia tem
+**90.000**. Não é lentidão, é a aba morrendo. Agora o cenário é montado **por
+pedaços de 16×16** conforme a câmera anda (`montaChunk`/`atualizaChunks` em
+`client/src/main.ts`): o custo passa a ser o **tamanho da tela**, não o do mundo.
+
+🔴 **O servidor mandava o andar inteiro para todo jogador, 15× por segundo.**
+Agora corta por distância (`SNAPSHOT_RANGE = 32`). Sem isso, o custo cresceria
+com *tamanho do mundo × número de jogadores* — o jeito mais rápido de matar um
+servidor de MMO.
+
+⚠️ Dois detalhes que não são gosto e quebram se mexerem: o piso agora usa
+`sortableChildren` com `zIndex` **por linha de pedaço** (o tile de 64 px numa
+célula de 32 se sobrepõe obliquamente, e a ordem de inserção deixou de
+acompanhar a geografia); e paredes/árvores continuam **soltas** em `objects`,
+não agrupadas por pedaço, porque precisam ser ordenadas por `y` **junto com as
+entidades** — agrupá-las faria o monstro à frente da árvore aparecer atrás dela.
+
+✅ **Visto em tela:** o mundo renderiza contínuo, sem buraco entre pedaços.
+⚠️ **NÃO visto:** andar longe para ver pedaço entrando e saindo, e o efeito do
+corte de 32 tiles com dois jogadores.
+
+### 🎯 De onde continuar — a ordem acordada com o dono
+
+1. ✅ ~~Motor aguentar mundo grande~~ — **feito** (acima).
+2. ⏳ **Gerador de terreno 300×300 a partir de `regions.ts`**, e **Lumindale
+   substitui Valoria** como vilarejo inicial. É o próximo passo.
+3. ⏳ **Tecla M** — mapa-múndi inteiro, com zoom, nomes e "você está aqui".
+   Sem névoa: sai direto de `regions.ts`, sem ida ao servidor.
+4. ⏳ **Povoar** as regiões que o bestiário cobre.
+5. ⏳ **Dungeons** — os 6 andares descendo. O motor já tem multi-andar
+   (`floors` + `floorLinks`), hoje usado só para a casa do vilarejo.
+6. ⏳ **Elysia Map Editor** — programa separado pedido pelo dono: ver o mapa
+   inteiro com zoom livre e **editar à mão** spawn de monstro, NPC e nó de
+   coleta.
+
+🔴 **O editor muda uma decisão de arquitetura, e o passo 2 já tem que nascer
+sabendo disso:** o **terreno** continua gerado de `regions.ts` (determinístico,
+não trafega pela rede — é o que sustenta "nós são entidades, não tiles"), mas
+**spawn, NPC e nó viram arquivo** em `shared/data/world/*.json`. Se ficassem em
+código, a próxima geração apagaria o que o dono editou à mão. Como dado
+versionado, o irmão ainda vê no diff o que ele mudou.
+
+⚠️ **Valoria deixa de existir** no passo 2, e a posição salva dos personagens
+não vale mais. O dono já autorizou apagar os personagens de teste.
+
+---
+
 ## 🆕 Sessão de 02/08 — a coleta saiu do papel
 
 Era a próxima etapa apontada pelo handoff anterior, e fechou: os cinco nós de
@@ -438,7 +537,7 @@ npm test             # tem que dar 397 passando, 0 falhando
 npm run dev:test     # sobe com os comandos de teste ligados
 ```
 
-Se o `npm test` não der **415** (395 shared + 20 server), **não continue** — algo
+Se o `npm test` não der **428** (408 shared + 20 server), **não continue** — algo
 se perdeu no caminho.
 
 ---
@@ -567,7 +666,7 @@ Corrigido: `backpackSizeFor()` é a fonte única, usada no carregamento **e** ao
 
 | | 30/07 madrugada | pós-merge | 01/08 | **02/08** |
 |---|---|---|---|---|
-| Testes | 328 · 344 | 397 | 408 | **415** (395 shared + 20 server) |
+| Testes | 328 · 344 | 397 | 408 | **428** (408 shared + 20 server) |
 | Typecheck | limpo | limpo | limpo | limpo nos 3 pacotes |
 | Criaturas vivas no mapa | 32 | 32 | 32 | 32 |
 | **Nós de recurso no mapa** | — | — | — | **46** |
@@ -1019,10 +1118,17 @@ quer ver.
 
 ---
 
-## 🎯 PRÓXIMA ETAPA (definida em 02/08)
+## 🎯 PRÓXIMA ETAPA
 
-**Ligar a coleta à FABRICAÇÃO** — é o degrau que a coleta abriu e ninguém subiu
-ainda.
+🔴 **Mudou na tarde de 02/08:** o dono entregou o mapa oficial e pediu para
+antecipar a etapa de mundo. **A próxima coisa a fazer é o passo 2 da lista do
+bloco "O MUNDO DE ELYSIA COMEÇOU"**, no topo deste arquivo — o gerador de
+terreno 300×300.
+
+O texto abaixo era a próxima etapa antes disso, e continua valendo **depois** do
+mundo: nada nele foi feito.
+
+### (em espera) Ligar a coleta à FABRICAÇÃO
 
 Hoje o jogador colhe Minério de Ferro, Tora de Carvalho, Erva Comum e Cristal de
 Mana, e **não tem o que fazer com eles**: a bancada do Ferreiro só consome

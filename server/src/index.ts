@@ -4509,8 +4509,15 @@ function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
   // Um relógio só para o snapshot inteiro: com um `Date.now()` por jogador, dois
   // observadores poderiam ver a mesma caveira expirar em tiques diferentes.
   const agoraSnapshot = Date.now();
+  /** Está perto o bastante para este jogador ver? Ver `SNAPSHOT_RANGE`. */
+  const visivel = (x: number, y: number): boolean =>
+    chebyshev(viewer.tileX, viewer.tileY, x, y) <= SNAPSHOT_RANGE;
+
   for (const p of players.values()) {
     if (!p.joined || p.floor !== viewer.floor) continue;
+    // 🔴 O próprio jogador NUNCA é cortado: sem ele o cliente não teria de onde
+    // tirar a posição da câmera nem o sprite do herói.
+    if (p.id !== viewer.id && !visivel(p.tileX, p.tileY)) continue;
     out.push({
       id: p.id, name: p.name, tileX: p.tileX, tileY: p.tileY, floor: p.floor,
       direction: p.direction, kind: 'player', hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
@@ -4530,6 +4537,7 @@ function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
   }
   for (const c of creatures.values()) {
     if (!c.alive || c.floor !== viewer.floor) continue;
+    if (!visivel(c.tileX, c.tileY)) continue;
     out.push({
       id: c.id, name: c.name, tileX: c.tileX, tileY: c.tileY, floor: c.floor,
       direction: c.direction, kind: 'creature', hp: c.hp, maxHp: c.maxHp, creatureType: c.def.type,
@@ -4537,14 +4545,14 @@ function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
     });
   }
   for (const item of items.values()) {
-    if (item.floor !== viewer.floor) continue;
+    if (item.floor !== viewer.floor || !visivel(item.tileX, item.tileY)) continue;
     out.push({
       id: item.id, name: item.itemKind, tileX: item.tileX, tileY: item.tileY, floor: item.floor,
       direction: 'down', kind: 'item', itemKind: item.itemKind, amount: item.amount,
     });
   }
   for (const c of corpses.values()) {
-    if (c.floor !== viewer.floor) continue;
+    if (c.floor !== viewer.floor || !visivel(c.tileX, c.tileY)) continue;
     // `lootbag` desenha uma bolsa; `corpse` desenha ossos. Mesmo mecanismo,
     // leituras diferentes: o jogador precisa distinguir de longe o espólio de
     // uma caçada do corpo de alguém que morreu ali.
@@ -4560,13 +4568,14 @@ function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
   for (const n of nodes.values()) {
     // Esgotado não viaja: some da tela até renascer. Ver `nodeKind` no protocolo.
     if (n.floor !== viewer.floor || n.charges <= 0) continue;
+    if (!visivel(n.tileX, n.tileY)) continue;
     out.push({
       id: n.id, name: NODES[n.kind].name, tileX: n.tileX, tileY: n.tileY, floor: n.floor,
       direction: 'down', kind: 'node', nodeKind: n.kind, charges: n.charges,
     });
   }
   for (const n of npcs) {
-    if (n.floor !== viewer.floor) continue;
+    if (n.floor !== viewer.floor || !visivel(n.x, n.y)) continue;
     out.push({
       id: n.id, name: n.name, tileX: n.x, tileY: n.y, floor: n.floor,
       direction: 'down', kind: 'npc', npcRole: n.role,
@@ -4574,6 +4583,30 @@ function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
   }
   return out;
 }
+
+/**
+ * Raio, em tiles, do que o jogador recebe no snapshot.
+ *
+ * 🔴 **O snapshot deixou de mandar o andar inteiro.** Até aqui ele varria
+ * jogadores, criaturas, itens, corpos, nós e NPCs do andar e mandava TODOS,
+ * para TODO mundo, **15 vezes por segundo**. Com Valoria (60×60, 32 criaturas)
+ * isso custava pouco e ninguém reparou.
+ *
+ * O mundo de Elysia tem 300×300 e vai ter centenas de criaturas espalhadas por
+ * treze regiões. Sem corte, cada jogador receberia o mundo inteiro a 15 Hz — e
+ * o custo cresceria com o TAMANHO DO MUNDO vezes o NÚMERO DE JOGADORES, que é
+ * o jeito mais rápido de um servidor de MMO morrer.
+ *
+ * ⚠️ REFERÊNCIA: `32` é mais que a meia-tela do cliente (~20 tiles na
+ * horizontal), então a entidade entra na lista **antes** de aparecer no quadro —
+ * ninguém vê monstro "nascendo" na borda. Se o zoom da câmera diminuir, este
+ * número sobe junto.
+ *
+ * ⚠️ O que NÃO depende disto: a lista de grupo (vai em `S2C_Party`, própria) e a
+ * battle list (o cliente já filtra por alcance de ataque). Companheiro de grupo
+ * do outro lado do mapa continua aparecendo no painel, como deve.
+ */
+const SNAPSHOT_RANGE = 32;
 
 /** Corpos expiram: some do mundo quando o tempo acaba. */
 function expireCorpses(now: number): void {
