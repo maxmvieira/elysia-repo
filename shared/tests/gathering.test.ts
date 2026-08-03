@@ -11,7 +11,7 @@ import {
   NODE_MIN_SPAWN_DIST,
   PROFESSION_NAME,
   buildResourceNodes,
-  buildStarterMap,
+  buildWorldMap,
   getTileType,
   hasToolFor,
   inDepotZone,
@@ -118,7 +118,7 @@ test('toda família de nó treina uma profissão que existe', () => {
 test('o mapa inicial recebe nó de TODAS as cinco famílias', () => {
   // Família sem nó no mundo é família inalcançável — exatamente o que o
   // `DD-MAT-001` proíbe, e o motivo de as seis terem ficado fora do catálogo.
-  const spots = buildResourceNodes(buildStarterMap());
+  const spots = buildResourceNodes(buildWorldMap());
   for (const k of NODE_KINDS) {
     assert.ok(spots.some((s) => s.kind === k), `nenhum nó de ${k} nasceu no mapa`);
   }
@@ -128,13 +128,13 @@ test('🔴 o povoamento é DETERMINÍSTICO', () => {
   // Nó não persiste: `spawnInitialNodes` roda a cada boot. Se isto variasse, os
   // recursos mudariam de lugar a cada reinício do servidor, e o jogador nunca
   // aprenderia o mapa.
-  const a = buildResourceNodes(buildStarterMap());
-  const b = buildResourceNodes(buildStarterMap());
+  const a = buildResourceNodes(buildWorldMap());
+  const b = buildResourceNodes(buildWorldMap());
   assert.deepEqual(a, b);
 });
 
 test('🔴 nenhum nó nasce dentro da vila, na água ou dentro do Depósito', () => {
-  const map = buildStarterMap();
+  const map = buildWorldMap();
   const spots = buildResourceNodes(map);
   const ocupados = new Set<number>();
   for (const s of spots) {
@@ -154,7 +154,7 @@ test('🔴 todo nó é ALCANÇÁVEL: ou se pisa nele, ou num vizinho', () => {
   // Nó visível e inalcançável é pior que nó ausente: o jogador atravessa o mapa
   // e descobre no lugar que não dá. Madeira mora em tile de árvore (sólido), e
   // por isso a regra é "dá para ficar ao lado", não "dá para pisar".
-  const map = buildStarterMap();
+  const map = buildWorldMap();
   for (const s of buildResourceNodes(map)) {
     if (isWalkable(map, s.x, s.y, s.floor)) continue;
     let temVizinho = false;
@@ -174,7 +174,7 @@ test('🔴 madeira nasce EM CIMA de árvore, e o resto em chão andável', () =>
   // A árvore já está desenhada no mapa; o nó é a marca de que ela pode ser
   // cortada. Se ele saísse do tile de árvore, o jogo teria duas árvores no mesmo
   // lugar — uma de terreno e outra de recurso.
-  const map = buildStarterMap();
+  const map = buildWorldMap();
   for (const s of buildResourceNodes(map)) {
     const nome = getTileType(tileAt(map, s.x, s.y, s.floor)).name;
     if (s.kind === 'wood') assert.equal(nome, 'tree', `madeira em (${s.x},${s.y}) fora de árvore`);
@@ -186,7 +186,7 @@ test('o cristal é o recurso mais LONGE do nascimento', () => {
   // As três pontas do cristal já concordam entre si (1 carga, 12 min, XP alta);
   // a geografia é a quarta. Ele mora em território de Tier III, e é isso que
   // cobra o preço de ir buscá-lo.
-  const map = buildStarterMap();
+  const map = buildWorldMap();
   const spots = buildResourceNodes(map);
   const dist = (s: { x: number; y: number }): number =>
     Math.max(Math.abs(s.x - map.spawn.x), Math.abs(s.y - map.spawn.y));

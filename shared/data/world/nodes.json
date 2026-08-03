@@ -1,0 +1,30 @@
+{
+  "_leia": "Nos de coleta postos A MAO. Carregado por shared/src/worlddata.ts e consumido por buildResourceNodes (shared/src/gathering.ts). Familias validas: mushroom, herb, ore, crystal -- ver NODE_KINDS. MADEIRA NAO ENTRA AQUI: ela sai das arvores que o gerador ja plantou, uma a cada WOOD_EVERY, porque no de madeira mora em cima do tile de arvore.",
+  "_origem": "Rebase mecanico dos 21 pontos de Valoria (+130,+138). A ordem das faixas e o que importa e continua de pe: cogumelo no primeiro anel (nao pede ferramenta), erva logo depois (Foice), minerio no segundo (Picareta) e cristal a 32+ tiles, no territorio do Tier III.",
+  "nodes": [
+    { "kind": "mushroom", "x": 138, "y": 156 },
+    { "kind": "mushroom", "x": 148, "y": 146 },
+    { "kind": "mushroom", "x": 161, "y": 150 },
+    { "kind": "mushroom", "x": 156, "y": 170 },
+    { "kind": "mushroom", "x": 142, "y": 170 },
+
+    { "kind": "herb", "x": 138, "y": 152 },
+    { "kind": "herb", "x": 162, "y": 146 },
+    { "kind": "herb", "x": 144, "y": 172 },
+    { "kind": "herb", "x": 164, "y": 168 },
+    { "kind": "herb", "x": 132, "y": 162 },
+
+    { "kind": "ore", "x": 134, "y": 158 },
+    { "kind": "ore", "x": 166, "y": 158 },
+    { "kind": "ore", "x": 150, "y": 142 },
+    { "kind": "ore", "x": 150, "y": 174 },
+    { "kind": "ore", "x": 136, "y": 144 },
+    { "kind": "ore", "x": 164, "y": 172 },
+    { "kind": "ore", "x": 174, "y": 158 },
+    { "kind": "ore", "x": 150, "y": 182 },
+
+    { "kind": "crystal", "x": 182, "y": 170 },
+    { "kind": "crystal", "x": 162, "y": 190 },
+    { "kind": "crystal", "x": 184, "y": 192 }
+  ]
+}

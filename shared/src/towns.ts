@@ -6,15 +6,23 @@
  *   depois de IR FISICAMENTE à cidade grande pode defini-la como ponto de
  *   renascimento.
  *
- * Isso combina com `DD-MAP-010` / `40.21` do GDD: o mapa descoberto pertence à
- * CONTA, mas o ponto de respawn continua sendo progressão do PERSONAGEM.
- * Um Lv.300 pode ter revelado Asteria para a conta inteira — o Lv.15 recém-
- * criado ainda precisa caminhar até lá.
+ * O ponto de respawn é progressão do PERSONAGEM: um Lv.300 pode conhecer o mundo
+ * inteiro — o Lv.15 recém-criado ainda precisa caminhar até a cidade grande.
  *
- * ESTADO ATUAL: só Valoria existe no mapa. **Asteria (a cidade principal) é
- * conteúdo da etapa 16** e não foi inventada aqui — quando ela for desenhada,
- * entra como mais uma entrada nesta tabela e o resto do sistema já funciona.
+ * ⚠️ A outra metade da regra antiga (*"o mapa descoberto pertence à CONTA"*,
+ * `DD-MAP-009/010`) foi **REVOGADA pelo dono em 2026-08-02**: o mundo é
+ * inteiramente visível desde o início, e não há mais descoberta para persistir.
+ *
+ * ## ESTADO ATUAL: só Lumindale
+ *
+ * 🔴 As outras 10 cidades de `regions.ts` **não entram aqui ainda**, e a razão é
+ * o que `townAt` faz: pisar dentro do raio de uma cidade **libera renascer nela**.
+ * Arcadia hoje é praça de pedra e muralha, sem NPC nem serviço — libertar
+ * respawn nela mandaria o jogador morto para um cenário vazio, longe de qualquer
+ * loja. Cada cidade entra nesta tabela quando for desenhada de verdade.
  */
+
+import { WORLD_SPAWN } from './regions.js';
 
 export type TownKind = 'vilarejo' | 'cidade';
 
@@ -34,12 +42,14 @@ export interface TownDef {
 }
 
 export const TOWNS: Record<string, TownDef> = {
-  valoria: {
-    id: 'valoria',
-    name: 'Valoria',
+  lumindale: {
+    id: 'lumindale',
+    name: 'Lumindale',
     kind: 'vilarejo',
-    spawn: { x: 20, y: 20, floor: 0 },
-    radius: 10,
+    spawn: { ...WORLD_SPAWN },
+    // A paliçada vai de (138,146) a (162,172): 12 tiles do centro até o muro
+    // mais distante, e 13 para pegar a faixa de fora do portão.
+    radius: 13,
     starter: true,
   },
 };

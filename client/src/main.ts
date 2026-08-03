@@ -38,7 +38,8 @@ import {
   SKILL_BAR,
   TILE_SIZE,
   VENDOR_STOCK,
-  buildStarterMap,
+  buildWorldMap,
+  chaoBaseEm,
   getItem,
   getTileType,
   isWalkable,
@@ -189,7 +190,7 @@ function logChat(html: string, cls = ''): void {
   chatlogEl.scrollTop = chatlogEl.scrollHeight;
 }
 
-const map = buildStarterMap();
+const map = buildWorldMap();
 
 /**
  * Rede. Criada uma vez e usada pelas três telas (login -> seleção -> jogo),
@@ -993,10 +994,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // Quanto o tile de 64px "sobe" na tela sobre a célula lógica de 32px.
   const groundOverhang = ground ? ground.cell - TS : 0;
 
-  /** Id do piso desenhado embaixo de tile alto (árvore, muro). Ver `rebuildFloor`. */
-  const CHAO_SOB_TILE_ALTO = Number(
-    Object.keys(TILE_TYPES).find((id) => TILE_TYPES[Number(id)]?.name === 'grass'),
-  );
+  /**
+   * Id do piso desenhado embaixo de tile alto (árvore, muro). Ver `montaChunk`.
+   *
+   * 🔴 Sai do BIOMA daquele tile, não é grama fixa. Com o mundo de 300×300, a
+   * grama fixa poria um quadrado verde debaixo de cada árvore do Northland e de
+   * cada penhasco do deserto.
+   */
+  const chaoSobTileAlto = (x: number, y: number): number => chaoBaseEm(x, y);
 
   /** Um tile de piso na posição, do tileset quando há sprite, ou cor chapada. */
   function desenhaChao(pai: Container, x: number, y: number, tileId: number): void {
@@ -1090,12 +1095,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
          * face 2.5D cobre o tile inteiro; a árvore é só tronco e copa, então o
          * fundo da página aparecia nos cantos — e "fundo da página" é preto.
          *
-         * O piso usado embaixo do tile alto é GRAMA: o `worldgen` preenche o
-         * mapa inteiro de grama e só depois pinta por cima, e só planta árvore
-         * onde já era grama. Onde a escolha poderia estar errada (paredes sobre
-         * pedra, dentro da casa), o bloco cobre tudo e ninguém vê.
+         * O piso usado embaixo do tile alto é o CHÃO DO BIOMA daquele tile
+         * (`chaoBaseEm`): neve no Northland, areia no deserto, rocha na
+         * montanha. Onde a escolha poderia estar errada (parede de casa sobre
+         * terra batida), o bloco cobre o tile inteiro e ninguém vê.
          */
-        desenhaChao(piso, x, y, t.height === 0 ? t.id : CHAO_SOB_TILE_ALTO);
+        desenhaChao(piso, x, y, t.height === 0 ? t.id : chaoSobTileAlto(x, y));
 
         if (t.height === 0) continue;
         if (t.name === 'tree' && treeTex.length) {

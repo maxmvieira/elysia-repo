@@ -35,7 +35,7 @@ import {
   SERVER_TICK_MS,
   TALENT_EVERY_LEVELS,
   VENDOR_STOCK,
-  buildStarterMap,
+  buildWorldMap,
   chebyshev,
   sellPriceOf,
   computeHit,
@@ -48,6 +48,8 @@ import {
   rollAffixNames,
   addProfessionXp,
   buildResourceNodes,
+  WORLD_CREATURE_SPAWNS,
+  tileValidoMaisProximo,
   GATHER_COOLDOWN_MS,
   GATHER_PROFESSION,
   GATHER_RANGE,
@@ -203,7 +205,7 @@ import {
 import { openStore } from './store/store.js';
 import { fromStored, rowsToItems, toStored } from './store/serialize.js';
 
-const map = buildStarterMap();
+const map = buildWorldMap();
 const store = openStore();
 /**
  * Autosave. Se o servidor cair de bota (crash, kill -9, queda de luz), o
@@ -504,7 +506,7 @@ interface GroundItem {
  * Nó de recurso vivo no mundo (veio, árvore marcada, moita, cogumelos).
  *
  * 🔴 **É ENTIDADE, não tile — e a decisão não é de gosto.** O mapa é gerado
- * deterministicamente pelos DOIS lados (`buildStarterMap`) e não trafega pela
+ * deterministicamente pelos DOIS lados (`buildWorldMap`) e não trafega pela
  * rede: cliente e servidor concordam porque calculam a mesma coisa, não porque
  * um conta ao outro. Trocar o tile ao cortar uma árvore quebraria esse acordo na
  * hora — o servidor teria um mapa e o cliente, outro.
@@ -1441,8 +1443,8 @@ function spawnCreature(
  *    centro, e Tier II a 12. Um nível 1 saía da muralha e caía em conteúdo que
  *    vale 10× a XP do Slime Verde. A curva não estava errada; a vizinhança estava.
  *
- * Distâncias de Chebyshev a partir de (20,20), onde o personagem nasce — a
- * muralha da vila fica em 10..30, ou seja, a 10 do centro:
+ * Distâncias de Chebyshev a partir de Lumindale (150,158), onde o personagem
+ * nasce — a paliçada fica a 12 do centro:
  *
  * | Faixa | Distância | Quem |
  * |---|---|---|
@@ -1452,52 +1454,48 @@ function spawnCreature(
  * | Tier III | 30–36 | 10 espécies, uma cada |
  * | MVP | 28 | Super Slime |
  *
- * ⚠️ A geografia limita: a vila fica no quadrante noroeste de um mapa 60×60, então
- * só há espaço para 30+ de distância a **leste e ao sul**. Todo o Tier III mora lá.
+ * ## ⚠️ A lista mudou de lugar, e a fauna ainda não conhece as regiões
+ *
+ * As posições agora vêm de **`shared/data/world/creatures.json`** (ver
+ * `worlddata.ts`: é o arquivo que o Editor de Mapa vai escrever). O conteúdo é o
+ * **rebase mecânico** do povoamento de Valoria — mesmas espécies, mesmas
+ * distâncias, deslocadas para o entorno de Lumindale, preservando a curva que o
+ * dono testou jogando.
+ *
+ * 🔴 **Consequência que vale saber:** a 32 tiles do berço ainda mora Tier III, e
+ * `regions.ts` declara aquele chão como **Campos de Valdor, Lv. 1–15**. Terreno e
+ * fauna discordam de propósito por ora — distribuir as criaturas pelos campos
+ * `species` de cada região é o **passo 4** do plano de mundo, e misturá-lo com a
+ * troca do mapa faria um commit que ninguém consegue revisar.
  */
 function spawnInitialCreatures(): void {
   // Snake, Rotworm, Coelho, Javali e Aranha seguem DORMENTES a pedido: as
   // CreatureDefs e os desenhos continuam no código, só não nascem. Para
-  // reintroduzir qualquer uma, basta uma linha aqui.
-
-  // TIER I — o anel de treino, logo depois da muralha.
-  const tier1: Array<[string, number, number]> = [
-    ['slime', 8, 16], ['slime', 32, 16], ['slime', 16, 8], ['slime', 24, 32],
-    ['slime', 7, 24], ['slime', 33, 25], ['slime', 12, 6], ['slime', 28, 34],
-    // Um degrau acima (`DD-BAL-034/035`), mais para fora: quem sai da vila
-    // encontra 50 HP, depois 70, depois 100.
-    ['slime_blue', 4, 18], ['slime_blue', 36, 22],
-    ['slime_red', 20, 38], ['slime_red', 38, 14],
-  ];
-
-  // TIER II — segundo anel. Cada dupla de família nasce colada, porque
-  // `DD-BAL-049` desenhou tank + ranged para atuarem em conjunto.
-  const tier2: Array<[string, number, number]> = [
-    ['forest_spider', 38, 12], ['web_spider', 39, 11],
-    ['soldier_ant', 12, 38], ['spitter_ant', 11, 39],
-    ['goblin_warrior', 38, 38], ['goblin_archer', 39, 39],
-    ['grey_wolf', 42, 26],
-    ['young_orc', 26, 42], ['orc_warrior', 44, 30],
-  ];
-
-  // TIER III — só leste e sul, a 30+ de distância. `DD-BAL-058`: "transição para
-  // o conteúdo intermediário", exige build consistente e prioridade de alvos.
-  const tier3: Array<[string, number, number]> = [
-    ['zombie', 50, 20],
-    ['skeleton_warrior', 52, 14], ['skeleton_archer', 53, 15],
-    ['minotaur', 20, 50],
-    ['brown_bear', 14, 52], ['black_wolf', 15, 53],
-    ['giant_spider', 50, 50],
-    ['mystic_ant', 54, 44], ['kobold_hunter', 44, 54],
-    ['troll', 54, 52],
-  ];
-
-  for (const [t, x, y] of [...tier1, ...tier2, ...tier3]) spawnCreature(t, x, y);
-
-  // CHEFE: no sudeste, longe do centro. Ele caça o jogador pelo mapa, mas trava
-  // na borda da zona central (`avoidCenter`).
-  spawnCreature('super_slime', 48, 48);
-  console.log(`[mundo] ${creatures.size} criaturas geradas.`);
+  // reintroduzir qualquer uma, basta uma linha no creatures.json.
+  let fora = 0;
+  for (const s of WORLD_CREATURE_SPAWNS) {
+    if (!CREATURES[s.type]) {
+      throw new Error(
+        `creatures.json: espécie "${s.type}" não existe em CREATURES (shared/src/combat.ts)`,
+      );
+    }
+    // O ponto do arquivo é intenção: se caiu em árvore, água ou dentro de um
+    // prédio, encaixa no tile andável mais próximo. Sem isto, uma mudança de
+    // densidade de floresta apagaria criaturas em silêncio.
+    const posto = tileValidoMaisProximo(
+      (x, y) => isWalkable(map, x, y, map.spawn.floor),
+      s.x,
+      s.y,
+      4,
+    );
+    if (!posto) {
+      fora++;
+      console.warn(`[mundo] ${s.type} em (${s.x},${s.y}) não achou tile andável — não nasceu.`);
+      continue;
+    }
+    spawnCreature(s.type, posto.x, posto.y);
+  }
+  console.log(`[mundo] ${creatures.size} criaturas geradas${fora ? ` (${fora} sem lugar)` : ''}.`);
 }
 
 /**
@@ -3204,9 +3202,34 @@ function applyStoredCharacter(player: Player, c: ReturnType<typeof store.loadCha
   player.backpack = backpack;
   player.depot = depot;
   player.equipment = equipment;
-  player.tileX = c.tileX;
-  player.tileY = c.tileY;
-  player.floor = c.floor;
+  /*
+   * 🔴 POSIÇÃO SALVA PODE NÃO EXISTIR MAIS — e a partir de 02/08 isso é certeza
+   * para todo personagem antigo.
+   *
+   * Valoria era um mapa de 60×60 e o mundo passou a ter 300×300: um personagem
+   * salvo em (20,20) reabre **no meio do oceano**, num tile sólido, sem rota
+   * para lugar nenhum. Ele não estaria "preso" de forma visível — estaria num
+   * lugar de onde nenhum clique funciona, o que é bem pior de diagnosticar.
+   *
+   * O conserto é geral, não uma correção de uma vez só: sempre que o tile salvo
+   * não for andável, o personagem volta para a cidade de renascimento dele. Isso
+   * cobre também o que ainda vai acontecer — o terreno é gerado por regra, e
+   * mudar a densidade de floresta pode plantar uma árvore em cima de alguém que
+   * deslogou ali.
+   */
+  const chao = getTown(c.respawnTown) ?? starterTown();
+  if (isWalkable(map, c.tileX, c.tileY, c.floor)) {
+    player.tileX = c.tileX;
+    player.tileY = c.tileY;
+    player.floor = c.floor;
+  } else {
+    player.tileX = chao.spawn.x;
+    player.tileY = chao.spawn.y;
+    player.floor = chao.spawn.floor;
+    console.log(
+      `[mundo] ${c.name} estava em (${c.tileX},${c.tileY},${c.floor}), que não existe mais — devolvido a ${chao.name}.`,
+    );
+  }
   player.skillPoints = c.skillPoints;
   player.skillLevels = parsed.skillLevels;
   player.skillResets = c.skillResets;

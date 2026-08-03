@@ -1,12 +1,101 @@
-# Handoff — estado do projeto em 2026-08-02
+# Handoff — estado do projeto em 2026-08-02 (noite)
 
-Resumo para quem for continuar o trabalho. Seis sessões registradas: **29/07**
+Resumo para quem for continuar o trabalho. Sete sessões registradas: **29/07**
 (Etapa 8, bestiário do Doc 3, crafting), **30/07 manhã** (aba Vender, colisão,
 clique para andar, banco, curva de nível), **30/07 noite** (as 4 pendências que
 travavam código, Doc 4: Affix/Material/Drop Bible, fabricação completa),
 **30/07 madrugada** (o catálogo de equipamento inteiro ganhou números, e as
 regras de Party), **01/08** (layout, e a primeira leva de bugs achados JOGANDO)
-e **02/08** (a sessão abaixo: **coleta e mineração ligadas no mundo**).
+**02/08 tarde** (coleta e mineração ligadas no mundo, e o mapa virou tabela) e
+**02/08 noite** (a sessão abaixo: **o mundo de 300×300 existe, e Valoria acabou**).
+
+---
+
+## 🌍 02/08 (noite) — O MUNDO EXISTE. Leia isto antes de tudo.
+
+O **passo 2** do plano de mundo está feito: o terreno de 300×300 é gerado de
+`regions.ts` e **Lumindale substituiu Valoria** como vilarejo inicial.
+
+### 🔴 A PRIMEIRA COISA A FAZER: entrar no jogo e olhar
+
+**Nada disto foi visto em tela.** O servidor sobe, o cliente carrega sem erro de
+console e 436 testes passam — mas o agente não digita senha, e o auto-login de
+`dev:test` está preso à conta `maxmurtesvieira`, que não existe no banco desta
+máquina. Então o mundo novo **nunca foi renderizado por um jogador**.
+
+O que precisa de olho, em ordem de risco:
+
+1. **Os pedaços entrando e saindo.** O cenário é montado por chunks de 16×16
+   conforme a câmera anda. Em Valoria isso nunca foi exercitado de verdade —
+   3.600 tiles cabiam inteiros na memória. Ande longe, em linha reta, e veja se
+   aparece buraco, emenda ou engasgo.
+2. **O piso debaixo das árvores**, agora que ele sai do bioma e não é mais grama
+   fixa. É o mesmo caminho do bug do quadrado preto.
+3. **Sair de Lumindale pelos quatro portões** e voltar.
+4. **Coletar** — os 21 nós à mão e as 76 árvores marcadas mudaram de lugar.
+
+⚠️ **Backup do banco antes:** `server/data/elysia.db`. Já existe um de
+2026-08-02 22:03 na mesma pasta.
+
+### ✅ O que o gerador faz
+
+Tudo começa **mar**; cada tile pergunta a `regions.ts` quem o pinta; praia onde a
+terra encosta no mar; decoração por bioma com PRNG de semente fixa; as 10 cidades
+ainda não desenhadas ganham praça, muralha e portões; **Lumindale é desenhada à
+mão** por cima de tudo, traduzida do `vilarejo-inicial.png`.
+
+Sete tiles novos (ids 9–15: neve, rocha, cinza, selva, pântano, corrupção, lava).
+Nenhum tem arte — caem no desenho por cor, como as criaturas-bolha.
+
+### 🔴 Três coisas que parecem detalhe e não são
+
+| O quê | Por que existe |
+|---|---|
+| **`RUIDO_FRONTEIRA = 9`** | sem ele o mundo é uma **colcha de retalhos**: região é retângulo, e retângulo pintado dá borda reta. O ruído entorta só a costura, inclusive a costa. `regionAt` continua respondendo pelo retângulo puro |
+| **`REGION_REACH = 14`** | "tile que ninguém reivindica é água" ao pé da letra abriria um **canal cortando o continente** — sobram frestas de 5 tiles entre regiões vizinhas. O mar continua sendo o que sobra; o que sobra é o oceano externo |
+| **Decoração nunca encosta em decoração** | é o que mantém floresta densa **atravessável**. Com dois sólidos nunca adjacentes, sempre há rota em volta. Baixar isso quebra o BFS do clique-para-andar sem aviso. Há teste travando |
+
+### 🆕 Spawn, NPC e nó viraram ARQUIVO
+
+`shared/data/world/{npcs,creatures,nodes}.json`, validados no boot — dado
+inválido **derruba o servidor** com nome de arquivo e índice, em vez de virar NPC
+mudo na praça.
+
+🔴 É o que o **Elysia Map Editor** (passo 6) vai escrever. Em código, a próxima
+geração do mundo apagaria em silêncio o que o dono posicionasse à mão. O
+**terreno** continua em código de propósito: é gerado pelos dois lados e não
+trafega pela rede, que é o que sustenta "nó é entidade, não tile".
+
+### ⚠️ A fauna ainda não conhece as regiões
+
+As 32 criaturas e os 21 nós são o povoamento de Valoria **deslocado em bloco**
+(+130,+138) — a curva que o dono testou jogando, intacta. Consequência: a 32
+tiles do berço ainda mora Tier III, e `regions.ts` declara aquele chão como
+Campos de Valdor, **Lv. 1–15**. Terreno e fauna discordam de propósito;
+distribuir por `species` é o **passo 4**.
+
+### ✅ Dois consertos que vieram junto
+
+- **Personagem salvo em Valoria não vai mais parar no oceano.**
+  `applyStoredCharacter` confere se o tile salvo é andável e, se não for, devolve
+  o personagem à cidade de renascimento. Vale para sempre, não só para esta
+  virada.
+- **O piso sob tile alto** virou o chão do bioma (`chaoBaseEm`), não mais grama
+  fixa.
+
+### 🎯 De onde continuar
+
+1. ✅ ~~Motor aguentar mundo grande~~
+2. ✅ ~~Gerador 300×300 + Lumindale~~ — **feito, não visto em tela**
+3. ⏳ **Tecla M** — mapa-múndi com zoom, nomes e "você está aqui". Sai direto de
+   `regions.ts`, sem ida ao servidor. É o próximo, e o mais barato.
+4. ⏳ **Povoar as regiões** pelos campos `species` — é o que reconcilia fauna e
+   terreno.
+5. ⏳ **Dungeons** — o multi-andar já funciona; hoje só o Depósito de Lumindale usa.
+6. ⏳ **Elysia Map Editor** — já tem onde escrever.
+
+⚠️ **O que NÃO fazer ainda:** desenhar arte de cidade. Nove das onze são praça e
+muralha genéricas, e vão ser redesenhadas.
 
 ---
 
@@ -85,9 +174,12 @@ corte de 32 tiles com dois jogadores.
 
 ### 🎯 De onde continuar — a ordem acordada com o dono
 
+> ⚠️ **Esta lista é da tarde de 02/08 e os passos 1 e 2 já fecharam.** A versão
+> viva está no bloco "🌍 02/08 (noite)", no topo do arquivo.
+
 1. ✅ ~~Motor aguentar mundo grande~~ — **feito** (acima).
-2. ⏳ **Gerador de terreno 300×300 a partir de `regions.ts`**, e **Lumindale
-   substitui Valoria** como vilarejo inicial. É o próximo passo.
+2. ✅ ~~**Gerador de terreno 300×300 a partir de `regions.ts`**, e **Lumindale
+   substitui Valoria** como vilarejo inicial~~ — **feito na noite de 02/08.**
 3. ⏳ **Tecla M** — mapa-múndi inteiro, com zoom, nomes e "você está aqui".
    Sem névoa: sai direto de `regions.ts`, sem ida ao servidor.
 4. ⏳ **Povoar** as regiões que o bestiário cobre.
@@ -533,12 +625,16 @@ Se o bug for de regra de PvP, **leia o bloco da Caveira Branca abaixo antes de
 git pull
 npm install          # confere; nenhuma dependência nova foi adicionada
 npm run typecheck    # tem que sair limpo nos 3 pacotes
-npm test             # tem que dar 397 passando, 0 falhando
+npm test             # tem que dar 436 passando, 0 falhando
 npm run dev:test     # sobe com os comandos de teste ligados
 ```
 
-Se o `npm test` não der **428** (408 shared + 20 server), **não continue** — algo
+Se o `npm test` não der **436** (416 shared + 20 server), **não continue** — algo
 se perdeu no caminho.
+
+⚠️ **O auto-login de `dev:test` está preso à conta `maxmurtesvieira`.** Em outra
+máquina, suba com `ELYSIA_DEV_ACCOUNT=suaconta npm run dev:test`, senão a tela de
+login responde "conta de desenvolvimento não existe".
 
 ---
 

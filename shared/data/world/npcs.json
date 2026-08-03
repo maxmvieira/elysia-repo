@@ -1,0 +1,8 @@
+{
+  "_leia": "NPCs fixos do mundo. Carregado por shared/src/worlddata.ts e validado no boot. Papeis validos: vendor, bank, blacksmith (ver NpcRole em shared/src/tiles.ts) -- papel desconhecido derruba o servidor de proposito, para nao virar NPC mudo em producao. Os tres ficam na Praca Central de Lumindale, em lados opostos: colados, o clique de 'abrir loja' pegaria o Banqueiro metade das vezes.",
+  "npcs": [
+    { "name": "Comerciante", "x": 153, "y": 157, "floor": 0, "role": "vendor" },
+    { "name": "Banqueiro", "x": 147, "y": 157, "floor": 0, "role": "bank" },
+    { "name": "Ferreiro", "x": 150, "y": 161, "floor": 0, "role": "blacksmith" }
+  ]
+}

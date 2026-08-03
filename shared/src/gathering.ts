@@ -36,6 +36,8 @@ import type { Rarity } from './weapons.js';
 import type { ProfessionId } from './crafting.js';
 import type { GameMap } from './tiles.js';
 import { getTileType, inDepotZone, isWalkable, tileAt } from './tiles.js';
+import { tileValidoMaisProximo } from './placement.js';
+import { WORLD_NODES } from './worlddata.js';
 
 /** O que um nó de recurso é. */
 export type NodeKind = 'ore' | 'wood' | 'herb' | 'mushroom' | 'crystal';
@@ -275,30 +277,30 @@ export const NODE_MIN_SPAWN_DIST = 11;
 const WOOD_EVERY = 6;
 
 /**
- * Onde nasce cada nó que NÃO é madeira, em faixas de distância do nascimento.
+ * Até que distância do nascimento uma árvore pode virar nó de madeira.
  *
- * Mesma lógica do povoamento de criaturas (`spawnInitialCreatures`): a
- * dificuldade de chegar é a curva. Cogumelo e erva ficam no primeiro anel,
- * minério mais fora, e **cristal a 32+ tiles, dentro do território do Tier III** —
- * é o material mais valioso do conjunto, e o preço dele é a vizinhança.
+ * 🔴 **Existe por causa do mundo de 300×300.** Em Valoria, "uma árvore a cada
+ * seis" dava 25 nós, porque o mapa inteiro tinha 150 árvores. Elysia tem
+ * dezenas de milhares, e a mesma regra criaria **milhares de entidades de nó**
+ * no servidor — todas vivas, todas em respawn, a maioria em região onde ainda
+ * não há nem criatura.
  *
- * ⚠️ São coordenadas ESCRITAS À MÃO, mas não frágeis: `buildResourceNodes`
- * empurra para o tile válido mais próximo qualquer ponto que caia em água,
- * árvore ou parede. Mudar o mapa reposiciona o nó, não o apaga.
+ * O limite é a mesma ideia de sempre: hoje o jogo acontece em volta de
+ * Lumindale. Quando as regiões forem povoadas (passo 4), a madeira acompanha —
+ * e aí a régua deixa de ser distância e passa a ser região.
  */
-const HAND_PLACED: Array<[NodeKind, number, number]> = [
-  // Cogumelo — a porta de entrada: não pede ferramenta, então nasce no anel
-  // mais próximo, onde chega quem acabou de sair da vila sem nada.
-  ['mushroom', 8, 18], ['mushroom', 18, 8], ['mushroom', 31, 12],
-  ['mushroom', 26, 32], ['mushroom', 12, 32],
-  // Ervas — logo depois, e já exigindo a Foice comprada do comerciante.
-  ['herb', 8, 14], ['herb', 32, 8], ['herb', 14, 34], ['herb', 34, 30], ['herb', 2, 24],
-  // Minério — o segundo anel, junto do Tier II.
-  ['ore', 4, 20], ['ore', 36, 20], ['ore', 20, 4], ['ore', 20, 36],
-  ['ore', 6, 6], ['ore', 34, 34], ['ore', 44, 20], ['ore', 20, 44],
-  // Cristal — leste e sul profundos, onde mora o Tier III.
-  ['crystal', 52, 32], ['crystal', 32, 52], ['crystal', 54, 54],
-];
+const WOOD_MAX_DIST = 60;
+
+/*
+ * ⚠️ **Os nós postos à mão mudaram de lugar: agora são
+ * `shared/data/world/nodes.json`.** Ver `worlddata.ts` para o porquê (o Editor
+ * de Mapa precisa escrever neles). A lista que ficava aqui era de coordenadas do
+ * mapa de Valoria, 60×60.
+ *
+ * O que NÃO mudou é a lógica: o ponto do arquivo é uma *intenção*, e
+ * `buildResourceNodes` empurra para o tile válido mais próximo o que cair em
+ * água, árvore ou parede. Mudar o terreno reposiciona o nó, não o apaga.
+ */
 
 const chebyshev = (ax: number, ay: number, bx: number, by: number): number =>
   Math.max(Math.abs(ax - bx), Math.abs(ay - by));
@@ -334,24 +336,11 @@ export function buildResourceNodes(map: GameMap): ResourceNodeSpot[] {
     && chebyshev(x, y, sx, sy) >= NODE_MIN_SPAWN_DIST
     && !tomados.has(chave(x, y));
 
-  for (const [kind, x0, y0] of HAND_PLACED) {
-    // Anéis crescentes ao redor do ponto pedido. O raio pequeno é intencional:
-    // se nada serve a 3 tiles, o ponto está errado o bastante para merecer
-    // conserto à mão, e empurrar 10 tiles esconderia isso.
-    let posto = false;
-    for (let r = 0; r <= 3 && !posto; r++) {
-      for (let dy = -r; dy <= r && !posto; dy++) {
-        for (let dx = -r; dx <= r && !posto; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // só a casca do anel
-          const x = x0 + dx;
-          const y = y0 + dy;
-          if (!valido(x, y)) continue;
-          tomados.add(chave(x, y));
-          out.push({ kind, x, y, floor });
-          posto = true;
-        }
-      }
-    }
+  for (const pedido of WORLD_NODES) {
+    const posto = tileValidoMaisProximo(valido, pedido.x, pedido.y);
+    if (!posto) continue;
+    tomados.add(chave(posto.x, posto.y));
+    out.push({ kind: pedido.kind, x: posto.x, y: posto.y, floor });
   }
 
   // Madeira: as árvores do bosque, uma a cada `WOOD_EVERY`, desde que dê para
@@ -370,7 +359,8 @@ export function buildResourceNodes(map: GameMap): ResourceNodeSpot[] {
   for (let y = 0; y < map.height; y++) {
     for (let x = 0; x < map.width; x++) {
       if (getTileType(tileAt(map, x, y, floor)).name !== 'tree') continue;
-      if (chebyshev(x, y, sx, sy) < NODE_MIN_SPAWN_DIST) continue;
+      const dist = chebyshev(x, y, sx, sy);
+      if (dist < NODE_MIN_SPAWN_DIST || dist > WOOD_MAX_DIST) continue;
       if (!temVizinhoAndavel(x, y)) continue;
       if (vistas++ % WOOD_EVERY !== 0) continue;
       tomados.add(chave(x, y));

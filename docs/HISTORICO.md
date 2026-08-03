@@ -1283,6 +1283,87 @@ conectada e o dono precisou desligar. A causa 1 está provada; a causa 2 é
 diagnóstico por eliminação, e o conserto é um caminho novo que não depende do
 mecanismo suspeito.
 
+## O mundo de 300×300 — Lumindale substitui Valoria (2026-08-02)
+
+**Arquivos:** `shared/src/worldgen.ts` (reescrito) · `shared/src/worlddata.ts` ·
+`shared/src/placement.ts` · `shared/data/world/*.json` · `shared/src/tiles.ts` ·
+`shared/src/towns.ts` · `shared/src/gathering.ts` · `server/src/index.ts` ·
+`client/src/main.ts`
+**Testes:** `shared/tests/map.test.ts` (6 → 14)
+
+É o **passo 2** do plano de mundo, o que estava marcado como próximo. O terreno
+passou a ser gerado de `regions.ts`, e Valoria deixou de existir.
+
+### O que o gerador faz, em ordem
+
+1. Tudo começa **mar**. Cada tile pergunta a `regions.ts` quem o pinta.
+2. **Praia** onde a terra encosta no mar (menos neve e vulcânico).
+3. **Decoração** — árvore, penhasco, lava — por bioma, com PRNG de semente fixa.
+4. As **10 cidades** ainda não desenhadas ganham praça, muralha e quatro portões.
+5. **Lumindale** é desenhada à mão, por cima de tudo.
+
+### 🔴 Três decisões que não são gosto
+
+**Fronteira entortada por ruído (`RUIDO_FRONTEIRA = 9`).** Sem isso o mundo fica
+com cara de colcha de retalhos: as regiões são retângulos — e precisam ser, para
+`regionAt` responder em tempo constante — mas retângulo pintado direto dá borda
+reta e canto de 90°, e o mapa do dono não tem uma linha reta. A correção não
+mexe na tabela: o ponto é deslocado por ruído suave **antes** da pergunta. O que
+fica torto é só a costura, inclusive a linha da costa. ⚠️ `regionAt` continua
+respondendo pelo retângulo puro, então numa faixa de ~9 tiles o chão pode ser de
+uma região e o pertencimento de outra — sem consequência, porque região decide
+bicho e nível, não a cor do chão.
+
+**Vão entre regiões pertence à vizinha mais próxima (`REGION_REACH = 14`).** A
+regra do dono é "tile que ninguém reivindica é água". Tomada ao pé da letra com
+retângulos que não ladrilham o plano, ela abriria um **canal cortando o
+continente**: entre os Campos de Valdor (y≤186) e as Terras Amaldiçoadas (y≥192)
+sobram 5 tiles de fresta. A regra continua de pé — o mar é o que sobra — mas o
+que sobra passa a ser o oceano externo, não toda costura.
+
+**Decoração nunca encosta em decoração** (vizinhança de 8). É o que mantém
+floresta densa atravessável: com dois sólidos nunca adjacentes, sempre sobra
+rota em volta. Baixar isso fecharia corredores e quebraria o BFS do
+clique-para-andar sem aviso. Há teste travando, fora do raio das cidades.
+
+### Spawn, NPC e nó viraram ARQUIVO
+
+`shared/data/world/{npcs,creatures,nodes}.json`, carregados e **validados no
+boot** por `worlddata.ts` — dado inválido derruba o servidor com o arquivo e o
+índice, em vez de virar NPC mudo na praça.
+
+🔴 O motivo é o **Elysia Map Editor** (passo 6): se essas três coisas ficassem em
+TypeScript, a próxima geração do mundo apagaria em silêncio o que o dono
+posicionasse à mão. O **terreno** continua em código, e não é incoerência — ele é
+gerado pelos dois lados e não trafega pela rede, que é o que sustenta "nó é
+entidade, não tile".
+
+### O povoamento é rebase, e a fauna ainda não conhece as regiões
+
+As 32 criaturas e os 21 nós são o povoamento de Valoria deslocado em bloco
+(+130,+138), preservando a curva que o dono testou jogando. 🔴 **Consequência
+registrada:** a 32 tiles do berço ainda mora Tier III, e `regions.ts` declara
+aquele chão como Campos de Valdor, Lv. 1–15. Terreno e fauna discordam **de
+propósito** — distribuir por `species` é o passo 4, e juntar as duas coisas faria
+um commit que ninguém revisa.
+
+### Dois consertos que vieram junto
+
+**Posição salva que não existe mais.** Um personagem salvo em Valoria (20,20)
+reabriria **no meio do oceano**, num tile sólido de onde nenhum clique funciona —
+pior de diagnosticar que ficar preso. `applyStoredCharacter` agora confere se o
+tile é andável e, se não for, devolve o personagem à cidade de renascimento. O
+conserto é geral: vale também para quando uma árvore nascer em cima de quem
+deslogou ali.
+
+**Piso sob tile alto.** Era grama fixa; virou o chão do bioma (`chaoBaseEm`).
+Com o mundo antigo dava no mesmo — agora poria um quadrado verde debaixo de cada
+árvore do Northland.
+
+**Teto de nó de madeira (`WOOD_MAX_DIST = 60`).** "Uma árvore a cada seis" dava
+25 nós em Valoria; em Elysia daria milhares de entidades vivas em região sem
+nem criatura.
+
 ## Armadilha conhecida
 
 ⚠️ Não edite `combat.ts` com script de PowerShell. Uma tentativa de trocar os

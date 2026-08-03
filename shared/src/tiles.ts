@@ -25,8 +25,16 @@ export interface TileType {
 }
 
 /**
- * Catálogo de tipos de tile do MVP. O `id` é o valor usado nas camadas do
- * mapa. Mantê-lo estável — mudanças de id quebram mapas salvos.
+ * Catálogo de tipos de tile. O `id` é o valor usado nas camadas do mapa.
+ * Mantê-lo estável — mudanças de id quebram mapas salvos.
+ *
+ * 🔴 **Id nunca é reciclado.** Se um tile sair do jogo, o número dele morre
+ * junto: reaproveitá-lo faria um mapa antigo virar outro terreno em silêncio.
+ *
+ * Os ids 9–15 entraram em 2026-08-02 com o mundo de 300×300 — antes só existia
+ * o vilarejo de Valoria, e grama/terra/pedra davam conta. Nenhum deles tem
+ * retalho no `Ground.png`, então caem no desenho por cor do cliente, que é o
+ * mesmo caminho das criaturas sem sprite. É placeholder honesto, não bug.
  */
 export const TILE_TYPES: Record<number, TileType> = {
   0: { id: 0, name: 'void', solid: true, blocksSight: false, height: 0, color: 0x0c0b0a },
@@ -38,6 +46,19 @@ export const TILE_TYPES: Record<number, TileType> = {
   6: { id: 6, name: 'wall_wood', solid: true, blocksSight: true, height: 1, color: 0x6e4f2f },
   7: { id: 7, name: 'tree', solid: true, blocksSight: true, height: 1, color: 0x2f4a24 },
   8: { id: 8, name: 'sand', solid: false, blocksSight: false, height: 0, color: 0x8a7a4a },
+  // --- Chãos de bioma (o mundo de Elysia) ---
+  9: { id: 9, name: 'snow', solid: false, blocksSight: false, height: 0, color: 0xd3dee4 },
+  10: { id: 10, name: 'rock', solid: false, blocksSight: false, height: 0, color: 0x6a6560 },
+  11: { id: 11, name: 'ash', solid: false, blocksSight: false, height: 0, color: 0x3f3733 },
+  12: { id: 12, name: 'jungle_grass', solid: false, blocksSight: false, height: 0, color: 0x2b6b2c },
+  13: { id: 13, name: 'swamp', solid: false, blocksSight: false, height: 0, color: 0x44502f },
+  14: { id: 14, name: 'cursed_ground', solid: false, blocksSight: false, height: 0, color: 0x3c2c42 },
+  /**
+   * Lava: sólida como a água e, como ela, **transparente**. Quem está do outro
+   * lado de um rio de lava é visível e pode ser alvejado — a lava barra o passo,
+   * não a mira. É a mesma distinção que o `hasLineOfSight` já fazia para a água.
+   */
+  15: { id: 15, name: 'lava', solid: true, blocksSight: false, height: 0, color: 0xb0421a },
 };
 
 export const TILE_VOID = 0;
