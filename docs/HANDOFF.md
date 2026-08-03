@@ -18,10 +18,19 @@ O **passo 2** do plano de mundo está feito: o terreno de 300×300 é gerado de
 
 ### 🔴 A PRIMEIRA COISA A FAZER: entrar no jogo e olhar
 
-**Nada disto foi visto em tela.** O servidor sobe, o cliente carrega sem erro de
-console e 436 testes passam — mas o agente não digita senha, e o auto-login de
-`dev:test` está preso à conta `maxmurtesvieira`, que não existe no banco desta
-máquina. Então o mundo novo **nunca foi renderizado por um jogador**.
+**O mundo novo continua sem conferência em tela.** O servidor sobe (32 criaturas,
+97 nós), o cliente carrega sem erro de console e 436 testes passam — mas isso não
+é o mesmo que funcionar.
+
+O que aconteceu: o agente não digita senha, e o auto-login de `dev:test` estava
+preso à conta `maxmurtesvieira`, que não existe no banco daquela máquina. O jogo
+chegou a ser aberto pelo dono no fim da sessão (com
+`ELYSIA_DEV_ACCOUNT=Frank`), mas **ele não chegou a percorrer a lista abaixo** —
+então nenhum dos quatro itens tem resposta.
+
+🔴 **Comece por aqui, e não por código.** É a sessão de 01/08 que ensina o porquê:
+sete bugs saíram de jogar, e nenhum deles tinha teste que pudesse tê-los pego —
+todos moravam entre a rede, o navegador e o desenho.
 
 O que precisa de olho, em ordem de risco:
 
@@ -36,6 +45,17 @@ O que precisa de olho, em ordem de risco:
 
 ⚠️ **Backup do banco antes:** `server/data/elysia.db`. Já existe um de
 2026-08-02 22:03 na mesma pasta.
+
+⚠️ **Personagem antigo nasce em Lumindale, não onde parou.** A posição salva era
+de Valoria e não existe mais; `applyStoredCharacter` devolve para a cidade de
+renascimento e escreve uma linha no log do servidor dizendo isso. Se um
+personagem aparecer em outro lugar, **é bug** — não é o comportamento novo.
+
+**Como subir com auto-login na sua conta:**
+
+```bash
+ELYSIA_DEV_ACCOUNT=seuusuario npm run dev:test   # depois: http://localhost:5173
+```
 
 ### ✅ O que o gerador faz
 
