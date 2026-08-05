@@ -1,3 +1,118 @@
+# Handoff — estado do projeto em 2026-08-05
+
+## 🎨 05/08 — A ARTE ENTROU, E O VILAREJO SAIU. Leia isto antes de tudo.
+
+Sessão inteira de **arte vista em tela**, com o dono ao lado corrigindo a cada
+passo. Quase nada aqui saiu de roadmap; saiu de olhar e ajustar.
+
+### 🔴 Se você só for ler três coisas
+
+1. **Tibia NÃO é isométrico.** É grade quadrada vista de cima, com deslocamento
+   2.5D nos objetos altos — que é exatamente o que este motor já faz. Dois packs
+   isométricos foram baixados e descartados por isso (o Godot Starter Kit e os
+   dois Kenney *miniature*). Não recomece essa investigação: o custo real não é
+   o código da projeção, é a ARTE — herói e as 23 criaturas ficariam em estilo
+   conflitante, e o pack Kenney traz personagem de **uma direção só**, sem
+   ataque nem morte.
+2. **`MUNDO_SO_CAMPO = true`** em `shared/src/worldgen.ts` — o mundo virou
+   **campo verde inteiro**. Sem mar, sem deserto, sem neve, sem as 11 cidades.
+   É **temporário e reversível numa linha**: `regions.ts` está intacto com as 12
+   regiões, 11 cidades e 6 dungeons. ⚠️ **Dois lugares leem a chave**
+   (`pintaBiomas` e `chaoBaseEm`); esquecer o segundo já causou bug.
+3. **O vilarejo de Lumindale foi APAGADO** — muralha, portões, praça de pedra e
+   as sete casas. Sobrou grama e uma **praça segura** de raio 12 no meio, com os
+   três NPCs. O vilarejo vai ser remontado com packs de casa.
+
+### ✅ O que entrou de arte
+
+| O quê | Onde | Detalhe |
+|---|---|---|
+| **Cristais/minério** (CraftPix) | `client/src/crystals.ts` | 8 cores, **cor pelo BIOMA** |
+| **Árvores** (CraftPix) | `client/src/trees.ts` | conjunto por bioma, tamanho variado |
+| **Medição de sprite** | `client/src/spritebox.ts` | 🔴 leia abaixo |
+| **Conversor Tiled → jogo** | `tools/tmx2world.mjs` | `npm run map:build` |
+
+🔴 **`spritebox.ts` é a peça que mais importa entender.** Os packs deixam muita
+transparência em volta do desenho, e a sobra é **diferente em cada arquivo**.
+Tratar a moldura do PNG como se fosse a arte causou dois bugs que só apareceram
+em tela: a árvore **boiava acima da própria sombra** (o dono descreveu como
+"sombra um grid abaixo"), e **tudo saía com metade do tamanho pedido** — três
+ajustes de tamanho seguidos erraram o alvo por isso. Agora o carregador mede a
+caixa de alpha, e "largura em tiles" vale para o que se vê.
+
+⚠️ **Não use `Assets.load` do Pixi para estes PNGs**: ele renderiza a
+transparência como PRETO. Passe pelo canvas 2D do `spritebox`. E `loadImage` usa
+`onload`, nunca `img.decode()` — em aba oculta o `decode()` não resolve nunca e o
+jogo trava na tela preta.
+
+### 🔢 Baseline visual APROVADO — não mexa sem o dono pedir
+
+Custou ~6 rodadas de ajuste com ele vendo cada uma:
+
+| Item | Valor |
+|---|---|
+| Árvore grande / pequena / arbusto | **4.2 / 2.8 / 1.2** tiles de copa |
+| Veio de minério / de cristal | **0.65 / 0.7** tile |
+| Densidade da planície | **0.008** (era 0.05 — a copa larga cobre 9× mais chão) |
+| Praça segura (`SAFE_ZONE_RADIUS`) | **12** |
+| Respawn de criatura | **45 s** (era 8 s) |
+
+### 🔴 A praça segura, e o que ela substituiu
+
+Enquanto havia muralha, a **arquitetura** protegia o novato. Agora a regra é a
+única proteção: dentro do raio 12, **monstro não entra, monstro não ataca e
+jogador não fere jogador**. Vale para TODA criatura, não só chefes com
+`avoidCenter`.
+
+⚠️ **Ela é INVISÍVEL.** Cheguei a desenhar um círculo e o dono pediu para tirar.
+O plano é as **casas** marcarem o limite quando o vilarejo for montado — se não
+cobrirem o raio inteiro, o marcador volta a fazer falta.
+
+⚠️ Quando as casas entrarem, o raio 12 provavelmente precisa **encolher**: vila
+inteira sem PvP é refúgio, não vila.
+
+### ⚠️ O que se perdeu junto, e é honesto saber
+
+- **A única escada do mundo aberto.** O Depósito tinha segundo andar e era o
+  único lugar que exercitava `floors` + `floorLinks` — o mesmo mecanismo das
+  dungeons. Os dois testes dele foram reescritos sobre um **mapa sintético**
+  para o motor não ficar sem cobertura, mas nada no mundo o usa.
+- **17 espécies de criatura.** A lista caiu de 32 spawns/21 espécies para
+  **10 spawns/4 espécies** (Slime Verde, Slime Azul, Zumbi, Super Slime longe).
+  Com elas foi a única origem de osso, escama, chifre, garra e presa — receita
+  do Doc 4 que dependa disso fica sem insumo. **Nada foi perdido**: a lista
+  antiga está em `_removidos`, dentro do próprio `creatures.json`.
+- **As 10 cidades genéricas** (praça + muralha do `marcaCidade`). A função
+  continua no arquivo, sem chamador, como documentação executável.
+
+### 🆕 O Tiled virou o editor de mapa
+
+`tools/tmx2world.mjs` lê um `.tmx` e escreve o JSON que os dois lados importam.
+
+🔴 **Por que há um passo de conversão** em vez de o jogo ler o `.tmx`: o terreno
+**não trafega pela rede** — cliente e servidor *calculam* o mesmo mundo, e é isso
+que sustenta "nó de recurso é ENTIDADE, não tile". Ler `.tmx` no navegador em
+runtime quebraria essa invariante. Então o `.tmx` é o formato de **autoria** e o
+JSON é o que o jogo importa, versionado.
+
+Duas decisões dele que valem: a tradução é **`(camada, gid) → tile`**, não
+`gid → tile` — o mesmo gid é parede na `Buildings` e marcador na `Collision`; e a
+camada **`Collision` é CONFERIDA, não aplicada**, porque solidez vem do tipo do
+tile nos dois lados, e duas fontes de verdade fariam o jogador atravessar parede
+no cliente e travar no servidor.
+
+### 🎯 De onde continuar (06/08)
+
+1. ⏳ **Montar o vilarejo** dentro da praça — o dono traz packs de casa.
+2. ⏳ Reavaliar `SAFE_ZONE_RADIUS` quando as casas marcarem o limite.
+3. ⏳ Devolver espécies ao mundo (o `_removidos` do `creatures.json`).
+4. ⏳ `tileset.ts`: areia, terra e piso de pedra ainda apontam para o **mesmo
+   retalho** do `Ground.png` — por isso o deserto parecia terra.
+
+⚠️ **Antes de tudo:** `npm test` tem que dar **438** (418 shared + 20 server).
+
+---
+
 # Handoff — estado do projeto em 2026-08-02 (noite)
 
 Resumo para quem for continuar o trabalho. Sete sessões registradas: **29/07**

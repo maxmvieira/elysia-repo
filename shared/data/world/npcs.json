@@ -1,8 +1,9 @@
 {
-  "_leia": "NPCs fixos do mundo. Carregado por shared/src/worlddata.ts e validado no boot. Papeis validos: vendor, bank, blacksmith (ver NpcRole em shared/src/tiles.ts) -- papel desconhecido derruba o servidor de proposito, para nao virar NPC mudo em producao. Os tres ficam na Praca Central de Lumindale, em lados opostos: colados, o clique de 'abrir loja' pegaria o Banqueiro metade das vezes.",
+  "_leia": "NPCs fixos do mundo. Carregado por shared/src/worlddata.ts e validado no boot. Papeis validos: vendor, bank, blacksmith (ver NpcRole em shared/src/tiles.ts) -- papel desconhecido derruba o servidor de proposito, para nao virar NPC mudo em producao.",
+  "_arranjo": "Os tres em fila, QUATRO TILES entre eles, um tile acima do nascimento (150,158) e bem dentro da praca segura (raio 12). 🔴 A folga NAO e estetica -- e o que deixa LER o nome. Colados (a versao anterior, de 05/08), os tres rotulos se sobrepunham e viravam 'BanqComerciFerreiro'; o rotulo de 'Comerciante' sozinho ja passa de dois tiles de largura. A folga tambem resolve o outro risco que colados traziam: o clique de 'abrir loja' pegando o vizinho quando a mira caia na borda entre dois. Se um dia forem aproximados de novo, esses dois sintomas voltam juntos.",
   "npcs": [
-    { "name": "Comerciante", "x": 153, "y": 157, "floor": 0, "role": "vendor" },
-    { "name": "Banqueiro", "x": 147, "y": 157, "floor": 0, "role": "bank" },
-    { "name": "Ferreiro", "x": 150, "y": 161, "floor": 0, "role": "blacksmith" }
+    { "name": "Banqueiro", "x": 146, "y": 157, "floor": 0, "role": "bank" },
+    { "name": "Comerciante", "x": 150, "y": 157, "floor": 0, "role": "vendor" },
+    { "name": "Ferreiro", "x": 154, "y": 157, "floor": 0, "role": "blacksmith" }
   ]
 }

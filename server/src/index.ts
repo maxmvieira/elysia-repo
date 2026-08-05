@@ -198,6 +198,7 @@ import {
   worldTimeAt,
   phaseStartMs,
   PHASE_LABEL,
+  SAFE_ZONE_RADIUS,
   type AffixId,
   type LootRule,
   type DayPhase,
@@ -214,16 +215,40 @@ const store = openStore();
 const AUTOSAVE_MS = 30000;
 let lastAutosaveAt = 0;
 const PLAYER_RESPAWN_MS = 4000;
-const CREATURE_RESPAWN_MS = 8000;
+/**
+ * Quanto uma criatura demora a renascer no ponto dela.
+ *
+ * ⚠️ REFERÊNCIA — nenhum documento fixa o tempo. Subiu de 8 s para 45 s em
+ * 2026-08-05, a pedido do dono vendo em tela (*"tem muuuito monstro, pode
+ * reduzir bem o respawn"*).
+ *
+ * 🔴 Ele se SOMA ao corte da lista de spawns (`shared/data/world/creatures.json`
+ * caiu de 32 para 10 pontos na mesma leva). Quem for calibrar população precisa
+ * olhar os dois: mexer só aqui e estranhar o resultado é o erro fácil.
+ *
+ * A 8 s o ponto de spawn ficava praticamente sempre ocupado — matar um monstro
+ * não abria espaço, e a região parecia cheia por mais que a lista fosse curta.
+ * Um `respawnMs` por espécie, em `CREATURES`, continua vencendo este padrão.
+ */
+const CREATURE_RESPAWN_MS = 45_000;
 const REGEN_INTERVAL_MS = 1000;
 const XP_DEATH_PENALTY = 0.1;
 const START_SKILL_LEVEL = 10;
-// Zona central segura: quadrado (distância de Chebyshev) ao redor do ponto de
-// renascimento. Chefes com `avoidCenter` não entram aqui e perdem o alvo que
-// se refugia dentro — é o "santuário" de quem acabou de renascer.
-const CENTER_SAFE_RADIUS = 6;
+/**
+ * A **praça segura** em volta do nascimento.
+ *
+ * 🔴 Passou a valer para TODA criatura em 2026-08-05. Antes era privilégio dos
+ * chefes com `avoidCenter`: um slime comum entrava e batia em quem tinha acabado
+ * de renascer. Isso funcionava enquanto a muralha de Lumindale segurava o resto
+ * — quando o vilarejo virou grama a pedido do dono, a arquitetura parou de
+ * proteger e a regra passou a ser a única proteção que existe.
+ *
+ * O raio mora em `shared/regions.ts` porque o cliente desenha o mesmo círculo.
+ * Se os dois números divergissem, o desenho mentiria sobre onde a proteção
+ * acaba — e é essa borda exata que o jogador usa para fugir.
+ */
 function inCenterSafeZone(x: number, y: number): boolean {
-  return chebyshev(x, y, map.spawn.x, map.spawn.y) <= CENTER_SAFE_RADIUS;
+  return chebyshev(x, y, map.spawn.x, map.spawn.y) <= SAFE_ZONE_RADIUS;
 }
 
 /**
@@ -1535,14 +1560,24 @@ function respawnNodes(now: number): void {
 }
 
 /**
- * Criaturas podem pisar aqui? Caminhável E fora da zona do Depósito (DP).
- * `avoidCenter` (chefes): também bloqueia a zona central segura do spawn.
+ * Criaturas podem pisar aqui? Caminhável, fora do Depósito e fora da praça.
+ *
+ * 🔴 A praça segura é barrada **incondicionalmente**, e não mais só para quem
+ * tem `avoidCenter`. O parâmetro continua na assinatura porque quem chama já o
+ * passa, mas ele deixou de mandar aqui — a checagem do centro não olha mais para
+ * ele.
+ *
+ * ⚠️ Não confie no `inDepotZone` para isso, mesmo que hoje as duas áreas
+ * coincidam (a `depotZone` virou a praça quando o vilarejo saiu). São conceitos
+ * diferentes — um é onde se guarda item, o outro é onde não se apanha — e o dia
+ * em que o Depósito voltar a ser uma sala, a proteção sumiria em silêncio.
  */
 function creatureCanEnter(
   x: number, y: number, floor: number, avoidCenter = false, selfId?: string,
 ): boolean {
+  void avoidCenter; // ver o comentário acima: a praça vale para todos
   if (floor === 0 && inDepotZone(map, x, y)) return false; // monstros não entram no DP
-  if (avoidCenter && floor === 0 && inCenterSafeZone(x, y)) return false; // chefe não invade o centro
+  if (floor === 0 && inCenterSafeZone(x, y)) return false; // ninguém invade a praça
   if (!isWalkable(map, x, y, floor)) return false;
   return !tileOccupied(x, y, floor, selfId);
 }
@@ -2534,6 +2569,25 @@ function playerAttackPlayer(player: Player, alvo: Player, now: number): void {
   // sair passam tiques inteiros: dá tempo de os dois entrarem no mesmo grupo, de
   // o atacante desligar o PK ou de a caveira do alvo expirar. Confiar na
   // checagem do clique deixaria passar o golpe em quem já não é alvo válido.
+  /*
+   * 🔴 A praça segura vence o `canHarm`.
+   *
+   * Fica ANTES dele de propósito: `canHarm` decide pela regra de PvP (flag,
+   * caveira, grupo), e o lugar não entra nessa conta — nem deve, porque
+   * `shared/pvp.ts` não conhece geografia e ficaria pior se conhecesse.
+   *
+   * Vale para os DOIS lados: quem está dentro não apanha, e quem está dentro
+   * também não bate. Só a primeira metade transformaria a praça em torre de
+   * tiro — o novato apanharia de alguém intocável parado ao lado do Banqueiro.
+   */
+  if (player.floor === 0 && alvo.floor === 0
+    && (inCenterSafeZone(player.tileX, player.tileY)
+      || inCenterSafeZone(alvo.tileX, alvo.tileY))) {
+    player.targetId = null;
+    send(player, { t: 'denied', reason: 'Área protegida: aqui ninguém ataca ninguém.' });
+    return;
+  }
+
   const decisao = canHarm(combatantOf(player), combatantOf(alvo));
   if (!decisao.allowed) {
     player.targetId = null;
@@ -4194,7 +4248,18 @@ function updateCreatures(now: number): void {
     // Pular a IA inteira é o comportamento certo — deixá-la "pensando" faria
     // ela teleportar para a posição nova assim que o controle acabasse.
     if (!restrictionsOf(c.conditions).canMove) continue;
-    const avoidCenter = !!c.def.avoidCenter;
+    /*
+     * 🔴 `true` fixo, não `c.def.avoidCenter`.
+     *
+     * A praça segura deixou de ser regra de chefe e virou regra do mundo
+     * (2026-08-05). Enquanto a muralha de Lumindale existia, ela barrava o
+     * slime comum e só o chefe precisava de regra; agora que o vilarejo é
+     * grama, a regra é a única coisa que segura qualquer monstro.
+     *
+     * ⚠️ `def.avoidCenter` continua nos chefes de propósito: se um dia a praça
+     * deixar de ser universal, é ele que diz quem nunca pôde entrar.
+     */
+    const avoidCenter = true;
     let target = c.targetId ? players.get(c.targetId) : null;
     if (target && (!target.alive || target.floor !== c.floor || chebyshev(c.tileX, c.tileY, target.tileX, target.tileY) > c.def.aggroRange + 2)) {
       target = null;

@@ -15,6 +15,7 @@
     "dev:server": "npm run dev --workspace server",
     "dev:server:test": "npm run dev:test --workspace server",
     "dev:client": "npm run dev --workspace client",
+    "map:build": "node tools/tmx2world.mjs map/mapa-gpt/vila_inicial.tmx",
     "test": "npm-run-all --serial test:*",
     "test:shared": "npm run test --workspace shared",
     "test:server": "npm run test --workspace server",

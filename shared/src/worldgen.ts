@@ -34,6 +34,7 @@ import {
   CITIES,
   WORLD_SIZE,
   WORLD_SPAWN,
+  SAFE_ZONE_RADIUS,
   regionAt,
   type Biome,
   type RegionDef,
@@ -109,20 +110,50 @@ const BIOME_GROUND: Record<Biome, number> = {
  * e deserto pelado. A densidade real fica abaixo da pedida porque a invariante
  * de "nunca encostar" limita o tabuleiro a 25% no melhor caso.
  */
+/*
+ * 🔴 **Estes números CAÍRAM quando a árvore virou sprite (2026-08-04).**
+ *
+ * Enquanto árvore era um desenho por código do tamanho de um tile, contar
+ * árvores e medir mata dava na mesma. Com o pack da CraftPix a árvore grande
+ * ocupa **4 tiles de largura** — 16× a área de antes — e a mesma contagem passou
+ * a fechar o cenário. O dono viu em tela: *"o cenário tá lotado de árvores"*.
+ *
+ * Então o que mudou não foi o gosto, foi a unidade: o que se está escolhendo
+ * aqui é **quanto do chão fica coberto**, e a conversão de "chance por tile"
+ * para "chão coberto" mudou por baixo. Cortei perto de ⅔ em tudo que planta
+ * árvore, mantendo a ORDEM entre os biomas, que é o que tem significado:
+ * selva > floresta > pântano > planície > deserto.
+ *
+ * ⚠️ Mexer aqui **reposiciona o mundo inteiro**, inclusive as 76 árvores
+ * marcadas como nó de madeira. Cliente e servidor continuam de acordo porque os
+ * dois rodam esta mesma função — mas personagem salvo em cima de um tile que
+ * virou árvore é devolvido à cidade por `applyStoredCharacter`.
+ */
+/*
+ * ⚠️ **Segunda rodada de corte (mesmo dia), depois de ver de novo em tela.** A
+ * planície foi de 0.05 → 0.018 → **0.008**, quase 7× menos que o original. O
+ * primeiro corte errou porque eu comparei contagem de árvores; o que o olho
+ * compara é chão coberto, e com copa de 3 tiles cada árvore cobre ~9 células.
+ * A 0.008 sobram ~2 árvores a cada 250 tiles, que é campo com árvore — o que a
+ * planície deveria ter sido desde o começo.
+ */
 const BIOME_DECOR: Record<Biome, { tile: number; chance: number }> = {
-  plains: { tile: T.TREE, chance: 0.05 },
-  // Floresta e selva puxadas para perto do teto: o chão delas é o mesmo verde da
+  plains: { tile: T.TREE, chance: 0.008 },
+  // Floresta e selva continuam no topo: o chão delas é o mesmo verde da
   // planície, então é a densidade de árvore — e só ela — que faz o jogador
-  // perceber que entrou na mata.
-  forest: { tile: T.TREE, chance: 0.42 },
-  jungle: { tile: T.TREE, chance: 0.46 },
-  swamp: { tile: T.TREE, chance: 0.08 },
-  snow: { tile: T.TREE, chance: 0.05 },
-  cursed: { tile: T.TREE, chance: 0.07 },
-  mountain: { tile: T.WALL_STONE, chance: 0.16 },
-  volcanic: { tile: T.LAVA, chance: 0.08 },
-  desert: { tile: T.TREE, chance: 0.004 },
-  coast: { tile: T.TREE, chance: 0.02 },
+  // perceber que entrou na mata. Só que agora a copa larga já diz isso sozinha,
+  // e o que era 0.42 fecharia corredor.
+  forest: { tile: T.TREE, chance: 0.08 },
+  jungle: { tile: T.TREE, chance: 0.09 },
+  swamp: { tile: T.TREE, chance: 0.015 },
+  snow: { tile: T.TREE, chance: 0.008 },
+  cursed: { tile: T.TREE, chance: 0.012 },
+  mountain: { tile: T.WALL_STONE, chance: 0.16 }, // pedra não mudou de tamanho
+  volcanic: { tile: T.LAVA, chance: 0.08 }, // lava é piso, não decoração alta
+  // Deserto SOBE um pouco: estava em 0.004, quase nada, e agora tem palmeira e
+  // arbusto para mostrar. Continua o bioma mais pelado, como deve ser.
+  desert: { tile: T.TREE, chance: 0.008 },
+  coast: { tile: T.TREE, chance: 0.01 },
   sea: { tile: T.TREE, chance: 0 },
 };
 
@@ -281,6 +312,29 @@ function regiaoQuePinta(xCru: number, yCru: number): RegionDef | undefined {
 }
 
 /**
+ * 🔴 **MUNDO DE UM BIOMA SÓ — ligado em 2026-08-05, e é TEMPORÁRIO.**
+ *
+ * Decisão do dono, ao fim da sessão em que a arte foi acertada: *"pode apagar
+ * todo o restante do mapa por enquanto, quero somente esse bioma central mesmo
+ * (…) vamos montar o vilarejo aqui amanhã"*.
+ *
+ * Com isto ligado, os 300×300 viram **campo verde inteiro**: sem mar, sem
+ * deserto, sem neve, sem as 11 cidades. Sobra grama, as árvores esparsas da
+ * planície e a praça segura no meio.
+ *
+ * ⚠️ **Nada foi apagado para isso.** `regions.ts` continua com as 12 regiões, as
+ * 11 cidades e as 6 dungeons; `marcaCidade` e `BIOME_GROUND` continuam inteiros.
+ * Desligar esta constante devolve o mundo de antes na mesma linha — é por isso
+ * que é uma chave, e não uma poda.
+ *
+ * 🔴 **Quem ligar/desligar tem que conferir os DOIS lugares que a leem**:
+ * `chaoBaseEm` (o piso sob tile alto, no cliente) e `pintaBiomas` (o terreno).
+ * Esquecer o primeiro foi um bug de verdade — árvore com quadrado de areia por
+ * baixo, que na tela parecia sombra vermelha.
+ */
+const MUNDO_SO_CAMPO = true;
+
+/**
  * O chão que este tile teria sem nada por cima.
  *
  * 🔴 **Serve ao cliente, que desenha piso debaixo de todo tile alto.** Antes ele
@@ -289,13 +343,41 @@ function regiaoQuePinta(xCru: number, yCru: number): RegionDef | undefined {
  * meio da neve.
  */
 export function chaoBaseEm(x: number, y: number): number {
+  /*
+   * 🔴 Tem que respeitar `MUNDO_SO_CAMPO`, e esquecer disso foi um bug real.
+   *
+   * Esta função é a que o cliente usa para pintar o piso EMBAIXO de tile alto.
+   * Enquanto ela consultava a região direto, com o mundo forçado a campo, cada
+   * árvore plantada sobre o antigo deserto ganhava um quadrado de areia por
+   * baixo, e cada uma sobre a antiga montanha, um de rocha. Na tela isso apareceu
+   * como *"sombra vermelha em algumas árvores e sombra quadrada em outras"* — a
+   * areia cai no retalho marrom do `Ground.png`, e o quadrado é o tile inteiro.
+   *
+   * O sintoma não parecia bug de terreno porque só acontecia SOB a copa, onde o
+   * jogador lê como sombra.
+   */
+  if (MUNDO_SO_CAMPO) return BIOME_GROUND.plains;
   const r = regiaoQuePinta(x, y);
   return r ? BIOME_GROUND[r.biome] : T.WATER;
 }
 
-/** Pinta o chão base do mundo inteiro. Devolve o bioma de cada tile. */
+/**
+ * Pinta o chão base do mundo inteiro. Devolve o bioma de cada tile.
+ *
+ * ⚠️ Com `MUNDO_SO_CAMPO` ligado sai tudo planície. Efeito colateral que vale
+ * saber: sem mar, **toda cidade fica alcançável a pé**, e o teste que garante
+ * isso passa por motivo diferente do original. Quando a chave voltar a `false`,
+ * ele volta a valer de verdade.
+ */
 function pintaBiomas(ground: number[]): (Biome | undefined)[] {
   const biomas: (Biome | undefined)[] = new Array(WIDTH * HEIGHT).fill(undefined);
+
+  if (MUNDO_SO_CAMPO) {
+    biomas.fill('plains');
+    ground.fill(BIOME_GROUND.plains);
+    return biomas;
+  }
+
   for (let y = 0; y < HEIGHT; y++) {
     for (let x = 0; x < WIDTH; x++) {
       const r = regiaoQuePinta(x, y);
@@ -423,95 +505,44 @@ function casa(
   return { x0: x0 + 1, y0: y0 + 1, x1: x0 + w - 2, y1: y0 + h - 2 };
 }
 
-/** Limites do vilarejo de Lumindale, em tiles do mundo. */
-const LUMINDALE = { x0: 138, y0: 146, x1: 162, y1: 172 } as const;
-
 /**
- * O vilarejo de Lumindale, traduzido à mão do `vilarejo-inicial.png`.
+ * A **praça segura** de Lumindale: o que restou do vilarejo.
  *
- * A prancha nomeia oito lugares: Portão Norte, Praça Central (com fonte e a
- * árvore grande), Área de Treinamento, Ferreiro, Mercearia, Armaria, Curandeiro,
- * Mestre de Classe e a Taberna.
+ * 🔴 O vilarejo inteiro foi APAGADO em 2026-08-05, a pedido do dono vendo em
+ * tela: *"pode remover essa cidadezinha com o muro cercando, umas casinhas...
+ * pode deixar só grama mesmo, e apenas os NPCs mais juntinhos ali no meio. Um
+ * círculo mostrando que a área não é PVP e que os monstros não podem entrar"*.
  *
- * 🔴 **Só três deles viram NPC**, e isso é deliberado: `NpcRole` tem `vendor`,
- * `bank` e `blacksmith`, e mais nada. Curandeiro, Mestre de Classe e taberneiro
- * ficam com o prédio desenhado e **vazio** — inventar o papel deles seria criar
- * sistema (cura paga, troca de classe, missão) que nenhum documento fecha. O
- * mesmo vale para os **guardas** que a prancha promete: patrulha e punição são a
- * Etapa 17.
+ * Saíram: paliçada e quatro portões, praça de pedra, fonte, área de treinamento
+ * e as sete casas (Ferreiro, Mercearia, Armaria, Curandeiro, Mestre de Classe,
+ * Taberna e o Depósito).
  *
- * 🔴 **Os três serviços ficam NA PRAÇA, não dentro dos prédios.** É como
- * funcionava em Valoria e continua sendo o certo: a praça concentra o serviço, e
- * é isso que faz o jogador voltar. Enfiá-los dentro das casas no mesmo dia em
- * que o mapa inteiro muda misturaria dois riscos — se a loja parasse de abrir,
- * ninguém saberia se foi a rota ou o mapa.
+ * ⚠️ **Foi junto a única escada do mundo aberto.** O Depósito tinha o segundo
+ * andar, e era o único lugar que exercitava `floors` + `floorLinks` — o mesmo
+ * mecanismo que as dungeons vão usar. O motor continua inteiro, mas nada mais o
+ * usa: a próxima dungeon vai estreá-lo sem rede de proteção.
+ *
+ * ⚠️ O Depósito (baú/banco) passou a ser a própria praça. Antes era uma sala
+ * fechada; agora é o círculo, que é onde os NPCs estão.
+ *
+ * O que a função faz é só **limpar**: o bioma já pintou grama aqui, e a
+ * decoração já espalhou árvore por cima. Sem esta limpeza, o jogador podia
+ * nascer encurralado entre três árvores — ou o Comerciante nascer dentro de uma.
  */
-function desenhaLumindale(
-  ground: number[],
-  upper: number[],
-  floorLinks: FloorLink[],
-): { x0: number; y0: number; x1: number; y1: number } {
-  const { x0, y0, x1, y1 } = LUMINDALE;
-  const w = x1 - x0 + 1;
-  const h = y1 - y0 + 1;
+function limpaPracaSegura(ground: number[]): { x0: number; y0: number; x1: number; y1: number } {
+  const r = SAFE_ZONE_RADIUS;
+  const { x: cx, y: cy } = WORLD_SPAWN;
 
-  // Terra batida por dentro, paliçada de madeira em volta.
-  fillRect(ground, x0, y0, w, h, T.DIRT);
-  strokeRect(ground, x0, y0, w, h, T.WALL_WOOD);
-
-  // Os quatro portões. O Norte é o que a prancha nomeia; os outros três existem
-  // para que sair da vila não dependa de dar a volta por um lado só.
-  for (const d of [-1, 0, 1]) {
-    set(ground, WORLD_SPAWN.x + d, y0, T.DIRT); // Portão Norte
-    set(ground, WORLD_SPAWN.x + d, y1, T.DIRT);
-    set(ground, x0, WORLD_SPAWN.y + d, T.DIRT);
-    set(ground, x1, WORLD_SPAWN.y + d, T.DIRT);
+  for (let y = cy - r; y <= cy + r; y++) {
+    for (let x = cx - r; x <= cx + r; x++) {
+      if (!dentro(x, y)) continue;
+      // Um tile de folga além do raio: árvore encostada na borda ainda invadiria
+      // o círculo com a copa, que tem 3 tiles de largura.
+      set(ground, x, y, T.GRASS);
+    }
   }
 
-  // Praça Central de pedra, com a fonte e a árvore grande da prancha.
-  fillRect(ground, 145, 152, 11, 13, T.STONE);
-  fillRect(ground, 149, 155, 2, 2, T.WATER); // a fonte
-  set(ground, 154, 154, T.TREE); // a árvore da praça
-
-  // Área de Treinamento: pátio aberto de areia, ao norte, entre o Depósito e a
-  // Ferraria. Aberto de propósito — a prancha mostra alvos, não muros.
-  fillRect(ground, 146, 147, 9, 4, T.SAND);
-
-  // Os prédios. Cada porta é um vão na parede que dá para a terra batida ou
-  // para a praça — nenhuma abre para dentro de outro prédio.
-  casa(ground, 156, 148, 6, 5, { x: 158, y: 152 }); // Ferreiro
-  casa(ground, 156, 160, 6, 5, { x: 156, y: 162 }); // Mercearia
-  casa(ground, 139, 152, 6, 5, { x: 144, y: 154 }); // Armaria
-  casa(ground, 155, 166, 6, 5, { x: 157, y: 166 }); // Curandeiro
-  casa(ground, 139, 165, 7, 5, { x: 142, y: 165 }); // Mestre de Classe
-  casa(ground, 147, 166, 6, 5, { x: 149, y: 166 }); // Taberna
-
-  // O Depósito, e a única escada do mundo aberto. O andar de cima é o quarto
-  // por cima dele; o mecanismo multi-andar do motor mora aqui e é o mesmo que
-  // as dungeons vão usar.
-  const dep = casa(ground, 139, 147, 6, 4, { x: 141, y: 150 });
-
-  const stairX = 143;
-  const stairY = 148;
-  const landX = 142;
-  set(ground, stairX, stairY, T.STONE);
-  set(ground, landX, stairY, T.STONE);
-  floorLinks.push({
-    x: stairX, y: stairY, fromFloor: 0,
-    toX: landX, toY: stairY, toFloor: 1, kind: 'up',
-  });
-
-  // O andar de cima existe SÓ aqui: 90.000 tiles de vazio para um quarto de 4×2.
-  fillRect(upper, 139, 147, 6, 4, T.STONE);
-  strokeRect(upper, 139, 147, 6, 4, T.WALL_WOOD);
-  set(upper, stairX, stairY, T.STONE);
-  set(upper, landX, stairY, T.STONE);
-  floorLinks.push({
-    x: stairX, y: stairY, fromFloor: 1,
-    toX: landX, toY: stairY, toFloor: 0, kind: 'down',
-  });
-
-  return dep;
+  return { x0: cx - r, y0: cy - r, x1: cx + r, y1: cy + r };
 }
 
 // ---------------------------------------------------------------------------
@@ -532,11 +563,20 @@ export function buildWorldMap(): GameMap {
   pintaPraias(ground, biomas);
   espalhaDecoracao(ground, biomas);
 
-  for (const c of CITIES) {
-    if (c.id === 'lumindale') continue; // desenhada à mão logo abaixo
-    marcaCidade(ground, c);
-  }
-  const depotZone = desenhaLumindale(ground, upper, floorLinks);
+  /*
+   * 🔴 **As cidades não são mais desenhadas.** As dez genéricas (praça + muralha
+   * do `marcaCidade`) saíram por decisão do dono em 03/08 — *"estão mt feias"* —
+   * e Lumindale saiu em 05/08, junto com muralha, portões e casas.
+   *
+   * A regra que ficou: cidade é lugar no mapa e no `regions.ts`, não desenho
+   * gerado. Quando cada uma for desenhada de verdade, entra como mapa autoral do
+   * Tiled (ver `tools/tmx2world.mjs`), não como retângulo procedural.
+   *
+   * `marcaCidade` continua no arquivo, sem chamador, de propósito: é a única
+   * documentação executável de como o gerador desenhava cidade, e o custo de
+   * mantê-la é zero.
+   */
+  const depotZone = limpaPracaSegura(ground);
 
   return {
     id: 'elysia',
@@ -551,4 +591,4 @@ export function buildWorldMap(): GameMap {
   };
 }
 
-export { TILE_VOID, LUMINDALE };
+export { TILE_VOID };

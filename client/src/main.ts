@@ -130,7 +130,8 @@ import {
   type DirAnim,
 } from './miniworld.js';
 import { loadKnightSprites, knightIconCss, type KnightArt } from './knight.js';
-import { loadTrees, treeIndexFor } from './trees.js';
+import { loadTrees, treeTexFor, type ArvoreSprite } from './trees.js';
+import { loadCrystals, crystalNodeSprite, crystalIconImage } from './crystals.js';
 
 const TS = TILE_SIZE;
 const WALL_H = 18; // altura visual das paredes em pixels (efeito 2.5D)
@@ -614,8 +615,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const knightArt = await loadKnightSprites();
   // Sprite do NPC comerciante.
   const npcAnim = await loadNpcAnim();
-  // Sprites de árvore (HD). Vazio => cai no desenho por código.
-  const treeTex = await loadTrees();
+  // Sprites de árvore (CraftPix), sorteados por bioma. 0 => desenho por código.
+  await loadTrees();
+  /*
+   * Sprites de cristal/minério. Carregados AQUI, antes de o mundo ser montado e
+   * antes de qualquer ícone de mochila ser desenhado — `itemIconCanvas` cacheia
+   * por `kind`, então um ícone desenhado antes da carga congelaria o
+   * placeholder de código e o sprite nunca apareceria naquela sessão.
+   */
+  await loadCrystals();
 
   const world = new Container(); // a "câmera"
   const ZOOM = 1.0; // câmera afastada (visão ampla, como no início)
@@ -635,6 +643,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   floorRoot.sortableChildren = true;
   world.addChild(floorRoot);
+
+  /*
+   * ⚠️ **A praça segura NÃO tem marca no chão** (o dono removeu o círculo azul
+   * em 2026-08-05, no mesmo dia em que pediu para desenhá-lo).
+   *
+   * Consequência que vale registrar: a regra ficou **invisível**. Monstro não
+   * entra, monstro não ataca e PvP não vale ali dentro, mas nada na tela diz
+   * onde isso começa — e é justamente na borda que o jogador fugindo aposta a
+   * vida. Enquanto Lumindale tinha muralha, a parede fazia esse trabalho.
+   *
+   * O plano acordado é que as **casas do vilarejo** voltem a marcá-la quando
+   * forem construídas. Se por algum motivo elas não cobrirem o raio inteiro,
+   * isto aqui volta a fazer falta.
+   */
 
   // Paredes, árvores E entidades convivem aqui, ordenados por profundidade (y).
   const objects = new Container();
@@ -1100,12 +1122,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
          * montanha. Onde a escolha poderia estar errada (parede de casa sobre
          * terra batida), o bloco cobre o tile inteiro e ninguém vê.
          */
-        desenhaChao(piso, x, y, t.height === 0 ? t.id : chaoSobTileAlto(x, y));
+        /*
+         * O chão embaixo do tile alto serve a DUAS coisas, e por isso sai numa
+         * variável: ele é o piso desenhado, e é o que diz a que bioma a árvore
+         * pertence (areia → palmeira, neve → conífera). Ver `treeTexFor`.
+         */
+        const chaoId = t.height === 0 ? t.id : chaoSobTileAlto(x, y);
+        desenhaChao(piso, x, y, chaoId);
 
         if (t.height === 0) continue;
-        if (t.name === 'tree' && treeTex.length) {
-          // Árvore com sprite HD (variante estável por célula).
-          altos.push(makeTree(x, y, treeTex[treeIndexFor(x, y, treeTex.length)]!));
+        const arvore = t.name === 'tree' ? treeTexFor(chaoId, x, y) : null;
+        if (arvore) {
+          altos.push(makeTree(x, y, arvore));
         } else {
           // Parede (e árvore sem sprite) desenhadas por código (2.5D).
           altos.push(makeBlock(x, y, t.name, t.color));
@@ -1179,14 +1207,49 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   /** Árvore com sprite HD: base no rodapé do tile, copa subindo, oclusão por y. */
-  function makeTree(x: number, y: number, tex: Texture): Sprite {
+  /**
+   * Desenha a árvore de (x,y). A largura vem do próprio sprite (`ArvoreSprite`),
+   * porque ela varia por espécie — ver o comentário de `LARGURA` em `trees.ts`.
+   */
+  function makeTree(x: number, y: number, arv: ArvoreSprite): Container {
+    const { tex, largura, base, centro, cheia } = arv;
+    const c = new Container();
+    const px = x * TS + TS / 2;
+    const py = y * TS + TS - 2; // o pé da árvore, um respiro acima do rodapé
+    // Largura pedida ÷ quanto da moldura o desenho ocupa: assim `largura` vale
+    // para a copa, e não para a transparência em volta dela.
+    const escala = (TS * largura) / (tex.width * cheia);
+
+    /*
+     * Sombra desenhada por CÓDIGO, e não a do pack.
+     *
+     * O acabamento `Trees_shadow` da CraftPix traz uma elipse CLARA, feita para
+     * fundo claro; sobre a grama escura de Elysia ela vira um borrão
+     * esbranquiçado. Uma elipse preta translúcida assenta a árvore em qualquer
+     * chão — areia, neve ou grama — e é a mesma que o `makeBlock` já usava.
+     */
+    const sombra = new Graphics();
+    // A sombra acompanha a copa: árvore grande projeta sombra grande.
+    sombra.ellipse(px, py, (TS * largura) / 4.5, (TS * largura) / 14)
+      .fill({ color: 0x000000, alpha: 0.24 });
+
     const s = new Sprite(tex);
-    s.anchor.set(0.5, 1); // base-centro
-    s.scale.set((TS * 1.05) / tex.width); // largura ~1 tile (menos "emenda" entre árvores)
-    s.x = x * TS + TS / 2;
-    s.y = y * TS + TS + 2; // base assenta no rodapé do tile
-    s.zIndex = y; // profundidade: linhas da frente cobrem as de trás
-    return s;
+    /*
+     * 🔴 Âncora na CAIXA MEDIDA do desenho, não na moldura do PNG.
+     *
+     * Com `anchor.set(0.5, 1)` o ponto de apoio era o rodapé e o meio do
+     * arquivo, e em vários destes PNGs isso é só transparência: a árvore boiava
+     * acima da própria sombra (o bug do "grid errado") e saía do eixo quando o
+     * desenho não estava centrado. Ver `ArvoreSprite`.
+     */
+    s.anchor.set(centro, base);
+    s.scale.set(escala);
+    s.x = px;
+    s.y = py; // agora o PÉ do desenho assenta exatamente onde a sombra está
+    c.addChild(sombra, s);
+
+    c.zIndex = y; // profundidade: linhas da frente cobrem as de trás
+    return c;
   }
 
   /** Árvore, muro de pedra (tijolos) ou de madeira (tábuas), em 2.5D. */
@@ -1655,6 +1718,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const cv = document.createElement('canvas');
     cv.width = S; cv.height = S;
     const g = cv.getContext('2d')!;
+
+    /*
+     * Sprite de cristal/minério, quando o pack está presente.
+     *
+     * Usa o PNG de **16×16 que o artista desenhou**, ampliado com
+     * `imageSmoothingEnabled = false`, e não o de 64 reduzido: encolher pixel
+     * art borra o contorno e apaga o brilho, que é justamente o que faz o
+     * cristal ser reconhecível num slot pequeno.
+     */
+    const cristal = crystalIconImage(kind);
+    if (cristal) {
+      g.imageSmoothingEnabled = false;
+      const m = 1; // respiro de 1 px para o ícone não colar na borda do slot
+      g.drawImage(cristal, m, m, S - m * 2, S - m * 2);
+      itemIconCanvasCache.set(kind, cv);
+      return cv;
+    }
+
     if (def?.category === 'currency') {
       // Pilha de moedas na cor da denominação (gold/silver/blue/white).
       for (const [ox, oy] of [[-3, 2], [3, 2], [0, -1]] as const) {
@@ -3349,6 +3430,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           knightArt, npcAnim,
           selfClass: charClass, selfGender: gender, openShop, openBank, openCraft, openCorpse,
           gatherNode,
+          chaoEm: (x, y) => {
+            const layer = map.floors[renderedFloor];
+            const id = layer?.[y * map.width + x] ?? 0;
+            // Nó em cima de tile alto (madeira, na árvore): o bioma é o do piso.
+            return getTileType(id).height === 0 ? id : chaoSobTileAlto(x, y);
+          },
           itemTexture,
         });
         sprites.set(e.id, view);
@@ -4765,6 +4852,14 @@ interface MiniAssets {
   /** Coleta de um nó de recurso (anda até lá antes, se for preciso). */
   gatherNode: (id: string) => void;
   /**
+   * Id do tile de chão em (x,y).
+   *
+   * Existe para o nó de recurso saber em que bioma nasceu e escolher a cor da
+   * pedra — ver `crystalNodeSprite`. Vem por aqui porque `makeNodeView` é uma
+   * função de módulo e o mapa mora no fecho de `startGame`.
+   */
+  chaoEm: (x: number, y: number) => number;
+  /**
    * Ícone do item como textura, para desenhar a pilha caída no chão.
    *
    * É a MESMA função que gera o ícone da mochila. O jogador precisa reconhecer
@@ -4784,7 +4879,7 @@ function makeEntity(
 ): EntityView {
   if (e.kind === 'creature') return makeCreatureView(e, anims, onTargetClick, mini);
   if (e.kind === 'item') return makeItemView(e, mini.itemTexture, mini.openCorpse);
-  if (e.kind === 'node') return makeNodeView(e, mini.gatherNode);
+  if (e.kind === 'node') return makeNodeView(e, mini.gatherNode, mini.chaoEm);
   if (e.kind === 'npc') {
     // Clicar abre o painel da FUNÇÃO do NPC. Cada um tem cor própria: os três
     // ficam na mesma praça e usam o MESMO sprite placeholder, então a cor é a
@@ -5991,7 +6086,11 @@ function makeItemView(
  * O nome só aparece ao passar o mouse. São ~50 nós no mapa; rótulo fixo em todos
  * cobriria o bosque inteiro de texto.
  */
-function makeNodeView(e: EntitySnapshot, onGather: (id: string) => void): EntityView {
+function makeNodeView(
+  e: EntitySnapshot,
+  onGather: (id: string) => void,
+  chaoEm: (x: number, y: number) => number,
+): EntityView {
   const c = new Container();
   c.x = e.tileX * TS;
   c.y = e.tileY * TS;
@@ -6000,6 +6099,28 @@ function makeNodeView(e: EntitySnapshot, onGather: (id: string) => void): Entity
   const cor = NODES[kind]?.color ?? 0x9a8a7a;
   const cx = TS / 2;
   const base = TS - 4;
+
+  /*
+   * Sprite de cristal/minério, quando o pack está presente. A COR sai do bioma
+   * (o chão embaixo do nó) e o TAMANHO da caixa medida do desenho — os dois
+   * consertos vieram de ver em tela. Ver `crystals.ts` e `spritebox.ts`.
+   *
+   * Sem o arquivo, `crystalNodeSprite` devolve null e cai no desenho por código
+   * logo abaixo, que continua inteiro.
+   */
+  const arte = crystalNodeSprite(kind, chaoEm(e.tileX, e.tileY));
+  if (arte) {
+    const s = new Sprite(arte.tex);
+    s.anchor.set(arte.centro, arte.base); // pé do desenho, não rodapé da moldura
+    s.scale.set((TS * arte.largura) / (arte.tex.width * arte.cheia));
+    s.x = cx;
+    s.y = base;
+    // Sombra por baixo, para o cristal não parecer flutuando sobre a areia.
+    g.ellipse(cx, base, TS * arte.largura * 0.28, TS * arte.largura * 0.1)
+      .fill({ color: 0x000000, alpha: 0.28 });
+    c.addChild(g, s);
+    return finalizaNodeView(c, e, onGather);
+  }
 
   if (kind === 'wood') {
     /*
@@ -6060,8 +6181,31 @@ function makeNodeView(e: EntitySnapshot, onGather: (id: string) => void): Entity
   }
 
   c.addChild(g);
+  return finalizaNodeView(c, e, onGather);
+}
+
+/**
+ * O que todo nó tem em comum, desenhado por código ou por sprite: área de
+ * clique, rótulo no hover e profundidade.
+ *
+ * Extraído quando os sprites de cristal entraram — as duas saídas do
+ * `makeNodeView` precisam disto igual, e duplicar significaria que um dia o nó
+ * com sprite deixaria de ser clicável sem ninguém notar.
+ */
+function finalizaNodeView(
+  c: Container,
+  e: EntitySnapshot,
+  onGather: (id: string) => void,
+): EntityView {
+  const cor = NODES[e.nodeKind ?? 'ore']?.color ?? 0x9a8a7a;
+
   c.eventMode = 'static';
   c.cursor = 'pointer';
+  /*
+   * 🔴 A área de clique é o TILE, não o sprite. O cristal de 64 px transborda
+   * para cima e invadiria o tile de trás; quem clicasse ali pediria para
+   * minerar sem estar mirando a célula que o servidor valida por distância.
+   */
   c.hitArea = new Rectangle(0, 0, TS, TS);
   c.on('pointertap', soBotaoEsquerdo(() => onGather(e.id)));
 

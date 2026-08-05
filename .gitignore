@@ -26,3 +26,18 @@ server/data/
 # Arquivos pesados só de trabalho (zips baixados, PSD), esses não precisam.
 *.zip
 *.psd
+# Cupom de desconto que a CraftPix enfia em todo pack. Não é arte.
+COUPON.pdf
+COUPON.png
+
+# 🔴 Pack ISOMÉTRICO, avaliado e DESCARTADO em 2026-08-04.
+#
+# O Godot Isometric Starter Kit foi baixado para virar mapa e não serve: o motor
+# de Elysia é grade quadrada vista de cima (a projeção do Tibia), e tile
+# isométrico exigiria reescrever transform, clique-para-andar e ordem de
+# profundidade — sendo que o caro nem seria isso, seria a ARTE: herói e as 23
+# criaturas ficariam em estilo conflitante.
+#
+# Fica ignorado em vez de apagado para não voltar a ser baixado por engano. Pode
+# apagar a pasta à vontade; a decisão está registrada aqui e no HANDOFF.
+map/Tiled/

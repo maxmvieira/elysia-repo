@@ -1,31 +1,58 @@
 {
     "activeFile": "mapa-gpt/vila_inicial.tmx",
     "expandedProjectPaths": [
+        "Tiled/Godot-Tutorial-Isometric-Tilemaps-Starter-Kit-main/assets/environment",
+        "Tiled/Godot-Tutorial-Isometric-Tilemaps-Starter-Kit-main/assets/environment/tiles",
         ".",
-        "mapa-gpt"
+        "Tiled/Godot-Tutorial-Isometric-Tilemaps-Starter-Kit-main/assets",
+        "mapa-gpt",
+        "Tiled",
+        "Tiled/Godot-Tutorial-Isometric-Tilemaps-Starter-Kit-main"
     ],
     "fileStates": {
+        "Tiled/Godot-Tutorial-Isometric-Tilemaps-Starter-Kit-main/assets/environment/tiles/stones,barrels etc.tsx": {
+            "dynamicWrapping": true,
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "mapa-gpt/dirt_S.tsx": {
+            "dynamicWrapping": true,
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
         "mapa-gpt/starter_tileset.tsx": {
+            "dynamicWrapping": false,
             "scaleInDock": 1
         },
         "mapa-gpt/vila_inicial.tmx": {
-            "scale": 0.75,
-            "selectedLayer": 6,
+            "scale": 1,
+            "selectedLayer": 8,
             "viewCenter": {
-                "x": 1077.3333333333333,
-                "y": 768
+                "x": -96,
+                "y": 513.5
             }
         },
         "mapa-gpt/vila_inicial.tmx#starter_tileset": {
             "scaleInDock": 1
+        },
+        "mapa-gpt/woodenSupportsBlock_W.tsx": {
+            "dynamicWrapping": false,
+            "scaleInDock": 1,
+            "scaleInEditor": 1
         }
     },
+    "last.imagePath": "C:/02-Claude/Tibia-clone/map/Tiled/Godot-Tutorial-Isometric-Tilemaps-Starter-Kit-main/assets/environment/tiles",
     "map.fixedSize": false,
     "openFiles": [
         "mapa-gpt/vila_inicial.tmx"
     ],
     "project": "Mapa-elysia.tiled-project",
     "recentFiles": [
-        "mapa-gpt/vila_inicial.tmx"
-    ]
+        "mapa-gpt/vila_inicial.tmx",
+        "mapa-gpt/dirt_S.tsx",
+        "mapa-gpt/woodenSupportsBlock_W.tsx",
+        "Tiled/Godot-Tutorial-Isometric-Tilemaps-Starter-Kit-main/assets/environment/tiles/stones,barrels etc.tsx"
+    ],
+    "tileset.lastUsedFormat": "tsx",
+    "tileset.type": 1
 }

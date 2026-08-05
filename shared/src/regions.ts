@@ -47,6 +47,33 @@ export const WORLD_SIZE = 300;
 export const WORLD_SPAWN = { x: 150, y: 158, floor: 0 };
 
 /**
+ * Raio (Chebyshev) da **praça segura** em volta do nascimento, em tiles.
+ *
+ * 🔴 É a única coisa que sobrou do vilarejo de Lumindale, e é de propósito
+ * (decisão do dono em 2026-08-05): saíram muralha, portões, praça de pedra e as
+ * sete casas — *"pode deixar só grama mesmo, e apenas os NPCs mais juntinhos ali
+ * no meio"*. O que protege o novato deixou de ser arquitetura e passou a ser
+ * **regra**, desenhada como um círculo no chão.
+ *
+ * Dentro dela: monstro não entra, monstro não ataca, jogador não fere jogador.
+ *
+ * ⚠️ Mora aqui, e não no servidor, porque **três lados precisam do mesmo
+ * número**: o servidor para barrar, o cliente para desenhar o círculo, e o
+ * `worldgen` para não plantar árvore em cima do NPC. Se divergissem, o desenho
+ * mentiria sobre onde a proteção acaba — e é justamente essa borda que o jogador
+ * usa para fugir.
+ *
+ * 🔴 **Subiu de 6 para 12 em 2026-08-05**, a pedido do dono: o vilarejo vai ser
+ * construído aqui dentro com packs de casa, e 13×13 não comportava. São 25×25
+ * tiles limpos, de grama, sem monstro.
+ *
+ * ⚠️ Quando as casas entrarem, este raio deixa de ser "o vilarejo" e volta a ser
+ * só a **praça central** — cidade grande com PvP proibido em toda a extensão
+ * seria refúgio, não vila. Rever junto com o desenho.
+ */
+export const SAFE_ZONE_RADIUS = 12;
+
+/**
  * Os oito grupos de bioma da Etapa 22, mais `sea` e `coast`, que o roadmap
  * classifica como **geografia, não bioma** — entram aqui porque o gerador
  * precisa saber desenhar água, e não porque sejam ecossistemas próprios.

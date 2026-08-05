@@ -1,5 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+
+/** Ids de `TILE_TYPES` usados nos testes de semântica de tile. */
+const TILE_WALL_STONE = 5;
+const TILE_WATER = 4;
 import {
   buildWorldMap,
   isWalkable,
@@ -9,6 +13,7 @@ import {
   CITIES,
   WORLD_SIZE,
   WORLD_SPAWN,
+  SAFE_ZONE_RADIUS,
   WORLD_CREATURE_SPAWNS,
   tileValidoMaisProximo,
   starterTown,
@@ -73,18 +78,61 @@ test('🔴 TODO tile do andar 0 tem chão pintado (nenhum void)', () => {
   assert.equal(vazios, 0, `${vazios} tiles sem chão no andar 0`);
 });
 
-test('paredes bloqueiam movimento e visão; fora do mapa é sólido', () => {
-  // A paliçada de Lumindale começa em (138,146): o canto é parede.
-  assert.equal(getTileType(tileAt(map, 138, 146, 0)).solid, true);
-  assert.equal(isWalkable(map, 138, 146, 0), false);
+/*
+ * ⚠️ Estes dois testes miravam a paliçada e a fonte de Lumindale. O vilarejo foi
+ * apagado em 2026-08-05 (ver `limpaPracaSegura` no worldgen) e eles passaram a
+ * descrever um mundo que não existe. Foram reapontados para o que continua
+ * verdadeiro em vez de apagados: o que eles garantem — sólido bloqueia, fora do
+ * mapa bloqueia, água bloqueia — não tinha nada a ver com o vilarejo.
+ */
+/*
+ * ⚠️ Estes dois foram do vilarejo → do mundo → do CATÁLOGO, em duas horas.
+ *
+ * Miravam a paliçada e a fonte de Lumindale; com o vilarejo apagado, passaram a
+ * procurar parede e água em qualquer lugar do mapa; com `MUNDO_SO_CAMPO` ligado,
+ * o mapa virou grama e não tem nem uma nem outra.
+ *
+ * A lição é que eles nunca foram testes de MUNDO. O que garantem — sólido
+ * bloqueia, água barra o passo mas não a mira — é semântica de `TILE_TYPES`, e
+ * ali continua valendo com o mapa vazio ou cheio. Amarrá-los ao terreno os fez
+ * quebrar três vezes sem nunca ter achado um bug de verdade.
+ */
+test('parede bloqueia movimento e visão; fora do mapa é sólido', () => {
+  const parede = getTileType(TILE_WALL_STONE);
+  assert.equal(parede.solid, true);
+  assert.equal(parede.blocksSight, true);
 
+  // Esta metade é do mundo mesmo, e vale sempre: fora da grade não se anda.
   assert.equal(isWalkable(map, -1, 5, 0), false);
   assert.equal(isWalkable(map, WORLD_SIZE + 1, 5, 0), false);
 });
 
-test('a fonte da praça é água, e água é sólida', () => {
-  assert.equal(getTileType(tileAt(map, 149, 155, 0)).name, 'water');
-  assert.equal(isWalkable(map, 149, 155, 0), false);
+test('🔴 água é sólida MAS transparente', () => {
+  const agua = getTileType(TILE_WATER);
+  assert.equal(agua.solid, true);
+  // É o que deixa atirar por cima de um rio. `hasLineOfSight` usa `blocksSight`,
+  // não `solid` — trocar um pelo outro proibiria o tiro e ninguém veria por quê.
+  assert.equal(agua.blocksSight, false);
+});
+
+test('🔴 a praça segura é limpa: dá para andar em todo tile dela', () => {
+  // O vilarejo saiu e sobrou só a praça. Se a decoração plantasse uma árvore
+  // aqui dentro, o jogador nasceria encurralado ou um NPC nasceria dentro dela —
+  // e nada no jogo avisaria. É o que `limpaPracaSegura` existe para impedir.
+  const { x, y } = map.spawn;
+  for (let ty = y - SAFE_ZONE_RADIUS; ty <= y + SAFE_ZONE_RADIUS; ty++) {
+    for (let tx = x - SAFE_ZONE_RADIUS; tx <= x + SAFE_ZONE_RADIUS; tx++) {
+      assert.ok(isWalkable(map, tx, ty, 0), `praça bloqueada em (${tx},${ty})`);
+    }
+  }
+});
+
+test('🔴 todo NPC nasce DENTRO da praça segura', () => {
+  // Fora dela, o Comerciante apanharia de slime enquanto o jogador negocia.
+  for (const n of map.npcs) {
+    const d = Math.max(Math.abs(n.x - map.spawn.x), Math.abs(n.y - map.spawn.y));
+    assert.ok(d <= SAFE_ZONE_RADIUS, `${n.name} em (${n.x},${n.y}) está a ${d} do centro`);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -187,25 +235,54 @@ test('🔴 decoração nunca encosta em decoração (a mata continua atravessáv
 // Multi-andar (o mecanismo que as dungeons vão usar)
 // ---------------------------------------------------------------------------
 
+/*
+ * 🔴 **O mundo não tem mais nenhuma escada.** A única do mapa aberto era a do
+ * Depósito de Lumindale, e ela caiu junto com o vilarejo em 2026-08-05.
+ *
+ * Estes dois testes liam `map.floorLinks` e passaram a falhar. Apagá-los seria o
+ * caminho fácil e o errado: o mecanismo multi-andar continua no motor e é o que
+ * as **dungeons** vão usar — deixá-lo sem teste significa que a primeira dungeon
+ * estreia sem rede, e o bug de oscilação entre andares (pouso que também é
+ * gatilho) é exatamente o tipo que só aparece jogando.
+ *
+ * Então eles passaram a rodar sobre um mapa SINTÉTICO. Testam o mecanismo, que é
+ * o que sempre importou; o mundo ter ou não uma escada hoje é outro assunto.
+ */
+function mapaComEscada(): GameMap {
+  const chao = (n: number): number[] => new Array(n * n).fill(1); // tudo grama
+  return {
+    id: 'teste', name: 'teste', width: 8, height: 8,
+    floors: { 0: chao(8), 1: chao(8) },
+    floorLinks: [
+      { x: 3, y: 3, fromFloor: 0, toX: 2, toY: 3, toFloor: 1, kind: 'up' },
+      { x: 2, y: 3, fromFloor: 1, toX: 3, toY: 3, toFloor: 0, kind: 'down' },
+    ],
+    spawn: { x: 0, y: 0, floor: 0 },
+    npcs: [],
+  };
+}
+
 test('escada transfere de andar e o pouso NÃO é gatilho (sem oscilação)', () => {
-  const up = map.floorLinks.find((l) => l.fromFloor === 0 && l.kind === 'up');
+  const m = mapaComEscada();
+  const up = m.floorLinks.find((l) => l.fromFloor === 0 && l.kind === 'up');
   assert.ok(up, 'deve existir uma escada para cima no andar 0');
 
-  assert.equal(floorLinkAt(map, up!.x, up!.y, 0)?.toFloor, 1);
-  assert.ok(
-    isWalkable(map, up!.toX, up!.toY, up!.toFloor),
-    'tile de pouso deve ser caminhável',
-  );
-  assert.equal(
-    floorLinkAt(map, up!.toX, up!.toY, up!.toFloor),
-    undefined,
-    'pouso não pode ser gatilho, senão o jogador oscila entre andares',
-  );
+  assert.equal(floorLinkAt(m, up!.x, up!.y, 0)?.toFloor, 1);
+  assert.ok(isWalkable(m, up!.toX, up!.toY, up!.toFloor), 'tile de pouso deve ser caminhável');
+
+  /*
+   * O pouso da subida é (2,3) no andar 1, e ali existe a escada de DESCIDA.
+   * O que não pode existir é outro gatilho de SUBIDA no mesmo tile: pisar no
+   * pouso e ser mandado de volta para cima faria o jogador oscilar para sempre.
+   */
+  const noPouso = floorLinkAt(m, up!.toX, up!.toY, up!.toFloor);
+  assert.notEqual(noPouso?.toFloor, up!.toFloor, 'pouso não pode devolver ao mesmo andar');
 });
 
 test('há uma escada de volta (andar 1 -> andar 0)', () => {
-  const down = map.floorLinks.find((l) => l.fromFloor === 1 && l.kind === 'down');
+  const m = mapaComEscada();
+  const down = m.floorLinks.find((l) => l.fromFloor === 1 && l.kind === 'down');
   assert.ok(down, 'deve existir uma escada de descida no andar 1');
   assert.equal(down!.toFloor, 0);
-  assert.ok(isWalkable(map, down!.toX, down!.toY, down!.toFloor));
+  assert.ok(isWalkable(m, down!.toX, down!.toY, down!.toFloor));
 });
