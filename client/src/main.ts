@@ -349,6 +349,41 @@ const DEV_AUTOLOGIN: string = import.meta.env.DEV
 /** Já disparou o auto-login? Evita repetir a cada `charlist` que chegar. */
 let autoLoginFeito = false;
 
+/**
+ * Chave que o botão "Trocar personagem" deixa antes de recarregar a página.
+ *
+ * 🔴 Por que a troca passa por RECARREGAR e não por desmontar o jogo: o corpo de
+ * `startGame` tem ~3.300 linhas e declara, ao longo delas, o estado que os
+ * handlers da partida usam (foi o que causou o *"Cannot access 'goldEmMao'
+ * before initialization"* de 01/08). Não existe teardown, e escrever um só para
+ * este botão seria trocar um problema resolvido por uma classe inteira de bugs
+ * de estado meio-desmontado. Recarregar dá estado limpo de graça, e o servidor
+ * salva o personagem na queda do socket — que é o mesmo caminho de sempre
+ * quando alguém fecha a aba.
+ *
+ * `sessionStorage` e não `localStorage`: a intenção vale para ESTA recarga, não
+ * para sempre. E é consumida na leitura, senão o auto-login pareceria ter
+ * quebrado nas recargas seguintes.
+ */
+const CHAVE_TROCA = 'elysia_trocar_personagem';
+
+/**
+ * O jogador pediu para trocar de personagem? Consome a marca ao ler.
+ *
+ * ⚠️ Só o auto-ENTRADA é pulado; o auto-AUTENTICAÇÃO continua valendo. É essa
+ * separação que faz o botão cair na lista de personagens em vez da tela de
+ * senha — e o agente não digita senha.
+ */
+const pediuTrocarPersonagem: boolean = (() => {
+  try {
+    if (sessionStorage.getItem(CHAVE_TROCA) !== '1') return false;
+    sessionStorage.removeItem(CHAVE_TROCA);
+    return true;
+  } catch {
+    return false; // sessionStorage bloqueado (aba anônima restrita): segue o fluxo normal
+  }
+})();
+
 // ---- Tela 1: login / criação de conta --------------------------------------
 function setupLoginScreen(): void {
   const userIn = el('userin') as HTMLInputElement;
@@ -454,7 +489,11 @@ function renderCharList(chars: CharacterSlot[], error?: string): void {
 
   // 🔴 TEMPORÁRIO: com auto-login, entra no primeiro personagem sem passar pela
   // seleção. `autoLoginFeito` impede laço se o servidor reenviar a lista.
-  if (DEV_AUTOLOGIN && !gameStarted && !autoLoginFeito && chars.length > 0) {
+  //
+  // ⚠️ `pediuTrocarPersonagem` tem que vencer aqui: sem isto o botão "Trocar
+  // personagem" recarregaria e o auto-login devolveria o jogador ao MESMO
+  // personagem, que é exatamente o que ele estava tentando deixar.
+  if (!pediuTrocarPersonagem && DEV_AUTOLOGIN && !gameStarted && !autoLoginFeito && chars.length > 0) {
     autoLoginFeito = true;
     selectedChar = chars[0]!.id;
     console.warn(`[DEV] auto-login: entrando como "${chars[0]!.name}"`);
@@ -6324,7 +6363,44 @@ net = new NetClient(routeServerMessage, (connected) => {
 });
 net.connect();
 
+/**
+ * Botão "⇦ Trocar personagem" — sai do mundo e volta para a lista da conta.
+ *
+ * Três coisas acontecem, nesta ordem, e cada uma tem motivo:
+ *
+ * 1. `net.leaveCharacter()` limpa o `characterId` do NetClient. Sem isso, se o
+ *    socket reconectasse antes da recarga, o cliente REENTRARIA sozinho no
+ *    personagem — o `NetClient` reentra por conta própria quando já tem um id.
+ * 2. A marca em `sessionStorage` diz ao próximo boot para parar na lista em vez
+ *    de deixar o auto-login de desenvolvimento entrar no primeiro personagem.
+ * 3. `location.reload()` derruba o socket, e é a queda do socket que faz o
+ *    servidor SALVAR e tirar o personagem do mundo. É o mesmo caminho de quem
+ *    fecha a aba, ou seja, o mais exercitado que existe aqui.
+ *
+ * ⚠️ Sem o auto-login de desenvolvimento (produção, ou `VITE_DEV_ACCOUNT=`
+ * vazio), a recarga cai na tela de LOGIN e pede a senha de novo — o cliente não
+ * guarda senha, de propósito. Voltar direto para a lista sem redigitar exigiria
+ * sessão persistente (um token), que o jogo ainda não tem.
+ */
+function setupSwitchCharButton(): void {
+  const btn = document.getElementById('switchchar') as HTMLButtonElement | null;
+  if (!btn) return;
+  btn.onclick = () => {
+    btn.disabled = true; // clique duplo não dispara duas recargas
+    net.leaveCharacter();
+    try {
+      sessionStorage.setItem(CHAVE_TROCA, '1');
+    } catch {
+      // sessionStorage bloqueado: a recarga ainda tira o jogador do mundo, mas
+      // o auto-login o devolve ao mesmo personagem. Melhor avisar do que fingir.
+      console.warn('[troca] sessionStorage indisponível — o auto-login pode reentrar.');
+    }
+    location.reload();
+  };
+}
+
 setupLoginScreen();
 setupCharSelectScreen();
 setupStartScreen();
+setupSwitchCharButton();
 showScreen('login');

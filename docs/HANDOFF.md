@@ -24,9 +24,15 @@ direções.
 
 ### 🐛 BUG PRÉ-EXISTENTE ACHADO AO OLHAR (não é da arte nova)
 
-🔴 **O herói não é desenhado até a primeira atualização de câmera.** Entrando no
-jogo, o mundo aparece e o personagem **não**. Basta clicar para andar que ele
-surge e nunca mais some.
+🔴 **A câmera não nasce centrada no herói.** Entrando no jogo, o mundo aparece e
+o personagem quase sempre **não** — ele está desenhado, só que fora do
+enquadramento. Basta clicar para andar que a câmera salta para ele e nunca mais
+erra.
+
+⚠️ A primeira leitura foi "o sprite não é desenhado", e estava errada: numa das
+entradas o herói apareceu em tela, mas **no canto**, com a viewport centrada em
+outro ponto. O sintoma varia com a posição salva do personagem — perto da borda
+do enquadramento ele aparece, longe some.
 
 **Foi confirmado por A/B que NÃO é da arte nova:** com `COM_ARTE` esvaziado em
 `heroes.ts`, caindo no sprite antigo, o sintoma é idêntico. Ou seja, já estava
@@ -44,6 +50,32 @@ com efeito mágico; o Assassino estoca com adaga.
 Knight de arco vai fazer o gesto de sacar a flecha segurando a espada. É
 limitação da arte, não do código: reexportar o pack do Knight conserta sem tocar
 em uma linha.
+
+### 🆕 Botão "⇦ Trocar personagem"
+
+No topo da barra direita. Sai do mundo e volta para a **lista de personagens**,
+onde dá para entrar com outro ou criar um novo — era a única forma de ver as
+outras três classes andando no mundo, já que só havia knights no banco.
+
+🔴 **Ele RECARREGA a página, e isso é decisão, não preguiça.** Não existe
+teardown do jogo: `startGame` tem ~3.300 linhas e vai declarando, ao longo delas,
+o estado que os handlers usam — foi o que causou o *"Cannot access 'goldEmMao'
+before initialization"* de 01/08. Escrever um teardown só para este botão trocaria
+um problema resolvido por uma classe inteira de bugs de estado meio-desmontado.
+A recarga dá estado limpo de graça, e o servidor salva na queda do socket, que é
+o mesmo caminho de quem fecha a aba.
+
+Três passos, e cada um tem motivo: `net.leaveCharacter()` (senão o `NetClient`
+reentra sozinho no mesmo personagem, porque ele guarda o `characterId`), uma
+marca em `sessionStorage` (para o próximo boot parar na lista em vez de o
+auto-login entrar no primeiro personagem), e o `reload`.
+
+⚠️ **Sem o auto-login de desenvolvimento, o botão cai na tela de LOGIN** e pede
+senha de novo — o cliente não guarda senha, de propósito. Voltar direto para a
+lista exigiria sessão persistente (token), que o jogo não tem.
+
+✅ **Visto em tela:** botão → lista de personagens → "Novo personagem" → os
+quatro cartões com a arte HD nova.
 
 ### 📋 A página de conferência
 
