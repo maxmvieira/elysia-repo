@@ -36,6 +36,34 @@ const OUT = 'client/public/assets/classes';
 const DIRS = ['south', 'north', 'east', 'west'];
 
 /**
+ * 🔴 A linha em que a SOLA DO PÉ é gravada em toda célula de toda tira.
+ *
+ * Tem que continuar igual ao `FEET_Y` de `client/src/heroes.ts`: o carregador usa
+ * **uma âncora só** para as quatro direções e para todos os quadros, então o pé
+ * andando de linha entre quadros vira TREMOR na tela — e, depois da escala de 2×,
+ * 1 px de quadro é 2 px de tela.
+ *
+ * Medido nos cinco packs antes de ligar isto: o chão vinha entre 42 e 45
+ * conforme o quadro, a direção e a classe. 44 é a moda, então é o alvo.
+ */
+const GROUND_Y = 44;
+
+/**
+ * Deslocamento máximo aceito. Fora disso o quadro fica **como veio**.
+ *
+ * 🔴 Não é folga de segurança, é a regra que salva o `attack_staff`: a conjuração
+ * desenha um efeito mágico que desce ABAIXO dos pés, e o chão medido nesses
+ * quadros cai para 47..52. Alinhar por ele **levantaria o herói** até 8 px no
+ * meio do golpe. Rejeitar (dy = 0) deixa o quadro exatamente como o artista
+ * entregou, que é o comportamento certo quando a medição não é confiável —
+ * melhor não corrigir do que corrigir errado.
+ */
+const ALIGN_MAX = 3;
+
+/** Linha com menos pixels que isto é ponta de arma ou fiapo, não chão. */
+const MIN_PX_LINHA = 3;
+
+/**
  * Classe -> pasta do pack. As pastas guardam o nome original do gerador (é o que
  * permite reconhecer de onde veio a arte); o mapa aqui é a tradução para o
  * `PlayerClass` do código.
@@ -184,14 +212,38 @@ function encodePng(w, h, px) {
   ]);
 }
 
-/** Copia um quadro inteiro para a posição (col, row) da tira. */
-function blit(dst, dstW, src, cell, col, row) {
+/**
+ * Copia um quadro inteiro para a posição (col, row) da tira, descido `dy` linhas
+ * (negativo sobe). Linha que sair da célula é descartada — com `ALIGN_MAX = 3` e
+ * o conteúdo morando em y 15..45 numa célula de 60, isso nunca corta desenho.
+ */
+function blit(dst, dstW, src, cell, col, row, dy = 0) {
   const stride = cell * 4;
   for (let y = 0; y < cell; y++) {
+    const alvo = y + dy;
+    if (alvo < 0 || alvo >= cell) continue;
     const from = y * stride;
-    const to = ((row * cell + y) * dstW + col * cell) * 4;
+    const to = ((row * cell + alvo) * dstW + col * cell) * 4;
     src.px.copy(dst, to, from, from + stride);
   }
+}
+
+/** Última linha do quadro com massa de verdade. -1 se o quadro está vazio. */
+function chaoDe(img) {
+  for (let y = img.h - 1; y >= 0; y--) {
+    let n = 0;
+    for (let x = 0; x < img.w; x++) if (img.px[(y * img.w + x) * 4 + 3] > 8) n++;
+    if (n >= MIN_PX_LINHA) return y;
+  }
+  return -1;
+}
+
+/** Quantas linhas descer este quadro para o pé cair em `GROUND_Y`. Ver `ALIGN_MAX`. */
+function alinhamento(img) {
+  const chao = chaoDe(img);
+  if (chao < 0) return 0;
+  const d = GROUND_Y - chao;
+  return Math.abs(d) <= ALIGN_MAX ? d : 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -266,6 +318,7 @@ function converteClasse(cls) {
     const W = cols * cell;
     const H = DIRS.length * cell;
     const out = Buffer.alloc(W * H * 4); // transparente
+    let movidos = 0, recusados = 0;
     for (let r = 0; r < DIRS.length; r++) {
       for (let c = 0; c < cols; c++) {
         // Animação mais curta numa direção: repete o último quadro, para as
@@ -273,12 +326,16 @@ function converteClasse(cls) {
         const f = porDir[r][Math.min(c, porDir[r].length - 1)];
         const img = decodePng(f);
         if (img.w !== cell || img.h !== cell) throw new Error(`${f}: ${img.w}x${img.h}, esperado ${cell}x${cell}`);
-        blit(out, W, img, cell, c, r);
+        const dy = alinhamento(img);
+        if (dy !== 0) movidos++;
+        else if (chaoDe(img) !== GROUND_Y) recusados++;
+        blit(out, W, img, cell, c, r, dy);
       }
     }
     writeFileSync(join(outDir, `${spec.out}.png`), encodePng(W, H, out));
     const nota = substituidas.length ? `  ⚠️ pose parada em ${substituidas.join(',')}` : '';
-    console.log(`    ✓ ${spec.out}.png  ${cols} quadros · ${cell}px${nota}`);
+    const al = `alinhados ${movidos}` + (recusados ? `, ${recusados} fora de ${ALIGN_MAX}px (mantidos)` : '');
+    console.log(`    ✓ ${spec.out}.png  ${cols} quadros · ${cell}px · ${al}${nota}`);
     feitas++;
   }
 
@@ -288,7 +345,10 @@ function converteClasse(cls) {
   if (poses.every((p) => existsSync(p))) {
     const cell = decodePng(poses[0]).w;
     const out = Buffer.alloc(cell * cell * DIRS.length * 4);
-    poses.forEach((p, r) => blit(out, cell, decodePng(p), cell, 0, r));
+    poses.forEach((p, r) => {
+      const img = decodePng(p);
+      blit(out, cell, img, cell, 0, r, alinhamento(img));
+    });
     writeFileSync(join(outDir, 'pose.png'), encodePng(cell, cell * DIRS.length, out));
     console.log(`    ✓ pose.png  1 quadro · ${cell}px`);
     feitas++;

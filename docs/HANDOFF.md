@@ -1,3 +1,63 @@
+# Handoff — estado do projeto em 2026-08-10
+
+## 🔍 10/08 — A ARTE DE CLASSE FOI MEDIDA, e dois defeitos saíram sem arte nova
+
+O dono disse que os personagens estavam feios. Foi medida a caixa de alpha de
+todos os quadros dos cinco packs, e o "feio" tem três causas separadas — duas
+delas eram do CÓDIGO, não da arte, e já estão corrigidas.
+
+⚠️ **NÃO VISTO EM TELA.** Testes e medição confirmam; abrir
+`http://localhost:5173/sprites-preview.html` é o que falta.
+
+### ✅ 1. A escala deixou de ser fracionária
+
+`TARGET_H` em `client/src/heroes.ts` era **64** para um conteúdo de 30 px →
+**2,133×** com filtragem `nearest`. Nessa escala **um pixel do desenho vira 2 na
+tela e o vizinho vira 3**, em faixas alternadas: é o que picotava a silhueta.
+Agora é **60**, ou seja **2,0× exato**. Custa 4 px de altura de herói.
+
+🔴 **`TARGET_H` tem que continuar sendo múltiplo inteiro de `CONTENT_H`.**
+
+### ✅ 2. O pé parou de tremer
+
+O chão vinha entre **y=42 e y=45** conforme o quadro, a direção e a classe, mas o
+carregador ancora num valor fixo (`FEET_Y = 44`) — o herói tremia ~1 px de quadro,
+2 px de tela depois da escala.
+
+`tools/frames2strip.mjs` agora **mede o chão de cada quadro e desloca o quadro
+inteiro** para a sola cair em `GROUND_Y = 44`. Resultado medido: **Δ0 em 30 das
+32 tiras**.
+
+🔴 **As duas exceções são de propósito, e é a parte que importa entender.** No
+`attack_staff` do Knight e do Assassino a conjuração desenha um efeito mágico
+**abaixo dos pés**, e o chão medido cai para 47..52. Alinhar por ele levantaria o
+herói até 8 px no meio do golpe. Por isso o deslocamento é **rejeitado** (dy = 0)
+quando passa de `ALIGN_MAX = 3` — quadro cuja medição não é confiável fica como
+veio. Rejeitar, não clampar: corrigir pela metade seria pior que não corrigir.
+
+⚠️ **`GROUND_Y` do conversor e `FEET_Y` do `heroes.ts` são o MESMO número em dois
+arquivos.** Mudar um sem o outro enterra ou levanta as quatro classes de uma vez.
+
+### ❌ 3. O que NÃO foi corrigido, e por quê
+
+**O centro horizontal continua sendo média medida** (`CENTER_X = 29.5`). Ele
+varia 3 a 5 px dentro do ciclo de passos, mas essa variação **é a perna
+alternando** — normalizá-la como se fosse erro congelaria a caminhada. O valor
+atual bate com o medido (28..32).
+
+**E a causa raiz continua de pé: a arte é pequena demais.** O herói é um desenho
+de **25×29 px** (12 px de largura no meio da caminhada), ~400 pixels opacos e ~40
+cores, ampliado 2×. Não há detalhe para mostrar. Os dois consertos acima tiram o
+serrilhado e o tremor; **não inventam resolução**.
+
+📖 **O formato a pedir para a arte nova está em
+[`SPEC-SPRITES-CLASSES.md`](./SPEC-SPRITES-CLASSES.md)** — célula 96×96, corpo de
+64 px, sola sempre na mesma linha (escala vira 1,0×), mais o que pedir ao gerador
+3D que produziu estes packs e por que **não** pedir folha de sprite a gerador de
+imagem.
+
+---
+
 # Handoff — estado do projeto em 2026-08-09
 
 ## 🗡️ 09/08 — AS QUATRO CLASSES TÊM CORPO. Leia isto antes de tudo.

@@ -25,11 +25,24 @@ const BASE = '/assets/classes';
 const CELL = 60;
 
 /**
- * Altura de tela que o CONTEÚDO do herói deve ocupar (~2 tiles), a mesma da arte
- * HD do Knight. Não confundir com a célula: dos 60 px do quadro, só ~30 são
- * desenho — o resto é a transparência que o gerador deixa em volta.
+ * Altura de tela que o CONTEÚDO do herói deve ocupar (~2 tiles). Não confundir
+ * com a célula: dos 60 px do quadro, só ~30 são desenho — o resto é a
+ * transparência que o gerador deixa em volta.
+ *
+ * 🔴 **60 e não 64, e isso NÃO é gosto: 60/30 = 2,0× exato.**
+ *
+ * Era 64, o que dava 2,133×. Numa escala fracionária com filtragem `nearest`,
+ * cada pixel do desenho vira 2 pixels de tela ou 3, em faixas alternadas — a
+ * silhueta sai picotada, e é o defeito que mais salta aos olhos na arte de
+ * classe. Com 2× a ampliação é uniforme.
+ *
+ * ⚠️ Quem mexer aqui tem que fechar a conta com `CONTENT_H`: **`TARGET_H` tem
+ * que ser múltiplo inteiro dele.** Arte nova com conteúdo de 64 px (ver
+ * `docs/SPEC-SPRITES-CLASSES.md`) fecha em 1,0×, que é melhor ainda.
+ *
+ * O preço são 4 px de herói, que ninguém nota; o serrilhado, nota.
  */
-const TARGET_H = 64;
+const TARGET_H = 60;
 
 /**
  * Medidas do bounding box de ALPHA, não da moldura do PNG.
@@ -44,6 +57,16 @@ const TARGET_H = 64;
  * um valor só. Usar a média (29,5) espalha o erro em ±2,5 px de quadro; ancorar
  * pela direção de frente jogaria os 5 px inteiros nas laterais, e o personagem
  * daria um pulinho lateral toda vez que virasse.
+ *
+ * 🔴 **`FEET_Y` deixou de ser um chute: o conversor GARANTE a sola nesta linha.**
+ * `tools/frames2strip.mjs` mede o chão de cada quadro e desce/sobe o quadro
+ * inteiro para o pé cair em `GROUND_Y = 44`. Mudar um dos dois sem o outro
+ * enterra ou levanta as quatro classes de uma vez. O chão vinha entre 42 e 45
+ * conforme o quadro, e era isso que fazia o herói tremer ao andar.
+ *
+ * ⚠️ **`CENTER_X` continua sendo média medida, e é de propósito.** O centro
+ * horizontal varia 3 a 5 px dentro do ciclo de passos, mas essa variação é a
+ * PERNA ALTERNANDO — normalizá-la como se fosse erro congelaria a caminhada.
  */
 const CONTENT_H = 30;
 const FEET_Y = 44;
