@@ -7,6 +7,50 @@ decisões de design ficaram travadas por teste.
 > [`ROADMAP-elysia.md`](./ROADMAP-elysia.md). Este arquivo é o detalhe — use
 > quando precisar mexer em algo que já foi feito e entender o porquê.
 
+---
+
+## 2026-08-09 — Arte HD das quatro classes, e o golpe pela arma
+
+**Onde mora:** `tools/frames2strip.mjs` (conversor) · `client/src/heroes.ts`
+(carregador) · `shared/src/heropose.ts` (arma → animação) · `weaponType` em
+`EntitySnapshot` · a escolha do sprite em `client/src/main.ts`.
+
+**O problema de formato.** Os packs de herói vêm com um PNG por quadro, em pasta
+por direção: 1.045 arquivos. Carregar solto seria uma requisição por quadro. A
+saída foi a mesma do mapa: um passo de conversão do formato de **autoria** para
+o formato do **jogo** — 843 quadros viraram 32 tiras e 376 KB. As tiras usam o
+layout do MiniWorld (linha 0=sul, 1=norte, 2=leste, 3=oeste) de propósito, para
+o corte ser o `sliceDirs` que já existia.
+
+**Por que a regra arma→animação foi para `shared/`.** É lógica pura, e é onde os
+testes rodam. O valor real do arquivo é o teste de exaustividade: o jogo tem 8
+`WeaponType` e a arte entrega 5 poses, e sem o teste um nono tipo de arma faria
+o herói parar de animar o golpe **em silêncio** — a classe de bug que só se acha
+jogando. A cadeia de fallback termina sempre em `sword`, que os cinco packs têm,
+porque nenhum golpe é pior que meio golpe: sem animação o motor volta ao
+"pulinho" do placeholder, e um herói HD dando pulinho ao lado de outro que
+golpeia de verdade fica pior do que golpear com a arma errada na mão.
+
+**Por que `weaponType` precisou entrar no snapshot.** O cliente sabia a arma do
+próprio jogador, não a dos outros — sem o campo, todo mundo golpearia de espada.
+Sai do mesmo `equippedWeapon` que o combate usa: se divergissem, o herói
+golpearia de arco com o dano saindo de espada.
+
+**Meia animação é pior que nenhuma.** O `Taking_Punch` só veio em `south` nos
+cinco packs. A tira de dano **não é gerada**: usar o quadro sul nas quatro
+direções faria o personagem virar para a câmera no meio do golpe. O motor cai no
+piscar vermelho, que é comportamento antigo e testado.
+
+**Âncoras pelo bounding box de alpha, não pela moldura.** Medido nos cinco
+packs: conteúdo em y 15..44 numa célula de 60, centro horizontal entre 27,5 e 32.
+A âncora é uma só para as quatro direções porque `makeMiniActor` aceita um valor
+só — usar a média espalha o erro em ±2,5 px, enquanto ancorar pela frente jogaria
+os 5 px inteiros nas laterais e o personagem daria um pulinho ao virar.
+
+**Bug pré-existente encontrado ao olhar:** o herói não é desenhado até a primeira
+atualização de câmera. Confirmado por A/B (com a arte nova desligada o sintoma é
+o mesmo), então não veio desta etapa. Registrado no `HANDOFF.md`.
+
 Convenção: `#N` = número da mensagem em
 [`../informacoes/conversa-gpt-elysia-historia-mmorpg.md`](../informacoes/conversa-gpt-elysia-historia-mmorpg.md).
 

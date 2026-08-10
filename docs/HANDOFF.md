@@ -1,3 +1,89 @@
+# Handoff — estado do projeto em 2026-08-09
+
+## 🗡️ 09/08 — AS QUATRO CLASSES TÊM CORPO. Leia isto antes de tudo.
+
+O dono enviou cinco packs de herói (Knight, Sorcerer, Archer, Druid e um
+*Human rogue* que virou o Assassino). As quatro classes jogáveis saíram dos
+bonecos 16x16 e ganharam arte HD com andar, parado, golpe e morte nas quatro
+direções.
+
+### 🔴 Se você só for ler três coisas
+
+1. **Os packs chegam com UM PNG POR QUADRO** — 1.045 arquivos. Existe um
+   conversor, `tools/frames2strip.mjs` (`npm run sprites:build`), que os
+   transforma em **tiras**, uma por animação, com uma linha por direção. É o
+   mesmo formato do MiniWorld de propósito: o corte é o código que já existia.
+   Fonte em `arte-fonte/classes/`, saída em `client/public/assets/classes/`.
+   **Não edite a saída** — ela é gerada.
+2. **O golpe segue a ARMA EQUIPADA.** `EntitySnapshot` ganhou `weaponType`, e
+   `shared/src/heropose.ts` traduz os 8 tipos de arma nas 5 animações que a arte
+   entrega. Tem teste de exaustividade: adicionar um nono tipo de arma sem arte
+   quebra o teste, em vez de o herói parar de animar em silêncio.
+3. **A arte HD vence tudo**: `client/src/heroes.ts` entra antes do `knight.ts` e
+   do MiniWorld em `main.ts`. Classe sem pack cai no MiniWorld, como antes.
+
+### 🐛 BUG PRÉ-EXISTENTE ACHADO AO OLHAR (não é da arte nova)
+
+🔴 **O herói não é desenhado até a primeira atualização de câmera.** Entrando no
+jogo, o mundo aparece e o personagem **não**. Basta clicar para andar que ele
+surge e nunca mais some.
+
+**Foi confirmado por A/B que NÃO é da arte nova:** com `COM_ARTE` esvaziado em
+`heroes.ts`, caindo no sprite antigo, o sintoma é idêntico. Ou seja, já estava
+lá antes de 09/08 e ninguém tinha visto — é mais um da família "só aparece
+jogando". Não investiguei a causa; fica registrado.
+
+### ⚠️ O que a animação por arma REALMENTE faz
+
+Ela troca a **postura**, e nos packs bons troca também a arma desenhada. O
+Archer com arco desenha o arco, com lança desenha a lança; o Sorcerer conjura
+com efeito mágico; o Assassino estoca com adaga.
+
+⚠️ **O Knight é a exceção:** as animações de arco e de cajado dele mantêm
+**espada e escudo na mão** — o gerador não trocou o equipamento nesse pack. Um
+Knight de arco vai fazer o gesto de sacar a flecha segurando a espada. É
+limitação da arte, não do código: reexportar o pack do Knight conserta sem tocar
+em uma linha.
+
+### 📋 A página de conferência
+
+`client/public/sprites-preview.html` — abre em `http://localhost:5173/sprites-preview.html`
+e mostra as 4 classes × 4 direções × 8 animações, animadas, lendo **as mesmas
+tiras que o jogo lê**. Foi assim que os buracos abaixo foram achados. Quando
+chegar arte nova, é a primeira parada.
+
+### ⚠️ Buracos dos packs, e como estão tapados
+
+| Buraco | Como está |
+|---|---|
+| `Taking_Punch` (dano) só tem **sul** nos cinco packs | a tira **não é gerada**; o motor pisca vermelho, como sempre fez |
+| Idle do Knight e do Assassino só tem **sul** | direções que faltam usam a **pose parada** daquela direção |
+| 🔴 **`Walking` do Assassino só tem sul** | ele **desliza sem mexer as pernas** para cima/lados. Reexportar o pack conserta |
+| Assassino não tem lança; ninguém além dele tem adaga | cai no golpe de espada (`attackPoseFallback`) |
+| Archer veio com a pasta de lança duplicada | o conversor fica com a que tem mais direções |
+
+### ⚠️ Duas coisas que NÃO mudaram, de propósito
+
+- **O sexo não troca o sprite.** Os packs têm um corpo só por classe. A escolha
+  continua existindo, salva e viajando no snapshot, esperando variante feminina.
+  O ícone da tela de criação parou de mudar com o sexo por isso.
+- **Druid não virou classe.** `PlayerClass` tem quatro, e druida não está nos
+  docs. A arte fica em `arte-fonte/classes/Druid_class_hero_wears_leaf/`,
+  esperando decisão — sem virar asset morto.
+
+### 🎯 De onde continuar
+
+1. ⏳ **Reexportar o `Walking` do Assassino** com as 4 direções (e, se der, o
+   `Taking_Punch` de todos). É só rodar `npm run sprites:build` depois.
+2. ⏳ Reexportar o Knight com arco/cajado segurando a arma certa.
+3. ⏳ O bug do herói invisível na entrada.
+4. ⏳ O que já estava na fila de 06/08: montar o vilarejo, devolver espécies ao
+   mundo, e o `tileset.ts` (areia/terra/pedra no mesmo retalho).
+
+⚠️ **`npm test` agora tem que dar 445** (425 shared + 20 server).
+
+---
+
 # Handoff — estado do projeto em 2026-08-05
 
 ## 🎨 05/08 — A ARTE ENTROU, E O VILAREJO SAIU. Leia isto antes de tudo.

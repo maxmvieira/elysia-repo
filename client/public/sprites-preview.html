@@ -1,0 +1,87 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Elysia — conferência da arte de classe</title>
+<style>
+  body { background:#171310; color:#e0c9a3; font:13px/1.5 system-ui,sans-serif; margin:24px; }
+  h1 { font-size:18px; color:#d9b26a; margin:0 0 4px; }
+  p.sub { color:#7d7466; margin:0 0 20px; }
+  table { border-collapse:collapse; margin-bottom:26px; }
+  th { font-weight:600; color:#a89a84; text-align:left; padding:4px 10px; font-size:12px; }
+  td { padding:2px 10px; }
+  .cel { image-rendering:pixelated; width:120px; height:120px; background:#2c3f2c; border:1px solid #2a241d; }
+  .falta { color:#8a6a5a; font-size:11px; font-style:italic; }
+  .cls { color:#d9b26a; font-size:15px; margin:22px 0 6px; border-top:1px solid #2a241d; padding-top:14px; }
+</style>
+<h1>Conferência da arte de classe</h1>
+<p class="sub">
+  As mesmas tiras que o jogo carrega, animadas. Linha = direção, coluna = animação.
+  Se algo aqui estiver errado, está errado no jogo também.
+</p>
+<div id="out"></div>
+<script type="module">
+const CELL = 60;
+const CLASSES = ['knight', 'sorcerer', 'archer', 'assassin'];
+const DIRS = ['sul', 'norte', 'leste', 'oeste'];
+const ANIMS = [
+  ['walk', 'andar'], ['idle', 'parado'], ['death', 'morte'],
+  ['attack_sword', 'espada'], ['attack_dagger', 'adaga'],
+  ['attack_spear', 'lança'], ['attack_bow', 'arco'], ['attack_staff', 'cajado'],
+];
+
+function carrega(src) {
+  return new Promise((res) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = () => res(null);
+    i.src = src;
+  });
+}
+
+const out = document.getElementById('out');
+
+for (const cls of CLASSES) {
+  const h = document.createElement('div');
+  h.className = 'cls';
+  h.textContent = cls;
+  out.appendChild(h);
+
+  const tab = document.createElement('table');
+  const thead = document.createElement('tr');
+  thead.innerHTML = '<th></th>' + ANIMS.map(([, rot]) => `<th>${rot}</th>`).join('');
+  tab.appendChild(thead);
+
+  const linhas = DIRS.map((d) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<th>${d}</th>`;
+    tab.appendChild(tr);
+    return tr;
+  });
+  out.appendChild(tab);
+
+  for (const [arq, rot] of ANIMS) {
+    const img = await carrega(`/assets/classes/${cls}/${arq}.png`);
+    for (let r = 0; r < DIRS.length; r++) {
+      const td = document.createElement('td');
+      if (!img) {
+        td.innerHTML = `<span class="falta">sem ${rot}</span>`;
+      } else {
+        const cv = document.createElement('canvas');
+        cv.width = CELL; cv.height = CELL; cv.className = 'cel';
+        const g = cv.getContext('2d');
+        g.imageSmoothingEnabled = false;
+        const cols = Math.round(img.width / CELL);
+        let f = 0;
+        // Ataque e morte rodam mais devagar para dar para ver quadro a quadro.
+        const ms = arq === 'walk' ? 180 : arq === 'idle' ? 300 : 140;
+        setInterval(() => {
+          g.clearRect(0, 0, CELL, CELL);
+          g.drawImage(img, f * CELL, r * CELL, CELL, CELL, 0, 0, CELL, CELL);
+          f = (f + 1) % cols;
+        }, ms);
+        td.appendChild(cv);
+      }
+      linhas[r].appendChild(td);
+    }
+  }
+}
+</script>
