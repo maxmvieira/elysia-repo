@@ -7,6 +7,38 @@ O dono enviou cinco packs de herói (Knight, Sorcerer, Archer, Druid e um
 bonecos 16x16 e ganharam arte HD com andar, parado, golpe e morte nas quatro
 direções.
 
+### 🚀 Para quem for continuar — os 60 segundos
+
+```bash
+git pull
+npm install                 # nenhuma dependência nova foi adicionada
+npm run typecheck           # limpo nos 3 pacotes
+npm test                    # tem que dar 445 (425 shared + 20 server)
+ELYSIA_DEV_ACCOUNT=suaconta VITE_DEV_ACCOUNT=suaconta npm run dev:test
+```
+
+Depois abra **`http://localhost:5173/sprites-preview.html`** antes do jogo: é a
+página de conferência da arte, e mostra em 10 segundos o que 445 testes não
+mostram.
+
+⚠️ **As duas variáveis são obrigatórias** — o servidor lê `ELYSIA_DEV_ACCOUNT`, o
+cliente lê `VITE_DEV_ACCOUNT`. Só a primeira faz a tela de login responder
+"Usuário ou senha inválidos", que parece problema de conta e não é.
+
+⚠️ **Backup do banco antes de entrar no mundo:** `server/data/elysia.db`. Já
+existe um de 09/08 na mesma pasta.
+
+**Três coisas prontas para você pegar, em ordem de tamanho:**
+
+| O quê | Onde começar | Tamanho |
+|---|---|---|
+| `tileset.ts`: areia, terra e piso de pedra apontam para o **mesmo retalho** do `Ground.png` | `client/src/tileset.ts` | pequeno |
+| Devolver espécies ao mundo — hoje osso, escama, chifre, garra e presa **não têm origem**, e receitas do Doc 4 ficam sem insumo | `_removidos` dentro de `shared/data/world/creatures.json` | médio |
+| A câmera não nasce centrada no herói (ver abaixo) | inicialização da câmera em `client/src/main.ts` | desconhecido |
+
+🔴 **O que NÃO pegar sem falar com o dono:** montar o vilarejo (ele traz os packs
+de casa) e mexer no `SAFE_ZONE_RADIUS`, que depende das casas.
+
 ### 🔴 Se você só for ler três coisas
 
 1. **Os packs chegam com UM PNG POR QUADRO** — 1.045 arquivos. Existe um
@@ -886,8 +918,17 @@ Se o `npm test` não der **436** (416 shared + 20 server), **não continue** —
 se perdeu no caminho.
 
 ⚠️ **O auto-login de `dev:test` está preso à conta `maxmurtesvieira`.** Em outra
-máquina, suba com `ELYSIA_DEV_ACCOUNT=suaconta npm run dev:test`, senão a tela de
-login responde "conta de desenvolvimento não existe".
+máquina são **DUAS** variáveis, e faltar uma delas não dá erro claro:
+
+```bash
+ELYSIA_DEV_ACCOUNT=suaconta VITE_DEV_ACCOUNT=suaconta npm run dev:test
+```
+
+🔴 **O servidor lê a primeira e o cliente lê a segunda** (`server/src/dev.ts:28`
+e `client/src/main.ts:346`) — o cliente é Vite, e Vite só expõe variável com
+prefixo `VITE_`. Passando só a do servidor, a tela de login responde **"Usuário
+ou senha inválidos"**, que parece problema de conta e não é. Custou um restart em
+09/08.
 
 ---
 
