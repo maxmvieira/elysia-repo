@@ -53,6 +53,7 @@ import {
   type Gender,
   type ItemStack,
   type PlayerClass,
+  attackPoseFor,
   executionMultiplier,
   furyStats,
   ruptureDefReduction,
@@ -130,6 +131,7 @@ import {
   type DirAnim,
 } from './miniworld.js';
 import { loadKnightSprites, knightIconCss, type KnightArt } from './knight.js';
+import { loadHeroArt, golpeDe, heroIconCss, HERO_ART_CLASSES, type HeroArt } from './heroes.js';
 import { loadTrees, treeTexFor, type ArvoreSprite } from './trees.js';
 import { loadCrystals, crystalNodeSprite, crystalIconImage } from './crystals.js';
 
@@ -500,7 +502,10 @@ function setupStartScreen(): void {
       gender = g;
       genderBtns.male.classList.toggle('sel', g === 'male');
       genderBtns.female.classList.toggle('sel', g === 'female');
-      knightIcon.setAttribute('style', knightIconCss(gender, 48));
+      // ⚠️ O ícone não muda mais com o sexo: a arte HD nova tem um corpo só por
+      // classe. A escolha continua valendo (é salva e viaja no snapshot) — o dia
+      // em que houver variante feminina, é aqui que ela volta a trocar o desenho.
+      if (knightIcon) knightIcon.setAttribute('style', knightIconCss(gender, 48));
     };
     genderBar.appendChild(btn);
   });
@@ -513,12 +518,14 @@ function setupStartScreen(): void {
     const def = CLASSES[id];
     const card = document.createElement('div');
     card.className = 'classcard';
-    // O Knight mostra a cabeça do sprite HD (varia com o sexo escolhido).
-    const iconStyle = id === 'knight' ? knightIconCss(gender, 48) : classIconCss(id, 48);
+    // O cartão mostra o MESMO boneco que vai andar no mundo — escolher a classe
+    // por uma arte e receber outra em tela é o tipo de surpresa que não vale.
+    // Classe sem pack HD cai no ícone MiniWorld, como antes.
+    const iconStyle = HERO_ART_CLASSES.has(id) ? heroIconCss(id, 48) : classIconCss(id, 48);
     card.innerHTML =
       `<div class="cicon" style="${iconStyle}"></div>` +
       `<div class="cinfo"><b>${def.name}</b><p>${def.blurb}</p></div>`;
-    if (id === 'knight') knightIcon = card.querySelector('.cicon')!;
+    if (id === 'knight' && !HERO_ART_CLASSES.has(id)) knightIcon = card.querySelector('.cicon')!;
     card.onclick = () => {
       chosen = id;
       for (const c of cards.values()) c.classList.remove('sel');
@@ -613,6 +620,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
   // Knight em arte HD (masculino/feminino) — sobrepõe o MiniWorld p/ knight.
   const knightArt = await loadKnightSprites();
+  // Arte HD das 4 classes (tiras de `frames2strip`). Sobrepõe TUDO acima para a
+  // classe que tiver pack; quem não tiver segue no MiniWorld.
+  const heroArt = await loadHeroArt();
   // Sprite do NPC comerciante.
   const npcAnim = await loadNpcAnim();
   // Sprites de árvore (CraftPix), sorteados por bioma. 0 => desenho por código.
@@ -3427,7 +3437,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       if (!view) {
         view = makeEntity(e, isSelf, isSelf ? selfTex : otherTex, anims, setTarget, {
           classAnims, slimeAnim, slimeVariants, zombieAnim, zombieIdleAnim, creatureSheets,
-          knightArt, npcAnim,
+          knightArt, heroArt, npcAnim,
           selfClass: charClass, selfGender: gender, openShop, openBank, openCraft, openCorpse,
           gatherNode,
           chaoEm: (x, y) => {
@@ -4839,6 +4849,11 @@ interface MiniAssets {
    */
   creatureSheets: Map<string, CreatureSheets>;
   knightArt: Record<Gender, KnightArt> | null;
+  /**
+   * Arte HD por classe (`tools/frames2strip.mjs`). Classe ausente do mapa cai no
+   * MiniWorld — é o que segura o jogo de pé enquanto uma classe não tem pack.
+   */
+  heroArt: Partial<Record<PlayerClass, HeroArt>>;
   npcAnim: DirAnim | null;
   selfClass: PlayerClass;
   selfGender: Gender;
@@ -4906,6 +4921,29 @@ function makeEntity(
   const cls = e.charClass ?? (isSelf ? mini.selfClass : 'knight');
   const gender: Gender = e.gender ?? (isSelf ? mini.selfGender : 'male');
   const nameColor = isSelf ? 0xbfe0ff : 0xe0c9a3;
+  // ARTE HD DE CLASSE — o caminho principal desde 09/08. Vem das tiras geradas
+  // por `tools/frames2strip.mjs`, com andar, parado, golpe e morte em 4 direções.
+  //
+  // 🔴 O golpe sai da ARMA EQUIPADA (`e.weaponType`, que o servidor manda no
+  // snapshot): arco na mão dispara, cajado conjura, adaga estoca. Sem o campo —
+  // desarmado, ou jogador de um servidor antigo — cai no golpe de espada, que
+  // toda classe tem.
+  //
+  // ⚠️ O sexo NÃO troca o sprite aqui: os packs vieram com um corpo só por
+  // classe. A escolha continua existindo, salva e viajando no snapshot, para o
+  // dia em que houver variante feminina — só não desenha diferente ainda.
+  const hero = mini.heroArt[cls];
+  if (hero) {
+    return makeMiniActor({
+      e, anim: hero.walk, scale: hero.scale,
+      anchorX: hero.anchorX, anchorY: hero.anchorY, labelTop: hero.labelTop,
+      idleAnim: hero.idle,
+      attackAnim: golpeDe(hero, attackPoseFor(e.weaponType)),
+      hurtAnim: hero.hurt,
+      deathAnim: hero.death,
+      nameColor, onClick: onTargetClick,
+    });
+  }
   // Knight com arte HD detalhada (masc/fem). DESLIGADO por ora (usuário achou
   // feia); volta a MiniWorld até chegarem os sprites animados novos. Religar =
   // USE_KNIGHT_HD = true (a infra de gênero + knight.ts seguem prontas).

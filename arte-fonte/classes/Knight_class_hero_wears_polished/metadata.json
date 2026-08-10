@@ -1,0 +1,311 @@
+{
+  "group_id": "f2f2877e-612c-4316-8312-878d77841db1",
+  "states": [
+    {
+      "character": {
+        "id": "46360205-2fc1-491c-a374-9fe6ba052371",
+        "name": "Idle",
+        "prompt": "Knight class hero, wears polished steel plate armor with a blue tabard, carries a longsword and a tower shield, sturdy heroic stance",
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-08-07T01:45:21.970428+00:00"
+      },
+      "folder": "Idle",
+      "frames": {
+        "rotations": {
+          "south": "Idle/rotations/south.png",
+          "south-east": "Idle/rotations/south-east.png",
+          "east": "Idle/rotations/east.png",
+          "north-east": "Idle/rotations/north-east.png",
+          "north": "Idle/rotations/north.png",
+          "north-west": "Idle/rotations/north-west.png",
+          "west": "Idle/rotations/west.png",
+          "south-west": "Idle/rotations/south-west.png"
+        },
+        "animations": {
+          "Walking": {
+            "north": [
+              "Idle/animations/Walking/north/frame_000.png",
+              "Idle/animations/Walking/north/frame_001.png",
+              "Idle/animations/Walking/north/frame_002.png",
+              "Idle/animations/Walking/north/frame_003.png"
+            ],
+            "east": [
+              "Idle/animations/Walking/east/frame_000.png",
+              "Idle/animations/Walking/east/frame_001.png",
+              "Idle/animations/Walking/east/frame_002.png",
+              "Idle/animations/Walking/east/frame_003.png"
+            ],
+            "south": [
+              "Idle/animations/Walking/south/frame_000.png",
+              "Idle/animations/Walking/south/frame_001.png",
+              "Idle/animations/Walking/south/frame_002.png",
+              "Idle/animations/Walking/south/frame_003.png"
+            ],
+            "west": [
+              "Idle/animations/Walking/west/frame_000.png",
+              "Idle/animations/Walking/west/frame_001.png",
+              "Idle/animations/Walking/west/frame_002.png",
+              "Idle/animations/Walking/west/frame_003.png"
+            ]
+          },
+          "Taking_Punch": {
+            "south": [
+              "Idle/animations/Taking_Punch/south/frame_000.png",
+              "Idle/animations/Taking_Punch/south/frame_001.png",
+              "Idle/animations/Taking_Punch/south/frame_002.png",
+              "Idle/animations/Taking_Punch/south/frame_003.png",
+              "Idle/animations/Taking_Punch/south/frame_004.png",
+              "Idle/animations/Taking_Punch/south/frame_005.png"
+            ]
+          },
+          "collapsing_backward_and_falling_to_the_ground_drop": {
+            "south": [
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/south/frame_000.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/south/frame_001.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/south/frame_002.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/south/frame_003.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/south/frame_004.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/south/frame_005.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/south/frame_006.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/south/frame_007.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/south/frame_008.png"
+            ],
+            "west": [
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/west/frame_000.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/west/frame_001.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/west/frame_002.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/west/frame_003.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/west/frame_004.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/west/frame_005.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/west/frame_006.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/west/frame_007.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/west/frame_008.png"
+            ],
+            "north": [
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/north/frame_000.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/north/frame_001.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/north/frame_002.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/north/frame_003.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/north/frame_004.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/north/frame_005.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/north/frame_006.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/north/frame_007.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/north/frame_008.png"
+            ],
+            "east": [
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/east/frame_000.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/east/frame_001.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/east/frame_002.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/east/frame_003.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/east/frame_004.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/east/frame_005.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/east/frame_006.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/east/frame_007.png",
+              "Idle/animations/collapsing_backward_and_falling_to_the_ground_drop/east/frame_008.png"
+            ]
+          },
+          "Breathing_Idle": {
+            "south": [
+              "Idle/animations/Breathing_Idle/south/frame_000.png",
+              "Idle/animations/Breathing_Idle/south/frame_001.png",
+              "Idle/animations/Breathing_Idle/south/frame_002.png",
+              "Idle/animations/Breathing_Idle/south/frame_003.png"
+            ]
+          },
+          "thrusting_a_spear_forward_in_a_quick_piercing_mele": {
+            "south": [
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/south/frame_000.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/south/frame_001.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/south/frame_002.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/south/frame_003.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/south/frame_004.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/south/frame_005.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/south/frame_006.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/south/frame_007.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/south/frame_008.png"
+            ],
+            "east": [
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/east/frame_000.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/east/frame_001.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/east/frame_002.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/east/frame_003.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/east/frame_004.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/east/frame_005.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/east/frame_006.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/east/frame_007.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/east/frame_008.png"
+            ],
+            "west": [
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/west/frame_000.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/west/frame_001.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/west/frame_002.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/west/frame_003.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/west/frame_004.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/west/frame_005.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/west/frame_006.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/west/frame_007.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/west/frame_008.png"
+            ],
+            "north": [
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/north/frame_000.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/north/frame_001.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/north/frame_002.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/north/frame_003.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/north/frame_004.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/north/frame_005.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/north/frame_006.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/north/frame_007.png",
+              "Idle/animations/thrusting_a_spear_forward_in_a_quick_piercing_mele/north/frame_008.png"
+            ]
+          },
+          "drawing_a_bow_and_releasing_an_arrow_forward_weigh": {
+            "north": [
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/north/frame_000.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/north/frame_001.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/north/frame_002.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/north/frame_003.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/north/frame_004.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/north/frame_005.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/north/frame_006.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/north/frame_007.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/north/frame_008.png"
+            ],
+            "south": [
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/south/frame_000.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/south/frame_001.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/south/frame_002.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/south/frame_003.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/south/frame_004.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/south/frame_005.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/south/frame_006.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/south/frame_007.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/south/frame_008.png"
+            ],
+            "east": [
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/east/frame_000.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/east/frame_001.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/east/frame_002.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/east/frame_003.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/east/frame_004.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/east/frame_005.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/east/frame_006.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/east/frame_007.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/east/frame_008.png"
+            ],
+            "west": [
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/west/frame_000.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/west/frame_001.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/west/frame_002.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/west/frame_003.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/west/frame_004.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/west/frame_005.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/west/frame_006.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/west/frame_007.png",
+              "Idle/animations/drawing_a_bow_and_releasing_an_arrow_forward_weigh/west/frame_008.png"
+            ]
+          },
+          "raising_a_staff_and_channeling_a_burst_of_magical": {
+            "north": [
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/north/frame_000.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/north/frame_001.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/north/frame_002.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/north/frame_003.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/north/frame_004.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/north/frame_005.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/north/frame_006.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/north/frame_007.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/north/frame_008.png"
+            ],
+            "west": [
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/west/frame_000.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/west/frame_001.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/west/frame_002.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/west/frame_003.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/west/frame_004.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/west/frame_005.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/west/frame_006.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/west/frame_007.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/west/frame_008.png"
+            ],
+            "east": [
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/east/frame_000.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/east/frame_001.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/east/frame_002.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/east/frame_003.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/east/frame_004.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/east/frame_005.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/east/frame_006.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/east/frame_007.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/east/frame_008.png"
+            ],
+            "south": [
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/south/frame_000.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/south/frame_001.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/south/frame_002.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/south/frame_003.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/south/frame_004.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/south/frame_005.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/south/frame_006.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/south/frame_007.png",
+              "Idle/animations/raising_a_staff_and_channeling_a_burst_of_magical/south/frame_008.png"
+            ]
+          },
+          "swinging_a_longsword_downward_in_a_powerful_slashi": {
+            "south": [
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/south/frame_000.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/south/frame_001.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/south/frame_002.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/south/frame_003.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/south/frame_004.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/south/frame_005.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/south/frame_006.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/south/frame_007.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/south/frame_008.png"
+            ],
+            "east": [
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/east/frame_000.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/east/frame_001.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/east/frame_002.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/east/frame_003.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/east/frame_004.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/east/frame_005.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/east/frame_006.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/east/frame_007.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/east/frame_008.png"
+            ],
+            "north": [
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/north/frame_000.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/north/frame_001.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/north/frame_002.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/north/frame_003.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/north/frame_004.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/north/frame_005.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/north/frame_006.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/north/frame_007.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/north/frame_008.png"
+            ],
+            "west": [
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/west/frame_000.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/west/frame_001.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/west/frame_002.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/west/frame_003.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/west/frame_004.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/west/frame_005.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/west/frame_006.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/west/frame_007.png",
+              "Idle/animations/swinging_a_longsword_downward_in_a_powerful_slashi/west/frame_008.png"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "export_version": "3.1",
+  "export_date": "2026-08-10T00:39:57.785653"
+}

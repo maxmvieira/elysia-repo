@@ -4610,6 +4610,10 @@ function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
       id: p.id, name: p.name, tileX: p.tileX, tileY: p.tileY, floor: p.floor,
       direction: p.direction, kind: 'player', hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
       charClass: p.cls.id, gender: p.gender,
+      // A arma na mão, para o cliente escolher a animação do golpe. Sai do MESMO
+      // `equippedWeapon` que o combate usa — se divergissem, o herói golpearia de
+      // arco enquanto o dano saísse de espada.
+      weaponType: equippedWeapon(p)?.identity.type,
       // Mesma economia do `conditions` abaixo: só vai quando é verdade/existe.
       // PK ligado é minoria, grupo também e caveira mais ainda, então na prática
       // nenhum dos três campos viaja no caso comum.

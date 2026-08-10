@@ -16,7 +16,7 @@ import type { ConditionId } from './conditions.js';
 import type { SkullKind } from './pvp.js';
 import type { LootRule } from './party.js';
 import type { DayPhase } from './daynight.js';
-import type { Rarity } from './weapons.js';
+import type { Rarity, WeaponType } from './weapons.js';
 import type { ProfessionId, Professions } from './crafting.js';
 import type { NpcRole } from './tiles.js';
 import type { NodeKind } from './gathering.js';
@@ -46,6 +46,18 @@ export interface EntitySnapshot {
   charClass?: PlayerClass;
   /** Sexo do personagem (define a variante do sprite quando há arte). */
   gender?: Gender;
+  /**
+   * Tipo da arma equipada — o cliente escolhe a animação de GOLPE com isto.
+   *
+   * A arte de classe traz um golpe por família de arma (espada, adaga, lança,
+   * arco, cajado), e sem este campo o cliente só saberia a arma do PRÓPRIO
+   * jogador: os outros golpeariam sempre de espada, mesmo de arco na mão.
+   *
+   * Opcional e omitido quando não há arma, no mesmo padrão do `skull` e do
+   * `pkEnabled` — desarmado é comum, e mandar `undefined` explícito em toda
+   * entidade a cada tique é peso de rede por nada.
+   */
+  weaponType?: WeaponType;
   /** Tipo da criatura, para escolher o sprite. */
   creatureType?: string;
   /** Item no chão: tipo e quantidade (ex.: ouro). */
