@@ -1,5 +1,42 @@
 # Handoff — estado do projeto em 2026-08-10
 
+## ⏸️ ONDE PARAMOS — retomar 11/08 pela manhã
+
+A arte nova **está ligada no jogo** e o dono **jogou com ela**. Ele tem **várias
+observações anotadas** e a sessão acabou antes de listá-las.
+
+🔴 **PRIMEIRA COISA AMANHÃ: pedir a lista de observações dele.** Não comece a
+consertar por conta própria — o que ele viu jogando vale mais que qualquer
+suspeita minha, e esta sessão inteira mostrou que o que quebra em arte só
+aparece jogando (o quadrado preto na árvore, o herói invisível na entrada, a
+espada que não subia, o corpo que saía do quadro — nenhum tinha teste possível).
+
+**Como subir para testar** (a conta do dono no banco local é `Frank`):
+
+```bash
+ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test
+# jogo:    http://localhost:5173
+# arte:    http://localhost:5173/sprites-preview.html
+```
+
+⚠️ **Backup do banco antes de entrar.** Existe um de 10/08 23:48 em
+`server/data/elysia-backup-20260810-2348.db`.
+
+**Onde eu suspeitaria, se as observações forem sobre a arte:**
+
+1. Herói **enterrado ou flutuando** → `FEET_Y` (60, em `heroes.ts`) discordando
+   do `GROUND_Y` (60, em `tools/pixellab2strip.mjs`). São o mesmo número em dois
+   arquivos.
+2. **Cadáver deslocado** na morte → é o único caso que **não** passa pelo
+   alinhamento de chão, de propósito (num corpo deitado, "última linha com massa"
+   é o corpo, não o pé).
+3. **Golpe fraco** no Arqueiro e no Assassino → conhecido e registrado; o gesto
+   sai curto. O Knight é o que ficou melhor.
+4. **Herói fora do enquadramento ao entrar** → 🔴 **bug ANTIGO, não é da arte
+   nova.** Já estava confirmado por A/B em 09/08. Basta clicar para andar.
+
+---
+
 ## 🎨 10/08 (noite) — NASCEU UMA LINHAGEM DE ARTE NOVA. Leia isto antes de tudo.
 
 As quatro classes têm um pack **novo, em pixel art de verdade**, gerado pelo
