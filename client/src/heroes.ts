@@ -2,75 +2,95 @@
  * Carregador da ARTE DE CLASSE HD — as quatro classes jogáveis.
  *
  * Substitui, para quem tem pack, os bonecos 16x16 do MiniWorld (`miniworld.ts`)
- * e a arte antiga só-do-Knight (`knight.ts`). O que chega aqui já passou pelo
- * `tools/frames2strip.mjs`: os 843 quadros soltos dos packs viraram **tiras**,
- * uma por animação, com uma LINHA por direção — o mesmo formato do MiniWorld,
- * de propósito, para o corte ser o mesmo código de sempre.
+ * e a arte antiga só-do-Knight (`knight.ts`). O que chega aqui já vem em
+ * **tiras** — uma por animação, com uma LINHA por direção, o mesmo formato do
+ * MiniWorld, de propósito, para o corte ser o mesmo código de sempre.
  *
  * Se faltar qualquer coisa, o carregador devolve `null` e o jogo cai no
  * MiniWorld. Nada aqui pode derrubar o carregamento: é arte.
  *
- * Fonte dos arquivos: `arte-fonte/classes/`, versionado. Para regerar as tiras:
+ * ⚠️ **O pack em uso NÃO tem `idle` nem `hurt`**, e os dois têm queda
+ * conhecida: sem `idle` o motor congela no quadro 0 do `walk`, que é justamente
+ * a pose parada; sem `hurt` ele pisca vermelho, como sempre fez.
  *
- *   npm run sprites:build
+ * Para regerar (ver `docs/PIXELLAB-RECEITA.md`):
+ *
+ *   PIXELLAB_TOKEN=xxxx node tools/pixellab/gerar-classe.mjs
+ *   node tools/pixellab2strip.mjs
  */
 
 import { Assets, Rectangle, Texture } from 'pixi.js';
 import { attackPoseFallback, type AttackPose, type PlayerClass } from '@dominion/shared';
 import type { DirAnim } from './miniworld.js';
 
-const BASE = '/assets/classes';
+/**
+ * De onde vem a arte de classe.
+ *
+ * 🔴 **É o pack do PixelLab desde 2026-08-10**, gerado por
+ * `tools/pixellab/gerar-classe.mjs` e montado em tiras pelo
+ * `tools/pixellab2strip.mjs`. O pack antigo (render 3D reduzido) continua
+ * versionado em `/assets/classes` — para voltar atrás, troque esta linha **e as
+ * cinco constantes abaixo**, que são de outro tamanho. Não dá para trocar só uma.
+ *
+ * | | pack antigo (`classes`) | PixelLab (`classes-pixellab`) |
+ * |---|---|---|
+ * | `CELL` | 60 | 64 |
+ * | `CONTENT_H` | 30 | 58 |
+ * | `FEET_Y` | 44 | 60 |
+ * | `CENTER_X` | 29.5 | 31.5 |
+ * | `TARGET_H` | 60 | 58 |
+ */
+const BASE = '/assets/classes-pixellab';
 
-/** Lado da célula nas tiras. Todos os cinco packs vieram em 60x60. */
-const CELL = 60;
+/** Lado da célula nas tiras. O PixelLab entrega 64x64. */
+const CELL = 64;
 
 /**
- * Altura de tela que o CONTEÚDO do herói deve ocupar (~2 tiles). Não confundir
- * com a célula: dos 60 px do quadro, só ~30 são desenho — o resto é a
- * transparência que o gerador deixa em volta.
+ * Altura de tela que o CONTEÚDO do herói deve ocupar (~2 tiles).
  *
- * 🔴 **60 e não 64, e isso NÃO é gosto: 60/30 = 2,0× exato.**
+ * 🔴 **`TARGET_H === CONTENT_H`, ou seja escala 1,0× — e é o melhor caso que
+ * existe: não há serrilhado de escala quando não há escala.** O sprite é
+ * desenhado exatamente no tamanho em que foi criado.
  *
- * Era 64, o que dava 2,133×. Numa escala fracionária com filtragem `nearest`,
- * cada pixel do desenho vira 2 pixels de tela ou 3, em faixas alternadas — a
- * silhueta sai picotada, e é o defeito que mais salta aos olhos na arte de
- * classe. Com 2× a ampliação é uniforme.
+ * Vale a história, porque ela explica as duas constantes: o pack antigo tinha
+ * 30 px de conteúdo desenhados a 64 → **2,133×**, e numa escala fracionária com
+ * filtragem `nearest` cada pixel vira 2 pixels de tela ou 3, em faixas
+ * alternadas. Era o defeito que mais saltava aos olhos. Passou a 60 (2,0×
+ * exato) e, com o pack do PixelLab, a 1,0×.
  *
- * ⚠️ Quem mexer aqui tem que fechar a conta com `CONTENT_H`: **`TARGET_H` tem
- * que ser múltiplo inteiro dele.** Arte nova com conteúdo de 64 px (ver
- * `docs/SPEC-SPRITES-CLASSES.md`) fecha em 1,0×, que é melhor ainda.
- *
- * O preço são 4 px de herói, que ninguém nota; o serrilhado, nota.
+ * ⚠️ Quem trocar o pack tem que fechar a conta de novo: **`TARGET_H` tem que ser
+ * múltiplo inteiro de `CONTENT_H`.** Qualquer outro valor devolve o serrilhado.
  */
-const TARGET_H = 60;
+const TARGET_H = 58;
 
 /**
  * Medidas do bounding box de ALPHA, não da moldura do PNG.
  *
  * 🔴 É a lição que o `spritebox.ts` já tinha aprendido à força: tratar o quadro
  * como se fosse a arte fez a árvore boiar acima da sombra e tudo sair com metade
- * do tamanho pedido. Medido nos cinco packs, o conteúdo mora em y 15..44 e o
- * centro horizontal fica entre x 27,5 e 32 conforme a direção — a variação é a
- * arma esticada para um lado.
+ * do tamanho pedido.
  *
  * ⚠️ A âncora é **uma só para as quatro direções** porque `makeMiniActor` aceita
- * um valor só. Usar a média (29,5) espalha o erro em ±2,5 px de quadro; ancorar
- * pela direção de frente jogaria os 5 px inteiros nas laterais, e o personagem
- * daria um pulinho lateral toda vez que virasse.
+ * um valor só. Ancorar pela direção de frente jogaria o erro inteiro nas
+ * laterais, e o personagem daria um pulinho lateral toda vez que virasse.
  *
- * 🔴 **`FEET_Y` deixou de ser um chute: o conversor GARANTE a sola nesta linha.**
- * `tools/frames2strip.mjs` mede o chão de cada quadro e desce/sobe o quadro
- * inteiro para o pé cair em `GROUND_Y = 44`. Mudar um dos dois sem o outro
- * enterra ou levanta as quatro classes de uma vez. O chão vinha entre 42 e 45
- * conforme o quadro, e era isso que fazia o herói tremer ao andar.
+ * 🔴 **`FEET_Y` não é chute: o conversor GARANTE a sola nesta linha.**
+ * `tools/pixellab2strip.mjs` mede o chão de cada quadro e desce/sobe o quadro
+ * inteiro para o pé cair em `GROUND_Y = 60`. **São o mesmo número em dois
+ * arquivos** — mudar um sem o outro enterra ou levanta as quatro classes.
  *
- * ⚠️ **`CENTER_X` continua sendo média medida, e é de propósito.** O centro
- * horizontal varia 3 a 5 px dentro do ciclo de passos, mas essa variação é a
- * PERNA ALTERNANDO — normalizá-la como se fosse erro congelaria a caminhada.
+ * ⚠️ **`CONTENT_H` é o mesmo para as quatro, e a variação real é de propósito.**
+ * Medido: Arqueiro 55, Knight 58, Feiticeiro 59, Assassino 60. Como a escala é
+ * 1,0×, cada classe é desenhada no seu tamanho natural — o Arqueiro sai um
+ * pouco mais baixo que o Assassino, e isso é a arte, não erro de âncora.
+ *
+ * ⚠️ **`CENTER_X` é média medida, e é de propósito.** O centro horizontal varia
+ * dentro do ciclo de passos, mas essa variação é a PERNA ALTERNANDO —
+ * normalizá-la como se fosse erro congelaria a caminhada.
  */
-const CONTENT_H = 30;
-const FEET_Y = 44;
-const CENTER_X = 29.5;
+const CONTENT_H = 58;
+const FEET_Y = 60;
+const CENTER_X = 31.5;
 
 /** Uma classe com arte HD carregada. */
 export interface HeroArt {
@@ -213,8 +233,8 @@ export function golpeDe(art: HeroArt, pose: AttackPose): DirAnim | undefined {
  * (linha 0 de `pose.png`), escalado para o box do cartão.
  *
  * Diferente do `knightIconCss`, que recorta a CABEÇA: aqui cabe o corpo inteiro,
- * porque o conteúdo tem 30 px de altura numa célula de 60 e o herói inteiro já
- * fica legível no tamanho do cartão.
+ * porque o herói ocupa quase toda a célula de 64 e já fica legível no tamanho
+ * do cartão.
  */
 export function heroIconCss(cls: PlayerClass, boxPx: number): string {
   const s = boxPx / CELL;

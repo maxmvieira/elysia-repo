@@ -56,15 +56,35 @@ recentrada em x (girar em torno dos pés desloca o tronco quase o corpo inteiro)
 Assassino e a API respondeu 422, deixando a classe com **morte pela metade**, com
 o erro aparecendo só na direção em que o estimador usou meio nível.
 
-### 🔴 POR QUE AINDA NÃO ESTÁ LIGADO
+### 🔴 A ARTE NOVA ESTÁ LIGADA NO JOGO (decisão do dono, 10/08)
 
-Agora falta só **`hurt`** — e ele provavelmente nem precisa: o motor **pisca
-vermelho** quando o arquivo não existe, que é o comportamento de sempre.
+`client/src/heroes.ts` aponta para **`/assets/classes-pixellab`**, e as cinco
+constantes foram trocadas juntas:
 
-O que falta de verdade é **alguém olhar em tela e decidir**. A saída continua em
-**`client/public/assets/classes-pixellab/`**, pasta separada, e ligar exige trocar
-as cinco constantes de `heroes.ts` (listadas na `PIXELLAB-RECEITA.md`). A troca é
-decisão do dono, e vale **por classe**.
+| | pack antigo | **em uso** |
+|---|---|---|
+| `CELL` | 60 | **64** |
+| `CONTENT_H` | 30 | **58** |
+| `FEET_Y` | 44 | **60** |
+| `CENTER_X` | 29.5 | **31.5** |
+| `TARGET_H` | 60 | **58** |
+
+🔴 **`TARGET_H === CONTENT_H` → escala 1,0×.** O sprite é desenhado no tamanho em
+que foi criado: **não existe serrilhado de escala quando não há escala.** Era o
+defeito nº 1 desta sessão, e ele deixou de existir em vez de ser atenuado.
+
+⚠️ **As cinco andam juntas.** Trocar a pasta sem trocar os números (ou o
+contrário) enterra ou levanta as quatro classes de uma vez. O pack antigo
+continua versionado em `/assets/classes` para voltar atrás.
+
+⚠️ **Falta `idle` e `hurt`, e os dois têm queda conhecida:** sem `idle` o motor
+congela no quadro 0 do `walk`, que é justamente a pose parada; sem `hurt` ele
+pisca vermelho, como sempre fez. Nada quebra.
+
+🔴 **NÃO FOI VISTO EM TELA.** Typecheck limpo e 445 testes passando não provam
+nada aqui — é arte, e esta sessão inteira é a prova de que o que quebra em arte
+só aparece jogando. **Primeira coisa a fazer:** subir o `dev:test` e abrir
+`http://localhost:5173/sprites-preview.html`, depois entrar no mundo.
 
 ### 🆕 O que existe
 
