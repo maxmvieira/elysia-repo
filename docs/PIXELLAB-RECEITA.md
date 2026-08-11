@@ -148,6 +148,25 @@ PIXELLAB_TOKEN=xxxx node tools/pixellab/gerar-classe.mjs knight
 
 ---
 
+## Se um dia ligar no jogo: as quatro constantes
+
+Medidas pelo `tools/pixellab2strip.mjs` no pack do Knight (ele imprime isto a
+cada conversão). Em `client/src/heroes.ts`:
+
+| Constante | Valor | Hoje (pack antigo) |
+|---|---|---|
+| `CELL` | **64** | 60 |
+| `CONTENT_H` | **58** | 30 |
+| `FEET_Y` | **60** | 44 |
+| `CENTER_X` | **31.5** | 29.5 |
+| `TARGET_H` | **58** | 60 |
+
+🔴 `TARGET_H = CONTENT_H` faz a escala ser **1,0× exata**: o sprite é desenhado
+no tamanho em que foi criado, sem ampliação nenhuma. É o melhor caso possível —
+não existe serrilhado de escala quando não há escala.
+
+⚠️ E `GROUND_Y` do `pixellab2strip.mjs` (60) tem que continuar igual ao `FEET_Y`.
+
 ## O que ainda não existe
 
 A receita cobre **parado e andando**. Falta:

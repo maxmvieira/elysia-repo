@@ -1,5 +1,97 @@
 # Handoff — estado do projeto em 2026-08-10
 
+## 🎨 10/08 (noite) — NASCEU UMA LINHAGEM DE ARTE NOVA. Leia isto antes de tudo.
+
+As quatro classes têm um pack **novo, em pixel art de verdade**, gerado pelo
+**PixelLab**. Ele está pronto para julgar e **NÃO está ligado no jogo** — o
+porquê está três parágrafos abaixo, e é a coisa mais importante desta seção.
+
+| | Arte em uso hoje | Pack PixelLab |
+|---|---|---|
+| Célula | 60×60 | **64×64** |
+| Corpo dentro dela | **25×29 px** (12 de largura andando!) | **~58 px de altura** |
+| Pixels opacos | ~400 | **~1200** |
+| Escala no jogo | 2,0× | **1,0× — sem ampliação nenhuma** |
+
+🔴 **É pixel art autoral, não render 3D reduzido**, com transparência nativa e no
+ângulo `high top-down`, que é o do jogo.
+
+### 🔴 POR QUE NÃO ESTÁ LIGADO
+
+**O pack tem parado e andando. Não tem `attack`, `hurt` nem `death`.** Trocar por
+cima de `assets/classes/` seria trocar arte **feia e completa** por arte **bonita
+e incompleta**, e o herói pararia de golpear. Por isso a saída vai para
+**`client/public/assets/classes-pixellab/`**, pasta separada. A troca é decisão
+do dono, e provavelmente vale **por classe**, não de uma vez.
+
+### 🆕 O que existe
+
+| Onde | O quê |
+|---|---|
+| `tools/pixellab/gerar-classe.mjs` | gera o pack — 4 direções + o 2º quadro do passo. **6 gerações por classe** |
+| `tools/pixellab2strip.mjs` | converte em `walk.png` + `pose.png`, mesmo layout do `frames2strip` |
+| `arte-fonte/pixellab/<classe>/` | o pack cru das 4 classes, versionado |
+| `client/public/assets/classes-pixellab/` | as tiras prontas |
+| 📖 `docs/PIXELLAB-RECEITA.md` | 🔴 **leia antes de mexer** — a receita e os seis becos sem saída |
+
+**Se um dia ligar**, as constantes de `client/src/heroes.ts` ficam: `CELL` 64 ·
+`CONTENT_H` 58 · `FEET_Y` 60 · `CENTER_X` 31.5 · `TARGET_H` **58**.
+`TARGET_H = CONTENT_H` faz a escala ser **1,0×** — não existe serrilhado de
+escala quando não há escala.
+
+### ⚠️ Os seis becos — ~44 gerações, para ninguém repetir
+
+Inteiros em `docs/PIXELLAB-RECEITA.md`. Os que mais custaram:
+
+1. **`animate-with-text` solto → o Knight criou ASAS**, e a paleta pulou de 80
+   para ~1500 cores. **A arma vem da imagem de referência, NUNCA repetida no
+   texto** — foi o texto que virou asa. E **`color_image` trava a paleta**.
+2. **Amarrado demais → as pernas congelam.** Tirar o artefato tirou o passo
+   junto. Os dois extremos falham.
+3. **`animate-with-skeleton` anima as pernas de verdade** (18 keypoints), **mas o
+   escudo do Knight some** — o modelo regenera o corpo a partir do esqueleto, e
+   escudo não existe nele. Congelar braços e subir o guidance não resolveu.
+4. 🔴 **Por isso a caminhada é `inpaint` só na faixa das pernas:** o que está
+   fora da máscara **não pode** ser perdido. É a única forma em que a identidade
+   é garantida por construção, e não por sorte. **2 quadros**, como o Tibia
+   clássico. A máscara tem que ficar **abaixo de y=50** — mais alto, o escudo
+   volta para a região redesenhada e se perde igual.
+5. **`generate-image-pixflux` NÃO vira o personagem.** `direction` é *weakly
+   guiding* e na prática é ignorado: pedir `north` devolve o mesmo sujeito de
+   frente. **Só o `/rotate` vira.** Foi o erro que fez a 1ª versão do gerador
+   entregar quatro poses bonitas e **uma direção só**.
+6. **No `/rotate` os números são por tentativa:** `guidance 7.5` acerta o norte;
+   no leste ele **duplica a cabeça** (dois elmos), e `guidance 5, seed 5` sai
+   limpo. **O oeste é ESPELHADO do leste** — não gasta geração e garante simetria.
+
+⚠️ **Leste e oeste saem em três quartos, não em perfil**, e **o norte só ficou
+costas de verdade no Knight** (os números foram afinados nele). Parece limite do
+modelo, não de parâmetro.
+
+💳 **Conta:** 2000 gerações/mês, crédito pago em **US$ 0,00** — estourar
+**falha, não cobra**. Token em `PIXELLAB_TOKEN`, **nunca no repositório**.
+
+### 📋 E o que o ChatGPT entregou
+
+O dono gerou 13 imagens. **Uma presta** — a prancha de referência do Knight, que
+virou o design do pack novo. As outras 12 são tentativas de folha de animação e
+não servem: **sem canal alpha**, quadros quase idênticos, linhas em
+"frontal/lateral/3-4" em vez das 4 direções do jogo, personagem trocando de arma
+entre folhas, e **texto queimado dentro do PNG**. É limite de gerador de imagem,
+não erro de prompt — ver `docs/PROMPT-ARTE-CLASSES.md`.
+
+### 🎯 De onde continuar
+
+1. ⏳ **Olhar `classes-pixellab/` e decidir se troca.** É a decisão que destrava
+   o resto.
+2. ⏳ **`attack_*` pelo mesmo truque do passo:** `inpaint` na faixa do **braço**
+   da arma, em vez da perna. É o próximo passo natural e o mais provável de dar
+   certo.
+3. ⏳ **`death` é o caso difícil** — o corpo inteiro muda, então máscara não
+   protege nada. Pode continuar vindo do pack antigo.
+
+---
+
 ## 🔍 10/08 — A ARTE DE CLASSE FOI MEDIDA, e dois defeitos saíram sem arte nova
 
 O dono disse que os personagens estavam feios. Foi medida a caixa de alpha de
