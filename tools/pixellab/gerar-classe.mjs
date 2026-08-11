@@ -19,7 +19,7 @@
  * ⚠️ O token NUNCA entra no repositorio: vem do ambiente, e so.
  */
 
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { deflateSync, inflateSync } from 'node:zlib';
 import { join } from 'node:path';
 
@@ -33,6 +33,9 @@ const API = 'https://api.pixellab.ai/v1';
 
 /** 🔴 Fixo em 64: `animate-with-text` declara min E max iguais a 64. */
 const CELL = 64;
+
+/** Ordem das direcoes. A mesma do frames2strip.mjs e do loader. */
+const DIRS = ['south', 'north', 'east', 'west'];
 
 /** Descricoes: saem dos `blurb` de `shared/src/stats.ts` e das cores de `miniworld.ts`. */
 const CLASSES = {
@@ -65,6 +68,58 @@ const CLASSES = {
  * O preco e um passo curto, de pe e canela. Tibia classico anda assim.
  */
 const FAIXA_PERNAS = [12, 52, 50, 63];
+
+/**
+ * Faixa redesenhada no GOLPE: o lado da arma, do topo da celula ate os pes.
+ *
+ * 🔴 Ela comeca em **y = 0**, e essa e a licao inteira deste passo: a mascara
+ * tem que conter o DESTINO, nao so a origem. A primeira tentativa mascarou
+ * y 18..58 — exatamente onde o braco ja estava — e a espada **nao subiu**, porque
+ * nao havia mascara acima do ombro para ela ocupar. O modelo so desenha dentro
+ * da mascara.
+ *
+ * ⚠️ E para em x=22 porque o elmo mora em x 22..32. Alargar para 26 fez a espada
+ * sair **solta no ar, sem braco segurando**.
+ *
+ * 🔴 **O LADO E POR CLASSE, e supor um lado so ja custou 12 geracoes.** A
+ * primeira versao mascarou a esquerda para todo mundo, porque o Knight segura a
+ * espada ali. Deu certo NO KNIGHT e falhou nas outras tres: o cajado do
+ * Feiticeiro fica na DIREITA da tela, e Arqueiro e Assassino usam os DOIS
+ * bracos (arco puxado, adaga em cada mao). Golpe fora da mascara nao acontece.
+ *
+ * `ambos` deixa o miolo (x 23..40) intacto — e onde mora o elmo/capuz.
+ */
+const BANDAS = {
+  esq: [[0, 22, 0, 58]],
+  dir: [[41, 63, 0, 58]],
+  ambos: [[0, 22, 0, 58], [41, 63, 0, 58]],
+};
+
+/** De que lado da TELA mora a arma de cada classe, na vista de frente. */
+const LADO_ARMA = {
+  knight: 'esq',      // espada na esquerda, escudo na direita
+  sorcerer: 'dir',    // o cajado nasce na direita da tela
+  archer: 'ambos',    // arco puxado ocupa os dois bracos
+  assassin: 'ambos',  // uma adaga em cada mao
+};
+
+/** No NORTE (vista de costas) a arma troca de lado na tela. */
+const ESPELHA_LADO = { esq: 'dir', dir: 'esq', ambos: 'ambos' };
+
+/**
+ * O gesto de golpe de cada classe, e em que arquivo ele cai.
+ *
+ * 🔴 Toda classe grava tambem `attack_sword`, mesmo o Feiticeiro. Nao e
+ * descuido: `attackPoseFallback` (em `shared/src/heropose.ts`) termina a cadeia
+ * em `sword`, entao classe sem esse arquivo perde o golpe inteiro e volta ao
+ * "pulinho" de investida do placeholder. O arquivo e o SLOT, nao a arma.
+ */
+const GOLPES = {
+  knight: { pose: 'sword', gesto: 'swinging a longsword, sword raised high above the shoulder to the upper left, arm extended up, mid-swing' },
+  sorcerer: { pose: 'staff', gesto: 'raising a wooden staff high above the shoulder to the upper left, crystal glowing bright, casting a spell' },
+  archer: { pose: 'bow', gesto: 'drawing a longbow, bow raised and arm extended to the upper left, arrow nocked, about to release' },
+  assassin: { pose: 'dagger', gesto: 'lunging with a dagger, arm thrust forward and up to the left, blade extended, mid-stab' },
+};
 
 // ---------------------------------------------------------------------------
 
@@ -137,10 +192,12 @@ function espelha(buf) {
   return encode(img.w, img.h, out, img.canais);
 }
 
-function mascara([x0, x1, y0, y1]) {
+function mascara(bandas) {
   const m = Buffer.alloc(CELL * CELL * 3); // preto = preservar
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    const o = (y * CELL + x) * 3; m[o] = m[o + 1] = m[o + 2] = 255; // branco = redesenhar
+  for (const [x0, x1, y0, y1] of bandas) {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const o = (y * CELL + x) * 3; m[o] = m[o + 1] = m[o + 2] = 255; // branco = redesenhar
+    }
   }
   return encode(CELL, CELL, m, 3);
 }
@@ -155,12 +212,51 @@ const COMUM = {
   detail: 'medium detail',
 };
 
+
+async function golpes(cls, dir, desc, poses) {
+  // O GOLPE, mesmo truque do passo, mas na faixa da ARMA.
+  const { pose, gesto } = GOLPES[cls];
+  const lado = LADO_ARMA[cls];
+  const mskArma = mascara(BANDAS[lado]);
+  const mskArmaEsp = mascara(BANDAS[ESPELHA_LADO[lado]]);
+  for (const d of ['south', 'north', 'east']) {
+    console.log(`  ${cls}: golpe ${d}...`);
+    const r = await call('inpaint', {
+      ...COMUM,
+      description: `${desc.split(',')[0]}, ${gesto}`,
+      negative_description: 'shield, second weapon, extra arms',
+      inpainting_image: paraB64(poses[d]),
+      // norte e a vista de COSTAS: a arma troca de lado na tela
+      mask_image: paraB64(d === 'north' ? mskArmaEsp : mskArma),
+      color_image: paraB64(poses[d]),
+      direction: d,
+      text_guidance_scale: 7,
+      seed: 31,
+    });
+    const golpe = daB64(r.image.base64);
+    writeFileSync(join(dir, `${d}-golpe.png`), golpe);
+    if (d === 'east') writeFileSync(join(dir, 'west-golpe.png'), espelha(golpe));
+  }
+  writeFileSync(join(dir, 'GOLPE.txt'), `${pose}\n`); // qual slot este golpe ocupa
+
+  console.log(`  ${cls}: golpes ok`);
+}
+
 async function gera(cls) {
   const desc = CLASSES[cls];
   if (!desc) throw new Error(`Classe desconhecida: ${cls}. Conhecidas: ${Object.keys(CLASSES).join(', ')}`);
   const dir = join('arte-fonte', 'pixellab', cls);
   mkdirSync(dir, { recursive: true });
   const poses = {};
+
+  // SO_GOLPE=1 refaz apenas o golpe, reusando as poses ja aprovadas no disco.
+  // Existe porque o lado da mascara e o que mais precisou de tentativa, e
+  // regerar as poses junto arriscaria trocar arte boa por outra tirada no dado.
+  if (process.env.SO_GOLPE) {
+    for (const d of DIRS) poses[d] = readFileSync(join(dir, `${d}.png`));
+    await golpes(cls, dir, desc, poses);
+    return;
+  }
 
   // 1. SUL — a referencia de todas as outras.
   console.log(`  ${cls}: sul...`);
@@ -197,7 +293,7 @@ async function gera(cls) {
   for (const [d, buf] of Object.entries(poses)) writeFileSync(join(dir, `${d}.png`), buf);
 
   // 4. O PASSO, por inpaint na faixa das pernas. Oeste espelha o leste de novo.
-  const msk = mascara(FAIXA_PERNAS);
+  const msk = mascara([FAIXA_PERNAS]);
   for (const d of ['south', 'north', 'east']) {
     console.log(`  ${cls}: passo ${d}...`);
     const r = await call('inpaint', {
@@ -217,7 +313,9 @@ async function gera(cls) {
     if (d === 'east') writeFileSync(join(dir, 'west-passo.png'), espelha(passo));
   }
 
-  console.log(`  ${cls}: ok — 8 arquivos, 6 geracoes`);
+  await golpes(cls, dir, desc, poses);
+
+  console.log(`  ${cls}: ok — 13 arquivos, 9 geracoes`);
 }
 
 const alvo = process.argv[2];

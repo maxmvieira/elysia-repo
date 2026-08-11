@@ -134,6 +134,30 @@ function converte(cls) {
 
   writeFileSync(join(outDir, 'walk.png'), encode(W, H, walk));
   writeFileSync(join(outDir, 'pose.png'), encode(CELL, H, pose));
+
+  // O golpe: 2 colunas — parado e o golpe —, uma linha por direcao.
+  if (DIRS.every((d) => existsSync(join(dir, `${d}-golpe.png`)))) {
+    const atk = Buffer.alloc(2 * CELL * H * 4);
+    DIRS.forEach((d, r) => {
+      [join(dir, `${d}.png`), join(dir, `${d}-golpe.png`)].forEach((p, c) => {
+        const img = decode(p);
+        const bruto = GROUND_Y - chaoDe(img);
+        blit(atk, 2 * CELL, img, c, r, Math.abs(bruto) <= ALIGN_MAX ? bruto : 0);
+      });
+    });
+    const tira = encode(2 * CELL, H, atk);
+
+    // 🔴 Grava no slot da arma da classe E em `attack_sword`.
+    // `attackPoseFallback` (shared/src/heropose.ts) termina a cadeia em `sword`:
+    // classe sem esse arquivo perde o golpe inteiro e volta ao "pulinho" de
+    // investida do placeholder. O nome do arquivo e o SLOT, nao a arma desenhada.
+    const slot = existsSync(join(dir, 'GOLPE.txt'))
+      ? readFileSync(join(dir, 'GOLPE.txt'), 'utf8').trim()
+      : 'sword';
+    writeFileSync(join(outDir, `attack_${slot}.png`), tira);
+    if (slot !== 'sword') writeFileSync(join(outDir, 'attack_sword.png'), tira);
+    console.log(`    + attack_${slot}${slot !== 'sword' ? ' (+ attack_sword)' : ''}`);
+  }
   const m = metricas(walk, W, H);
   console.log(`  ✓ ${cls}: walk ${cols}q · pose 1q · conteudo ${m.alturaConteudo}px (y ${m.topo}..${m.chao}) · centro x ${m.centroX}`);
   return 1;

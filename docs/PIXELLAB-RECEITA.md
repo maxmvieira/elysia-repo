@@ -167,6 +167,58 @@ não existe serrilhado de escala quando não há escala.
 
 ⚠️ E `GROUND_Y` do `pixellab2strip.mjs` (60) tem que continuar igual ao `FEET_Y`.
 
+## O golpe — mesmo truque do passo, e duas armadilhas novas
+
+`inpaint` na faixa da **arma**, em vez da perna. Funciona, e a garantia é a
+mesma: o que está fora da máscara não pode ser perdido.
+
+### 🔴 A máscara tem que conter o DESTINO, não só a origem
+
+A primeira tentativa mascarou `y 18..58` — exatamente onde o braço já estava — e
+**a espada não subiu**. Óbvio depois: "espada erguida" precisa de pixel **acima
+do ombro**, e ali não havia máscara. O modelo só desenha dentro dela.
+
+Com `y` começando em **0**, a espada sobe. É a faixa que está no gerador.
+
+⚠️ E ela para em **x=22** porque o elmo mora em x 22..32. Alargar para 26 fez a
+espada sair **solta no ar, sem braço segurando**.
+
+### 🔴 O lado da arma é POR CLASSE — supor um só custou 12 gerações
+
+A primeira versão mascarou a esquerda para todo mundo, porque é onde o Knight
+segura a espada. **Deu certo no Knight e falhou nas outras três**: o cajado do
+Feiticeiro nasce na **direita** da tela, e Arqueiro e Assassino usam os **dois**
+braços. Golpe fora da máscara simplesmente não acontece — as três saíram
+idênticas ao quadro parado.
+
+| Classe | Lado | Arquivo |
+|---|---|---|
+| `knight` | esquerda | `attack_sword` |
+| `sorcerer` | **direita** | `attack_staff` |
+| `archer` | **ambos** | `attack_bow` |
+| `assassin` | **ambos** | `attack_dagger` |
+
+No **norte** (vista de costas) o lado **espelha**.
+
+🔴 **Toda classe grava também `attack_sword`**, mesmo o Feiticeiro:
+`attackPoseFallback` (`shared/src/heropose.ts`) termina a cadeia em `sword`, e
+classe sem esse arquivo perde o golpe inteiro e volta ao "pulinho" de investida.
+**O nome do arquivo é o SLOT, não a arma desenhada.**
+
+⚠️ **Honestidade sobre o resultado:** o Knight ergue a espada e lê muito bem. O
+Feiticeiro não levanta muito o cajado, mas **o cristal acende** (violeta →
+dourado), o que funciona como conjuração. Arqueiro e Assassino são os mais
+fracos — o gesto muda pouco.
+
+### `SO_GOLPE=1` refaz só o golpe
+
+```bash
+SO_GOLPE=1 PIXELLAB_TOKEN=xxxx node tools/pixellab/gerar-classe.mjs sorcerer
+```
+
+Existe porque o lado da máscara foi o que mais precisou de tentativa, e regerar
+as poses junto trocaria arte já aprovada por outra tirada no dado.
+
 ## O que ainda não existe
 
 A receita cobre **parado e andando**. Falta:

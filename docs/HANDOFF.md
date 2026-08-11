@@ -16,13 +16,37 @@ porquê está três parágrafos abaixo, e é a coisa mais importante desta seç�
 🔴 **É pixel art autoral, não render 3D reduzido**, com transparência nativa e no
 ângulo `high top-down`, que é o do jogo.
 
-### 🔴 POR QUE NÃO ESTÁ LIGADO
+### ✅ O GOLPE ENTROU — mesmo truque do passo, na faixa da ARMA
 
-**O pack tem parado e andando. Não tem `attack`, `hurt` nem `death`.** Trocar por
-cima de `assets/classes/` seria trocar arte **feia e completa** por arte **bonita
-e incompleta**, e o herói pararia de golpear. Por isso a saída vai para
-**`client/public/assets/classes-pixellab/`**, pasta separada. A troca é decisão
-do dono, e provavelmente vale **por classe**, não de uma vez.
+`inpaint` mascarando o lado da arma. As quatro classes têm `attack_*` agora:
+`sword` (Knight), `staff` (Feiticeiro), `bow` (Arqueiro), `dagger` (Assassino) —
+e **todas gravam também `attack_sword`**, porque `attackPoseFallback` termina a
+cadeia nele e classe sem esse arquivo perde o golpe inteiro. **O nome do arquivo
+é o SLOT, não a arma desenhada.**
+
+🔴 **Duas armadilhas novas, e as duas custaram caro:**
+
+- **A máscara tem que conter o DESTINO, não só a origem.** Mascarei `y 18..58`,
+  exatamente onde o braço já estava, e **a espada não subiu** — não havia máscara
+  acima do ombro para ela ocupar. Começando em `y = 0`, sobe.
+- **O lado da arma é POR CLASSE.** Mascarei a esquerda para todos, porque é onde
+  o Knight segura a espada: deu certo **nele** e falhou nas outras três. O cajado
+  do Feiticeiro nasce na **direita**; Arqueiro e Assassino usam os **dois**
+  braços. Golpe fora da máscara não acontece.
+
+⚠️ **Resultado honesto:** o Knight ergue a espada e lê muito bem; o Feiticeiro não
+levanta muito o cajado, mas **o cristal acende** e funciona; Arqueiro e Assassino
+são os mais fracos, com gesto curto.
+
+### 🔴 POR QUE AINDA NÃO ESTÁ LIGADO
+
+**Falta `hurt` e `death`.** Sem `death`, o herói morreria sem cair. E `death` é o
+caso que a máscara **não** resolve: o corpo inteiro muda de posição, então não há
+região a preservar — é o oposto do que faz o passo e o golpe funcionarem.
+
+Por isso a saída continua em **`client/public/assets/classes-pixellab/`**, pasta
+separada. A troca é decisão do dono, e provavelmente vale **por classe**.
+⚠️ `hurt` talvez nem precise: o motor pisca vermelho quando falta.
 
 ### 🆕 O que existe
 
