@@ -38,15 +38,33 @@ cadeia nele e classe sem esse arquivo perde o golpe inteiro. **O nome do arquivo
 levanta muito o cajado, mas **o cristal acende** e funciona; Arqueiro e Assassino
 são os mais fracos, com gesto curto.
 
+### ✅ A MORTE ENTROU — e o esqueleto voltou, agora no lugar certo
+
+`animate-with-skeleton`, o endpoint descartado na caminhada. 🔴 **O motivo de ele
+servir aqui é o mesmo de não servir lá:** ele **regenera o corpo**. Na caminhada
+isso apagava o escudo, numa animação que roda o tempo todo; na morte o corpo
+**tem** que mudar inteiro, e a animação é **terminal** — acaba num monte no chão,
+congelado para sempre. E `inpaint` não serviria: não há região a preservar.
+
+O esqueleto **tomba girando em torno dos pés**, em 3 quadros. Visto no Knight: em
+pé → cambaleando → **corpo deitado** (a altura cai de 58 para 24 px, a largura vai
+a 58). O último quadro é o cadáver.
+
+🔴 **Duas armadilhas:** o corpo caído **sai do quadro** se a pose não for
+recentrada em x (girar em torno dos pés desloca o tronco quase o corpo inteiro), e
+**`z_index` tem que ser inteiro** — o `estimate-skeleton` devolveu `-0.5` no
+Assassino e a API respondeu 422, deixando a classe com **morte pela metade**, com
+o erro aparecendo só na direção em que o estimador usou meio nível.
+
 ### 🔴 POR QUE AINDA NÃO ESTÁ LIGADO
 
-**Falta `hurt` e `death`.** Sem `death`, o herói morreria sem cair. E `death` é o
-caso que a máscara **não** resolve: o corpo inteiro muda de posição, então não há
-região a preservar — é o oposto do que faz o passo e o golpe funcionarem.
+Agora falta só **`hurt`** — e ele provavelmente nem precisa: o motor **pisca
+vermelho** quando o arquivo não existe, que é o comportamento de sempre.
 
-Por isso a saída continua em **`client/public/assets/classes-pixellab/`**, pasta
-separada. A troca é decisão do dono, e provavelmente vale **por classe**.
-⚠️ `hurt` talvez nem precise: o motor pisca vermelho quando falta.
+O que falta de verdade é **alguém olhar em tela e decidir**. A saída continua em
+**`client/public/assets/classes-pixellab/`**, pasta separada, e ligar exige trocar
+as cinco constantes de `heroes.ts` (listadas na `PIXELLAB-RECEITA.md`). A troca é
+decisão do dono, e vale **por classe**.
 
 ### 🆕 O que existe
 

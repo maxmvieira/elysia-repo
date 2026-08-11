@@ -219,6 +219,43 @@ SO_GOLPE=1 PIXELLAB_TOKEN=xxxx node tools/pixellab/gerar-classe.mjs sorcerer
 Existe porque o lado da máscara foi o que mais precisou de tentativa, e regerar
 as poses junto trocaria arte já aprovada por outra tirada no dado.
 
+## A morte — o único lugar onde o ESQUELETO é a ferramenta certa
+
+`animate-with-skeleton`, o mesmo endpoint descartado na caminhada. 🔴 **E o
+motivo de ele servir aqui é exatamente o motivo de não servir lá:** ele
+**regenera o corpo** a partir da pose. Na caminhada isso apagava o escudo, numa
+animação que roda o tempo todo. Na morte o corpo **tem** que mudar inteiro, e a
+animação é **terminal** — acaba num monte no chão, congelado para sempre.
+Regenerar deixa de ser defeito e vira o que se quer.
+
+⚠️ **E `inpaint` NÃO serve aqui**, pelo mesmo motivo invertido: não existe região
+a preservar. É o oposto exato do que faz o passo e o golpe funcionarem.
+
+**Como é feito:** `estimate-skeleton` na pose parada, e o esqueleto inteiro
+**tomba girando em torno dos pés** — 3 quadros, a 0, 0,55 e 1,35 radianos, com o
+corpo afundando um pouco. O último é o cadáver.
+
+### 🔴 Duas armadilhas
+
+**1. O corpo caído SAI DO QUADRO.** Girar em torno dos pés desloca o tronco quase
+o comprimento do corpo, e a célula tem 64 px — na primeira tentativa o cavaleiro
+caiu metade para fora, pela direita. Por isso cada pose é **recentrada em x**
+depois de girada.
+
+**2. `z_index` tem que ser INTEIRO.** O `estimate-skeleton` às vezes devolve
+`-0.5`, e aí a API responde **422**. Aconteceu no Assassino, e o efeito é cruel:
+a classe fica com **morte pela metade** (sul e norte gravados, leste não), porque
+o erro só aparece na direção em que o estimador resolveu usar meio nível.
+`Math.round` no `z_index` resolve.
+
+⚠️ **A tira de morte NÃO é alinhada pelo chão** no conversor. `chaoDe` mede a
+última linha com massa, e num corpo **deitado** isso é o corpo inteiro, não o pé
+— alinhar por ele empurraria o cadáver para fora do tile.
+
+```bash
+SO_MORTE=1 PIXELLAB_TOKEN=xxxx node tools/pixellab/gerar-classe.mjs assassin
+```
+
 ## O que ainda não existe
 
 A receita cobre **parado e andando**. Falta:

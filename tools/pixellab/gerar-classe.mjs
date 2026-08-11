@@ -242,6 +242,74 @@ async function golpes(cls, dir, desc, poses) {
   console.log(`  ${cls}: golpes ok`);
 }
 
+/**
+ * A MORTE, por `animate-with-skeleton`: o corpo tomba girando em torno dos pes.
+ *
+ * 🔴 Aqui o esqueleto e a ferramenta CERTA, e e o unico lugar onde ele e. Ele
+ * foi descartado na caminhada porque REGENERA O CORPO e some com o escudo — mas
+ * na morte o corpo tem que mudar inteiro, e a animacao e TERMINAL: acaba num
+ * monte no chao, congelado para sempre. Regenerar deixa de ser defeito.
+ *
+ * ⚠️ Pelo mesmo motivo, `inpaint` NAO serve aqui: nao existe regiao a preservar.
+ * E o oposto exato do que faz o passo e o golpe funcionarem.
+ */
+async function mortes(cls, dir, poses) {
+  for (const d of ['south', 'north', 'east']) {
+    console.log(`  ${cls}: morte ${d}...`);
+    const base = poses[d];
+    const kp0 = (await call('estimate-skeleton', { image: paraB64(base) })).keypoints;
+
+    const pes = kp0.filter((k) => k.label.endsWith(' LEG'));
+    const px = pes.reduce((s, k) => s + k.x, 0) / pes.length;
+    const py = pes.reduce((s, k) => s + k.y, 0) / pes.length;
+
+    /**
+     * Gira o esqueleto `t` radianos em torno dos pes, afunda `dz`, e RECENTRA.
+     *
+     * 🔴 O recentro nao e enfeite: sem ele o corpo caido SAI DO QUADRO pela
+     * direita. Girar em torno dos pes desloca o tronco quase o comprimento do
+     * corpo, e a celula so tem 64 px.
+     */
+    const tomba = (t, dz) => {
+      const cos = Math.cos(t), sin = Math.sin(t);
+      const p = kp0.map((k) => {
+        const dx = k.x - px, dy = k.y - py;
+        return { ...k, x: px + dx * cos - dy * sin, y: py + dx * sin + dy * cos + dz };
+      });
+      const xs = p.map((k) => k.x);
+      const desloca = 0.5 - (Math.min(...xs) + Math.max(...xs)) / 2;
+      return p.map((k) => ({
+        ...k,
+        x: Math.min(0.97, Math.max(0.03, k.x + desloca)),
+        y: Math.min(0.97, Math.max(0.03, k.y)),
+        // 🔴 `z_index` TEM que ser inteiro: a API responde 422 com fracao, e o
+        // `estimate-skeleton` as vezes devolve -0.5 (aconteceu no Assassino).
+        // Sem isto, a classe fica com morte pela metade, e o erro so aparece na
+        // direcao em que o estimador resolveu usar meio nivel.
+        z_index: Math.round(k.z_index),
+      }));
+    };
+
+    // De pe -> joelhos cedendo -> caido. O ULTIMO e o cadaver.
+    const r = await call('animate-with-skeleton', {
+      image_size: { width: CELL, height: CELL },
+      reference_image: paraB64(base),
+      color_image: paraB64(base),
+      skeleton_keypoints: [tomba(0, 0), tomba(0.55, 0.04), tomba(1.35, 0.06)],
+      view: 'high top-down',
+      direction: d,
+      guidance_scale: 6,
+      seed: 41,
+    });
+
+    r.images.forEach((im, i) => {
+      const buf = daB64(im.base64);
+      writeFileSync(join(dir, `${d}-morte${i}.png`), buf);
+      if (d === 'east') writeFileSync(join(dir, `west-morte${i}.png`), espelha(buf));
+    });
+  }
+}
+
 async function gera(cls) {
   const desc = CLASSES[cls];
   if (!desc) throw new Error(`Classe desconhecida: ${cls}. Conhecidas: ${Object.keys(CLASSES).join(', ')}`);
@@ -252,9 +320,10 @@ async function gera(cls) {
   // SO_GOLPE=1 refaz apenas o golpe, reusando as poses ja aprovadas no disco.
   // Existe porque o lado da mascara e o que mais precisou de tentativa, e
   // regerar as poses junto arriscaria trocar arte boa por outra tirada no dado.
-  if (process.env.SO_GOLPE) {
+  if (process.env.SO_GOLPE || process.env.SO_MORTE) {
     for (const d of DIRS) poses[d] = readFileSync(join(dir, `${d}.png`));
-    await golpes(cls, dir, desc, poses);
+    if (process.env.SO_GOLPE) await golpes(cls, dir, desc, poses);
+    if (process.env.SO_MORTE) await mortes(cls, dir, poses);
     return;
   }
 
@@ -314,6 +383,7 @@ async function gera(cls) {
   }
 
   await golpes(cls, dir, desc, poses);
+  await mortes(cls, dir, poses);
 
   console.log(`  ${cls}: ok — 13 arquivos, 9 geracoes`);
 }

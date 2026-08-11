@@ -5,10 +5,9 @@
  * Saida:   `client/public/assets/classes-pixellab/<classe>/{walk,pose}.png`
  *
  * 🔴 A SAIDA VAI PARA UMA PASTA SEPARADA, e nao por cima de
- * `assets/classes/`. O pack PixelLab tem parado e andando, mas **nao tem
- * `attack`, `hurt` nem `death`** — trocar por cima agora seria trocar arte feia
- * e COMPLETA por arte bonita e INCOMPLETA, e o herói pararia de golpear.
- * A troca e decisao do dono; ver `docs/PIXELLAB-RECEITA.md`.
+ * `assets/classes/`. O pack tem parado, andando, golpe e morte; falta `hurt`,
+ * que o motor supre piscando vermelho. A troca e decisao do dono, e vale por
+ * classe — ver `docs/PIXELLAB-RECEITA.md`.
  *
  * Mesmo layout do `frames2strip.mjs`, para o loader ser o mesmo codigo:
  *   linha 0 = sul · 1 = norte · 2 = leste · 3 = oeste
@@ -158,6 +157,21 @@ function converte(cls) {
     if (slot !== 'sword') writeFileSync(join(outDir, 'attack_sword.png'), tira);
     console.log(`    + attack_${slot}${slot !== 'sword' ? ' (+ attack_sword)' : ''}`);
   }
+
+  // A morte: 3 colunas, uma linha por direção.
+  //
+  // ⚠️ NÃO alinha o chão como as outras. `chaoDe` mede a última linha com massa,
+  // e num corpo DEITADO isso é o corpo inteiro, não o pé — alinhar por ele
+  // empurraria o cadáver para fora do tile. Os quadros vão como vieram; o
+  // recentro já foi feito no esqueleto, na geração.
+  if (DIRS.every((d) => existsSync(join(dir, `${d}-morte2.png`)))) {
+    const morte = Buffer.alloc(3 * CELL * H * 4);
+    DIRS.forEach((d, r) => {
+      for (let c = 0; c < 3; c++) blit(morte, 3 * CELL, decode(join(dir, `${d}-morte${c}.png`)), c, r, 0);
+    });
+    writeFileSync(join(outDir, 'death.png'), encode(3 * CELL, H, morte));
+    console.log('    + death (3q, terminal — congela no cadáver)');
+  }
   const m = metricas(walk, W, H);
   console.log(`  ✓ ${cls}: walk ${cols}q · pose 1q · conteudo ${m.alturaConteudo}px (y ${m.topo}..${m.chao}) · centro x ${m.centroX}`);
   return 1;
@@ -167,4 +181,4 @@ if (!existsSync(SRC)) { console.error(`Sem ${SRC}/ — rode antes tools/pixellab
 let n = 0;
 for (const cls of readdirSync(SRC)) n += converte(cls);
 console.log(`\n  ${n} classes convertidas em ${OUT}/`);
-console.log('  ⚠️ Pasta SEPARADA de propósito: este pack nao tem attack/hurt/death.');
+console.log('  ⚠️ Pasta SEPARADA: falta só hurt (o motor pisca vermelho sem ele).');
