@@ -107,7 +107,29 @@ const TOPO_PERNAS = {
   assassin: 38,
 };
 
-const faixaPernas = (cls) => [12, 52, TOPO_PERNAS[cls], 63];
+/**
+ * A pasta de onde as poses saem e para onde as animacoes vao.
+ *
+ * `PACK=_desarmado` aponta para os corpos SEM arma, escritos por
+ * `desarmar.mjs`. Existe porque a arma virou camada: o corpo desarmado e a
+ * semente de todo o resto, e passo, golpe e morte precisam nascer DELE.
+ */
+const PACK = process.env.PACK || '';
+const pastaDe = (cls) => (PACK ? join('arte-fonte', 'pixellab', PACK, cls) : join('arte-fonte', 'pixellab', cls));
+
+/**
+ * 🔴 **No pack desarmado o topo e 38 para TODO MUNDO, inclusive o Knight.**
+ *
+ * O 50 dele nunca foi sobre a perna — era sobre o ESCUDO, que mora acima e que
+ * o `inpaint` perdia (beco nº 4). Tirado o escudo do sprite, o beco deixa de
+ * existir: nao ha equipamento dentro da mascara para destruir, entao a faixa
+ * pode subir ao quadril como nas outras classes.
+ *
+ * ⚠️ E por isso que o desarme tinha que vir ANTES da caminhada. Na outra ordem,
+ * as 6 geracoes do passo do Knight sairiam com a mascara baixa e teriam de ser
+ * refeitas.
+ */
+const faixaPernas = (cls) => [12, 52, PACK ? 38 : TOPO_PERNAS[cls], 63];
 
 /**
  * Faixa redesenhada no GOLPE: o lado da arma, do topo da celula ate os pes.
@@ -445,7 +467,7 @@ async function mortes(cls, dir, poses) {
 async function gera(cls) {
   const desc = CLASSES[cls];
   if (!desc) throw new Error(`Classe desconhecida: ${cls}. Conhecidas: ${Object.keys(CLASSES).join(', ')}`);
-  const dir = join('arte-fonte', 'pixellab', cls);
+  const dir = pastaDe(cls);
   mkdirSync(dir, { recursive: true });
   const poses = {};
 

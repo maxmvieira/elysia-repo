@@ -9,6 +9,73 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-08-12 (tarde) — A arma sai do corpo e vira camada
+
+**Onde mora:** `tools/pixellab/desarmar.mjs` · `tools/pixellab/girar.mjs` ·
+`shared/src/grip.ts` · `ItemDef.hands` em `shared/src/items.ts` · o `PACK` de
+`tools/pixellab/gerar-classe.mjs`.
+
+O dono listou 10 defeitos jogando, e eles tinham **uma causa só**: a arma
+pintada dentro do sprite do corpo. Com ela ali, cada combinação classe×arma
+precisa da folha inteira — e é por isso que o pack entrega **7 animações de
+ataque onde o pack antigo entrega 16**, com `attackPoseFallback` empurrando 13
+das 20 combinações para `attack_sword`.
+
+**O desarme funciona, e preserva a identidade.** `inpaint` abrindo os dois lados
+e preservando o miolo. A silhueta encolheu para largura de corpo puro (sul
+`x 7..48 → 18..44`; leste `x 12..55 → 19..44`), com a mesma armadura, o mesmo
+elmo e a mesma sobreveste. Isso evitou o caminho caro: gerar um cavaleiro novo
+por texto e refazer golpe, morte e passo em cima dele.
+
+🔴 **Apagar uma coisa de cada vez NÃO funciona.** Mascarar só o escudo devolveu
+uma **garra disforme** no lugar dele. Os dois lados abrem juntos — o modelo
+precisa de contexto simétrico para entender que os dois braços estão vazios;
+com um lado só, ele inventa um objeto para preencher.
+
+⚠️ **Medição e olho discordaram, e os dois eram necessários.** A caixa da
+silhueta provou que o escudo saiu; ela era **cega** para uma lâmina fina que
+sobrou junto ao quadril no sul, porque a lâmina cabia dentro da largura do
+corpo. Quem a viu foi o olho. Trocar a seed (11 → 23) resolveu. Nenhuma das duas
+ferramentas basta sozinha, e esta sessão é a prova.
+
+🔴 **Tirado o escudo, o beco nº 4 deixa de valer para o Knight.** A máscara da
+caminhada dele subiu ao quadril como nas outras classes, e o resultado é medido:
+a banda do escudo ao sul ia de **23 → 69 → 87** px ao longo do ciclo (era o
+"escudo fica redondo" que o dono viu); no corpo desarmado vai **4 → 0 → 13**. A
+caixa da silhueta ficou **idêntica nos três quadros**, coisa que nunca tinha
+acontecido no pack armado.
+
+⚠️ **Por isso o desarme tinha que vir ANTES da caminhada.** Na ordem inversa, as
+6 gerações do passo do Knight sairiam com a máscara baixa e teriam de ser
+refeitas.
+
+**`grip.ts` é o lado do código.** Com a arma por cima, o CORPO precisa de três
+posturas — uma mão, duas mãos, duas armas — em vez de uma folha por combinação.
+As regras são as do dono: escudo só se equipado, arma de duas mãos não usa
+escudo, só a adaga pode ser dupla. `ItemDef.hands` entra junto porque **duas
+mãos é propriedade do ITEM, não do TIPO**: o tipo não pode dizer que toda espada
+é de uma mão, senão "Espada de Duas Mãos" não tem como existir. Duas regras que
+já estavam escritas e nunca tinham tido efeito passam a ter — "duas mãos = sem
+escudo" (estava em `weapons.ts`) e o slot `shield` mandar no desenho.
+
+### ❌ As diagonais falharam, e vale registrar como
+
+O dono pediu 8 direções. `girar.mjs` gira a cardinal mais próxima (45°, não
+135°, porque o beco nº 6 ensinou que o erro cresce com o giro). O resultado
+**não presta**, e a medida é clara: vista de três quartos tem que ser mais
+estreita que a de frente, e o **sudeste saiu mais LARGO** (30 contra 28 do sul)
+— quase não virou — com a paleta pulando de 62 para **111 cores**, assinatura do
+beco nº 1. O **nordeste virou demais**: 23 px, mais estreito que o próprio
+perfil (26).
+
+🔴 **E há um problema anterior à arte: o movimento do jogo é 4-direcional.** O
+passo do servidor é `[[dx,0],[0,dy]]`, um eixo por vez, então sprite diagonal
+não tem como aparecer até o movimento mudar — e mudá-lo mexe em pathfinding,
+colisão e na invariante de que "decoração nunca encosta em decoração". Tibia e
+Medivia, a referência declarada, são 4-direcionais pelo mesmo motivo.
+
+---
+
 ## 2026-08-12 — A máscara do passo sobe ao quadril, e passa a ser por classe
 
 **Onde mora:** `TOPO_PERNAS` e `direcoes()` em `tools/pixellab/gerar-classe.mjs`.

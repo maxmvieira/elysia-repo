@@ -1,6 +1,78 @@
 # Handoff — estado do projeto em 2026-08-12
 
-## ⏸️ ONDE PARAMOS — retomar 12/08 pela manhã
+## 🗡️ 12/08 (tarde) — A ARMA SAIU DO CORPO. Leia isto antes de tudo.
+
+O dono jogou, listou 10 defeitos e virou o rumo: **a arma deixa de ser pintada
+no sprite e passa a ser CAMADA desenhada por cima**. Escopo dado por ele:
+**Knight primeiro, testar, depois o Sorcerer**, com **8 direções**.
+
+### 🔴 Os 10 defeitos tinham 1 causa só
+
+Adaga que não existe para três classes; lança, arco e cajado do Knight que
+"parecem a espada dele"; espada sumindo e escudo virando redondo na caminhada;
+e "trocar de arma tem que aparecer andando". Tudo isso é **a arma estar dentro
+do corpo**: cada combinação classe×arma exigiria a folha inteira dela.
+
+**O número que ninguém tinha escrito:** o pack PixelLab entrega **7 animações de
+ataque onde o pack antigo entrega 16**, e o `attackPoseFallback` esconde isso
+empurrando **13 das 20** combinações para `attack_sword`. Por isso o Knight faz
+o mesmo gesto com qualquer arma.
+
+### ✅ O que ficou pronto (22 gerações)
+
+| | O quê | Onde |
+|---|---|---|
+| ✅ | **Knight desarmado**, 4 direções | `arte-fonte/pixellab/_desarmado/knight/` |
+| ✅ | A ferramenta de desarme | `tools/pixellab/desarmar.mjs` |
+| ✅ | **Postura, escudo e adaga dupla** viraram regra testada | `shared/src/grip.ts` |
+| ✅ | `ItemDef.hands` — o que faz "Espada de Duas Mãos" existir | `shared/src/items.ts` |
+| ✅ | **Caminhada do Knight desarmado**, máscara no quadril | `_desarmado/knight/*-passo*.png` |
+| ⚠️ | As 4 diagonais — saíram, mas **ruins** (ver abaixo) | idem |
+
+🔴 **O desarme preserva a IDENTIDADE**, e era essa a dúvida cara. A silhueta
+encolheu para largura de corpo puro — sul `x 7..48 → 18..44`, leste
+`x 12..55 → 19..44` — com a mesma armadura, o mesmo elmo e a mesma sobreveste.
+Não foi preciso gerar um cavaleiro novo e refazer golpe, morte e passo nele.
+
+🔴 **A caminhada melhorou porque o corpo esvaziou.** Sem escudo no sprite, o
+beco nº 4 não vale para o Knight, e a máscara subiu ao quadril. Medido: a banda
+do escudo ao sul ia de **23 → 69 → 87** px no ciclo (o "escudo fica redondo"); no
+corpo desarmado vai **4 → 0 → 13**. E a caixa da silhueta ficou **idêntica nos
+três quadros** (`x 18..45`), coisa que nunca tinha acontecido.
+
+### ⚠️ O que NÃO ficou bom, e é honesto saber
+
+1. **As diagonais não prestam ainda.** Vista de três quartos tem que ser mais
+   estreita que a de frente. O **sudeste saiu mais LARGO** (30 contra 28 do sul)
+   — ou seja, quase não virou — e a paleta dele pulou de 62 para **111 cores**,
+   que é a assinatura do beco nº 1. O **nordeste virou demais**: 23 px, mais
+   estreito que o próprio perfil (26), o que é geometricamente errado. O
+   `/rotate` a 45° não está entregando. Ferramenta em `tools/pixellab/girar.mjs`.
+2. 🔴 **E o movimento do jogo é 4-direcional.** O passo do servidor é
+   `[[dx,0],[0,dy]]` — um eixo por vez. **Sprite diagonal não tem como aparecer**
+   até o movimento mudar, e mudá-lo mexe em pathfinding, colisão e na invariante
+   de que "decoração nunca encosta em decoração". Tibia e Medivia, a referência
+   declarada, são 4-direcionais pelo mesmo motivo.
+3. **O norte do Knight tem sobreveste CIANO**, mais clara que o azul das outras
+   três direções. Duas seeds deram o mesmo. Não bloqueia; está ali.
+4. **Nada disso está ligado no jogo.** `_desarmado/` é pasta separada, e o
+   conversor pula pasta começada por `_`. O jogo continua com o pack armado.
+
+### 🎯 De onde continuar
+
+1. ⏳ **Golpe e morte do corpo desarmado** — o passo já nasceu dele; faltam os
+   outros dois. Mesmo pipeline: `PACK=_desarmado SO_GOLPE=1 …`
+2. ⏳ **Os sprites de arma** — 10 variantes que o dono listou (machado 1M, espada
+   2M, machado 2M, maça 1M e 2M, adaga 1M, adaga dupla, cajado 1M e 2M), mais o
+   escudo. São objetos pequenos: podem sair muito mais baratos que corpos.
+3. ⏳ **O ponto de mão** por quadro e por direção, e a ordem de desenho (arma
+   atrás do corpo quando ele está de costas). É a peça que faz o `grip.ts` virar
+   imagem.
+4. ⏳ **Decidir sobre as diagonais** — hoje são arte ruim que o motor não mostra.
+
+---
+
+## ⏸️ ONDE PARAMOS — 12/08 pela manhã (o bloco anterior)
 
 🔴 **A DESCOBERTA MAIS IMPORTANTE DE ONTEM: a referência do jogo é o MEDIVIA**
 (motor estilo Tibia 7.x). O dono mandou o vídeo dizendo que ele *"tem todas as
