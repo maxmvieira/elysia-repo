@@ -351,6 +351,14 @@ interface Player {
    */
   professions: Professions;
   /**
+   * Cores do outfit, escolhidas na criação. `undefined` = arte original.
+   * Persistido na coluna `outfit` desde a migração v5.
+   *
+   * ⚠️ **COSMÉTICO** — `13.10` do Doc 1: aparência nunca altera estatística.
+   * Se algum dia isto aparecer dentro de `recompute` ou de `combat`, é bug.
+   */
+  outfit?: number[];
+  /**
    * Quando coletou pela última vez, para impor `GATHER_COOLDOWN_MS`.
    *
    * Mora no jogador, e não no nó: o limite é do braço de quem trabalha, não da
@@ -3298,6 +3306,7 @@ function applyStoredCharacter(player: Player, c: ReturnType<typeof store.loadCha
     parsed.proficiencies as Record<string, { level: number; progress: number } | undefined>,
   );
   player.professions = parsed.professions;
+  player.outfit = parsed.outfit;
   player.bestiary = parsed.bestiary;
   player.respawnTown = c.respawnTown;
   player.visitedTowns = new Set(c.visitedTowns);
@@ -4614,6 +4623,11 @@ function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
       // `equippedWeapon` que o combate usa — se divergissem, o herói golpearia de
       // arco enquanto o dano saísse de espada.
       weaponType: equippedWeapon(p)?.identity.type,
+      // As cores escolhidas, pela MESMA razão do `weaponType` acima: sem elas o
+      // cliente só saberia o outfit do próprio jogador, e os outros apareceriam
+      // todos na cor de fábrica da classe. ⚠️ COSMÉTICO (`13.10`) — não entra em
+      // conta nenhuma, e é omitido para quem não escolheu.
+      outfit: p.outfit,
       // Mesma economia do `conditions` abaixo: só vai quando é verdade/existe.
       // PK ligado é minoria, grupo também e caveira mais ainda, então na prática
       // nenhum dos três campos viaja no caso comum.

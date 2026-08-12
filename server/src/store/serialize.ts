@@ -15,7 +15,7 @@ import type {
   Attributes, BestiaryState, EquipSlot, ItemStack, PlayerClass,
   Proficiencies, Professions, SkillLevels, SkillState,
 } from '@dominion/shared';
-import { EQUIP_SLOTS } from '@dominion/shared';
+import { EQUIP_SLOTS, sanitizeOutfit } from '@dominion/shared';
 import type { StoredCharacter, StoredItem } from './store.js';
 
 /** O recorte do Player que realmente vai para o banco. */
@@ -51,6 +51,14 @@ export interface Persistable {
    * nada lia nem gravava, então subir Ferreiro e relogar perdia tudo.
    */
   professions: Professions;
+  /**
+   * Cores do outfit (`docs/PLANO-OUTFITS.md`). `undefined` = arte original.
+   *
+   * ⚠️ COSMÉTICO — `13.10` do Doc 1: aparência **nunca** altera estatística.
+   * Está no `Persistable` porque é do PERSONAGEM, não da conta: dois
+   * personagens da mesma conta têm cores próprias.
+   */
+  outfit?: number[];
 }
 
 /** Achata mochila + depósito + equipamento numa lista de linhas. */
@@ -166,6 +174,7 @@ export function toStored(
     proficiencies: JSON.stringify(p.proficiencies),
     bestiary: JSON.stringify(p.bestiary),
     professions: JSON.stringify(p.professions),
+    outfit: JSON.stringify(p.outfit ?? []),
     items: itemsToRows(p),
     visitedTowns,
   };
@@ -179,6 +188,7 @@ export function fromStored(c: StoredCharacter): {
   proficiencies: Proficiencies;
   bestiary: BestiaryState;
   professions: Professions;
+  outfit: number[] | undefined;
 } {
   return {
     attributes: JSON.parse(c.attributes) as Attributes,
@@ -193,5 +203,19 @@ export function fromStored(c: StoredCharacter): {
     // Personagem criado antes da migração v2 tem a coluna com o DEFAULT '{}',
     // mas um save corrompido ou vazio não pode derrubar o login — daí o fallback.
     professions: JSON.parse(c.professions || '{}') as Professions,
+    // 🔴 O outfit volta do banco pela MESMA peneira por onde entrou. Ele é a
+    // única coisa aqui que veio do cliente, e uma linha antiga (ou editada à
+    // mão) não pode virar cor inválida no snapshot. `sanitizeOutfit` é
+    // idempotente, e há teste travando isso.
+    outfit: sanitizeOutfit(parseOuVazio(c.outfit)),
   };
+}
+
+/** JSON que não parseia vira `[]` — save torto não pode derrubar o login. */
+function parseOuVazio(bruto: string | undefined): unknown {
+  try {
+    return JSON.parse(bruto || '[]');
+  } catch {
+    return [];
+  }
 }

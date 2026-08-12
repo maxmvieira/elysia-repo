@@ -20,7 +20,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { nameKey } from '@dominion/shared';
-import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_VERSION } from './schema.js';
+import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_VERSION } from './schema.js';
 
 // --------------------------------------------------------------- Tipos ----
 
@@ -66,6 +66,18 @@ export interface StoredCharacter {
   bestiary: string;
   /** JSON do mapa de profissões (`DD-PROF-004`). */
   professions: string;
+  /**
+   * JSON das cores do outfit — `'[]'` = arte com a cor original.
+   *
+   * ⚠️ **OPCIONAL de propósito.** Coluna nova (v5) não pode quebrar quem monta
+   * um `StoredCharacter` sem saber dela: ausente vira `'[]'` no `INSERT`, que é
+   * exatamente "sem outfit". Exigir o campo fez 15 testes caírem com
+   * *"cannot be bound to SQLite parameter 28"* — e o erro estava em exigir, não
+   * nos testes.
+   *
+   * ⚠️ COSMÉTICO (`13.10`): nunca entra em cálculo de nada.
+   */
+  outfit?: string;
   items: StoredItem[];
   visitedTowns: string[];
 }
@@ -149,6 +161,10 @@ export class Store {
     // schema, nunca o número de versão.
     if (!this.hasTable('account_friend')) {
       this.db.exec(SCHEMA_V4);
+    }
+    // v5 (outfit), mesmo portão: quem decide é o schema, nunca o número.
+    if (!this.hasColumn('character', 'outfit')) {
+      this.db.exec(SCHEMA_V5);
     }
     if (current !== SCHEMA_VERSION) {
       this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
@@ -286,9 +302,9 @@ export class Store {
            skill_kind, skill_level, skill_progress,
            hp, mana, gold, bank_gold, tile_x, tile_y, floor, respawn_town,
            skill_points, skill_resets, skill_levels, proficiencies, bestiary,
-           professions,
+           professions, outfit,
            created_at, last_played_at
-         ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?, ?, ?,?)`,
+         ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?, ?,?, ?,?)`,
       )
       .run(
         c.accountId, c.name, nameKey(c.name), c.cls, c.gender,
@@ -296,7 +312,7 @@ export class Store {
         c.skillKind, c.skillLevel, c.skillProgress,
         c.hp, c.mana, c.gold, c.bankGold, c.tileX, c.tileY, c.floor, c.respawnTown,
         c.skillPoints, c.skillResets, c.skillLevels, c.proficiencies, c.bestiary,
-        c.professions,
+        c.professions, c.outfit ?? '[]',
         now, now,
       );
     const id = Number(info.lastInsertRowid);
@@ -341,6 +357,8 @@ export class Store {
       // Personagem criado antes da v2 tem o DEFAULT '{}'; o `?? '{}'` cobre o
       // caso de um banco onde a coluna foi adicionada sem default.
       professions: (r.professions as string) ?? '{}',
+      // Personagem anterior à v5 tem o DEFAULT '[]' — sem outfit, cor original.
+      outfit: (r.outfit as string) ?? '[]',
       items: this.loadItems(id),
       visitedTowns: this.visitedTowns(id),
     };

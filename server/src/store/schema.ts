@@ -15,7 +15,7 @@
  * Migrações: `user_version` do SQLite. Cada versão é um passo idempotente.
  */
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /**
  * v2 — Profissões (`DD-PROF-023`).
@@ -76,6 +76,25 @@ CREATE TABLE IF NOT EXISTS account_friend (
   PRIMARY KEY (account_id, friend_account_id)
 );
 CREATE INDEX IF NOT EXISTS ix_friend_account ON account_friend(account_id);
+`;
+
+/**
+ * v5 — Outfit: as cores escolhidas para o personagem.
+ *
+ * Uma coluna JSON, e não três colunas de cor, pelo mesmo motivo do `professions`
+ * da v2: **o número de grupos coloríveis é por CLASSE e pode mudar** quando a
+ * arte mudar. `OUTFIT_MAX_GRUPOS` é 3 hoje porque foi isso que a medição dos
+ * quatro packs achou; virar 4 amanhã não deve exigir migração nova.
+ *
+ * 🔴 **`'[]'` é o padrão, e significa "cor original da arte"** — não "preto".
+ * Personagem que já existe entra sem outfit e continua com a aparência de
+ * sempre, que é a única migração honesta para quem nunca escolheu nada.
+ *
+ * ⚠️ É COSMÉTICO. `13.10` do Doc 1: aparência nunca altera estatística. Nada
+ * que leia esta coluna pode entrar em cálculo de combate.
+ */
+export const SCHEMA_V5 = `
+ALTER TABLE character ADD COLUMN outfit TEXT NOT NULL DEFAULT '[]';
 `;
 
 export const SCHEMA_V1 = `
