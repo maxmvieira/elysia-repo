@@ -95,6 +95,31 @@ de **62 para 51** e a silhueta estreita de 28 para 25 px.
 `-golpe.png` que o pipeline de hoje espera. Quando o motor souber tocar golpe de
 vários quadros, a arte já está lá.
 
+### ✅ A CAMADA FUNCIONA — corpo + espada + escudo remonta o Knight
+
+🔴 **É a prova de ponta a ponta do rumo.** Três arquivos separados, compostos em
+ordem, devolvem o cavaleiro armado **com o leão dourado do escudo no lugar**.
+
+E as armas **não precisaram ser desenhadas**: elas já estavam no pack, grudadas
+no corpo. O que existe no armado e não no desarmado é, por definição, o
+equipamento. `tools/pixellab/extrair-arma.mjs` recorta os dois **sem gastar
+geração nenhuma**; `tools/pixellab/compor.mjs` remonta.
+
+⚠️ O alpha sozinho deixava o escudo **oco** (145 px, só o aro): onde ele cobre o
+peito, o desarmado também é opaco. Mas ali quem está à vista no armado **é o
+escudo** — ele está na frente. O critério que entrou cresce a partir do aro para
+vizinhos que **discordam** do desarmado, e para onde os dois voltam a concordar,
+que é onde o corpo reaparece. **145 → 547 px**, e o leão voltou junto.
+
+⚠️ **Só existem espada e escudo**, porque só eles estavam desenhados. As outras
+**nove** variantes que o dono listou — machado 1M e 2M, espada 2M, maça 1M e 2M,
+adaga 1M, adaga dupla, cajado 1M e 2M — não existem em pack nenhum neste estilo,
+e o recorte não as inventa. Elas são geração ou desenho à mão.
+
+⚠️ Dois defeitos, e nenhum é do recorte: o elmo do corpo desarmado perdeu a
+fresta escura da viseira, e o composto do leste tem um artefato preto entre o
+corpo e o escudo.
+
 ### 🎯 De onde continuar
 2. ⏳ **Os sprites de arma** — 10 variantes que o dono listou (machado 1M, espada
    2M, machado 2M, maça 1M e 2M, adaga 1M, adaga dupla, cajado 1M e 2M), mais o
