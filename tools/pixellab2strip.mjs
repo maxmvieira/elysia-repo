@@ -20,8 +20,18 @@ import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 
 import { inflateSync, deflateSync } from 'node:zlib';
 import { join } from 'node:path';
 
-const SRC = 'arte-fonte/pixellab';
-const OUT = 'client/public/assets/classes-pixellab';
+/**
+ * ⚠️ `SRC`/`OUT` existem por causa do pack em CAMADAS.
+ *
+ * O corpo desarmado mora em `arte-fonte/pixellab/_desarmado/`, e o `_` inicial
+ * e justamente o que o laco la embaixo pula — a pasta nao e uma classe. Mas o
+ * conteudo dela tem exatamente o mesmo formato (`<dir>-<anim>.png`), entao o
+ * conversor serve sem mudar nada alem de para onde apontar.
+ *
+ *   SRC=arte-fonte/pixellab/_desarmado OUT=client/public/assets/classes-layered
+ */
+const SRC = process.env.SRC || 'arte-fonte/pixellab';
+const OUT = process.env.OUT || 'client/public/assets/classes-pixellab';
 const DIRS = ['south', 'north', 'east', 'west'];
 const CELL = 64;
 
