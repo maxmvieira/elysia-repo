@@ -21,7 +21,121 @@
 
 import { Assets, Rectangle, Texture } from 'pixi.js';
 import { attackPoseFallback, type AttackPose, type PlayerClass } from '@dominion/shared';
-import type { DirAnim } from './miniworld.js';
+import { loadImage, type DirAnim } from './miniworld.js';
+
+// ---- Outfit: recolorir por GRUPO -------------------------------------------
+//
+// Passo 2 do `docs/PLANO-OUTFITS.md`. A tabela cor -> grupo vem de
+// `grupos.json`, escrito por `tools/outfit-grupos.mjs`; aqui ela vira pixel na
+// tela. Ainda NÃO há escolha do jogador, protocolo nem banco — a cor de teste
+// entra por `?outfit=` na URL, e sem ela o jogo desenha exatamente como antes.
+
+/** Cor escolhida por grupo. Índice 0 = grupo 1. `undefined` = cor original. */
+export type Outfit = readonly (number | undefined)[];
+
+interface Grupos {
+  grupos: Array<{ id: number; nome: string; exemplo: string }>;
+  /** `'#rrggbb'` -> id do grupo. 0 = nunca recolorir (contorno e pele). */
+  cores: Record<string, number>;
+}
+
+const hsl = (r: number, g: number, b: number): [number, number, number] => {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  const l = (mx + mn) / 2;
+  if (d === 0) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h *= 60; if (h < 0) h += 360;
+  return [h, s, l];
+};
+
+const rgb = (h: number, s: number, l: number): [number, number, number] => {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const t: [number, number, number] =
+    h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x]
+      : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return [Math.round((t[0] + m) * 255), Math.round((t[1] + m) * 255), Math.round((t[2] + m) * 255)];
+};
+
+const hex2 = (n: number): string => '#' + n.toString(16).padStart(6, '0');
+
+/**
+ * Recolore uma tira inteira segundo a tabela de grupos.
+ *
+ * 🔴 **Troca MATIZ e SATURAÇÃO, e desloca a luminância em bloco — não a
+ * substitui.** Cada pixel do grupo mantém a sua distância de luz para os
+ * vizinhos, e o grupo inteiro sobe ou desce junto pela diferença entre a cor
+ * escolhida e a cor dominante original. Substituir a luminância chapa o
+ * sombreado e o personagem vira mancha: as dobras do pano são luminância.
+ *
+ * ⚠️ Grupo 0 passa intacto, e é a maior parte do sprite (42% a 54%): contorno e
+ * pele. É o contorno que sustenta a legibilidade a 64 px.
+ */
+function recolore(img: HTMLImageElement, g: Grupos, outfit: Outfit): HTMLCanvasElement {
+  const cv = document.createElement('canvas');
+  cv.width = img.width; cv.height = img.height;
+  const ctx = cv.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(img, 0, 0);
+  const dados = ctx.getImageData(0, 0, cv.width, cv.height);
+  const p = dados.data;
+
+  // Alvo por grupo, já em HSL, com o deslocamento de luz calculado UMA vez.
+  const alvo = new Map<number, { h: number; s: number; dl: number }>();
+  for (const grupo of g.grupos) {
+    const cor = outfit[grupo.id - 1];
+    if (cor === undefined) continue;
+    const n = parseInt(grupo.exemplo.slice(1), 16);
+    const [, , baseL] = hsl((n >> 16) & 255, (n >> 8) & 255, n & 255);
+    const [h, s, l] = hsl((cor >> 16) & 255, (cor >> 8) & 255, cor & 255);
+    alvo.set(grupo.id, { h, s, dl: l - baseL });
+  }
+  if (alvo.size === 0) return cv;
+
+  // Memória de cor->cor: a paleta tem ~80 entradas para dezenas de milhares de
+  // pixels, então converter HSL uma vez por COR (e não por pixel) é o que faz
+  // isto caber num carregamento.
+  const memo = new Map<number, [number, number, number]>();
+  for (let i = 0; i < p.length; i += 4) {
+    if (p[i + 3]! <= 8) continue;
+    const cr = p[i]!, cg = p[i + 1]!, cb = p[i + 2]!;
+    const k = (cr << 16) | (cg << 8) | cb;
+    let novo = memo.get(k);
+    if (novo === undefined) {
+      const gid = g.cores[hex2(k)] ?? 0;
+      const t = alvo.get(gid);
+      if (t) {
+        const [, , l] = hsl(cr, cg, cb);
+        novo = rgb(t.h, t.s, Math.min(1, Math.max(0, l + t.dl)));
+      } else {
+        novo = [cr, cg, cb];
+      }
+      memo.set(k, novo);
+    }
+    p[i] = novo[0]; p[i + 1] = novo[1]; p[i + 2] = novo[2];
+  }
+  ctx.putImageData(dados, 0, 0);
+  return cv;
+}
+
+/**
+ * Outfit de teste vindo da URL: `?outfit=1f65b8,7d7b7d,f1c93a`.
+ *
+ * ⚠️ Existe para o passo 2 ser VISTO sem ainda ter escolha, protocolo nem banco.
+ * Sem o parâmetro o jogo desenha exatamente como antes — recolorir é opt-in até
+ * o sistema ficar de pé.
+ */
+export function outfitDaUrl(): Outfit | null {
+  const bruto = new URLSearchParams(location.search).get('outfit');
+  if (!bruto) return null;
+  const cores = bruto.split(',').map((s) => {
+    const n = parseInt(s.trim().replace(/^#/, ''), 16);
+    return Number.isNaN(n) ? undefined : n;
+  });
+  return cores.some((c) => c !== undefined) ? cores : null;
+}
 
 /**
  * De onde vem a arte de classe.
@@ -133,8 +247,17 @@ const COM_ARTE: PlayerClass[] = [...HERO_ART_CLASSES];
  * diferentes (andar tem 4, golpe tem 9) e hardcodar isso quebraria calado na
  * primeira arte reexportada com outra contagem.
  */
-async function fatia(path: string): Promise<DirAnim> {
-  const sheet = await Assets.load<Texture>(path);
+async function fatia(path: string, pintar?: Pintor): Promise<DirAnim> {
+  // 🔴 Com outfit o caminho é OUTRO: `Assets.load` devolve textura de GPU, e
+  // recolorir exige os pixels na mão. Passa pelo canvas 2D, como `spritebox.ts`
+  // já faz pelo mesmo motivo. Sem outfit continua o caminho de sempre — nada
+  // muda para quem não escolheu cor.
+  //
+  // ⚠️ `loadImage` (de `miniworld.ts`) espera `onload`, NUNCA `img.decode()`:
+  // em aba oculta o Chrome adia a decodificação e a promessa nunca resolve.
+  const sheet = pintar
+    ? Texture.from(pintar(await loadImage(path)))
+    : await Assets.load<Texture>(path);
   sheet.source.scaleMode = 'nearest'; // pixel-art nítido ao escalar
   const cols = Math.max(1, Math.round(sheet.width / CELL));
   const linha = (r: number): Texture[] =>
@@ -147,33 +270,60 @@ async function fatia(path: string): Promise<DirAnim> {
   return { down: linha(0), up: linha(1), right: linha(2), left: linha(3) };
 }
 
+/** Recolore uma folha carregada. `undefined` = sem outfit, caminho de sempre. */
+type Pintor = (img: HTMLImageElement) => HTMLCanvasElement;
+
 /** Tenta cortar uma tira opcional. Ausente vira `undefined`, sem barulho. */
-async function fatiaOpcional(path: string): Promise<DirAnim | undefined> {
+async function fatiaOpcional(path: string, pintar?: Pintor): Promise<DirAnim | undefined> {
   try {
-    return await fatia(path);
+    return await fatia(path, pintar);
   } catch {
     return undefined;
   }
 }
 
-async function carregaClasse(cls: PlayerClass): Promise<HeroArt | null> {
+/**
+ * A tabela de grupos da classe, ou `null` se ela não tiver.
+ *
+ * ⚠️ Ausência é normal, não erro: classe sem `grupos.json` simplesmente não
+ * aceita outfit e desenha com a cor original. Nada aqui pode derrubar o
+ * carregamento — é arte.
+ */
+async function carregaGrupos(cls: PlayerClass): Promise<Grupos | null> {
+  try {
+    const r = await fetch(`${BASE}/${cls}/grupos.json`);
+    if (!r.ok) return null;
+    const g = (await r.json()) as Grupos;
+    return g.grupos && g.cores ? g : null;
+  } catch {
+    return null;
+  }
+}
+
+async function carregaClasse(cls: PlayerClass, outfit: Outfit | null): Promise<HeroArt | null> {
   const p = (nome: string) => `${BASE}/${cls}/${nome}.png`;
+
+  const grupos = outfit ? await carregaGrupos(cls) : null;
+  const pintar: Pintor | undefined = grupos && outfit
+    ? (img) => recolore(img, grupos, outfit)
+    : undefined;
+
   let walk: DirAnim;
   try {
-    walk = await fatia(p('walk'));
+    walk = await fatia(p('walk'), pintar);
   } catch {
     return null; // sem ciclo de passos não há o que mostrar — cai no MiniWorld
   }
 
   const [idle, hurt, death, sword, dagger, spear, bow, staff] = await Promise.all([
-    fatiaOpcional(p('idle')),
-    fatiaOpcional(p('hurt')),
-    fatiaOpcional(p('death')),
-    fatiaOpcional(p('attack_sword')),
-    fatiaOpcional(p('attack_dagger')),
-    fatiaOpcional(p('attack_spear')),
-    fatiaOpcional(p('attack_bow')),
-    fatiaOpcional(p('attack_staff')),
+    fatiaOpcional(p('idle'), pintar),
+    fatiaOpcional(p('hurt'), pintar),
+    fatiaOpcional(p('death'), pintar),
+    fatiaOpcional(p('attack_sword'), pintar),
+    fatiaOpcional(p('attack_dagger'), pintar),
+    fatiaOpcional(p('attack_spear'), pintar),
+    fatiaOpcional(p('attack_bow'), pintar),
+    fatiaOpcional(p('attack_staff'), pintar),
   ]);
 
   const attacks: Partial<Record<AttackPose, DirAnim>> = {};
@@ -200,8 +350,10 @@ async function carregaClasse(cls: PlayerClass): Promise<HeroArt | null> {
  * Carrega a arte HD de todas as classes que tiverem pack. Classe sem arte
  * simplesmente não aparece no mapa devolvido, e o chamador cai no MiniWorld.
  */
-export async function loadHeroArt(): Promise<Partial<Record<PlayerClass, HeroArt>>> {
-  const artes = await Promise.all(COM_ARTE.map((c) => carregaClasse(c).catch(() => null)));
+export async function loadHeroArt(
+  outfit: Outfit | null = outfitDaUrl(),
+): Promise<Partial<Record<PlayerClass, HeroArt>>> {
+  const artes = await Promise.all(COM_ARTE.map((c) => carregaClasse(c, outfit).catch(() => null)));
   const out: Partial<Record<PlayerClass, HeroArt>> = {};
   COM_ARTE.forEach((c, i) => {
     const a = artes[i];

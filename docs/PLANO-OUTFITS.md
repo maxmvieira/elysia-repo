@@ -100,15 +100,30 @@ o que sustenta a legibilidade a 64 px, e recolorir quase-preto não se veria.
 variável de ambiente, e `DIAG=1` imprime a fração de borda das cores de maior
 área — foi assim que os números acima foram escolhidos, olhando dado.
 
-**2. Cliente: recolorir em canvas, no carregamento**
+**2. ✅ FEITO — cliente recolore em canvas, no carregamento**
 
-O tom escolhido substitui o do grupo **preservando o sombreado** — desloca
-matiz e saturação, mantém a luminância relativa. Sem isso as dobras do pano
-somem e o personagem vira mancha chapada.
+Em `client/src/heroes.ts`. Entra por `?outfit=RRGGBB,RRGGBB,RRGGBB` na URL —
+**sem o parâmetro o jogo desenha exatamente como antes.** Recolorir é opt-in
+até haver escolha de verdade, então o passo 2 não muda a cara do jogo.
 
-Feito uma vez por combinação `(classe, cores)`, com cache, e vira `Texture`.
+🔴 **Troca matiz e saturação, e desloca a luminância EM BLOCO — não a
+substitui.** Cada pixel mantém a sua distância de luz para os vizinhos, e o
+grupo inteiro sobe ou desce junto pela diferença entre a cor escolhida e a cor
+dominante original. Substituir a luminância chapa o sombreado: **as dobras do
+pano são luminância**. Visto em conferência — as dobras do tabardo e o brilho
+da armadura sobrevivem nas quatro variações testadas.
+
+⚠️ **Com outfit o caminho de carregamento é OUTRO:** `Assets.load` devolve
+textura de GPU, e recolorir exige os pixels na mão, então passa por
+`loadImage` + canvas 2D — o mesmo motivo de `spritebox.ts`. E `loadImage`
+espera `onload`, **nunca** `img.decode()`: em aba oculta o Chrome adia a
+decodificação e a promessa não resolve (bug de 02/08).
+
+⚠️ A conversão de cor é memoizada **por cor, não por pixel**: a paleta tem ~80
+entradas para dezenas de milhares de pixels.
+
 **Não é shader**, de propósito: outfit muda raramente, e o projeto já processa
-PNG em canvas 2D (`spritebox.ts`). Menos peça nova, mesmo caminho conhecido.
+PNG em canvas 2D. Menos peça nova, mesmo caminho conhecido.
 
 **3. `shared` + protocolo: o outfit viaja no snapshot**
 
