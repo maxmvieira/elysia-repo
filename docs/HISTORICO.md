@@ -54,6 +54,32 @@ a suavização só começa depois, que é quando ela serve para o que foi feita.
 errados, mas o sintoma relatado ("o herói não aparece até você clicar") só se
 confirma jogando.
 
+**Clicar numa pilha do chão passa a pegá-la, e item vence nó no mesmo tile.**
+Dois pedidos do dono jogando, em 11/08.
+
+O primeiro tapou um buraco que ninguém tinha notado: **item comum não tinha
+clique nenhum**. Só bolsa e corpo eram interativos, e a única forma de recolher
+uma pilha era arrastá-la até a mochila. Agora o item segue o mesmo par de gestos
+do espólio e da coleta — perto pega na hora, longe anda até o lado e pega ao
+chegar. ⚠️ `pointertap` só dispara sem arraste, então **empurrar a pilha de tile
+em tile continua intacto**: arrastar empurra, clicar pega.
+
+O segundo veio de um caso concreto: uma bolsa de monstro caiu **em cima de uma
+moita de ervas**, o clique ia para a moita, e sem Foice a coleta era recusada —
+o espólio ficava INALCANÇÁVEL, porque não havia outro gesto para chegar nele.
+
+🔴 **Item no chão vence nó de recurso, e a razão não é arbitrária:** a bolsa
+**expira em minutos**, o nó **renasce sempre**. Entre duas coisas no mesmo tile,
+quem tem prazo vence quem não tem — perder espólio é irreversível, adiar
+colheita não é.
+
+⚠️ **O terceiro pedido não tinha o que consertar.** O dono pediu para o item
+não ser pego "só de passar em cima". Procurado: o cliente inteiro manda `pickup`
+em **um** lugar (o arraste até a mochila) e o servidor só apaga item no `pickup`
+e na expiração — o handler de `move` não encosta em item. O que ele viu foi
+provavelmente a **expiração** (3 min para o que o jogador solta). Não existe
+auto-pegar, então nada foi removido.
+
 **Arrastar item para o chão travava o personagem andando.** Relatado jogando:
 *"fui jogar um item no chão, ele bugou e saiu andando pro lado esquerdo sem
 parar"*.

@@ -2154,9 +2154,46 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     cancelarRota();
   }
 
+  /** Item comum clicado de longe, a pegar quando o herói chegar. */
+  let pegarAoChegar: string | null = null;
+
+  /**
+   * Pegar uma pilha do chão CLICANDO nela — o mesmo par de gestos do espólio e
+   * da coleta: perto pega na hora, longe anda até o lado e pega ao chegar.
+   *
+   * 🔴 Antes o item comum não tinha clique NENHUM: só bolsa e corpo eram
+   * clicáveis, e a única forma de pegar uma pilha era arrastá-la até a mochila.
+   * Pedido do dono em 11/08, jogando.
+   */
+  function pegarItem(id: string): void {
+    const alvo = porId.get(id);
+    if (!alvo) return;
+    if (distDoHeroi(alvo.tileX, alvo.tileY) <= 1) {
+      pegarAoChegar = null;
+      net.send({ t: 'pickup', itemId: id });
+      return;
+    }
+    pegarAoChegar = id;
+    irParaPerto(alvo.tileX, alvo.tileY);
+  }
+
   function gatherNode(id: string): void {
     const alvo = porId.get(id);
     if (!alvo) return;
+    // 🔴 ITEM NO CHÃO VENCE NÓ DE RECURSO no mesmo tile — relatado jogando em
+    // 11/08: uma bolsa de monstro caiu em cima de uma moita de ervas, e o clique
+    // ia para a moita. Sem Foice, a coleta era recusada e o espólio ficava
+    // INALCANÇÁVEL, porque não havia outro gesto para chegar nele.
+    //
+    // A precedência é do item, e não é arbitrária: a bolsa **expira em minutos**
+    // e o nó **renasce sempre**. Entre duas coisas no mesmo tile, quem tem prazo
+    // vence quem não tem — perder o espólio é irreversível, adiar a colheita não é.
+    const item = itensPorTile.get(alvo.tileY * map.width + alvo.tileX);
+    if (item) {
+      if (item.itemKind === 'corpse' || item.itemKind === 'lootbag') openCorpse(item.id);
+      else pegarItem(item.id);
+      return;
+    }
     if (distDoHeroi(alvo.tileX, alvo.tileY) <= 1) {
       coletarAoChegar = null;
       net.send({ t: 'gather', nodeId: id });
@@ -3478,7 +3515,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           classAnims, slimeAnim, slimeVariants, zombieAnim, zombieIdleAnim, creatureSheets,
           knightArt, heroArt, npcAnim,
           selfClass: charClass, selfGender: gender, openShop, openBank, openCraft, openCorpse,
-          gatherNode,
+          gatherNode, pegarItem,
           chaoEm: (x, y) => {
             const layer = map.floors[renderedFloor];
             const id = layer?.[y * map.width + x] ?? 0;
@@ -4293,6 +4330,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       }
     }
 
+    // Chegou à pilha que se clicou de longe? Pega. Mesmas três saídas.
+    if (pegarAoChegar) {
+      const alvo = porId.get(pegarAoChegar);
+      if (!alvo) {
+        pegarAoChegar = null; // expirou, ou outro jogador levou
+      } else if (distDoHeroi(alvo.tileX, alvo.tileY) <= 1) {
+        const id = pegarAoChegar;
+        pegarAoChegar = null;
+        pegarItem(id);
+      } else if (caminho.length === 0) {
+        pegarAoChegar = null;
+      }
+    }
+
     // Consome a rota, um passo por vez, na MESMA cadência do teclado — então
     // andar por clique e por tecla tem exatamente a mesma velocidade.
     if (caminho.length > 0 && now - lastSentAt > 120) {
@@ -4957,6 +5008,8 @@ interface MiniAssets {
   openCorpse: (id: string) => void;
   /** Coleta de um nó de recurso (anda até lá antes, se for preciso). */
   gatherNode: (id: string) => void;
+  /** Pega uma pilha do chão clicando nela (anda até lá antes, se for preciso). */
+  pegarItem: (id: string) => void;
   /**
    * Id do tile de chão em (x,y).
    *
@@ -4984,7 +5037,7 @@ function makeEntity(
   mini: MiniAssets,
 ): EntityView {
   if (e.kind === 'creature') return makeCreatureView(e, anims, onTargetClick, mini);
-  if (e.kind === 'item') return makeItemView(e, mini.itemTexture, mini.openCorpse);
+  if (e.kind === 'item') return makeItemView(e, mini.itemTexture, mini.openCorpse, mini.pegarItem);
   if (e.kind === 'node') return makeNodeView(e, mini.gatherNode, mini.chaoEm);
   if (e.kind === 'npc') {
     // Clicar abre o painel da FUNÇÃO do NPC. Cada um tem cor própria: os três
@@ -6095,6 +6148,7 @@ function makeItemView(
   e: EntitySnapshot,
   itemTexture: (kind: string) => Texture,
   onCorpseClick?: (id: string) => void,
+  onPickup?: (id: string) => void,
 ): EntityView {
   const c = new Container();
   c.x = e.tileX * TS;
@@ -6192,6 +6246,19 @@ function makeItemView(
     t.y = TS - 14;
     c.addChild(t);
   }
+  /*
+   * 🔴 CLIQUE PEGA A PILHA. Até 11/08 o item comum não tinha clique nenhum — só
+   * bolsa e corpo eram interativos —, e a única forma de recolher uma pilha era
+   * arrastá-la até a mochila. Pedido do dono, jogando.
+   *
+   * ⚠️ `pointertap` só dispara se o ponteiro não tiver arrastado, então o gesto
+   * de EMPURRAR a pilha de tile em tile (o `mousedown`/`mouseup` do viewport)
+   * continua intacto: arrastar empurra, clicar pega.
+   */
+  c.eventMode = 'static';
+  c.cursor = 'pointer';
+  c.hitArea = new Rectangle(0, 0, TS, TS);
+  c.on('pointertap', soBotaoEsquerdo(() => onPickup?.(e.id)));
   c.zIndex = c.y / TS + 0.2; // itens ficam abaixo dos personagens no mesmo tile
   return {
     container: c,
