@@ -7,22 +7,50 @@
 referências que eu procuro para o nosso game"*. Isso decide três discussões de
 uma vez — ver o bloco de 11/08 no [`HISTORICO.md`](./HISTORICO.md).
 
-### 🎯 A PRÓXIMA COISA, e ela está decidida e orçada
+### ✅ A MÁSCARA SUBIU ATÉ O QUADRIL — feito no sul do Feiticeiro, 2 gerações
 
-**Regerar o passo com a máscara subindo até o QUADRIL** (`y ≈ 38` em vez de 50),
-**por classe**.
+**O mecanismo funciona.** `TOPO_PERNAS` em `tools/pixellab/gerar-classe.mjs` é
+agora **por classe**, como o `LADO_ARMA` já era: `38` (quadril) para Feiticeiro,
+Arqueiro e Assassino, e **`50` para o Knight, que não pode subir** — o escudo
+mora acima e o `inpaint` o perde. É o beco nº 4, e ele continua de pé nele.
 
-O porquê: em Medivia a perna inteira se move, do quadril para baixo. A nossa
-`FAIXA_PERNAS` redesenha só de `y = 50` — **14 px de 58**, pé e canela. É o teto
-da caminhada, e é a razão de nem os 4 quadros nem a sincronia terem bastado.
+Medido no sul do Feiticeiro, contra a pose parada:
 
-A máscara está em 50 por causa do **escudo do Knight**, que se perde se ela subir
-(beco documentado). ⚠️ Mas isso é problema **dele** — Feiticeiro e Arqueiro não
-têm escudo. É a mesma lição do lado da arma, que também virou por classe.
+| | redesenha a partir de | linhas | px mudados | largura | cores |
+|---|---|---|---|---|---|
+| máscara antiga (y=50) | y=50 | 11 | 181 | 28 | 79 |
+| **máscara nova (y=38)** | **y=38** | **23** | **434** | **32** | 81 |
 
-**Custo: 3 gerações por classe. Começar pelo FEITICEIRO** — manto liso, sem
-escudo, sem aljava: o menor risco e o teste mais honesto de se a perna maior
-aparece. Se aparecer, seguir; se não, o limite é do modelo e para-se de gastar.
+🔴 **Sem os becos conhecidos:** a paleta ficou em 81 cores (o beco nº 1 é o pulo
+para ~1500) e o chão continua em `y=60` — o alinhamento de 11/08 não quebrou.
+
+✅ **Um ganho que não estava previsto:** a barra da veste tem **17 px de vivo
+dourado** na pose parada, e a máscara de tornozelo **apagava todos** a cada passo
+(0). A nova mantém 21. A máscara baixa não encurtava só o passo — comia o
+acabamento da veste.
+
+🔴 **MAS O FEITICEIRO ERA A CLASSE ERRADA PARA TESTAR A HIPÓTESE.** Ele foi
+escolhido por ser o menor risco (sem escudo, sem aljava) e é: o que voltou é bom
+e ficou. Só que ele usa **manto até o chão** — não tem perna visível em quadro
+nenhum. O que a máscara alta comprou nele foi a **barra da veste balançando**,
+não a perna se movendo. A hipótese do Medivia — *perna inteira, do quadril para
+baixo* — continua **sem teste de verdade**, e quem a testa é o **ARQUEIRO**, que
+tem perna à mostra.
+
+⚠️ **Duas piscadas para olhar em tela**, achadas na medição do par: o `passo` tem
+21 px de dourado e o `passo2` tem **1**; e o `passo2` tem um roxo mais claro que
+os outros dois quadros não têm. Num ciclo `parado → passo → parado → passo2`,
+ornamento que só existe em metade dos quadros **pisca**. Pode não se ver a 64 px
+— mas é olhando que se sabe, não medindo.
+
+**Estado:** só o **sul** foi regerado. Norte e leste do Feiticeiro continuam com
+a máscara antiga, então **as direções não combinam entre si** — 4 gerações
+fecham a classe. Arqueiro e Assassino ainda são 6 cada.
+
+🆕 **`SO_DIRECOES=south` existe agora** no gerador, e foi o que fez este teste
+custar 2 gerações em vez de 6. ⚠️ Ele também é a peça que faltava para consertar
+**o cajado que boia na morte do Feiticeiro** a leste e oeste (item 2 do "não foi
+consertado"): agora dá para escopar sem apostar o sul e o norte, que estão bons.
 
 **Depois disso**, na ordem combinada com o dono:
 1. **Outfits passo 3c** — a escolha na criação, com **paleta ampla** (aprovado)
@@ -379,7 +407,7 @@ direções.
 git pull
 npm install                 # nenhuma dependência nova foi adicionada
 npm run typecheck           # limpo nos 3 pacotes
-npm test                    # tem que dar 445 (425 shared + 20 server)
+npm test                    # 457 em 12/08 (433 shared + 24 server). Eram 445 em 09/08
 ELYSIA_DEV_ACCOUNT=suaconta VITE_DEV_ACCOUNT=suaconta npm run dev:test
 ```
 

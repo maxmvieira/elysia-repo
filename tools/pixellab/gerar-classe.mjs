@@ -37,6 +37,31 @@ const CELL = 64;
 /** Ordem das direcoes. A mesma do frames2strip.mjs e do loader. */
 const DIRS = ['south', 'north', 'east', 'west'];
 
+/** As tres que se GERAM. O oeste nunca esta aqui: e o espelho do leste, de graca. */
+const GERADAS = ['south', 'north', 'east'];
+
+/**
+ * Quais direcoes esta rodada gera. Por padrao as tres.
+ *
+ * 🔴 `SO_DIRECOES=south` existe para nao apostar arte boa para consertar arte
+ * ruim. Regerar uma classe inteira por causa de UMA direcao gasta 3 geracoes e
+ * troca as outras duas por outra tirada no dado — e o que trava o cajado que
+ * boia na morte do Feiticeiro a leste e oeste, cujo sul e norte estao bons.
+ *
+ * ⚠️ `west` nao e aceito de proposito: ele e escrito por espelhamento junto com
+ * o leste, e pedi-lo separado nao existe.
+ */
+function direcoes() {
+  if (!process.env.SO_DIRECOES) return GERADAS;
+  const ds = process.env.SO_DIRECOES.split(',').map((d) => d.trim()).filter(Boolean);
+  for (const d of ds) {
+    if (!GERADAS.includes(d)) {
+      throw new Error(`SO_DIRECOES=${d} invalido. Aceita: ${GERADAS.join(', ')} (o oeste espelha o leste).`);
+    }
+  }
+  return ds;
+}
+
 /** Descricoes: saem dos `blurb` de `shared/src/stats.ts` e das cores de `miniworld.ts`. */
 const CLASSES = {
   knight:
@@ -60,14 +85,29 @@ const CLASSES = {
 /**
  * Faixa redesenhada no passo: [x0, x1, y0, y1] na celula de 64.
  *
- * 🔴 Ela comeca em y=50, ABAIXO de onde qualquer escudo, capa ou cajado chega.
- * Nao e folga: mascarar mais alto devolve o escudo a regiao redesenhada e ele se
- * perde — foi exatamente assim que a tentativa por esqueleto morreu. O que esta
- * fora da mascara NAO PODE ser perdido, e e essa garantia que faz o metodo valer.
+ * 🔴 **O TOPO E POR CLASSE, pela mesma razao que o `LADO_ARMA` e.** Ele nasceu
+ * em y=50 por causa do ESCUDO DO KNIGHT: mascarar mais alto devolve o escudo a
+ * regiao redesenhada e ele se perde — foi exatamente assim que a tentativa por
+ * esqueleto morreu. O que esta fora da mascara NAO PODE ser perdido, e e essa
+ * garantia que faz o metodo valer. Isso continua valendo NELE.
  *
- * O preco e um passo curto, de pe e canela. Tibia classico anda assim.
+ * ⚠️ Mas y=50 redesenha **14 px de 58** — pe e canela — e esse era o teto da
+ * caminhada. E a razao de nem os 4 quadros nem o alinhamento pelo chao terem
+ * bastado: o dono continuou vendo "deslize, nao caminhada". No **Medivia**, que
+ * e a referencia do jogo, a perna inteira se move, do QUADRIL para baixo.
+ *
+ * Feiticeiro, Arqueiro e Assassino nao tem escudo, entao o beco nao e deles: o
+ * topo sobe para 38, na altura do quadril. ⚠️ Supor um valor so para todas as
+ * classes ja custou 12 geracoes do lado da arma — nao repita a suposicao aqui.
  */
-const FAIXA_PERNAS = [12, 52, 50, 63];
+const TOPO_PERNAS = {
+  knight: 50,     // 🔴 nao subir: o escudo mora acima, e o inpaint o perde
+  sorcerer: 38,   // quadril — sem escudo, sem aljava, o menor risco dos quatro
+  archer: 38,
+  assassin: 38,
+};
+
+const faixaPernas = (cls) => [12, 52, TOPO_PERNAS[cls], 63];
 
 /**
  * Faixa redesenhada no GOLPE: o lado da arma, do topo da celula ate os pes.
@@ -270,13 +310,13 @@ const COMUM = {
  * mesma trava de paleta.
  */
 async function passos(cls, dir, desc, poses) {
-  const msk = mascara([FAIXA_PERNAS]);
+  const msk = mascara([faixaPernas(cls)]);
   const PASSOS = [
     { suf: 'passo', texto: 'legs mid-stride, one foot stepping forward', seed: 21 },
     { suf: 'passo2', texto: 'legs mid-stride, the opposite foot stepping forward, weight shifted to the other leg', seed: 47 },
   ];
   for (const { suf, texto, seed } of PASSOS) {
-    for (const d of ['south', 'north', 'east']) {
+    for (const d of direcoes()) {
       // ⚠️ Nao regera o que ja existe. Sem isto, pedir so o `passo2` numa classe
       // ja pronta gastaria 3 geracoes redesenhando o `passo` que ja esta no
       // disco — e geracao gasta nao volta. `REFAZER=1` forca.
@@ -311,7 +351,7 @@ async function golpes(cls, dir, desc, poses) {
   const lado = LADO_ARMA[cls];
   const mskArma = mascara(BANDAS[lado]);
   const mskArmaEsp = mascara(BANDAS[ESPELHA_LADO[lado]]);
-  for (const d of ['south', 'north', 'east']) {
+  for (const d of direcoes()) {
     console.log(`  ${cls}: golpe ${d}...`);
     const r = await call('inpaint', {
       ...COMUM,
@@ -346,7 +386,7 @@ async function golpes(cls, dir, desc, poses) {
  * E o oposto exato do que faz o passo e o golpe funcionarem.
  */
 async function mortes(cls, dir, poses) {
-  for (const d of ['south', 'north', 'east']) {
+  for (const d of direcoes()) {
     console.log(`  ${cls}: morte ${d}...`);
     const base = poses[d];
     const kp0 = (await call('estimate-skeleton', { image: paraB64(base) })).keypoints;

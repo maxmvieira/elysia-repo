@@ -9,6 +9,63 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-08-12 — A máscara do passo sobe ao quadril, e passa a ser por classe
+
+**Onde mora:** `TOPO_PERNAS` e `direcoes()` em `tools/pixellab/gerar-classe.mjs`.
+
+**A máscara do passo virou por classe, pela mesma razão que o lado da arma já
+tinha virado.** `FAIXA_PERNAS` era uma constante só, começando em `y = 50`, e o
+50 existe por causa do **escudo do Knight**: subir devolve o escudo à região
+redesenhada e o `inpaint` o perde (beco nº 4). O que ninguém tinha notado é que
+o beco é **dele** — Feiticeiro, Arqueiro e Assassino não têm escudo, e estavam
+pagando um preço que não era deles. Agora `TOPO_PERNAS` é `50` no Knight e `38`
+nos outros três.
+
+O preço que se pagava: 50 redesenha **14 px de 58**, pé e canela. Era o teto da
+caminhada, e a razão de nem os 4 quadros nem o alinhamento pelo chão terem
+bastado — o dono continuou vendo "deslize, não caminhada". A referência do jogo
+é o **Medivia**, onde a perna inteira se move, do quadril para baixo.
+
+**Medido no sul do Feiticeiro,** contra a pose parada: o redesenho passa de
+`y=50` para `y=38` (de 11 para 23 linhas, de 181 para 434 px mudados) e a
+silhueta passa de 28 para **32 px de largura** — a veste abre para fora ao
+passo, coisa que 14 px de barra não conseguiam. A paleta ficou em **81 cores**
+(o beco nº 1 é o pulo para ~1500) e o chão continua em `y=60`.
+
+✅ **Um efeito colateral que ninguém tinha previsto:** a barra da veste tem 17 px
+de vivo dourado na pose parada, e a máscara de tornozelo **apagava os 17** a cada
+passo. A nova mantém 21. A máscara baixa não encurtava só o passo — ela comia o
+acabamento da veste, e isso estava em tela desde 10/08 sem nome.
+
+🔴 **O Feiticeiro era a classe ERRADA para testar a hipótese, e vale registrar
+por quê.** Ele foi escolhido por ser o menor risco — sem escudo, sem aljava — e
+foi mesmo: o resultado é bom e ficou. Mas ele usa **manto até o chão**, e não tem
+perna visível em quadro nenhum. O que a máscara alta comprou nele foi a **barra
+balançando**, não a perna se movendo. *Menor risco* e *melhor teste* não eram a
+mesma coisa, e o handoff de 11/08 tratou como se fossem. Quem testa a hipótese do
+Medivia é o **Arqueiro**, que tem perna à mostra.
+
+⚠️ **Duas piscadas para conferir jogando:** o `passo` tem 21 px de dourado e o
+`passo2` tem 1; e o `passo2` tem um roxo claro que os outros quadros não têm. Num
+ciclo `parado → passo → parado → passo2`, ornamento presente em metade dos
+quadros pisca. Pode não se ver a 64 px — mas isso é medição dizendo onde olhar,
+não dizendo que está bom.
+
+**`SO_DIRECOES` entrou junto, e não é conveniência.** O gerador sempre rodava
+`south,north,east` de uma vez, então testar uma hipótese custava 3 gerações e
+trocava duas direções boas por outra tirada no dado. Com ele, este teste custou
+**2 gerações** (`passo` e `passo2` do sul) em vez de 6. 🔴 Ele é também a peça que
+faltava para consertar o **cajado que boia na morte do Feiticeiro** a leste e
+oeste: `SO_MORTE=1` regenerava as quatro direções, e o sul e o norte dele estão
+bons — era regerar arte boa para consertar arte ruim. `west` não é aceito de
+propósito: ele é escrito por espelhamento do leste.
+
+⚠️ **Só o sul foi regerado.** Norte e leste do Feiticeiro continuam com a máscara
+antiga, então as direções **não combinam entre si** até 4 gerações fecharem a
+classe. Não foi visto em tela.
+
+---
+
 ## 2026-08-11 — O herói parou de flutuar, e a câmera parou de nascer no canto
 
 **Onde mora:** `tools/pixellab2strip.mjs` (alinhamento) · o bloco de câmera no
