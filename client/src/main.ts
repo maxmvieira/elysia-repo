@@ -4206,6 +4206,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     cancelarRota();
   });
 
+  /**
+   * A câmera já travou no herói? Enquanto for `false` ela SALTA para o alvo em
+   * vez de suavizar — ver o bloco de câmera dentro do ticker.
+   */
+  let cameraSeguindo = false;
+
   // Loop de render ---------------------------------------------------------
   app.ticker.add(() => {
     if (myFloor !== renderedFloor) rebuildFloor(myFloor);
@@ -4383,8 +4389,29 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const cy = self ? self.container.y : map.spawn.y * TS;
     const targetX = app.screen.width / 2 - (cx + TS / 2) * ZOOM;
     const targetY = app.screen.height / 2 - (cy + TS / 2) * ZOOM;
-    world.x += (targetX - world.x) * 0.2;
-    world.y += (targetY - world.y) * 0.2;
+    // 🔴 A ENTRADA NÃO PODE SER SUAVIZADA, e são dois motivos separados.
+    //
+    // 1. `world` nasce em (0,0), que é o CANTO DO MUNDO, não o herói. Suavizar a
+    //    partir dali é atravessar o mapa inteiro a 20% por quadro — e enquanto
+    //    isso `atualizaChunks` monta e joga fora cenário ao longo de todo o
+    //    caminho, porque é a câmera que decide o que existe.
+    // 2. Pior: `app.screen.width` é 0 enquanto o `#viewport` ainda não tem
+    //    tamanho (a lista de personagens aparece antes do mundo). Alvo calculado
+    //    com tela de largura 0 está errado, e suavizar até ele grava o erro.
+    //
+    // Por isso a câmera SALTA — e continua saltando — até o herói existir de
+    // verdade; a suavização só começa depois disso, que é quando ela serve para
+    // o que foi feita: acompanhar quem anda.
+    if (app.screen.width > 0 && app.screen.height > 0) {
+      if (cameraSeguindo) {
+        world.x += (targetX - world.x) * 0.2;
+        world.y += (targetY - world.y) * 0.2;
+      } else {
+        world.x = targetX;
+        world.y = targetY;
+        cameraSeguindo = !!self; // o herói apareceu: a partir daqui, suaviza
+      }
+    }
 
     // Cenário sob demanda: monta o que entrou na tela, joga fora o que saiu.
     // Depois da câmera de propósito — é a posição DELA que decide o que existe.

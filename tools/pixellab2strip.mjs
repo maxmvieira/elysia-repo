@@ -28,7 +28,24 @@ const CELL = 64;
 /** Linha da sola. Mesma ideia do `frames2strip.mjs`: garantida na geracao. */
 const GROUND_Y = 60;
 const ALIGN_MAX = 3;
-const MIN_PX_LINHA = 3;
+
+/**
+ * Quantos pixels opacos uma linha precisa ter para contar como CHAO.
+ *
+ * 🔴 Era 3, e o 3 fazia o heroi FLUTUAR. A regra tem que ser a mesma que o olho
+ * usa: a sola e a ultima linha que APARECE, tenha ela um pixel ou trinta.
+ *
+ * Com 3, o `south-passo.png` do Arqueiro media chao=56 enquanto a silhueta
+ * acabava em 57. O desvio virava 4, estourava o `ALIGN_MAX` e o quadro era
+ * REJEITADO inteiro — resultado: ele andava para o sul saltando 3 px a cada
+ * passo, e so nessa direcao. Feiticeiro e Assassino tinham a mesma discordancia,
+ * de 1 px, no quadro do passo.
+ *
+ * ⚠️ Nao volte para 3 "por robustez". Quem protege contra medicao maluca e o
+ * `ALIGN_MAX`, que rejeita o deslocamento inteiro; esta constante so decide onde
+ * o desenho ACABA, e para isso a resposta certa e "onde o olho ve que acaba".
+ */
+const MIN_PX_LINHA = 1;
 
 const CRC = (() => { const t = new Int32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c; } return t; })();
 const crc32 = (b) => { let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
@@ -75,6 +92,16 @@ function encode(w, h, px) {
 
 function chaoDe(img) {
   for (let y = img.h - 1; y >= 0; y--) {
+    let n = 0;
+    for (let x = 0; x < img.w; x++) if (img.px[(y * img.w + x) * 4 + 3] > 8) n++;
+    if (n >= MIN_PX_LINHA) return y;
+  }
+  return -1;
+}
+
+/** Primeira linha com massa — o teto do desenho. Par de `chaoDe`. */
+function topoDe(img) {
+  for (let y = 0; y < img.h; y++) {
     let n = 0;
     for (let x = 0; x < img.w; x++) if (img.px[(y * img.w + x) * 4 + 3] > 8) n++;
     if (n >= MIN_PX_LINHA) return y;
@@ -160,14 +187,35 @@ function converte(cls) {
 
   // A morte: 3 colunas, uma linha por direção.
   //
-  // ⚠️ NÃO alinha o chão como as outras. `chaoDe` mede a última linha com massa,
-  // e num corpo DEITADO isso é o corpo inteiro, não o pé — alinhar por ele
-  // empurraria o cadáver para fora do tile. Os quadros vão como vieram; o
-  // recentro já foi feito no esqueleto, na geração.
+  // 🔴 O dy sai do QUADRO 0 e vale para a SEQUÊNCIA INTEIRA. Medir cada quadro
+  // por conta própria seria errado, e é a razão de isto já ter sido `dy = 0`:
+  // `chaoDe` acha a última linha com massa, e num corpo DEITADO isso é o corpo,
+  // não o pé — alinhar por ele empurraria o cadáver para fora do tile. Só no
+  // quadro 0, que ainda está de pé, a medição quer dizer "sola".
+  //
+  // ⚠️ O preço de não alinhar nada era visível: o andar do Arqueiro é alinhado e
+  // a morte dele não era, então no instante em que ele morria o herói PULAVA
+  // 3 px para cima antes de tombar. Agora as duas animações falam a mesma
+  // língua.
+  //
+  // 🔴 **Cada quadro leva só o quanto CABE.** O cadáver do Arqueiro já encosta
+  // no rodapé da célula, e descer os 3 px cortaria a ponta dele — o que sai da
+  // célula está perdido para sempre (`blit` descarta). Então o quadro em pé
+  // desce 3, o do meio desce 2 e o cadáver não desce: a queda "encolhe" 3 px ao
+  // longo de três quadros terminais, o que ninguém vê, e nenhum pixel é perdido.
+  // Encolher a queda é melhor que cortar o corpo.
   if (DIRS.every((d) => existsSync(join(dir, `${d}-morte2.png`)))) {
     const morte = Buffer.alloc(3 * CELL * H * 4);
     DIRS.forEach((d, r) => {
-      for (let c = 0; c < 3; c++) blit(morte, 3 * CELL, decode(join(dir, `${d}-morte${c}.png`)), c, r, 0);
+      const quadros = [0, 1, 2].map((c) => decode(join(dir, `${d}-morte${c}.png`)));
+      const bruto = GROUND_Y - chaoDe(quadros[0]);
+      const dySeq = Math.abs(bruto) <= ALIGN_MAX ? bruto : 0;
+      quadros.forEach((img, c) => {
+        const dy = dySeq >= 0
+          ? Math.min(dySeq, CELL - 1 - chaoDe(img)) // descendo: não passar do rodapé
+          : Math.max(dySeq, -topoDe(img));          // subindo: não passar do teto
+        blit(morte, 3 * CELL, img, c, r, dy);
+      });
     });
     writeFileSync(join(outDir, 'death.png'), encode(3 * CELL, H, morte));
     console.log('    + death (3q, terminal — congela no cadáver)');

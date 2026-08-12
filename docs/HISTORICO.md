@@ -9,6 +9,60 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-08-11 — O herói parou de flutuar, e a câmera parou de nascer no canto
+
+**Onde mora:** `tools/pixellab2strip.mjs` (alinhamento) · o bloco de câmera no
+ticker de `client/src/main.ts` · `tools/pixellab/gerar-classe.mjs` (beco nº 7).
+
+**A regra do chão discordava do olho.** O conversor media a sola como "última
+linha com **≥3 px** opacos" (`MIN_PX_LINHA`). O olho vê a última linha com **≥1
+px**. No `south-passo.png` do Arqueiro as duas discordavam — 56 contra 57 — e a
+discordância tinha um efeito desproporcional: o desvio virava 4, estourava o
+`ALIGN_MAX = 3` e o quadro era **rejeitado inteiro**, ficando 3 px acima do chão.
+Como o outro quadro do ciclo era alinhado, ele **saltava 3 px a cada passo**,
+e só indo para o sul. Feiticeiro e Assassino tinham a mesma discordância, de 1 px.
+
+🔴 **`MIN_PX_LINHA` agora é 1, e não deve voltar a 3 "por robustez".** Quem
+protege contra medição maluca é o `ALIGN_MAX`, que rejeita o deslocamento
+inteiro; a constante só decide onde o desenho **acaba**, e para isso a resposta
+certa é "onde o olho vê que acaba". Verificado depois: todos os quadros de
+`walk`, `pose` e `attack`, 4 classes × 4 direções, fecham em `chao = 60`.
+
+**A morte agora é alinhada pelo primeiro quadro.** Antes ela não era alinhada de
+jeito nenhum, e havia razão: `chaoDe` acha a última linha com massa, e num corpo
+**deitado** isso é o corpo, não o pé. Mas o preço era visível — o andar do
+Arqueiro é alinhado e a morte não era, então no instante em que ele morria o
+herói **pulava 3 px para cima** antes de tombar.
+
+A saída é que o `dy` sai do **quadro 0**, o único que ainda está de pé e no qual
+a medição quer dizer "sola", e vale para a sequência inteira. 🔴 **Cada quadro
+leva só o quanto cabe:** o cadáver do Arqueiro já encosta no rodapé da célula, e
+o que sai da célula está perdido (o `blit` descarta). Então o quadro em pé desce
+3, o do meio desce 2 e o cadáver não desce. Encolher a queda em 3 px ao longo de
+três quadros terminais ninguém vê; cortar o corpo, sim.
+
+**A câmera nascia no canto do mundo.** `world` começa em (0,0) e o ticker só
+sabia suavizar — 20% por quadro, atravessando o mapa inteiro até o herói, com
+`atualizaChunks` montando e descartando cenário ao longo de todo o caminho,
+porque é a câmera que decide o que existe. Pior: `app.screen.width` é **0**
+enquanto o `#viewport` não tem tamanho (a lista de personagens aparece antes do
+mundo), e alvo calculado com tela de largura 0 está errado.
+
+Agora a câmera **salta** — e continua saltando — até o herói existir de verdade;
+a suavização só começa depois, que é quando ela serve para o que foi feita.
+⚠️ **Não foi visto em tela.** Isso elimina dois estados iniciais comprovadamente
+errados, mas o sintoma relatado ("o herói não aparece até você clicar") só se
+confirma jogando.
+
+**O golpe do Arqueiro e do Assassino resistiu a duas hipóteses** — as duas estão
+inteiras no beco nº 7 de `gerar-classe.mjs`, com máscaras e prompts exatos.
+Custaram 6 gerações e o saldo é conhecimento: abrir a máscara **destrói o
+personagem** (voltou outro sujeito, de capa e espada, sem arco), e mudar o texto
+do gesto **não move nada** (PNG diferente byte a byte, caixa de alpha idêntica
+nas quatro direções). Se houver saída, é outro endpoint — não outro prompt.
+
+---
+
 ## 2026-08-09 — Arte HD das quatro classes, e o golpe pela arma
 
 **Onde mora:** `tools/frames2strip.mjs` (conversor) · `client/src/heroes.ts`

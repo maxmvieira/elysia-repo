@@ -107,6 +107,43 @@ const LADO_ARMA = {
 const ESPELHA_LADO = { esq: 'dir', dir: 'esq', ambos: 'ambos' };
 
 /**
+ * 🔴 BECO Nº 7 — ABRIR O TRONCO DESTROI O PERSONAGEM. Testado em 2026-08-11,
+ * no Arqueiro, e custou 3 geracoes.
+ *
+ * O diagnostico estava certo: `ambos` preserva o miolo `x 23..40`, que e
+ * exatamente onde puxar o arco acontece, e por isso o gesto saia curto — o
+ * quadro de golpe media MAIS ESTREITO que o parado (32 -> 28 px). A conclusao
+ * de abrir o miolo e que estava errada.
+ *
+ * A mascara testada foi `[[0,63,20,58], [0,22,0,19], [41,63,0,19]]`: tudo menos
+ * a cabeca. O que voltou nao foi um arqueiro atirando — foi **outro
+ * personagem**. Nas quatro direcoes o arco sumiu e apareceram capa esvoacante,
+ * ornamentos dourados e uma ESPADA GRANDE brilhando. A cabeca preservada e o
+ * `color_image` seguraram a paleta e o capuz, e nada mais.
+ *
+ * ⚠️ E o beco nº 1 de novo, por outra porta: **o que esta fora da mascara e a
+ * unica coisa garantida.** Abrir o tronco e dizer ao modelo que o tronco pode
+ * ser qualquer coisa — e ele aceita o convite.
+ *
+ * 🔴 **SEGUNDA TENTATIVA, tambem falhada, mais 3 geracoes.** A hipotese seguinte
+ * era boa no papel: manter a mascara `ambos` e mover o GESTO para dentro dela,
+ * copiando a forma do unico gesto que leu bem (o do Knight: "arma erguida acima
+ * do ombro, braco estendido para cima"). Ficou
+ * `'raising a longbow high above the shoulder to the upper left, bow arm
+ * extended up, string drawn back, about to release'`.
+ *
+ * O resultado foi **visualmente identico ao anterior**. Os PNGs saem diferentes
+ * byte a byte, mas a caixa de alpha nao muda um pixel em nenhuma das quatro
+ * direcoes (sul 28, norte 31, leste 26, oeste 26 de largura, iguaizinhas), e as
+ * poses lado a lado nao se distinguem. Ou seja: **o texto nao move o gesto**
+ * quando a regiao aberta e so a lateral. Foi revertido.
+ *
+ * ⚠️ Nao vale a pena tentar de novo por texto. Sobra mexer em `seed` (hoje fixo
+ * em 31) ou aceitar que arco e adaga nao rendem golpe forte por `inpaint`
+ * lateral — e ai o caminho e outro endpoint, nao outro prompt.
+ */
+
+/**
  * O gesto de golpe de cada classe, e em que arquivo ele cai.
  *
  * 🔴 Toda classe grava tambem `attack_sword`, mesmo o Feiticeiro. Nao e

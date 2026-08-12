@@ -1,17 +1,11 @@
-# Handoff — estado do projeto em 2026-08-10
+# Handoff — estado do projeto em 2026-08-11
 
-## ⏸️ ONDE PARAMOS — retomar 11/08 pela manhã
+## ⏸️ ONDE PARAMOS — três consertos prontos, NENHUM visto em tela
 
-A arte nova **está ligada no jogo** e o dono **jogou com ela**. Ele tem **várias
-observações anotadas** e a sessão acabou antes de listá-las.
-
-🔴 **PRIMEIRA COISA AMANHÃ: pedir a lista de observações dele.** Não comece a
-consertar por conta própria — o que ele viu jogando vale mais que qualquer
-suspeita minha, e esta sessão inteira mostrou que o que quebra em arte só
-aparece jogando (o quadrado preto na árvore, o herói invisível na entrada, a
-espada que não subia, o corpo que saía do quadro — nenhum tinha teste possível).
-
-**Como subir para testar** (a conta do dono no banco local é `Frank`):
+🔴 **PRIMEIRA COISA: subir o jogo e olhar.** Os três consertos abaixo foram
+verificados por **medição** e por 445 testes, e nenhuma das duas coisas prova
+nada em arte — foi a lição da sessão inteira de 10/08. O dono disse que testaria
+depois.
 
 ```bash
 ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test
@@ -22,18 +16,56 @@ ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test
 ⚠️ **Backup do banco antes de entrar.** Existe um de 10/08 23:48 em
 `server/data/elysia-backup-20260810-2348.db`.
 
-**Onde eu suspeitaria, se as observações forem sobre a arte:**
+**O que olhar, e o que deveria ter mudado:**
 
-1. Herói **enterrado ou flutuando** → `FEET_Y` (60, em `heroes.ts`) discordando
-   do `GROUND_Y` (60, em `tools/pixellab2strip.mjs`). São o mesmo número em dois
-   arquivos.
-2. **Cadáver deslocado** na morte → é o único caso que **não** passa pelo
-   alinhamento de chão, de propósito (num corpo deitado, "última linha com massa"
-   é o corpo, não o pé).
-3. **Golpe fraco** no Arqueiro e no Assassino → conhecido e registrado; o gesto
-   sai curto. O Knight é o que ficou melhor.
-4. **Herói fora do enquadramento ao entrar** → 🔴 **bug ANTIGO, não é da arte
-   nova.** Já estava confirmado por A/B em 09/08. Basta clicar para andar.
+| O quê | Antes | Agora |
+|---|---|---|
+| Arqueiro andando **para o sul** | saltava 3 px a cada passo | pé cravado no chão |
+| Feiticeiro e Assassino andando | tremiam 1 px | idem |
+| Qualquer classe **morrendo** | o Arqueiro pulava 3 px para cima ao morrer | tomba sem pulo |
+| **Entrar no mundo** | o herói quase sempre fora do enquadramento | câmera já nasce nele |
+
+### 🔴 O que NÃO foi consertado, e por quê
+
+1. **Golpe fraco do Arqueiro e do Assassino.** Duas hipóteses testadas, 6
+   gerações gastas, as duas falharam — estão inteiras no **beco nº 7** de
+   `tools/pixellab/gerar-classe.mjs`. Abrir a máscara **destrói o personagem**
+   (voltou outro sujeito, de capa e espada, sem arco); mudar o texto do gesto
+   **não move nada**. Se houver saída, é **outro endpoint, não outro prompt** —
+   não gaste geração repetindo prompt.
+2. **O cajado do Feiticeiro boia no ar** na morte para leste e oeste. Está
+   gravado no PNG de origem, então nenhum conversor desfaz. ⚠️ `SO_MORTE=1`
+   regenera **as quatro direções**, e o sul e o norte dele estão bons — regerar
+   sem escopar aposta arte boa para consertar arte ruim. Escopar exige um
+   `SO_DIRECOES` no gerador.
+3. **`idle` e `hurt`** continuam faltando no pack, com as quedas conhecidas.
+
+### 🔴 O REPOSITÓRIO É PÚBLICO — e os documentos assumem que não
+
+Verificado em 11/08 pela API do GitHub **sem autenticação**: `private: False`,
+desde 29/07. O `.gitignore` deste repositório diz, em texto, que os assets são
+versionados *"de propósito: ele é PRIVADO, então versioná-los não é
+redistribuição pública"*, e traz um aviso — *"se algum dia este repositório
+virar PÚBLICO, revise as licenças ANTES"* — que **já venceu**.
+
+O `CREDITS.md` lista dois packs, e os dois têm restrição escrita: o tile set da
+redspark é **"não revender"**, o pack de 100 árvores é **"Não redistribuir"**. E
+está desatualizado — não lista os cinco packs de classe, os cristais/árvores da
+CraftPix nem o MiniWorld.
+
+⚠️ **O conserto barato é tornar o repositório privado**, o que restaura a
+premissa sem custo de trabalho. A decisão é do dono e do irmão. Enquanto isso:
+**nunca commitar segredo aqui** — não existe "privado" para cair de volta.
+
+⚠️ **O token do PixelLab mora em `.env` na raiz** (ignorado pelo git, linha 5).
+Carregue **dentro do mesmo comando**, porque o shell não guarda estado entre
+chamadas:
+
+```powershell
+$env:PIXELLAB_TOKEN = ((Get-Content .env | Select-String '^PIXELLAB_TOKEN=') -replace '^PIXELLAB_TOKEN=',''); node tools/pixellab/gerar-classe.mjs archer
+```
+
+💳 **397 de 2000 gerações** usadas em agosto.
 
 ---
 
