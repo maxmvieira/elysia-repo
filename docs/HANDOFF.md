@@ -120,13 +120,56 @@ e o recorte não as inventa. Elas são geração ou desenho à mão.
 fresta escura da viseira, e o composto do leste tem um artefato preto entre o
 corpo e o escudo.
 
+### ✅ O PONTO DE MÃO, e a arte já virou tira
+
+🔴 **A simplificação que fez fechar:** como a arma foi recortada da pose parada,
+o ponto de empunhadura dela **é**, por construção, a mão daquele quadro. Não há
+ponto a adivinhar — o deslocamento é `mão(quadro) − mão(pose)`, e a pose parada
+sai exata com deslocamento zero. `tools/pixellab/maos.mjs` mede pelo
+`estimate-skeleton`, com rótulos **anatômicos** (`RIGHT ARM` é a mão da arma do
+Knight em qualquer direção — o lado da TELA troca de costas, o rótulo não).
+
+**Duas coisas que a medição revelou, e nenhuma estava prevista:**
+
+1. **A mão não se move na caminhada** — sul fica `[21,33]` nos três quadros. É
+   por construção: a máscara do passo só redesenha de `y=38` para baixo. O caso
+   que parecia o mais trabalhoso saiu de graça.
+2. **O golpe se confirmou por caminho independente:** no sul a mão sobe 21 px;
+   no **norte fica idêntica** e no oeste move 1 px. As duas direções que não
+   viraram gesto agora têm prova numérica vinda de outra medida.
+
+⚠️ **A morte fica de fora de propósito.** O corpo tomba girando em torno dos pés;
+a arma teria de girar junto, e girar pixel art de 20 px destrói o desenho. O
+caminho certo é a arma **cair** e virar item no chão, como no Tibia — e isso é
+decisão de jogo, não de arte.
+
+✅ **A arte já está em tira**, em `client/public/assets/classes-layered/knight/`:
+corpo (`walk`, `pose`, `attack_sword`, `death`), quatro armas (`espada`,
+`espada2m`, `adaga`, `escudo`) e o `offsets.json`.
+
+🔴 **Um bug quase embarcou aqui, e vale a lição.** A primeira versão do
+`armas2strip.mjs` **travava** se um quadro do corpo não tivesse a sola em
+`GROUND_Y` — e a trava disparou de cara: o `north-passo` vem com o chão em 58 e o
+conversor do corpo o desce 2 px. A arma não passa por esse conversor. Sem tratar,
+a espada sairia 2 px fora do lugar **só ao andar para o norte**. O conserto não
+foi travar, foi **somar**: o deslocamento que vai para o cliente junta o
+movimento da mão **e** o alinhamento do quadro. ⚠️ A regra do `ALIGN_MAX = 3` é
+copiada do conversor do corpo, e os dois arquivos **têm que concordar**.
+
 ### 🎯 De onde continuar
-2. ⏳ **Os sprites de arma** — 10 variantes que o dono listou (machado 1M, espada
-   2M, machado 2M, maça 1M e 2M, adaga 1M, adaga dupla, cajado 1M e 2M), mais o
-   escudo. São objetos pequenos: podem sair muito mais baratos que corpos.
-3. ⏳ **O ponto de mão** por quadro e por direção, e a ordem de desenho (arma
-   atrás do corpo quando ele está de costas). É a peça que faz o `grip.ts` virar
-   imagem.
+
+1. 🔴 **LIGAR NO CLIENTE — é o que falta para virar jogo.** `makeMiniActor` (em
+   `client/src/main.ts`) recebe **um** `anim` e desenha um sprite só. Desenhar em
+   camadas é fazê-lo aceitar uma lista, aplicando o offset por quadro. O
+   `grip.ts` já sabe **decidir** o que desenhar; falta quem **desenhe**.
+   ⚠️ É o arquivo de 3.300 linhas que já causou o *"Cannot access 'goldEmMao'
+   before initialization"* — comece com espaço para terminar.
+2. ⏳ **As seis armas que faltam:** machado, maça e cajado, 1M e 2M. Nelas a
+   ponta é **outro objeto**, e nem o recorte nem a derivação inventam isso.
+   ⚠️ A `espada2m` hoje é **cópia declarada** da espada: a 64 px o que separa as
+   duas é o punho e a POSTURA, e postura é do corpo.
+3. ⏳ **O golpe do norte e do oeste**, que não têm gesto — e que agora sabemos
+   medir de duas formas independentes.
 4. ⏳ **Decidir sobre as diagonais** — hoje são arte ruim que o motor não mostra.
 
 ---
