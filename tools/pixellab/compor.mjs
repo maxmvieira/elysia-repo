@@ -57,8 +57,23 @@ function encode(w, h, px) {
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', i), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
 }
 
+/**
+ * Cada camada pode vir como `caminho` ou `caminho:dx:dy`.
+ *
+ * O deslocamento e o que faz a arma SEGUIR a mao: ele sai de
+ * `mao(quadro) - mao(pose)`, medido em `maos.json`. Como a arma foi recortada
+ * da pose parada, ali o deslocamento e zero e o encaixe e exato por construcao.
+ */
 const [saida, ...camadas] = process.argv.slice(2);
-const imgs = camadas.map(decode);
+const imgs = camadas.map((spec) => {
+  const p = spec.split(':');
+  // ⚠️ caminho do Windows tem `C:` — o deslocamento sao os DOIS ultimos campos,
+  // e so quando forem numeros. Sem isto, `C:\...` viraria deslocamento.
+  const dy = Number(p[p.length - 1]), dx = Number(p[p.length - 2]);
+  const temOffset = p.length >= 3 && Number.isFinite(dx) && Number.isFinite(dy);
+  const caminho = temOffset ? p.slice(0, -2).join(':') : spec;
+  return { ...decode(caminho), dx: temOffset ? dx : 0, dy: temOffset ? dy : 0 };
+});
 const { w, h } = imgs[0];
 const out = Buffer.alloc(w * h * 4);
 
@@ -66,8 +81,12 @@ const out = Buffer.alloc(w * h * 4);
 // pixel art com alpha binario (o `no_background` da geracao garante), entao nao
 // ha meio-tom para misturar — e mistura inventaria cor que nao esta na paleta.
 for (const im of imgs) {
-  for (let i = 0; i < w * h; i++) {
-    if (im.px[i * 4 + 3] > 0) im.px.copy(out, i * 4, i * 4, i * 4 + 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const o = (y * w + x) * 4;
+    if (im.px[o + 3] === 0) continue;
+    const nx = x + im.dx, ny = y + im.dy;
+    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;  // o que sai da celula se perde
+    im.px.copy(out, (ny * w + nx) * 4, o, o + 4);
   }
 }
 writeFileSync(saida, encode(w, h, out));
