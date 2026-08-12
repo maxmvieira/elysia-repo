@@ -58,6 +58,27 @@ export interface EntitySnapshot {
    * entidade a cada tique é peso de rede por nada.
    */
   weaponType?: WeaponType;
+  /**
+   * Cores do outfit, uma por grupo colorível da classe.
+   *
+   * 🔴 Está aqui **pela mesma razão do `weaponType` acima**: o cliente sabe o
+   * outfit do PRÓPRIO jogador, não o dos outros. Sem o campo, todo mundo
+   * apareceria com a cor de fábrica da classe, e a customização só existiria
+   * para quem a escolheu — que é o mesmo que não existir num jogo multiplayer.
+   *
+   * Cada número é `0xRRGGBB`, e a posição é o grupo: `[0]` é o grupo 1 daquela
+   * classe. ⚠️ **Os grupos são POR CLASSE** — o 1 do Knight é a armadura, o do
+   * Arqueiro é a túnica. Ver `docs/PLANO-OUTFITS.md`.
+   *
+   * Opcional e omitido quando o personagem não tem outfit escolhido, no mesmo
+   * padrão do `weaponType` e do `skull`: o padrão é a cor original da arte, e
+   * mandar o vetor inteiro em toda entidade a cada tique seria peso de rede
+   * para dizer "nada mudou".
+   *
+   * 🔴 **É COSMÉTICO, e o Doc 1 é explícito** (`13.10`): aparência nunca altera
+   * estatística. Nada que leia este campo pode entrar em cálculo de combate.
+   */
+  outfit?: number[];
   /** Tipo da criatura, para escolher o sprite. */
   creatureType?: string;
   /** Item no chão: tipo e quantidade (ex.: ouro). */
