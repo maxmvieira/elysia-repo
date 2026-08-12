@@ -68,18 +68,37 @@ assassin → { pano: vinho,    couro: escuro }
 
 ### As quatro peças, em ordem de risco
 
-**1. Ferramenta offline: `tools/outfit-mascaras.mjs`** *(a peça que decide tudo)*
+**1. ✅ FEITO — `tools/outfit-grupos.mjs`** *(a peça que decidia tudo)*
 
-Lê os packs, agrupa as cores por matiz nas famílias declaradas por classe, e
-grava um **mapa de grupos** — um PNG paralelo em que cada pixel diz a que grupo
-pertence (0 = não recolorir). Contorno e pele caem sempre em 0.
+Escreve `grupos.json` por classe e um PNG de conferência com cada grupo pintado
+chapado. Resultado em 11/08: **Knight** separa armadura / tabardo+escudo /
+filete dourado; **Archer** separa túnica / couro / empena. As quatro classes
+saíram com 3 grupos coloríveis e 42% a 54% dos pixels fixos.
 
-🔴 **É aqui que o plano vive ou morre**, e é barato descobrir: a ferramenta é
-determinística, roda offline e o resultado se **olha** — mesma disciplina de
-`sprites-preview.html`. Se a segmentação sair suja, aparece na hora.
+🔴 **Virou TABELA DE CORES, não máscara por quadro** — e é melhor. Todas as
+tiras de uma classe compartilham a mesma paleta, então "a que grupo pertence
+este pixel" é função da **cor**, não da posição. Uma tabela de ~80 entradas vale
+para `walk`, `pose`, `attack` e `death` de uma vez, sem gerar imagem nenhuma, e
+dá para abrir o JSON e conferir a olho.
 
-⚠️ A cauda longa (37 a 74 cores de sombreado por classe) vai por vizinhança:
-cada cor da cauda herda o grupo da família mais próxima em matiz.
+🔴 **Contorno é propriedade da POSIÇÃO, não da cor.** A primeira versão
+classificou contorno por luminância e engoliu roupa em personagem escuro: no
+Arqueiro a calça de couro saía salpicada. Agora cada cor é medida pela **fração
+dos seus pixels que vive na borda** (encostando em transparência, ou como mínimo
+local de luminância). Os dados separam sem sobreposição:
+
+| | fração de borda | luminância |
+|---|---|---|
+| contorno | **0,78 – 0,98** | 0,01 – 0,05 |
+| pano | **0,00 – 0,50** | 0,22 – 0,49 |
+
+⚠️ **42% a 54% dos pixels ficarem fixos NÃO é defeito** — é o que esta arte é.
+Só as seis cores de contorno do Arqueiro somam 13.381 px. Traço preto grosso é
+o que sustenta a legibilidade a 64 px, e recolorir quase-preto não se veria.
+
+⚠️ Os limiares (`DELTA`, `FRACAO`) são `⚠️ REFERÊNCIA`, sobrescrevíveis por
+variável de ambiente, e `DIAG=1` imprime a fração de borda das cores de maior
+área — foi assim que os números acima foram escolhidos, olhando dado.
 
 **2. Cliente: recolorir em canvas, no carregamento**
 
