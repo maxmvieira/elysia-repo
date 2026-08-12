@@ -54,6 +54,7 @@ import {
   type ItemStack,
   type PlayerClass,
   attackPoseFor,
+  resolveHold,
   executionMultiplier,
   furyStats,
   ruptureDefReduction,
@@ -131,7 +132,10 @@ import {
   type DirAnim,
 } from './miniworld.js';
 import { loadKnightSprites, knightIconCss, type KnightArt } from './knight.js';
-import { loadHeroArt, golpeDe, heroIconCss, HERO_ART_CLASSES, type HeroArt } from './heroes.js';
+import {
+  loadHeroArt, loadEquipArt, golpeDe, heroIconCss, pecaDaArma, temCamada, HERO_ART_CLASSES,
+  type HeroArt, type EquipArt, type EquipPiece,
+} from './heroes.js';
 import { loadTrees, treeTexFor, type ArvoreSprite } from './trees.js';
 import { loadCrystals, crystalNodeSprite, crystalIconImage } from './crystals.js';
 
@@ -662,6 +666,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // Arte HD das 4 classes (tiras de `frames2strip`). Sobrepõe TUDO acima para a
   // classe que tiver pack; quem não tiver segue no MiniWorld.
   const heroArt = await loadHeroArt();
+  // Equipamento em camada, para as classes cujo corpo vem desarmado. Vazio para
+  // as outras, e aí o herói é desenhado como sempre foi.
+  const equipArt = await loadEquipArt('knight');
   // Sprite do NPC comerciante.
   const npcAnim = await loadNpcAnim();
   // Sprites de árvore (CraftPix), sorteados por bioma. 0 => desenho por código.
@@ -3513,7 +3520,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       if (!view) {
         view = makeEntity(e, isSelf, isSelf ? selfTex : otherTex, anims, setTarget, {
           classAnims, slimeAnim, slimeVariants, zombieAnim, zombieIdleAnim, creatureSheets,
-          knightArt, heroArt, npcAnim,
+          knightArt, heroArt, equipArt, npcAnim,
           selfClass: charClass, selfGender: gender, openShop, openBank, openCraft, openCorpse,
           gatherNode, pegarItem,
           chaoEm: (x, y) => {
@@ -4996,6 +5003,8 @@ interface MiniAssets {
    * MiniWorld — é o que segura o jogo de pé enquanto uma classe não tem pack.
    */
   heroArt: Partial<Record<PlayerClass, HeroArt>>;
+  /** Peças de equipamento desenhadas por cima do corpo desarmado. */
+  equipArt: Partial<Record<EquipPiece, EquipArt>>;
   npcAnim: DirAnim | null;
   selfClass: PlayerClass;
   selfGender: Gender;
@@ -5078,6 +5087,21 @@ function makeEntity(
   // dia em que houver variante feminina — só não desenha diferente ainda.
   const hero = mini.heroArt[cls];
   if (hero) {
+    // 🔴 EQUIPAMENTO EM CAMADA. Só para as classes cujo corpo vem DESARMADO —
+    // desenhar a espada recortada sobre um corpo que já a tem pintada daria duas
+    // espadas. `temCamada` e `COM_CAMADA` (em `heroes.ts`) mantêm as duas
+    // decisões no mesmo lugar.
+    //
+    // ⚠️ O escudo ainda não entra: `EntitySnapshot` não diz se há um equipado, e
+    // a regra do dono é "escudo só aparece se estiver equipado". Desenhá-lo
+    // sempre seria inventar equipamento; o campo é o mesmo padrão do
+    // `weaponType`, e é a próxima peça.
+    const layers: ActorLayer[] = [];
+    if (temCamada(cls)) {
+      const peca = pecaDaArma(resolveHold({ weapon: e.weaponType }));
+      const arte = peca ? mini.equipArt[peca] : undefined;
+      if (arte) layers.push(arte);
+    }
     return makeMiniActor({
       e, anim: hero.walk, scale: hero.scale,
       anchorX: hero.anchorX, anchorY: hero.anchorY, labelTop: hero.labelTop,
@@ -5085,6 +5109,7 @@ function makeEntity(
       attackAnim: golpeDe(hero, attackPoseFor(e.weaponType)),
       hurtAnim: hero.hurt,
       deathAnim: hero.death,
+      layers,
       nameColor, onClick: onTargetClick,
     });
   }
@@ -5128,11 +5153,30 @@ function makeEntity(
  * quadro 0 da direção atual; andando toca o ciclo. Ataque = pequena investida;
  * dano = flash vermelho. Serve para jogadores (por classe) e para o Slime.
  */
+/**
+ * Uma camada desenhada POR CIMA do corpo — arma, escudo.
+ *
+ * 🔴 **Não há deslocamento a aplicar.** Ele vem assado na tira, quadro a quadro,
+ * por `tools/armas2strip.mjs`: as colunas da arma são as mesmas do corpo, na
+ * mesma ordem. Duas animações com a mesma contagem de quadros, a mesma
+ * velocidade e o mesmo instante de partida ficam alinhadas sozinhas.
+ *
+ * ⚠️ Sem `death` de propósito: o corpo tomba girando, e girar pixel art de 20 px
+ * destrói o desenho. A arma some ao morrer, até alguém implementá-la CAINDO.
+ */
+interface ActorLayer {
+  walk: DirAnim;
+  pose: DirAnim;
+  attack: DirAnim;
+}
+
 interface MiniActorOpts {
   e: EntitySnapshot;
   anim: DirAnim;
   scale: number;
   nameColor: number;
+  /** Equipamento desenhado sobre o corpo, na ordem da lista (o último por cima). */
+  layers?: ActorLayer[];
   /** Sempre animar (ex.: Slime que "pula" mesmo parado). */
   alwaysAnimate?: boolean;
   /** Criatura: fica avermelhada à noite (nightMode). Jogadores/NPC = false. */
@@ -5204,6 +5248,24 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   sprite.loop = true;
   c.addChild(sprite);
 
+  /**
+   * As camadas de equipamento: um sprite irmão por peça, com a MESMA âncora,
+   * posição e escala do corpo.
+   *
+   * ⚠️ Entram entre o corpo e a barra de vida, para ficarem por cima do corpo e
+   * por baixo da interface. E são criadas aqui, e não dentro do `applyState`,
+   * porque criar sprite a cada troca de estado vazaria um por passo dado.
+   */
+  const camadas = (opts.layers ?? []).map((l) => {
+    const s = new AnimatedSprite(l.pose.down);
+    s.anchor.set(opts.anchorX ?? 0.5, opts.anchorY ?? 0.92);
+    s.x = TS / 2;
+    s.y = baseY;
+    s.scale.set(scale);
+    c.addChild(s);
+    return { s, l };
+  });
+
   const hpbar = makeHpBar();
   const nlabel = nameLabel(e.name, nameColor);
   if (opts.labelTop !== undefined) {
@@ -5255,6 +5317,29 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     return k === 'attack' ? opts.attackAnim : k === 'hurt' ? opts.hurtAnim : opts.deathAnim;
   }
 
+  /**
+   * Põe as camadas de equipamento no mesmo estado do corpo.
+   *
+   * 🔴 A sincronia é por CONSTRUÇÃO, não por relógio: as tiras de arma têm a
+   * mesma contagem de quadros na mesma ordem que as do corpo, e aqui elas
+   * recebem a mesma velocidade e o mesmo `gotoAndPlay(0)`. Duas animações
+   * iguais partindo juntas avançam juntas — o Pixi adianta as duas com o mesmo
+   * delta.
+   *
+   * `qual = null` esconde a camada. É o caso da MORTE, que não tem arte de arma:
+   * esconder é o certo até alguém implementar a arma caindo no chão.
+   */
+  function aplicaCamadas(qual: keyof ActorLayer | null, speed: number, loop: boolean, tocar: boolean): void {
+    for (const { s, l } of camadas) {
+      s.visible = qual !== null;
+      if (qual === null) { s.stop(); continue; }
+      s.textures = framesFor(dir, l[qual]);
+      s.animationSpeed = speed;
+      s.loop = loop;
+      if (tocar) s.gotoAndPlay(0); else s.gotoAndStop(0);
+    }
+  }
+
   function applyState(): void {
     // Disparo único vence tudo: quem está no meio do golpe não volta a andar
     // antes de o golpe terminar.
@@ -5263,28 +5348,38 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
       if (a) {
         sprite.textures = framesFor(dir, a);
         // Mais rápido que a caminhada: golpe é um evento, não um ciclo.
-        sprite.animationSpeed = oneShot === 'death' ? 0.14 : 0.22;
+        const speed = oneShot === 'death' ? 0.14 : 0.22;
+        sprite.animationSpeed = speed;
         sprite.loop = false;
         sprite.gotoAndPlay(0);
+        // ⚠️ `hurt` usa a pose: levar dano não tem arte de arma própria, e a
+        // alternativa (sumir com a espada ao apanhar) seria pior que repeti-la.
+        aplicaCamadas(oneShot === 'death' ? null : oneShot === 'attack' ? 'attack' : 'pose', speed, false, true);
         return;
       }
     }
     if (base === 'walk' || alwaysAnimate) {
       sprite.textures = framesFor(dir, anim);
-      sprite.animationSpeed = opts.animSpeed ?? 0.18;
+      const speed = opts.animSpeed ?? 0.18;
+      sprite.animationSpeed = speed;
       sprite.loop = true;
       sprite.gotoAndPlay(0);
+      aplicaCamadas('walk', speed, true, true);
       return;
     }
     if (opts.idleAnim) {
       sprite.textures = framesFor(dir, opts.idleAnim);
-      sprite.animationSpeed = opts.idleSpeed ?? 0.05;
+      const speed = opts.idleSpeed ?? 0.05;
+      sprite.animationSpeed = speed;
       sprite.loop = true;
       sprite.gotoAndPlay(0);
+      // O `idle` do corpo não tem par na arma; a pose parada é o equivalente.
+      aplicaCamadas('pose', speed, true, true);
       return;
     }
     sprite.textures = framesFor(dir, anim);
     sprite.gotoAndStop(0);
+    aplicaCamadas('pose', 0, false, false);
   }
 
   // Fim do disparo único: volta ao estado-base. `death` não volta — o sprite fica

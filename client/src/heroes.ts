@@ -20,7 +20,7 @@
  */
 
 import { Assets, Rectangle, Texture } from 'pixi.js';
-import { attackPoseFallback, type AttackPose, type PlayerClass } from '@dominion/shared';
+import { attackPoseFallback, type AttackPose, type Hold, type PlayerClass } from '@dominion/shared';
 import { loadImage, type DirAnim } from './miniworld.js';
 
 // ---- Outfit: recolorir por GRUPO -------------------------------------------
@@ -300,8 +300,25 @@ async function carregaGrupos(cls: PlayerClass): Promise<Grupos | null> {
   }
 }
 
+/**
+ * Classes cujo CORPO vem do pack em camadas (`classes-layered`), sem arma
+ * pintada nele.
+ *
+ * 🔴 **O corpo e a camada andam JUNTOS.** Desenhar a espada recortada por cima
+ * do corpo armado daria ao Knight **duas espadas** — a pintada e a de camada.
+ * Quem entra nesta lista tem que ter as duas coisas; quem não entra continua
+ * com o corpo armado de sempre e sem camada nenhuma.
+ *
+ * ⚠️ Só o Knight, porque só ele foi desarmado. As outras três continuam no pack
+ * antigo, e isso é estado esperado, não pendência esquecida.
+ */
+const COM_CAMADA: ReadonlySet<PlayerClass> = new Set<PlayerClass>(['knight']);
+
+export const temCamada = (cls: PlayerClass): boolean => COM_CAMADA.has(cls);
+
 async function carregaClasse(cls: PlayerClass, outfit: Outfit | null): Promise<HeroArt | null> {
-  const p = (nome: string) => `${BASE}/${cls}/${nome}.png`;
+  const raiz = COM_CAMADA.has(cls) ? BASE_LAYERED : BASE;
+  const p = (nome: string) => `${raiz}/${cls}/${nome}.png`;
 
   const grupos = outfit ? await carregaGrupos(cls) : null;
   const pintar: Pintor | undefined = grupos && outfit
@@ -344,6 +361,80 @@ async function carregaClasse(cls: PlayerClass, outfit: Outfit | null): Promise<H
     anchorY: FEET_Y / CELL,
     labelTop: -TARGET_H + 26,
   };
+}
+
+// ---------------------------------------------------------------------------
+// EQUIPAMENTO EM CAMADA
+// ---------------------------------------------------------------------------
+
+/** Onde moram o corpo desarmado e as tiras de arma. */
+const BASE_LAYERED = '/assets/classes-layered';
+
+/**
+ * As peças que existem como arte hoje. O nome é o do arquivo:
+ * `arma-<peça>-<animação>.png`.
+ *
+ * ⚠️ **Faltam seis**, e é sabido: machado, maça e cajado, de uma e de duas mãos.
+ * Neles a ponta é outro objeto — cabeça de machado, bola, cristal — e nem o
+ * recorte nem a derivação da lâmina inventam isso.
+ */
+export type EquipPiece = 'espada' | 'espada2m' | 'adaga' | 'escudo';
+
+/**
+ * Uma peça desenhada POR CIMA do corpo, com as mesmas animações dele.
+ *
+ * 🔴 **Não há deslocamento a aplicar aqui.** Ele já vem assado na tira, quadro a
+ * quadro, por `tools/armas2strip.mjs` — as colunas da arma são as mesmas do
+ * corpo, na mesma ordem. Duas camadas desenhadas em paralelo ficam alinhadas
+ * sozinhas, e o cliente não precisa saber que existe ponto de mão.
+ *
+ * ⚠️ **Não há `death`, de propósito.** O corpo tomba girando, e girar pixel art
+ * de 20 px destrói o desenho. Sem tira, a arma some ao morrer — que é o certo
+ * até alguém implementar a arma CAINDO no chão, como o Tibia faz.
+ */
+export interface EquipArt {
+  walk: DirAnim;
+  pose: DirAnim;
+  attack: DirAnim;
+}
+
+const PECAS: EquipPiece[] = ['espada', 'espada2m', 'adaga', 'escudo'];
+
+/**
+ * Que peça desenhar para a arma equipada.
+ *
+ * 🔴 **Arma sem arte devolve `null`, e o herói aparece de mãos vazias.** A
+ * tentação seria cair na espada, que é o que `attackPoseFallback` faz com a
+ * ANIMAÇÃO — mas foi exatamente isso que o dono apontou como defeito em 12/08:
+ * *"a lança do knight está parecendo a própria espada dele, o arco também, o
+ * cajado dele também é uma espada"*. Repetir o truque no desenho seria esconder
+ * a lacuna em vez de mostrá-la. Mão vazia é visivelmente "falta arte"; espada
+ * errada é uma mentira difícil de notar.
+ */
+export function pecaDaArma(hold: Hold): EquipPiece | null {
+  if (!hold.main) return null;
+  if (hold.main === 'sword') return hold.grip === 'two_hand' ? 'espada2m' : 'espada';
+  if (hold.main === 'dagger') return 'adaga';
+  return null; // machado, maça, lança, arco, besta e cajado: sem arte ainda
+}
+
+async function carregaPeca(cls: PlayerClass, peca: EquipPiece): Promise<EquipArt | null> {
+  const p = (anim: string) => `${BASE_LAYERED}/${cls}/arma-${peca}-${anim}.png`;
+  const [walk, pose, attack] = await Promise.all([
+    fatiaOpcional(p('walk')), fatiaOpcional(p('pose')), fatiaOpcional(p('attack_sword')),
+  ]);
+  return walk && pose && attack ? { walk, pose, attack } : null;
+}
+
+/**
+ * As peças de equipamento de uma classe. Classe sem pack em camadas devolve
+ * vazio, e o chamador desenha só o corpo — que é o comportamento de hoje.
+ */
+export async function loadEquipArt(cls: PlayerClass): Promise<Partial<Record<EquipPiece, EquipArt>>> {
+  const carregadas = await Promise.all(PECAS.map((p) => carregaPeca(cls, p).catch(() => null)));
+  const fora: Partial<Record<EquipPiece, EquipArt>> = {};
+  PECAS.forEach((p, i) => { const a = carregadas[i]; if (a) fora[p] = a; });
+  return fora;
 }
 
 /**

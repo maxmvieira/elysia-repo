@@ -142,21 +142,62 @@ const pecas = new Set(
   readdirSync(armaDir).filter((f) => f.endsWith('.png')).map((f) => f.replace(/-(south|north|east|west)\.png$/, '')),
 );
 
+/**
+ * 🔴 **O deslocamento é ASSADO na tira, e não resolvido em tempo de execução.**
+ *
+ * A alternativa seria o cliente ler `offsets.json` e mover a arma por quadro. Só
+ * que o quadro certo é o que o `AnimatedSprite` do corpo está mostrando AGORA, e
+ * ir buscar isso obrigaria a espiar o estado interno da animação a cada tick,
+ * dentro de um arquivo de 3.300 linhas. Assando, a tira da arma tem **as mesmas
+ * colunas na mesma ordem** que a do corpo, e desenhar as duas camadas em
+ * paralelo já as mantém alinhadas — sem uma linha de conta no cliente.
+ *
+ * ⚠️ As colunas do `walk` são `pose → passo → pose → passo2`, e a ordem é copiada
+ * do `pixellab2strip.mjs`. Os dois arquivos têm que concordar: se lá o ciclo
+ * mudar, a arma passa a acompanhar a perna errada.
+ *
+ * ⚠️ **A morte não tem camada de arma, de propósito.** O corpo tomba girando, e
+ * girar pixel art de 20 px destrói o desenho. Sem tira, o cliente simplesmente
+ * não desenha arma no `death` — que é o comportamento certo até alguém
+ * implementar a arma CAINDO, como o Tibia faz.
+ */
+const ANIMS = [
+  { nome: 'walk', quadros: ['pose', '-passo', 'pose', '-passo2'] },
+  { nome: 'pose', quadros: ['pose'] },
+  { nome: 'attack_sword', quadros: ['-golpe'] },
+];
+
 for (const peca of [...pecas].sort()) {
-  const strip = Buffer.alloc(CELL * CELL * DIRS.length * 4);
-  let temAlgum = false;
-  DIRS.forEach((d, linha) => {
+  // o escudo segue a mão do escudo; o resto segue a mão da arma
+  const mao = peca === 'escudo' ? 'escudo' : 'arma';
+  const porDir = {};
+  for (const d of DIRS) {
     const p = join(armaDir, `${peca}-${d}.png`);
-    if (!existsSync(p)) return;
-    const im = decode(p);
-    temAlgum = true;
-    for (let y = 0; y < CELL; y++) {
-      im.px.copy(strip, ((linha * CELL + y) * CELL) * 4, (y * CELL) * 4, (y * CELL + CELL) * 4);
-    }
-  });
-  if (!temAlgum) continue;
-  writeFileSync(join(out, `arma-${peca}.png`), encode(CELL, CELL * DIRS.length, strip));
-  console.log(`  arma-${peca}.png  (4 direcoes)`);
+    if (existsSync(p)) porDir[d] = decode(p);
+  }
+  if (!Object.keys(porDir).length) continue;
+
+  for (const { nome, quadros } of ANIMS) {
+    const cols = quadros.length;
+    const W = cols * CELL, H = DIRS.length * CELL;
+    const strip = Buffer.alloc(W * H * 4);
+    DIRS.forEach((d, r) => {
+      const im = porDir[d];
+      if (!im) return;
+      quadros.forEach((q, c) => {
+        const [dx, dy] = offsets[d]?.[q]?.[mao] ?? [0, 0];
+        for (let y = 0; y < CELL; y++) for (let x = 0; x < CELL; x++) {
+          const o = (y * CELL + x) * 4;
+          if (im.px[o + 3] === 0) continue;
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= CELL || ny >= CELL) continue; // o que sai da celula se perde
+          im.px.copy(strip, ((r * CELL + ny) * W + c * CELL + nx) * 4, o, o + 4);
+        }
+      });
+    });
+    writeFileSync(join(out, `arma-${peca}-${nome}.png`), encode(W, H, strip));
+  }
+  console.log(`  arma-${peca}: walk 4q · pose 1q · attack 1q`);
 }
 
 // O que viaja para o cliente e o DESLOCAMENTO pronto, nao a posicao da mao: ele
