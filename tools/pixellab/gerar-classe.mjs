@@ -19,7 +19,7 @@
  * ⚠️ O token NUNCA entra no repositorio: vem do ambiente, e so.
  */
 
-import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { deflateSync, inflateSync } from 'node:zlib';
 import { join } from 'node:path';
 
@@ -250,6 +250,61 @@ const COMUM = {
 };
 
 
+/**
+ * OS DOIS PASSOS, por inpaint na faixa das pernas. Oeste espelha o leste.
+ *
+ * 🔴 **Sao DOIS de proposito, e o segundo nasceu de um defeito visto jogando.**
+ * Com um passo so, o ciclo era `parado -> passo -> parado -> passo`: sempre a
+ * MESMA perna a frente, alternando com a pose em pe. A 64 px, com um passo
+ * curto de pe e canela (o preco da mascara baixa, ver `FAIXA_PERNAS`), isso nao
+ * le como caminhar — le como o boneco DESLIZANDO pelo chao. Foi a primeira
+ * coisa que o dono apontou ao jogar, em 11/08.
+ *
+ * Com os dois, o ciclo vira `parado -> perna A -> parado -> perna B`, que e a
+ * alternancia que o olho procura. A pose parada no meio faz o papel do quadro
+ * de passagem.
+ *
+ * ⚠️ O segundo passo NAO pode ser o primeiro espelhado: espelhar troca o
+ * personagem de lado inteiro (a arma muda de mao). Tem que ser geracao propria.
+ * O que muda em relacao ao primeiro e a descricao e a `seed` — mesma mascara,
+ * mesma trava de paleta.
+ */
+async function passos(cls, dir, desc, poses) {
+  const msk = mascara([FAIXA_PERNAS]);
+  const PASSOS = [
+    { suf: 'passo', texto: 'legs mid-stride, one foot stepping forward', seed: 21 },
+    { suf: 'passo2', texto: 'legs mid-stride, the opposite foot stepping forward, weight shifted to the other leg', seed: 47 },
+  ];
+  for (const { suf, texto, seed } of PASSOS) {
+    for (const d of ['south', 'north', 'east']) {
+      // ⚠️ Nao regera o que ja existe. Sem isto, pedir so o `passo2` numa classe
+      // ja pronta gastaria 3 geracoes redesenhando o `passo` que ja esta no
+      // disco — e geracao gasta nao volta. `REFAZER=1` forca.
+      if (!process.env.REFAZER && existsSync(join(dir, `${d}-${suf}.png`))) {
+        console.log(`  ${cls}: ${suf} ${d} — ja existe, pulando`);
+        continue;
+      }
+      console.log(`  ${cls}: ${suf} ${d}...`);
+      const r = await call('inpaint', {
+        ...COMUM,
+        description: `${desc.split(',')[0]}, ${texto}`,
+        negative_description: 'shield, weapon, extra limbs',
+        inpainting_image: paraB64(poses[d]),
+        mask_image: paraB64(msk),
+        // 🔴 trava a paleta. Sem isto ela pula de ~70 para ~1500 cores.
+        color_image: paraB64(poses[d]),
+        direction: d,
+        text_guidance_scale: 6,
+        seed,
+      });
+      const passo = daB64(r.image.base64);
+      writeFileSync(join(dir, `${d}-${suf}.png`), passo);
+      if (d === 'east') writeFileSync(join(dir, `west-${suf}.png`), espelha(passo));
+    }
+  }
+  console.log(`  ${cls}: passos ok`);
+}
+
 async function golpes(cls, dir, desc, poses) {
   // O GOLPE, mesmo truque do passo, mas na faixa da ARMA.
   const { pose, gesto } = GOLPES[cls];
@@ -357,8 +412,9 @@ async function gera(cls) {
   // SO_GOLPE=1 refaz apenas o golpe, reusando as poses ja aprovadas no disco.
   // Existe porque o lado da mascara e o que mais precisou de tentativa, e
   // regerar as poses junto arriscaria trocar arte boa por outra tirada no dado.
-  if (process.env.SO_GOLPE || process.env.SO_MORTE) {
+  if (process.env.SO_GOLPE || process.env.SO_MORTE || process.env.SO_PASSO) {
     for (const d of DIRS) poses[d] = readFileSync(join(dir, `${d}.png`));
+    if (process.env.SO_PASSO) await passos(cls, dir, desc, poses);
     if (process.env.SO_GOLPE) await golpes(cls, dir, desc, poses);
     if (process.env.SO_MORTE) await mortes(cls, dir, poses);
     return;
@@ -398,31 +454,11 @@ async function gera(cls) {
 
   for (const [d, buf] of Object.entries(poses)) writeFileSync(join(dir, `${d}.png`), buf);
 
-  // 4. O PASSO, por inpaint na faixa das pernas. Oeste espelha o leste de novo.
-  const msk = mascara([FAIXA_PERNAS]);
-  for (const d of ['south', 'north', 'east']) {
-    console.log(`  ${cls}: passo ${d}...`);
-    const r = await call('inpaint', {
-      ...COMUM,
-      description: `${desc.split(',')[0]}, legs mid-stride, one foot stepping forward`,
-      negative_description: 'shield, weapon, extra limbs',
-      inpainting_image: paraB64(poses[d]),
-      mask_image: paraB64(msk),
-      // 🔴 trava a paleta. Sem isto ela pula de ~70 para ~1500 cores.
-      color_image: paraB64(poses[d]),
-      direction: d,
-      text_guidance_scale: 6,
-      seed: 21,
-    });
-    const passo = daB64(r.image.base64);
-    writeFileSync(join(dir, `${d}-passo.png`), passo);
-    if (d === 'east') writeFileSync(join(dir, 'west-passo.png'), espelha(passo));
-  }
-
+  await passos(cls, dir, desc, poses);
   await golpes(cls, dir, desc, poses);
   await mortes(cls, dir, poses);
 
-  console.log(`  ${cls}: ok — 13 arquivos, 9 geracoes`);
+  console.log(`  ${cls}: ok — 17 arquivos, 12 geracoes`);
 }
 
 const alvo = process.argv[2];

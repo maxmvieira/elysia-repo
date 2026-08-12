@@ -140,15 +140,31 @@ function converte(cls) {
   const outDir = join(OUT, cls);
   mkdirSync(outDir, { recursive: true });
 
+  // 🔴 O CICLO DE CAMINHADA E `parado -> passo -> parado -> passo2`.
+  //
+  // Com um passo so ele era `parado -> passo`, ou seja **sempre a mesma perna a
+  // frente**, alternando com a pose em pe. A 64 px, e com um passo curto de pe e
+  // canela (o preco da mascara baixa), isso nao le como caminhar: le como o
+  // boneco DESLIZANDO pelo chao. Foi a primeira coisa que o dono apontou ao
+  // jogar, em 11/08.
+  //
+  // A pose parada entra DUAS vezes, de proposito: ela faz o papel do quadro de
+  // passagem entre uma perna e a outra, que e o que da a alternancia.
+  //
+  // ⚠️ `passo2` e opcional. Classe que so tem `passo` continua com 2 quadros, e
+  // classe sem passo nenhum continua com 1 — nada quebra, so fica pior.
   const temPasso = DIRS.every((d) => existsSync(join(dir, `${d}-passo.png`)));
-  const cols = temPasso ? 2 : 1;
+  const temPasso2 = temPasso && DIRS.every((d) => existsSync(join(dir, `${d}-passo2.png`)));
+  const ciclo = temPasso2
+    ? ['', '-passo', '', '-passo2']
+    : temPasso ? ['', '-passo'] : [''];
+  const cols = ciclo.length;
   const W = cols * CELL, H = DIRS.length * CELL;
   const walk = Buffer.alloc(W * H * 4);
   const pose = Buffer.alloc(CELL * H * 4);
 
   DIRS.forEach((d, r) => {
-    const quadros = [decode(join(dir, `${d}.png`))];
-    if (temPasso) quadros.push(decode(join(dir, `${d}-passo.png`)));
+    const quadros = ciclo.map((suf) => decode(join(dir, `${d}${suf}.png`)));
     quadros.forEach((img, c) => {
       const chao = chaoDe(img);
       const bruto = GROUND_Y - chao;

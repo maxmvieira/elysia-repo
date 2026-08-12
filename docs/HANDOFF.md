@@ -24,6 +24,7 @@ ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test
 | Feiticeiro e Assassino andando | tremiam 1 px | idem |
 | Qualquer classe **morrendo** | o Arqueiro pulava 3 px para cima ao morrer | tomba sem pulo |
 | **Entrar no mundo** | o herói quase sempre fora do enquadramento | câmera já nasce nele |
+| **Qualquer classe andando** | deslizava — 2 quadros, sempre a mesma perna | 4 quadros, pernas alternando |
 
 ### 🔴 O que NÃO foi consertado, e por quê
 

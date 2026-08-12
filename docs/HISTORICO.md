@@ -54,6 +54,31 @@ a suavização só começa depois, que é quando ela serve para o que foi feita.
 errados, mas o sintoma relatado ("o herói não aparece até você clicar") só se
 confirma jogando.
 
+**A caminhada deslizava, e a causa era a contagem de quadros.** O dono apontou
+jogando: *"quando ele anda está deslizando"*. O `walk.png` tinha 2 quadros,
+`parado` e `passo` — ou seja **sempre a mesma perna à frente**, alternando com a
+pose em pé. Com um passo curto de pé e canela (o preço da máscara baixa que
+protege o escudo, ver `FAIXA_PERNAS`), a 64 px isso não lê como caminhar.
+
+Agora são **4 quadros**: `parado → perna A → parado → perna B`. A pose parada
+entra duas vezes de propósito — faz o papel do quadro de passagem, que é o que
+dá a alternância. ⚠️ **O segundo passo não pode ser o primeiro espelhado:**
+espelhar troca o personagem de lado inteiro e a espada muda de mão. É geração
+própria, com descrição e `seed` diferentes, na mesma máscara.
+
+Medido na faixa das pernas: **15 das 16** combinações classe × direção alternam
+de verdade. Melhor caso, Knight ao sul — os dois passos diferem **239 px** entre
+si, mais do que cada um difere do parado (151). O mais fraco é o Assassino ao
+sul, com 64 px: diferença real, mas tímida.
+
+🔴 **O cliente não precisou de uma linha.** `fatia()` deriva a contagem de
+quadros da **largura** da folha — decisão de 09/08, tomada exatamente para não
+quebrar calado quando a arte mudasse de contagem. Pagou hoje.
+
+⚠️ O gerador ganhou uma trava que **pula o que já existe no disco**: sem ela,
+pedir só o `passo2` numa classe pronta regeraria o `passo` à toa, e geração
+gasta não volta. `REFAZER=1` força.
+
 **O golpe do Arqueiro e do Assassino resistiu a duas hipóteses** — as duas estão
 inteiras no beco nº 7 de `gerar-classe.mjs`, com máscaras e prompts exatos.
 Custaram 6 gerações e o saldo é conhecimento: abrir a máscara **destrói o
