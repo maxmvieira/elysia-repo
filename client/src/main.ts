@@ -5229,6 +5229,16 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   let base: 'idle' | 'walk' = 'idle';
   let hurtUntil = 0;
   let attackUntil = 0;
+  /**
+   * Qual perna vai à frente NESTE tile. Alterna a cada passo, e é o que faz o
+   * ciclo de 4 quadros virar caminhada em vez do mesmo pé repetido.
+   *
+   * ⚠️ Derivado de `moveStart` mudar, e não de um gancho no `setTarget`, porque
+   * existem três `setTarget` neste arquivo e só ESTE ator anda em 4 quadros.
+   * Observar o início do passo mantém a mudança dentro de quem a usa.
+   */
+  let paridade = false;
+  let ultimoPasso = moveStart;
 
   function framesFor(d: Direction, set: DirAnim): Texture[] {
     return d === 'up' ? set.up : d === 'left' ? set.left : d === 'right' ? set.right : set.down;
@@ -5349,9 +5359,44 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     c.x = fromX + (toX - fromX) * t;
     c.y = fromY + (toY - fromY) * t;
     setBase(now < movingUntil ? 'walk' : 'idle');
+
+    /*
+     * 🔴 O PASSO É REGIDO PELO CHÃO, NÃO POR UM RELÓGIO PRÓPRIO.
+     *
+     * Relatado jogando, duas vezes: *"parece mais um deslize do que fazer o
+     * movimento de caminhar"*. A primeira tentativa foi dar ao ciclo o quadro da
+     * perna oposta (4 quadros em vez de 2) — necessário, e insuficiente.
+     *
+     * A causa que sobrou é de SINCRONIA: o `AnimatedSprite` avançava sozinho a
+     * `animationSpeed` fixa (~0,37 s por ciclo) enquanto o tile é atravessado na
+     * cadência que o SERVIDOR manda. Duas cadências diferentes = o pé toca o
+     * chão num ritmo e o chão passa em outro, que é a definição de patinar.
+     *
+     * Agora o quadro sai de `t`, o mesmo progresso 0..1 que move o sprite: cada
+     * tile atravessado consome MEIO ciclo (pose de passagem -> contato), e o
+     * `paridade` alterna a perna a cada tile. Um passo por tile, como no Tibia.
+     *
+     * ⚠️ Só vale para o ciclo de 4 quadros. Arte com 1 ou 2 quadros (packs
+     * antigos, criaturas) segue no caminho de sempre — `applyState` continua
+     * dono dela, e mexer aqui a deixaria congelada no quadro 0.
+     */
+    if (moveStart !== ultimoPasso) {
+      ultimoPasso = moveStart;
+      paridade = !paridade;
+    }
+    let bob = 0;
+    if (base === 'walk' && !oneShot && sprite.textures.length === 4) {
+      const contato = t >= 0.5;                       // pé batendo no chão
+      sprite.gotoAndStop((paridade ? 0 : 2) + (contato ? 1 : 0));
+      // O tronco sobe quando as pernas se cruzam e desce quando o pé bate. É 1
+      // px, e é o que separa "andando" de "recorte deslizando" — a escala é
+      // 1,0×, então 1 px de arte é 1 px de tela.
+      bob = contato ? 0 : 1;
+    }
+
     // Investida de ataque (pequeno salto pra frente da direção).
     const hop = now < attackUntil ? Math.sin(((attackUntil - now) / 140) * Math.PI) : 0;
-    sprite.y = baseY - hop * 3;
+    sprite.y = baseY - hop * 3 - bob;
     const monstroNoturno = !!opts.creatureTint && nightMode;
     sprite.tint = now < hurtUntil ? 0xff6a6a : monstroNoturno ? 0xff5a4a : (opts.tint ?? 0xffffff);
     // Aura neon pulsante à noite.

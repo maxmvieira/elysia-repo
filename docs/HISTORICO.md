@@ -54,6 +54,44 @@ a suavização só começa depois, que é quando ela serve para o que foi feita.
 errados, mas o sintoma relatado ("o herói não aparece até você clicar") só se
 confirma jogando.
 
+**O passo passou a ser regido pelo CHÃO, e a referência do jogo ficou conhecida.**
+
+O dono insistiu, jogando: *"a animação não convence, parece mais um deslize do
+que fazer o movimento de caminhar"* — mesmo depois dos 4 quadros. A causa que
+sobrava era de **sincronia**: o `AnimatedSprite` avançava sozinho a
+`animationSpeed` fixa (~0,37 s por ciclo) enquanto o tile é atravessado na
+cadência que o **servidor** manda. Duas cadências diferentes é a definição de
+patinar — o pé toca num ritmo e o chão passa em outro.
+
+Agora o quadro sai de `t`, o mesmo progresso 0..1 que move o sprite: cada tile
+consome meio ciclo (passagem → contato) e a perna alterna a cada tile. Um passo
+por tile. ⚠️ Vale só para o ciclo de 4 quadros; arte de 1 ou 2 segue no caminho
+de sempre, senão congelaria no quadro 0.
+
+⚠️ Entrou junto um **bob de 1 px** no tronco (sobe na passagem, desce no
+contato). 🔴 **Isso NÃO é Tibia** — ver abaixo — e é o primeiro candidato a sair
+se o dono achar estranho.
+
+### 🔴 A REFERÊNCIA DO JOGO É **MEDIVIA** (motor estilo Tibia 7.x)
+
+O dono mandou o vídeo *"Tudo o que o Medivia tem de melhor"* dizendo que ele
+**tem todas as referências que ele procura para o jogo**. Isso responde de uma
+vez três discussões que vinham separadas:
+
+| Assunto | O que Medivia/Tibia faz |
+|---|---|
+| **Caminhada** | ciclo avança **um quadro por tile** — o que acabou de ser implementado |
+| **Corpo** | **não sobe nem desce**; quem trabalha é a perna |
+| **Outfits** | paleta ampla, cor por região — confirma a direção do `PLANO-OUTFITS` |
+| **Arma na mão** | a arma equipada **é desenhada**, por CAMADA sobre o corpo |
+
+🔴 **E confirma onde está o teto da nossa caminhada, com número.** Naqueles
+sprites **a perna inteira se move, do quadril para baixo**. A nossa máscara
+(`FAIXA_PERNAS`) redesenha só de `y = 50` para baixo — **14 px de 58**, pé e
+canela. Nenhum código inventa perna que o desenho não tem, e é por isso que nem
+os 4 quadros nem a sincronia bastaram: era afinar o relógio de um passo que
+quase não existe.
+
 **Clicar numa pilha do chão passa a pegá-la, e item vence nó no mesmo tile.**
 Dois pedidos do dono jogando, em 11/08.
 

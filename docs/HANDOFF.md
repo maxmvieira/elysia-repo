@@ -1,6 +1,39 @@
-# Handoff — estado do projeto em 2026-08-11
+# Handoff — estado do projeto em 2026-08-12
 
-## ⏸️ ONDE PARAMOS — três consertos prontos, NENHUM visto em tela
+## ⏸️ ONDE PARAMOS — retomar 12/08 pela manhã
+
+🔴 **A DESCOBERTA MAIS IMPORTANTE DE ONTEM: a referência do jogo é o MEDIVIA**
+(motor estilo Tibia 7.x). O dono mandou o vídeo dizendo que ele *"tem todas as
+referências que eu procuro para o nosso game"*. Isso decide três discussões de
+uma vez — ver o bloco de 11/08 no [`HISTORICO.md`](./HISTORICO.md).
+
+### 🎯 A PRÓXIMA COISA, e ela está decidida e orçada
+
+**Regerar o passo com a máscara subindo até o QUADRIL** (`y ≈ 38` em vez de 50),
+**por classe**.
+
+O porquê: em Medivia a perna inteira se move, do quadril para baixo. A nossa
+`FAIXA_PERNAS` redesenha só de `y = 50` — **14 px de 58**, pé e canela. É o teto
+da caminhada, e é a razão de nem os 4 quadros nem a sincronia terem bastado.
+
+A máscara está em 50 por causa do **escudo do Knight**, que se perde se ela subir
+(beco documentado). ⚠️ Mas isso é problema **dele** — Feiticeiro e Arqueiro não
+têm escudo. É a mesma lição do lado da arma, que também virou por classe.
+
+**Custo: 3 gerações por classe. Começar pelo FEITICEIRO** — manto liso, sem
+escudo, sem aljava: o menor risco e o teste mais honesto de se a perna maior
+aparece. Se aparecer, seguir; se não, o limite é do modelo e para-se de gastar.
+
+**Depois disso**, na ordem combinada com o dono:
+1. **Outfits passo 3c** — a escolha na criação, com **paleta ampla** (aprovado)
+2. **Rosto do Feiticeiro** — ele não tem rosto em direção nenhuma; o capuz é um
+   vazio quase-preto, e como quase-preto é grupo 0, **outfit não conserta**
+3. **Aparência por tier de equipamento**, reusando os grupos de outfit — barato
+4. **Arma na mão por camadas** — o caro, e Medivia confirma que é esse o caminho
+
+---
+
+## Estado de 2026-08-11 — três consertos, NENHUM visto em tela
 
 🔴 **PRIMEIRA COISA: subir o jogo e olhar.** Os três consertos abaixo foram
 verificados por **medição** e por 445 testes, e nenhuma das duas coisas prova
