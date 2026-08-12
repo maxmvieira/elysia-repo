@@ -18,13 +18,46 @@ ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test
 
 **O que olhar, e o que deveria ter mudado:**
 
-| O quê | Antes | Agora |
+| O quê | Antes | Agora | Visto? |
+|---|---|---|---|
+| Arqueiro andando **para o sul** | saltava 3 px a cada passo | pé cravado no chão | ⏳ |
+| Feiticeiro e Assassino andando | tremiam 1 px | idem | ⏳ |
+| Qualquer classe **morrendo** | o Arqueiro pulava 3 px ao morrer | tomba sem pulo | ⏳ |
+| **Entrar no mundo** | herói fora do enquadramento | câmera já nasce nele | ⏳ |
+| **Qualquer classe andando** | deslizava — 2 quadros, mesma perna | 4 quadros, pernas alternando | ⏳ |
+| **Arrastar item para o chão** | travava o personagem andando sem parar | para normalmente | ✅ dono |
+| **Clicar numa pilha no chão** | não fazia nada — só arrastar pegava | pega (anda até lá se preciso) | ✅ dono |
+| **Bolsa em cima de moita** | clique ia para a moita, espólio inalcançável | item vence nó | ✅ dono |
+
+### 🎨 O sistema de OUTFITS começou — passos 1 e 2 de 4
+
+📖 O plano inteiro está em [`PLANO-OUTFITS.md`](./PLANO-OUTFITS.md). Resumo do
+que já existe:
+
+| | O quê | Onde |
 |---|---|---|
-| Arqueiro andando **para o sul** | saltava 3 px a cada passo | pé cravado no chão |
-| Feiticeiro e Assassino andando | tremiam 1 px | idem |
-| Qualquer classe **morrendo** | o Arqueiro pulava 3 px para cima ao morrer | tomba sem pulo |
-| **Entrar no mundo** | o herói quase sempre fora do enquadramento | câmera já nasce nele |
-| **Qualquer classe andando** | deslizava — 2 quadros, sempre a mesma perna | 4 quadros, pernas alternando |
+| ✅ 1 | Grupos coloríveis por classe, 3 cada | `tools/outfit-grupos.mjs` → `grupos.json` |
+| ✅ 2 | O cliente recolore, preservando o sombreado | `client/src/heroes.ts` |
+| ⏳ 3 | Protocolo + banco + escolha na criação | — |
+| ⏳ 4 | — |  |
+
+🔴 **Para VER o passo 2 agora**, sem nada mais existir:
+`http://localhost:5173/?outfit=8c2f2f,2f2f38,d8c070`. Sem o parâmetro o jogo
+desenha **exatamente como antes** — recolorir é opt-in até haver escolha.
+
+🔴 **O modelo do Tibia (cabeça/tronco/pernas/pés) NÃO transfere**, e está medido:
+o cinza da armadura do Knight vai de `y=4` a `y=59` — elmo, peito e greva são a
+mesma cor, e nele não existe "cor da perna". O que separa é o **matiz**, então
+cada classe tem os **seus** grupos. Não tente dividir por altura de novo.
+
+**O que falta no passo 3**, e as armadilhas que ele já tem nome:
+- `EntitySnapshot` precisa carregar o outfit, **pela mesma razão do
+  `weaponType`**: o cliente sabe o do próprio jogador, não o dos outros.
+- Colunas novas no personagem. 🔴 **A migração confere o SCHEMA, não o
+  `user_version`** — armadilha nº 3 do projeto, use `Store.hasColumn()`.
+- A escolha entra na criação de personagem, onde o Doc 1 já prevê
+  "Customização visual". ⚠️ **Trocar depois continua PENDENTE** — não invente
+  barbeiro. E `13.10`: aparência **nunca** altera estatística.
 
 ### 🔴 O que NÃO foi consertado, e por quê
 
