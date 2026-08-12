@@ -58,10 +58,44 @@ três quadros** (`x 18..45`), coisa que nunca tinha acontecido.
 4. **Nada disso está ligado no jogo.** `_desarmado/` é pasta separada, e o
    conversor pula pasta começada por `_`. O jogo continua com o pack armado.
 
-### 🎯 De onde continuar
+### ✅ A MORTE do corpo desarmado entrou — e o GOLPE só pela metade
 
-1. ⏳ **Golpe e morte do corpo desarmado** — o passo já nasceu dele; faltam os
-   outros dois. Mesmo pipeline: `PACK=_desarmado SO_GOLPE=1 …`
+**A morte funciona.** Mesmo `animate-with-skeleton` de sempre: o corpo tomba e
+termina deitado no chão, nas quatro direções, e nenhuma arma reapareceu.
+
+🔴 **O golpe é o problema difícil deste projeto, e agora tem três provas.** O
+`inpaint` lateral falhou pela terceira vez: no corpo desarmado o gesto mexeu
+**41 px no norte e 70 no leste** (o passo mexe 328–397), e no sul a única
+mudança relevante foi o modelo **inventar uma espada** — num corpo cujo
+propósito é não ter uma.
+
+✅ **A saída era outro endpoint, e o desarme a destravou.** O beco nº 3 baniu
+`animate-with-skeleton` porque ele **regenera o corpo e some com o escudo**. Sem
+escudo no sprite, o motivo do banimento sumiu — é o beco nº 4 acontecendo de
+novo. Desarmar o corpo destravou **duas** coisas, não uma.
+
+⚠️ **E mesmo assim só o sul ficou bom:**
+
+| | `inpaint` | **esqueleto** | lê como golpe? |
+|---|---|---|---|
+| sul | 145 px | **3949** | ✅ braço erguido junto à cabeça |
+| norte | 41 px | 497 | ❌ mudou, mas não ergue o braço |
+| leste | 70 px | 899 | ❌ idem |
+
+⚠️ **O esqueleto não segue keypoint fino a 64 px.** Foram pedidos três quadros
+distintos (armar, bater, terminar) com o cotovelo e a mão em posições bem
+diferentes; voltaram **três quadros quase idênticos**, todos com o braço erguido.
+Ele entrega "braço levantado" genérico, não o arco descrito. Por isso o **golpe
+de cima para baixo que o dono pediu não saiu** — o que existe é a armada.
+
+⚠️ Custo do esqueleto: o corpo é regenerado, e isso cobra. No sul as cores caem
+de **62 para 51** e a silhueta estreita de 28 para 25 px.
+
+🆕 Os três quadros ficam no disco como `<dir>-golpe0/1/2.png`; o do meio vira o
+`-golpe.png` que o pipeline de hoje espera. Quando o motor souber tocar golpe de
+vários quadros, a arte já está lá.
+
+### 🎯 De onde continuar
 2. ⏳ **Os sprites de arma** — 10 variantes que o dono listou (machado 1M, espada
    2M, machado 2M, maça 1M e 2M, adaga 1M, adaga dupla, cajado 1M e 2M), mais o
    escudo. São objetos pequenos: podem sair muito mais baratos que corpos.

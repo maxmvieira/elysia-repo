@@ -213,6 +213,28 @@ const ESPELHA_LADO = { esq: 'dir', dir: 'esq', ambos: 'ambos' };
  * em `sword`, entao classe sem esse arquivo perde o golpe inteiro e volta ao
  * "pulinho" de investida do placeholder. O arquivo e o SLOT, nao a arma.
  */
+/**
+ * O golpe do corpo DESARMADO — o que o `PACK=_desarmado` usa.
+ *
+ * 🔴 **Nenhuma arma é citada, nem para dizer que não está lá.** É o beco nº 1
+ * ao pé da letra: foi o texto mencionando a arma que fez o Knight criar ASAS. No
+ * corpo desarmado a regra fica mais fácil de obedecer, porque a arma vai ser
+ * camada — o que o corpo precisa fazer é o GESTO, e só.
+ *
+ * ⚠️ O gesto é de **cima para baixo**, e isso foi pedido pelo dono em 12/08
+ * olhando o jogo: *"a animação de ataque poderia ser um golpe de cima para
+ * baixo no sul, ao norte a mesma coisa e a oeste também"*. O gesto antigo era
+ * "erguer acima do ombro" e parava no alto — lia como preparar, não como bater.
+ *
+ * O braço é o do lado da arma (`LADO_ARMA`), que no Knight é a esquerda da tela.
+ */
+const GOLPES_DESARMADO = {
+  knight: { pose: 'sword', gesto: 'striking downward with the left arm, fist closed, arm swung down and across the body from above the head, mid-strike' },
+  sorcerer: { pose: 'staff', gesto: 'striking downward with the right arm, hand open, arm swung down from above the head, mid-cast' },
+  archer: { pose: 'bow', gesto: 'both arms raised in front of the chest, one hand forward and the other drawn back beside the jaw, mid-draw' },
+  assassin: { pose: 'dagger', gesto: 'lunging forward, both arms thrust forward and down, fists closed, mid-stab' },
+};
+
 const GOLPES = {
   knight: { pose: 'sword', gesto: 'swinging a longsword, sword raised high above the shoulder to the upper left, arm extended up, mid-swing' },
   sorcerer: { pose: 'staff', gesto: 'raising a wooden staff high above the shoulder to the upper left, crystal glowing bright, casting a spell' },
@@ -369,7 +391,7 @@ async function passos(cls, dir, desc, poses) {
 
 async function golpes(cls, dir, desc, poses) {
   // O GOLPE, mesmo truque do passo, mas na faixa da ARMA.
-  const { pose, gesto } = GOLPES[cls];
+  const { pose, gesto } = (PACK ? GOLPES_DESARMADO : GOLPES)[cls];
   const lado = LADO_ARMA[cls];
   const mskArma = mascara(BANDAS[lado]);
   const mskArmaEsp = mascara(BANDAS[ESPELHA_LADO[lado]]);
@@ -394,6 +416,103 @@ async function golpes(cls, dir, desc, poses) {
   writeFileSync(join(dir, 'GOLPE.txt'), `${pose}\n`); // qual slot este golpe ocupa
 
   console.log(`  ${cls}: golpes ok`);
+}
+
+/**
+ * Qual BRACO golpeia, em vocabulario de esqueleto.
+ *
+ * 🔴 O esqueleto e ANATOMICO, e por isso ele resolve um problema que a mascara
+ * nao resolvia: `LADO_ARMA` fala do lado da TELA, e o lado da tela troca quando
+ * o personagem vira de costas (por isso existe o `ESPELHA_LADO`). O rotulo
+ * `RIGHT ARM` e o braco direito do sujeito em TODAS as direcoes — o mesmo codigo
+ * acerta o braco certo de frente, de costas e de perfil, sem caso especial.
+ *
+ * Confere com o medido: no Knight de frente, `RIGHT ARM` cai em x=0.33, que e a
+ * esquerda da tela — exatamente onde `LADO_ARMA` diz que a espada dele mora.
+ */
+const BRACO_GOLPE = {
+  knight: 'RIGHT',
+  sorcerer: 'LEFT',    // o cajado nasce na direita da tela = mao esquerda dele
+  archer: 'RIGHT',
+  assassin: 'RIGHT',
+};
+
+/**
+ * O GOLPE por esqueleto — e por que ele so pode existir no corpo DESARMADO.
+ *
+ * 🔴 **O beco nº 3 baniu o esqueleto porque ele REGENERA O CORPO e some com o
+ * escudo.** No corpo desarmado nao ha escudo para perder, entao o motivo do
+ * banimento deixou de existir — exatamente como aconteceu com o beco nº 4 na
+ * caminhada. Desarmar o corpo nao destravou uma coisa, destravou duas.
+ *
+ * ⚠️ E ele e a UNICA saida aqui, porque o `inpaint` lateral ja falhou tres
+ * vezes: 6 geracoes no beco nº 7 (Arqueiro e Assassino) e mais 3 no Knight
+ * desarmado, onde o gesto mexeu **41 px no norte e 70 no leste** contra 328–397
+ * do passo — e no sul a unica mudanca relevante foi o modelo INVENTAR uma
+ * espada. A receita ja dizia: se ha saida, e outro endpoint, nao outro prompt.
+ *
+ * Tres quadros — armar, bater, terminar — e o do meio vira o `-golpe.png` que o
+ * pipeline de hoje espera. Os tres ficam no disco: quando o motor souber tocar
+ * golpe de varios quadros, a arte ja esta la, sem gastar de novo.
+ */
+async function golpesEsqueleto(cls, dir, poses) {
+  const lado = BRACO_GOLPE[cls];
+  for (const d of direcoes()) {
+    console.log(`  ${cls}: golpe (esqueleto) ${d}...`);
+    const base = poses[d];
+    const kp0 = (await call('estimate-skeleton', { image: paraB64(base) })).keypoints;
+
+    const ombro = kp0.find((k) => k.label === `${lado} SHOULDER`);
+    if (!ombro) throw new Error(`${cls}/${d}: o estimador nao devolveu ${lado} SHOULDER`);
+
+    // ⚠️ O golpe desce em direcao ao MEIO do corpo, e nao para um lado fixo.
+    // "Atravessar o corpo" e o que faz o gesto ler como corte em qualquer
+    // direcao; mandar sempre para a direita sairia certo de frente e errado de
+    // costas.
+    const paraDentro = Math.sign(0.5 - ombro.x) || 1;
+
+    /** Um quadro: move so o cotovelo e a mao do braco que golpeia. */
+    const braco = (dCotX, dCotY, dMaoX, dMaoY) => kp0.map((k) => {
+      const alvo =
+        k.label === `${lado} ELBOW` ? [dCotX, dCotY] :
+        k.label === `${lado} ARM` ? [dMaoX, dMaoY] : null;
+      const [ex, ey] = alvo ?? [0, 0];
+      return {
+        ...k,
+        x: Math.min(0.97, Math.max(0.03, k.x + ex * paraDentro)),
+        y: Math.min(0.97, Math.max(0.03, k.y + ey)),
+        // 🔴 inteiro, sempre: a API responde 422 com fracao. Ver a morte.
+        z_index: Math.round(k.z_index),
+      };
+    });
+
+    const r = await call('animate-with-skeleton', {
+      image_size: { width: CELL, height: CELL },
+      reference_image: paraB64(base),
+      color_image: paraB64(base),
+      skeleton_keypoints: [
+        braco(0.01, -0.16, 0.04, -0.30),  // armado: mao acima da cabeca
+        braco(0.06, -0.02, 0.14, -0.06),  // batendo: braco estendido a frente
+        braco(0.05, 0.08, 0.12, 0.16),    // terminando: mao baixa, cruzando
+      ],
+      view: 'high top-down',
+      direction: d,
+      guidance_scale: 6,
+      seed: 41,
+    });
+
+    r.images.forEach((im, i) => {
+      const buf = daB64(im.base64);
+      writeFileSync(join(dir, `${d}-golpe${i}.png`), buf);
+      if (d === 'east') writeFileSync(join(dir, `west-golpe${i}.png`), espelha(buf));
+    });
+    // O quadro do meio e o golpe de hoje: e o instante em que a arma estaria no alvo.
+    const meio = daB64(r.images[1].base64);
+    writeFileSync(join(dir, `${d}-golpe.png`), meio);
+    if (d === 'east') writeFileSync(join(dir, 'west-golpe.png'), espelha(meio));
+  }
+  writeFileSync(join(dir, 'GOLPE.txt'), `${GOLPES[cls].pose}\n`);
+  console.log(`  ${cls}: golpes por esqueleto ok`);
 }
 
 /**
@@ -477,7 +596,10 @@ async function gera(cls) {
   if (process.env.SO_GOLPE || process.env.SO_MORTE || process.env.SO_PASSO) {
     for (const d of DIRS) poses[d] = readFileSync(join(dir, `${d}.png`));
     if (process.env.SO_PASSO) await passos(cls, dir, desc, poses);
-    if (process.env.SO_GOLPE) await golpes(cls, dir, desc, poses);
+    // 🔴 No pack desarmado o golpe vai por ESQUELETO, nao por inpaint lateral.
+    // O inpaint ja falhou aqui (41 px de gesto no norte), e o esqueleto so e
+    // possivel porque nao ha mais escudo a preservar. Ver `golpesEsqueleto`.
+    if (process.env.SO_GOLPE) await (PACK ? golpesEsqueleto(cls, dir, poses) : golpes(cls, dir, desc, poses));
     if (process.env.SO_MORTE) await mortes(cls, dir, poses);
     return;
   }
