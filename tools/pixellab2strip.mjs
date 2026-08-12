@@ -243,6 +243,8 @@ function converte(cls) {
 
 if (!existsSync(SRC)) { console.error(`Sem ${SRC}/ — rode antes tools/pixellab/gerar-classe.mjs`); process.exit(1); }
 let n = 0;
-for (const cls of readdirSync(SRC)) n += converte(cls);
+// Pasta comecada por `_` nao e classe: e experimento ou backup guardado ao lado
+// do pack. Sem isto o conversor reclama que faltam as quatro direcoes nelas.
+for (const cls of readdirSync(SRC)) if (!cls.startsWith('_')) n += converte(cls);
 console.log(`\n  ${n} classes convertidas em ${OUT}/`);
 console.log('  ⚠️ Pasta SEPARADA: falta só hurt (o motor pisca vermelho sem ele).');
