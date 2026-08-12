@@ -38,8 +38,24 @@ que já existe:
 |---|---|---|
 | ✅ 1 | Grupos coloríveis por classe, 3 cada | `tools/outfit-grupos.mjs` → `grupos.json` |
 | ✅ 2 | O cliente recolore, preservando o sombreado | `client/src/heroes.ts` |
-| ⏳ 3 | Protocolo + banco + escolha na criação | — |
-| ⏳ 4 | — |  |
+| ✅ 3a | Tipo, peneira e campo do snapshot | `shared/src/outfit.ts` |
+| ✅ 3b | Banco (schema **v5**) e o outfit no snapshot | `server/src/store/` |
+| ⏳ **3c** | **A escolha na criação de personagem** | **é o que falta** |
+
+🔴 **O cano está inteiro entre o banco e o desenho — falta só a torneira.** Um
+personagem com `outfit` gravado já viaja no snapshot e já seria desenhado
+colorido. O que **ninguém consegue** é escolher: não há interface.
+
+**O que o 3c precisa:**
+1. Seletor de cores na tela de criação (o Doc 1 já prevê "Customização visual"
+   entre sexo e nome). As cores e a quantidade são `⚠️ REFERÊNCIA`.
+2. O `create-character` do protocolo carregando o outfit, passado por
+   `sanitizeOutfit` **no servidor** — o cliente nunca é confiável.
+3. `makeEntity` usar `e.outfit` do snapshot em vez do `?outfit=` da URL.
+
+⚠️ **Trocar cor DEPOIS continua PENDENTE** no Doc 1 — não invente barbeiro.
+⚠️ **`13.10`: aparência nunca altera estatística.** Está escrito em quatro
+lugares do código; se o outfit aparecer dentro de `recompute` ou `combat`, é bug.
 
 🔴 **Para VER o passo 2 agora**, sem nada mais existir:
 `http://localhost:5173/?outfit=8c2f2f,2f2f38,d8c070`. Sem o parâmetro o jogo
