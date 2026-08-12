@@ -54,6 +54,26 @@ a suavização só começa depois, que é quando ela serve para o que foi feita.
 errados, mas o sintoma relatado ("o herói não aparece até você clicar") só se
 confirma jogando.
 
+**Arrastar item para o chão travava o personagem andando.** Relatado jogando:
+*"fui jogar um item no chão, ele bugou e saiu andando pro lado esquerdo sem
+parar"*.
+
+🔴 **O código já documentava esta falha — a lista de guardas é que estava
+incompleta.** O comentário do `releaseAllKeys` diz, desde antes: *"sem isto, um
+keyup perdido (alt-tab) trava o personagem andando"*. Havia guarda para `blur` e
+para aba oculta. Faltava o arraste: enquanto um drag-and-drop HTML5 está em
+curso o navegador roda um **laço modal próprio e não entrega `keyup` à página**,
+então a tecla de movimento segurada durante o gesto fica presa no `heldKeys`.
+
+Agora `dragstart`, `dragend` e `drop` também soltam as teclas. Nas duas pontas,
+porque a tecla pode já estar pressionada quando o arraste começa; e `dragend`
+não basta sozinho, porque soltar fora da janela pode não entregá-lo.
+
+⚠️ **`mouseup` NÃO entrou na lista**, e a primeira versão desta correção o
+incluía. Clique comum entrega `keyup` normalmente, e limpar as teclas nele faria
+quem segura W para andar parar toda vez que clicasse para atacar — trocaria um
+bug raro por um constante.
+
 **A caminhada deslizava, e a causa era a contagem de quadros.** O dono apontou
 jogando: *"quando ele anda está deslizando"*. O `walk.png` tinha 2 quadros,
 `parado` e `passo` — ou seja **sempre a mesma perna à frente**, alternando com a

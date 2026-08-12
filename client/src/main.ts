@@ -3632,6 +3632,31 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (document.hidden) releaseAllKeys();
   });
 
+  // 🔴 ARRASTAR TAMBÉM PERDE O `keyup` — e este foi relatado JOGANDO, em 11/08:
+  // *"fui jogar um item no chão, ele bugou e saiu andando pro lado esquerdo sem
+  // parar"*.
+  //
+  // Enquanto um arraste HTML5 está em curso o navegador roda um laço modal
+  // PRÓPRIO e não entrega `keyup` à página. Uma tecla de movimento segurada
+  // durante o gesto fica presa no `heldKeys`, e o personagem anda naquela
+  // direção para sempre — exatamente a falha que os dois guardas acima já
+  // existiam para evitar, entrando por uma porta que eles não cobriam.
+  //
+  // ⚠️ Solta nas DUAS pontas de propósito: no `dragstart` porque a tecla pode já
+  // estar pressionada quando o arraste começa (e aí o `keyup` dela nunca chega),
+  // e no fim porque pode ter sido pressionada durante o gesto. `dragend` não é
+  // suficiente sozinho: soltar FORA da janela dispara `drop` em outro documento
+  // e o `dragend` pode não chegar.
+  //
+  // 🔴 **Só eventos de ARRASTE.** `mouseup` NÃO entra aqui: clique comum entrega
+  // `keyup` normalmente, e limpar as teclas nele faria quem segura W para andar
+  // parar de andar toda vez que clicasse para atacar — trocaria um bug raro por
+  // um constante. O arraste de item DO CHÃO usa mouse comum, não `DragEvent`, e
+  // por isso também não precisa de guarda.
+  for (const ev of ['dragstart', 'dragend', 'drop'] as const) {
+    window.addEventListener(ev, releaseAllKeys);
+  }
+
   window.addEventListener('keydown', (ev) => {
     if (document.activeElement === chatInputEl) return;
     if (ev.code in CODE_TO_VEC) {
