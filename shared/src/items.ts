@@ -82,6 +82,23 @@ export interface ItemDef {
   /** Tipo da arma (só para slot 'weapon'): define identidade e proficiência. */
   weaponType?: WeaponType;
   /**
+   * Quantas mãos ESTA peça ocupa, sobrepondo o padrão do tipo
+   * (`WEAPON_IDENTITY[type].hands`).
+   *
+   * 🔴 **Existe porque "duas mãos" é propriedade do ITEM, não do TIPO.** O tipo
+   * diz que espada é espada; ele não pode dizer que toda espada é de uma mão,
+   * senão "Espada de Duas Mãos" e "Machado de Duas Mãos" não têm como existir —
+   * e o dono pediu os dois, além de maça e cajado nas duas versões.
+   *
+   * ⚠️ Ausente = usa o do tipo, que continua sendo o padrão sensato: lança,
+   * arco e besta já nascem com 2. Só quem foge do padrão declara.
+   *
+   * Consequência mecânica, e ela já estava escrita em `weapons.ts`: **duas mãos
+   * = sem escudo**, em troca de mais atributo. Quem aplica a regra é
+   * `resolveHold` em `grip.ts`.
+   */
+  hands?: 1 | 2;
+  /**
    * Categoria da armadura (Doc 4, cap. 38): Pesada, Leve ou Veste. Define qual
    * classe prioriza a peça. Só para peças de proteção.
    */
