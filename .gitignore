@@ -23,6 +23,11 @@ server/data/
 # ⚠️ Se algum dia este repositório virar PÚBLICO, revise as licenças de
 # client/public/assets/ ANTES — alguns packs proíbem redistribuição aberta.
 
+# Cache do Python dos geradores do Blender (tools/blender/). É compilado da
+# máquina de quem rodou `npm run models:build`, não código.
+__pycache__/
+*.pyc
+
 # Arquivos pesados só de trabalho (zips baixados, PSD), esses não precisam.
 *.zip
 *.psd
