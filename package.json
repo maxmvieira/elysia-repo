@@ -17,6 +17,7 @@
     "dev:client": "npm run dev --workspace client",
     "map:build": "node tools/tmx2world.mjs map/mapa-gpt/vila_inicial.tmx",
     "sprites:build": "node tools/frames2strip.mjs",
+    "models:build": "node tools/blender/gerar.mjs",
     "test": "npm-run-all --serial test:*",
     "test:shared": "npm run test --workspace shared",
     "test:server": "npm run test --workspace server",

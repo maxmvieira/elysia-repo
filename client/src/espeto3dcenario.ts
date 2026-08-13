@@ -25,6 +25,7 @@
  */
 
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // ---------------------------------------------------------------------------
 // Medidas — as mesmas de `heroes.ts` e `tileset.ts`
@@ -153,8 +154,14 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-cena.add(new THREE.HemisphereLight(0xcfe2ff, 0x55603d, 1.0));
-const sol = new THREE.DirectionalLight(0xfff0cf, 1.7);
+/*
+ * ⚠️ A cena estava ESCURA na primeira montagem, e escuro engana: reboco creme
+ * lia como cinza-azulado e eu quase julguei a cor do modelo como errada. Luz de
+ * conferência tem que ser generosa — julgar arte sob luz fraca é o equivalente
+ * 3D de julgar sprite sem abrir a página de conferência.
+ */
+cena.add(new THREE.HemisphereLight(0xdcecff, 0x6d7a4e, 1.9));
+const sol = new THREE.DirectionalLight(0xfff6e2, 2.4);
 sol.position.set(-24, 40, 18);
 sol.castShadow = true;
 sol.shadow.mapSize.set(2048, 2048);
@@ -481,6 +488,59 @@ async function monta(): Promise<void> {
 
   // --- o vilarejo, e um bosque em volta -------------------------------------
   let objetos = 0;
+  aviso.textContent = 'carregando a casa modelada…';
+
+  /*
+   * 🔴 A CASA MODELADA NO BLENDER, ao lado das procedurais — é a comparação
+   * que esta versão da página existe para mostrar.
+   *
+   * Ela vem de `tools/blender/modelos/casa_enxaimel.py` por
+   * `npm run models:build`. A origem já está na BASE e centrada em x/y (é o que
+   * `assenta()` garante no `comum.py`), então posicionar é só `set(x, altura, z)`
+   * — sem correção de âncora, que é justamente o bug que a convenção previne.
+   */
+  try {
+    const gltf = await new GLTFLoader().loadAsync('/assets/models3d/casa_enxaimel.glb');
+    const modelo = gltf.scene;
+    modelo.traverse((o) => {
+      const malha = o as THREE.Mesh;
+      if (!malha.isMesh) return;
+      malha.castShadow = true;
+      malha.receiveShadow = true;
+      /*
+       * 🔴 TROCA DE MATERIAL, e ela é uma CORREÇÃO — não gosto pessoal.
+       *
+       * O `GLTFLoader` cria `MeshStandardMaterial` (PBR), e todo o resto desta
+       * cena é `MeshLambertMaterial`. Sob as MESMAS luzes os dois dão brilhos
+       * diferentes — o PBR divide a energia e sai bem mais escuro. Na primeira
+       * carga a casa modelada apareceu quase preta ao lado das procedurais, e
+       * eu quase li isso como "o modelo ficou ruim".
+       *
+       * ⚠️ A lição para a versão de verdade: **um modelo de material só na
+       * cena inteira.** Misturar é comparar coisas sob regras diferentes.
+       */
+      const antigo = malha.material;
+      const lista = Array.isArray(antigo) ? antigo : [antigo];
+      const novos = lista.map((m) => {
+        const base = m as THREE.MeshStandardMaterial;
+        return new THREE.MeshLambertMaterial({
+          color: base.color ?? new THREE.Color(0xffffff),
+          map: base.map ?? null,
+          flatShading: true,
+        });
+      });
+      malha.material = Array.isArray(antigo) ? novos : (novos[0] as THREE.Material);
+    });
+    const mx = TILES / 2 - 1;
+    const mz = TILES / 2 - 4;
+    modelo.position.set(mx, altura(mx, mz), mz);
+    cena.add(modelo);
+    objetos++;
+  } catch (e) {
+    // Sem o `.glb` a página continua funcionando com as casas procedurais —
+    // rode `npm run models:build`. Falhar aqui não pode derrubar a cena.
+    console.warn('[espeto] casa_enxaimel.glb ausente; só as procedurais.', e);
+  }
 
   // Praça: quatro casas em volta de um miolo livre, portas para o sul.
   const praca: Array<[number, number, number, number]> = [
