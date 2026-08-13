@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Espeto 3D — o personagem: 2D contra 3D</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; overflow: hidden; background: #11161b; font-family: system-ui, sans-serif; }
+      canvas { display: block; }
+
+      #painel {
+        position: fixed; top: 12px; left: 12px; z-index: 10;
+        max-width: 350px; padding: 14px 16px;
+        background: rgba(12, 16, 20, 0.9);
+        border: 1px solid #2c3742; border-radius: 10px;
+        color: #d7e0e8; font-size: 13px; line-height: 1.5;
+      }
+      #painel h1 { margin: 0 0 8px; font-size: 15px; color: #fff; }
+      #painel p { margin: 0 0 10px; }
+      #painel ol { margin: 0 0 12px; padding-left: 18px; }
+      #painel li { margin-bottom: 7px; }
+      #painel b { color: #ffd479; }
+      .alerta { color: #ff9d7a; }
+      .botoes { display: flex; flex-wrap: wrap; gap: 6px; }
+      button {
+        padding: 6px 10px; font-size: 12px; cursor: pointer;
+        background: #1e2a35; color: #d7e0e8;
+        border: 1px solid #3a4a5a; border-radius: 6px;
+      }
+      button:hover { background: #27364a; }
+      .dica { margin-top: 10px; font-size: 11.5px; color: #8b9aa8; }
+
+      .rotulo {
+        position: fixed; z-index: 8; transform: translate(-50%, -100%);
+        padding: 3px 9px; border-radius: 6px; white-space: nowrap;
+        font-size: 12px; font-weight: 600; pointer-events: none;
+        background: rgba(12, 16, 20, 0.85); border: 1px solid #3a4a5a;
+      }
+      #r-2d { color: #8fd0ff; }
+      #r-3d { color: #ffd479; }
+
+      #aviso {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        color: #8b9aa8; font-size: 14px; z-index: 5;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="aviso">montando o volume a partir dos sprites…</div>
+    <div class="rotulo" id="r-2d">2D — billboard, 4 direções</div>
+    <div class="rotulo" id="r-3d">3D — volume, direção livre</div>
+
+    <div id="painel">
+      <h1>O personagem: 2D contra 3D</h1>
+      <p>
+        O mesmo Knight, dois jeitos, mesmo chão e mesmo passo. A câmera gira
+        sozinha — <b>arraste</b> para assumir, <b>roda</b> ou <b>+ −</b> para
+        aproximar.
+      </p>
+
+      <p>O que olhar:</p>
+      <ol>
+        <li>
+          <b>O salto contra o giro.</b> O de 2D pula de face em face a cada 90°;
+          o de 3D vira liso, em qualquer ângulo. É a diferença inteira.
+        </li>
+        <li>
+          <b>A luz.</b> O de 3D ganha lado claro e lado escuro conforme gira. O
+          de 2D não muda nunca — pixel art iluminada perde a paleta, então ele
+          é, de propósito, um adesivo.
+        </li>
+        <li>
+          <b>45°</b> (botão abaixo): o ângulo em que o de 2D não tem face para
+          mostrar, e o de 3D não tem problema nenhum.
+        </li>
+      </ol>
+
+      <p class="alerta">
+        ⚠️ O volume é derivado das silhuetas sul e leste do próprio sprite, não
+        modelado à mão. Ele mostra como o personagem se <b>comporta</b> em 3D —
+        não o acabamento que um modelo de verdade teria. O leste da arte é três
+        quartos, não perfil, então o volume sai torcido e o vão entre braço e
+        tronco fica preenchido.
+      </p>
+
+      <div class="botoes">
+        <button id="b-girar">girar sozinho</button>
+        <button id="b-frente">de frente</button>
+        <button id="b-lado">45° (o ângulo ruim)</button>
+        <button id="b-perto">aproximar ++</button>
+        <button id="b-longe">afastar −−</button>
+      </div>
+
+      <p class="dica">
+        <span id="contagem">…</span> · descartável: não fala com o servidor, não
+        importa <code>main.ts</code>, não entra no build.
+      </p>
+    </div>
+
+    <script type="module" src="/src/espeto3dpersonagem.ts"></script>
+  </body>
+</html>
