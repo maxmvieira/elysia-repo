@@ -1,5 +1,64 @@
 # Handoff — estado do projeto em 2026-08-12
 
+## ⏸️ ONDE PARAMOS — retomar 13/08
+
+🔴 **A DESCOBERTA MAIS IMPORTANTE DE ONTEM, e ela vem por último de propósito:
+existe um produto de PERSONAGEM no PixelLab** (`pixellab.ai/create-character`).
+Ele faz **8 direções, 8 animações de 9 quadros e estados**, exporta em **64×64**,
+gera corpo **sem arma**, e o `Export` entrega tudo. O dia inteiro foi construído
+em cima da **API crua**, que não faz nada disso.
+
+🔴 **NÃO GERE MAIS PERSONAGEM PELA API CRUA ANTES DE AVALIAR O CHARACTERS.**
+📖 O que muda e o que fica obsoleto está no topo de
+[`PIXELLAB-RECEITA.md`](./PIXELLAB-RECEITA.md).
+
+✅ **E o trabalho de ontem sobrevive.** Como o Characters gera corpo sem arma, o
+sistema de camada continua valendo inteiro — `grip.ts`, `maos.mjs`, `compor.mjs`,
+`armas2strip.mjs` e o desenho em camadas no cliente. **Só muda de onde vem o
+corpo**, e ele passa a vir com 8 direções.
+
+### 🎯 A PRÓXIMA COISA, em ordem
+
+1. **Gerar UMA classe no Characters** — 64×64, sem arma, 8 direções — e medir o
+   custo em créditos (a tela mostra `⚡39` por estado). Uma classe responde se o
+   caminho vale, antes de gastar nas quatro.
+2. **O ZOOM DA CÂMERA.** O dono estranhou que o herói no jogo é diferente do que
+   vê no preview, e o diagnóstico está fechado: **é escala, não arte.** O herói
+   é desenhado a 58 px numa viewport de ~780, cerca de metade do tamanho em que
+   o preview o mostra — e nos mockups dele o personagem ocupa bem mais tela.
+   ⚠️ O zoom tem que ser **inteiro** (2×, não 1,5×), senão volta o serrilhado de
+   escala fracionária de 10/08; e `atualizaChunks` monta cenário pelo tamanho da
+   tela, então confira que o `SNAPSHOT_RANGE = 32` do servidor continua cobrindo
+   o que aparece. É a mudança de maior impacto visual por esforço que sobrou.
+3. **As seis armas que faltam** — machado, maça e cajado, 1M e 2M.
+4. **O escudo no snapshot** — `hasShield?: boolean`, no mesmo padrão do
+   `weaponType`. O `grip.ts` já tem a regra testada e a arte já está recortada.
+
+### ✅ O que ficou pronto ontem (12/08)
+
+**~33 gerações, 22 commits, tudo empurrado.** Typecheck limpo, **466 testes**.
+
+| | |
+|---|---|
+| Feiticeiro | 4 direções na máscara do quadril; o dourado da veste parou de sumir |
+| Knight desarmado | espada e escudo saíram do sprite, identidade preservada |
+| `grip.ts` + `ItemDef.hands` | escudo só se equipado, 2 mãos sem escudo, só adaga dupla |
+| Camada | corpo + espada + escudo **remonta o Knight**, com o leão |
+| Ponto de mão | a arma segue o braço no golpe |
+| **No jogo** | o Knight já segura o que equipou |
+| Respiração | `idle` construído, não gerado — 1 px de tórax, pés fixos |
+| HUD | retrato + nome + classe no bloco de vitais |
+
+### ⚠️ O que NÃO ficou bom, e está medido
+
+- **O golpe do norte e do oeste não existe** — a mão não se move um pixel. Três
+  abordagens falharam. Provado por duas medidas independentes.
+- **As diagonais pela API crua não prestaram** — e o Characters as faz.
+- **Isométrico**: o dono gostou dos mockups, e a decisão foi **ficar na grade**.
+- **Arma sem arte desenha mão vazia**, de propósito — ver o item 3.
+
+---
+
 ## 🗡️ 12/08 (tarde) — A ARMA SAIU DO CORPO. Leia isto antes de tudo.
 
 O dono jogou, listou 10 defeitos e virou o rumo: **a arma deixa de ser pintada
