@@ -82,6 +82,42 @@ anda com 2.
 
 ---
 
+## 🔴 ISOMÉTRICO: o gerador não faz, e isso está medido (12/08)
+
+O dono viu mockups isométricos, gostou, e perguntou se dava. **Não dá por este
+gerador**, e a resposta custou 2 gerações mais uma sondagem de graça.
+
+**1. A API não tem ângulo isométrico.** `view` aceita exatamente
+`'side'`, `'low top-down'` e `'high top-down'` — o 422 devolve a lista. Não há o
+que pedir.
+
+**2. E o ângulo que um jogo isométrico precisa é a DIAGONAL, que o `/rotate` não
+faz.** Num mundo isométrico as 4 direções de movimento aparecem na tela como 4
+diagonais, então os sprites necessários são NE, SE, SO, NO — não N, S, L, O.
+
+Três tentativas de sudeste, cobrindo `image_guidance_scale` de 3 a 8, falharam
+**do mesmo jeito**:
+
+| | largura | cores |
+|---|---|---|
+| sul (frente) | 28 | **62** |
+| sudeste, guidance 5 | 30 | 111 |
+| sudeste, guidance 8 | **32** | **123** |
+| sudeste, guidance 3 | 30 | 104 |
+| leste (perfil, 90°) | 26 | 85 |
+
+🔴 **As três saíram mais LARGAS que a vista de frente** — o que uma vista de três
+quartos não pode ser — e **as três dobraram a paleta**, que é a assinatura do
+beco nº 1: o modelo redesenha em vez de girar. O `/rotate` entrega 90° (o leste é
+perfil de verdade) e não entrega 45°.
+
+⚠️ **Consequência para a decisão de projeção.** O motivo escrito em 05/08 para
+descartar isométrico era que *os packs isométricos traziam personagem de uma
+direção só*. Esse motivo tinha enfraquecido, porque as classes deixaram de vir de
+pack e passaram a ser geradas — mas o motivo novo é mais forte: **o gerador não
+produz personagem isométrico de jeito nenhum**. Ir para isométrico significa
+abandonar este pipeline para personagem e comprar ou encomendar a arte.
+
 ## 🔴 Os quatro becos sem saída (não repita)
 
 ### 1. `animate-with-text` solto → o Knight cria ASAS
