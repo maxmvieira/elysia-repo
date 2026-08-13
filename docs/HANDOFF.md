@@ -158,6 +158,14 @@ copiada do conversor do corpo, e os dois arquivos **têm que concordar**.
 
 ### 🎯 De onde continuar
 
+0. 🔴🔴 **PRIMEIRO DE TUDO: o PixelLab tem um produto de PERSONAGEM**
+   (`pixellab.ai/create-character`), e ele é muito melhor que a API crua que
+   este projeto vem usando — **8 direções, 8 animações de 9 quadros, estados**.
+   O dono confirmou em 12/08 que ele exporta em **64×64**, gera corpo **sem
+   arma** e o `Export` entrega tudo. 📖 Detalhes e o que fica obsoleto em
+   [`PIXELLAB-RECEITA.md`](./PIXELLAB-RECEITA.md), no topo.
+   🔴 **Não gere mais personagem pela API crua antes de avaliar isto.**
+   ✅ O sistema de camada abaixo **sobrevive** — só muda de onde vem o corpo.
 1. 🔴 **LIGAR NO CLIENTE — é o que falta para virar jogo.** `makeMiniActor` (em
    `client/src/main.ts`) recebe **um** `anim` e desenha um sprite só. Desenhar em
    camadas é fazê-lo aceitar uma lista, aplicando o offset por quadro. O

@@ -112,10 +112,30 @@ o mesmo sujeito. O `HISTORICO.md` os trata como se tivessem saído de um gerador
   que a conclusão foi tirada; mas ela não vale para a ferramenta certa.
 - Boa parte dos becos abaixo é sobre **montar à mão** o que o Characters já faz.
 
-🎯 **Antes de gastar mais geração pela API crua, avaliar o Characters.** As
-perguntas abertas: dá para exportar em `64×64`? Dá para gerar o corpo **sem
-arma** (o sistema de camada de 12/08 depende disso)? O `Export` entrega tira ou
-PNG por quadro? Quanto custa em créditos (a tela mostra `⚡39` por estado)?
+### ✅ As três perguntas que decidiam tudo, respondidas pelo dono em 12/08
+
+| pergunta | resposta | o que isso destrava |
+|---|---|---|
+| Exporta em **64×64**? | **sim** | bate com o `CELL` do pipeline atual — o conversor e as cinco constantes de `heroes.ts` continuam valendo |
+| Gera corpo **sem arma**? | **sim** | 🔴 **o sistema de camada de 12/08 sobrevive inteiro** — e ganha 8 direções de graça |
+| O `Export` entrega o quê? | **tudo** | tira ou quadro solto, os dois conversores já sabem ler |
+
+🎯 **O caminho passa a ser este, e ele torna quase tudo de 12/08 mais barato:**
+
+1. Gerar as 4 classes no **Characters**, em `64×64`, **sem arma**, 8 direções.
+2. As armas continuam vindo do jeito de 12/08 — recorte por subtração de um
+   corpo armado, ou desenho — e entram como **camada**, que já funciona.
+3. `grip.ts`, `maos.mjs`, `compor.mjs`, `armas2strip.mjs` e o desenho em camadas
+   no cliente **continuam valendo como estão**. O que muda é a origem do corpo.
+
+⚠️ **O que fica obsoleto:** `desarmar.mjs` (não é mais preciso desarmar o que já
+nasce desarmado), `girar.mjs` (o Characters entrega as 8 direções), e o passo/
+golpe/respiração montados à mão — o Characters traz 8 animações de 9 quadros.
+Nada disso deve ser apagado antes de o pack novo estar em tela: é o que segura o
+jogo de pé enquanto a troca não acontece.
+
+⚠️ Continua valendo o custo em créditos (`⚡39` por estado na tela) — medir antes
+de gerar as quatro classes.
 
 ## 🔴 ISOMÉTRICO: o gerador não faz, e isso está medido (12/08)
 
