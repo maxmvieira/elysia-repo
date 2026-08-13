@@ -698,7 +698,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   await loadCrystals();
 
   const world = new Container(); // a "câmera"
-  const ZOOM = 1.0; // câmera afastada (visão ampla, como no início)
+  /*
+   * 🔴 O ZOOM TEM QUE SER INTEIRO, e é a razão de ele ser 2 e não 1,5.
+   *
+   * A filtragem é `nearest`. Em escala fracionária um pixel do desenho vira 2 na
+   * tela e o vizinho vira 3, em faixas alternadas — é o serrilhado que picotava
+   * a silhueta e que já custou uma sessão inteira em 10/08. Em 2× cada pixel do
+   * desenho vira exatamente 4, sempre.
+   *
+   * A 1,0× o herói era desenhado a 58 px numa viewport de ~780 — cerca de metade
+   * do tamanho em que o preview o mostra, e bem menos do que ocupa nos mockups
+   * do dono. A 2× ele vai a 116 px.
+   *
+   * ⚠️ `atualizaChunks` monta cenário pelo retângulo que a tela cobre, então
+   * zoom maior mostra MENOS mundo (24 → 12 tiles na vertical). O
+   * `SNAPSHOT_RANGE = 32` do servidor continua sobrando.
+   */
+  const ZOOM = 2.0;
   world.scale.set(ZOOM);
   app.stage.addChild(world);
 
@@ -4296,6 +4312,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * vez de suavizar — ver o bloco de câmera dentro do ticker.
    */
   let cameraSeguindo = false;
+  /*
+   * A posição REAL da câmera, em ponto flutuante. O que vai para `world.x/y` é
+   * ela arredondada — ver o bloco de câmera dentro do ticker.
+   *
+   * 🔴 Guardar o float aqui não é preciosismo: se a suavização lesse de volta o
+   * valor já arredondado, um passo menor que meio pixel arredondaria para o
+   * mesmo lugar e a câmera EMPACARIA a poucos pixels do alvo, sem nunca chegar.
+   */
+  let camX = 0;
+  let camY = 0;
 
   // Loop de render ---------------------------------------------------------
   app.ticker.add(() => {
@@ -4503,13 +4529,29 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // o que foi feita: acompanhar quem anda.
     if (app.screen.width > 0 && app.screen.height > 0) {
       if (cameraSeguindo) {
-        world.x += (targetX - world.x) * 0.2;
-        world.y += (targetY - world.y) * 0.2;
+        camX += (targetX - camX) * 0.2;
+        camY += (targetY - camY) * 0.2;
       } else {
-        world.x = targetX;
-        world.y = targetY;
+        camX = targetX;
+        camY = targetY;
         cameraSeguindo = !!self; // o herói apareceu: a partir daqui, suaviza
       }
+      /*
+       * 🔴 A CÂMERA ANDA EM PIXEL DE TELA INTEIRO, e isto é irmão do zoom ser
+       * inteiro.
+       *
+       * A suavização entrega um deslocamento fracionário, e com filtragem
+       * `nearest` a fração decide de que lado do texel cada pixel do sprite cai.
+       * A 1,0× isso já desalinhava; a 2× cada meio pixel de câmera vira um pixel
+       * de tela, e o cenário inteiro CINTILA enquanto o herói anda — um pixel
+       * saltando para lá e para cá em linhas que deveriam estar paradas.
+       *
+       * Arredondar aqui, e só aqui, mantém a suavização intacta (ela vive em
+       * `camX/camY`) e garante que a grade de pixels da tela nunca fique meio
+       * texel fora da grade do desenho.
+       */
+      world.x = Math.round(camX);
+      world.y = Math.round(camY);
     }
 
     // Cenário sob demanda: monta o que entrou na tela, joga fora o que saiu.

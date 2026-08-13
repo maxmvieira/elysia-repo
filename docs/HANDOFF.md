@@ -1,6 +1,41 @@
-# Handoff — estado do projeto em 2026-08-12
+# Handoff — estado do projeto em 2026-08-13
 
-## ⏸️ ONDE PARAMOS — retomar 13/08
+## ⏸️ ONDE PARAMOS — retomar 14/08
+
+### ✅ 13/08 — A CÂMERA APROXIMOU, e a rotação está decidida
+
+**`ZOOM` foi de 1,0× para 2,0×** em `client/src/main.ts`. O herói era desenhado
+a 58 px numa viewport de ~780, cerca de metade do tamanho do preview; agora vai
+a **116 px**. Typecheck limpo, **466 testes**.
+
+🔴 **Veio junto um conserto que não estava previsto: a câmera passou a andar em
+pixel de tela inteiro.** A suavização entregava deslocamento fracionário e
+`world.x/y` nunca era arredondado — a 2× cada meio pixel de câmera vira um pixel
+de tela, e o cenário **cintilaria** enquanto o herói anda. O float agora mora em
+`camX`/`camY` e o arredondamento acontece só na saída. ⚠️ **Guardar o float à
+parte não é preciosismo:** se a suavização lesse de volta o valor arredondado, um
+passo menor que meio pixel arredondaria para o mesmo lugar e a câmera
+**empacaria** perto do alvo.
+
+⚠️ **O `SNAPSHOT_RANGE = 32` sobra** — zoom maior mostra *menos* mundo (24 → 12
+tiles na vertical), o contrário do que a nota de 12/08 temia.
+
+🔴 **CÂMERA QUE GIRA (Ragnarok): decidido NÃO fazer em 13/08 — não reabra sem
+ler o porquê.** Girar exige 8 direções por sprite (o tipo tem 4:
+`DirAnim { down, up, right, left }`, `client/src/miniworld.ts:22`), e as
+diagonais já falharam com número em 12/08. Todo objeto alto é billboard ancorado
+no pé, então girar o mundo os deita. Ragnarok é **terreno 3D com billboards**, não
+2D girando. E Medivia — a referência declarada em 11/08 — não gira. 📖 As quatro
+razões estão inteiras no [`HISTORICO.md`](./HISTORICO.md), bloco de 13/08.
+
+⏳ **Disponível e não construído:** zoom em degraus inteiros (1×/2×/3× na roda do
+mouse). É pequeno — o `ZOOM` já está threaded, falta o handler. O dono preferiu
+**manter o 2× fixo** por ora. 🔴 Se for feito, **os degraus têm que ser
+inteiros**: escala fracionária traz de volta o serrilhado de 10/08.
+
+---
+
+## ⏸️ O bloco de 12/08, que abriu esta retomada
 
 🔴 **A DESCOBERTA MAIS IMPORTANTE DE ONTEM, e ela vem por último de propósito:
 existe um produto de PERSONAGEM no PixelLab** (`pixellab.ai/create-character`).
@@ -22,14 +57,7 @@ corpo**, e ele passa a vir com 8 direções.
 1. **Gerar UMA classe no Characters** — 64×64, sem arma, 8 direções — e medir o
    custo em créditos (a tela mostra `⚡39` por estado). Uma classe responde se o
    caminho vale, antes de gastar nas quatro.
-2. **O ZOOM DA CÂMERA.** O dono estranhou que o herói no jogo é diferente do que
-   vê no preview, e o diagnóstico está fechado: **é escala, não arte.** O herói
-   é desenhado a 58 px numa viewport de ~780, cerca de metade do tamanho em que
-   o preview o mostra — e nos mockups dele o personagem ocupa bem mais tela.
-   ⚠️ O zoom tem que ser **inteiro** (2×, não 1,5×), senão volta o serrilhado de
-   escala fracionária de 10/08; e `atualizaChunks` monta cenário pelo tamanho da
-   tela, então confira que o `SNAPSHOT_RANGE = 32` do servidor continua cobrindo
-   o que aparece. É a mudança de maior impacto visual por esforço que sobrou.
+2. ✅ **O ZOOM DA CÂMERA — FEITO em 13/08.** Está 2×. Ver o bloco do topo.
 3. **As seis armas que faltam** — machado, maça e cajado, 1M e 2M.
 4. **O escudo no snapshot** — `hasShield?: boolean`, no mesmo padrão do
    `weaponType`. O `grip.ts` já tem a regra testada e a arte já está recortada.

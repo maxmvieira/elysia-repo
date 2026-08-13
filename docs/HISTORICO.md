@@ -9,6 +9,78 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-08-13 — A câmera aproxima, e a rotação fica decidida de fora
+
+**Onde mora:** `ZOOM` e o bloco de câmera do ticker, em `client/src/main.ts`.
+
+O dono estranhou que o herói no jogo era diferente do que via no preview, e o
+diagnóstico já estava fechado desde 12/08: **era escala, não arte.** O herói era
+desenhado a 58 px numa viewport de ~780 — cerca de metade do tamanho em que o
+preview o mostra. `ZOOM` foi de **1,0× para 2,0×**, e o herói passou a 116 px.
+
+✅ **A troca foi de uma linha porque o `ZOOM` já estava enfiado em todo lugar que
+importa** — `atualizaChunks`, a conversão tela→tile, o alvo da câmera e o buraco
+de luz da noite. Nada assumia `1`.
+
+🔴 **O zoom tem que ser INTEIRO.** A filtragem é `nearest`: em escala
+fracionária um pixel do desenho vira 2 na tela e o vizinho vira 3, em faixas
+alternadas — é o serrilhado de 10/08. Em 2× cada pixel vira exatamente 4.
+
+🔴 **E veio junto um conserto que ninguém tinha previsto: a câmera passou a
+andar em pixel de tela inteiro.** A suavização (`* 0.2` por quadro) entregava
+deslocamento fracionário, e `world.x/y` nunca era arredondado. A 1,0× isso já
+desalinhava o texel; a 2× cada meio pixel de câmera vira um pixel de tela e o
+cenário inteiro **cintilaria** enquanto o herói anda.
+
+⚠️ **O float ficou guardado à parte de propósito** (`camX`/`camY`), e o
+arredondamento acontece só na saída. Se a suavização lesse de volta o valor já
+arredondado, um passo menor que meio pixel arredondaria para o mesmo lugar e a
+câmera **empacaria** a poucos pixels do alvo, sem nunca chegar.
+
+⚠️ Zoom maior mostra **menos** mundo — 24 → 12 tiles na vertical. O
+`SNAPSHOT_RANGE = 32` do servidor, que era a preocupação anotada, sobra.
+
+### 🔴 CÂMERA QUE GIRA: decidido NÃO fazer, e é para não reabrir
+
+O dono perguntou por uma câmera como a do Ragnarok — que gira, aproxima e
+afasta. **Aproximar e afastar cabe** (degraus inteiros, ver abaixo). **Girar
+não**, e o obstáculo não é o código da rotação, que seria quase trivial: é que a
+arte inteira pressupõe um ângulo só. Quatro razões, todas verificadas:
+
+1. **Os sprites têm 4 direções no TIPO** — `DirAnim { down, up, right, left }`
+   em `client/src/miniworld.ts:22`. Ragnarok tem **8 direções por sprite
+   exatamente porque a câmera gira**: ele escolhe o quadro por `direção do
+   personagem − ângulo da câmera`. Com 4, girar 45° faz todo mundo mostrar a
+   face errada — o sprite da face certa não existe.
+2. **As diagonais já foram tentadas e falharam, com número** (12/08): o sudeste
+   saiu **mais largo** que o sul (30 contra 28 px) e o nordeste ficou mais
+   estreito que o próprio perfil. E 8 direções cobrem 8 ângulos, não rotação
+   livre.
+3. **Tudo que é alto é billboard preso ao eixo da tela** — árvore, cristal, NPC
+   e herói ancorados no pé (`anchor.set(0.5, 1)`). Girar o mundo **deita todos
+   eles**; contra-girar cada um deixa o chão torto, e o chão é pixel art de
+   32 px alinhada ao eixo. Girar pixel art destrói o desenho — é a mesma razão
+   que deixou a arma de fora da animação de morte.
+4. **O movimento do servidor é 4-direcional** (`[[dx,0],[0,dy]]`). O personagem
+   nem anda em diagonal hoje.
+
+🔴 **A diferença de fundo:** Ragnarok não é 2D com câmera girando. É **terreno
+3D texturizado com personagens 2D em billboard** — o chão dele gira porque é
+malha, não bitmap. Copiar isso é trocar o renderizador e regerar toda a arte.
+
+⚠️ **Rotação em degraus de 90° é a única variante que fecharia** — 4 direções
+remapeiam exato e girar bitmap em múltiplo de 90° é sem perda. O custo é o
+resto: ordenação por profundidade, os pedaços de cenário, a inversa do clique, o
+minimapa. E ela **contraria a referência declarada**: o dono apontou o Medivia
+em 11/08, e Medivia e Tibia não giram a câmera. Em Ragnarok a rotação serve para
+enxergar atrás de prédios 3D; numa grade vista de cima não há o que ela resolva.
+
+⏳ **O que ficou disponível e não foi construído:** zoom em degraus inteiros
+(1× / 2× / 3× na roda do mouse). É pequeno, porque o `ZOOM` já está threaded —
+falta só o handler. O dono preferiu **manter o 2× fixo** por ora.
+
+---
+
 ## 2026-08-12 (tarde) — A arma sai do corpo e vira camada
 
 **Onde mora:** `tools/pixellab/desarmar.mjs` · `tools/pixellab/girar.mjs` ·
