@@ -165,6 +165,10 @@ const ANIMS = [
   { nome: 'walk', quadros: ['pose', '-passo', 'pose', '-passo2'] },
   { nome: 'pose', quadros: ['pose'] },
   { nome: 'attack_sword', quadros: ['-golpe'] },
+  // 🔴 O `idle` da arma acompanha a respiração do corpo. A mão fica ACIMA do
+  // quadril, então ela sobe junto com o tronco — arma parada num corpo que
+  // respira é pior que corpo que não respira, porque o olho vê o descolamento.
+  { nome: 'idle', quadros: ['pose', 'pose'], respira: [0, -1] },
 ];
 
 for (const peca of [...pecas].sort()) {
@@ -177,7 +181,7 @@ for (const peca of [...pecas].sort()) {
   }
   if (!Object.keys(porDir).length) continue;
 
-  for (const { nome, quadros } of ANIMS) {
+  for (const { nome, quadros, respira } of ANIMS) {
     const cols = quadros.length;
     const W = cols * CELL, H = DIRS.length * CELL;
     const strip = Buffer.alloc(W * H * 4);
@@ -185,7 +189,9 @@ for (const peca of [...pecas].sort()) {
       const im = porDir[d];
       if (!im) return;
       quadros.forEach((q, c) => {
-        const [dx, dy] = offsets[d]?.[q]?.[mao] ?? [0, 0];
+        const base = offsets[d]?.[q]?.[mao] ?? [0, 0];
+        // a respiração é um deslocamento a mais, por quadro, somado ao da mão
+        const [dx, dy] = [base[0], base[1] + (respira?.[c] ?? 0)];
         for (let y = 0; y < CELL; y++) for (let x = 0; x < CELL; x++) {
           const o = (y * CELL + x) * 4;
           if (im.px[o + 3] === 0) continue;

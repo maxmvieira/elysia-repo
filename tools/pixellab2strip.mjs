@@ -187,6 +187,43 @@ function converte(cls) {
   writeFileSync(join(outDir, 'walk.png'), encode(W, H, walk));
   writeFileSync(join(outDir, 'pose.png'), encode(CELL, H, pose));
 
+  /**
+   * O `idle`: a RESPIRAÇÃO, construída aqui e não gerada.
+   *
+   * 🔴 **É de propósito que ela não venha do modelo.** O dono apontou jogando
+   * que "a animação parado está faltando respiração, ele está estático", e sem
+   * `idle` o motor congela no quadro 0 do `walk`. Mas respirar a 64 px é o tórax
+   * subir **UM pixel** — e este pipeline já provou três vezes hoje que não
+   * controla detalhe desse tamanho: o `inpaint` moveu 41 px de gesto onde
+   * precisava de centenas, e o esqueleto devolveu três quadros idênticos quando
+   * pediram três poses distintas. Um pixel é justamente o que um conversor
+   * acerta sempre e um modelo generativo nunca.
+   *
+   * Dois quadros: parado, e o mesmo com tudo **acima do quadril** subido 1 px.
+   * A `idleSpeed` do cliente é 0.05 — bem lenta —, então a alternância lê como
+   * fôlego, não como tremor.
+   *
+   * ⚠️ **Só o tronco sobe; os pés ficam.** Deslocar o sprite inteiro seria o
+   * herói FLUTUANDO, que é o defeito que custou a sessão de 11/08 inteira. A
+   * linha de corte é `y=38`, o mesmo quadril que a máscara do passo usa.
+   */
+  const CINTURA = 38;
+  const idle = Buffer.alloc(2 * CELL * H * 4);
+  for (let r = 0; r < DIRS.length; r++) {
+    for (let y = 0; y < CELL; y++) {
+      for (let x = 0; x < CELL; x++) {
+        const src = ((r * CELL + y) * CELL + x) * 4;
+        // coluna 0: o parado, igual ao `pose`
+        pose.copy(idle, ((r * CELL + y) * 2 * CELL + x) * 4, src, src + 4);
+        // coluna 1: acima da cintura, cada linha pega a de baixo — o tronco sobe
+        const de = y < CINTURA ? y + 1 : y;
+        const o = ((r * CELL + de) * CELL + x) * 4;
+        pose.copy(idle, ((r * CELL + y) * 2 * CELL + CELL + x) * 4, o, o + 4);
+      }
+    }
+  }
+  writeFileSync(join(outDir, 'idle.png'), encode(2 * CELL, H, idle));
+
   // O golpe: 2 colunas — parado e o golpe —, uma linha por direcao.
   if (DIRS.every((d) => existsSync(join(dir, `${d}-golpe.png`)))) {
     const atk = Buffer.alloc(2 * CELL * H * 4);

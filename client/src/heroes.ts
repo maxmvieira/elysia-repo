@@ -396,6 +396,8 @@ export interface EquipArt {
   walk: DirAnim;
   pose: DirAnim;
   attack: DirAnim;
+  /** Respiração: a arma sobe junto com o tronco. Ver `pixellab2strip.mjs`. */
+  idle: DirAnim;
 }
 
 const PECAS: EquipPiece[] = ['espada', 'espada2m', 'adaga', 'escudo'];
@@ -420,10 +422,13 @@ export function pecaDaArma(hold: Hold): EquipPiece | null {
 
 async function carregaPeca(cls: PlayerClass, peca: EquipPiece): Promise<EquipArt | null> {
   const p = (anim: string) => `${BASE_LAYERED}/${cls}/arma-${peca}-${anim}.png`;
-  const [walk, pose, attack] = await Promise.all([
-    fatiaOpcional(p('walk')), fatiaOpcional(p('pose')), fatiaOpcional(p('attack_sword')),
+  const [walk, pose, attack, idle] = await Promise.all([
+    fatiaOpcional(p('walk')), fatiaOpcional(p('pose')),
+    fatiaOpcional(p('attack_sword')), fatiaOpcional(p('idle')),
   ]);
-  return walk && pose && attack ? { walk, pose, attack } : null;
+  // ⚠️ `idle` cai na pose se faltar: o corpo respira e a arma fica parada, que é
+  // feio mas não quebra. Faltar `walk` ou `pose`, sim, invalida a peça.
+  return walk && pose && attack ? { walk, pose, attack, idle: idle ?? pose } : null;
 }
 
 /**

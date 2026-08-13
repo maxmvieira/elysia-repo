@@ -5184,6 +5184,8 @@ interface ActorLayer {
   walk: DirAnim;
   pose: DirAnim;
   attack: DirAnim;
+  /** Respiração: a arma sobe com o tronco, senão descola do corpo parado. */
+  idle: DirAnim;
 }
 
 interface MiniActorOpts {
@@ -5389,8 +5391,7 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
       sprite.animationSpeed = speed;
       sprite.loop = true;
       sprite.gotoAndPlay(0);
-      // O `idle` do corpo não tem par na arma; a pose parada é o equivalente.
-      aplicaCamadas('pose', speed, true, true);
+      aplicaCamadas('idle', speed, true, true);
       return;
     }
     sprite.textures = framesFor(dir, anim);
