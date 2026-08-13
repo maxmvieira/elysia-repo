@@ -183,6 +183,9 @@ const hud = {
   // Sem `gold`: o contador ao lado do nível saiu a pedido do dono. O ouro do
   // personagem se vê nas moedas da mochila e no Banco.
   level: el('level'),
+  // Identidade: retrato, nome e classe. Preenchidos uma vez, no `startGame` —
+  // nenhum dos três muda enquanto o personagem está no mundo.
+  portrait: el('portrait'), charname: el('charname'), charclass: el('charclass'),
   hpfill: el('hpfill'), hptext: el('hptext'),
   manafill: el('manafill'), manatext: el('manatext'),
   xpfill: el('xpfill'), xptext: el('xptext'),
@@ -633,6 +636,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     antialias: false,
   });
   viewportEl.appendChild(app.canvas);
+
+  // ---- Identidade no HUD: retrato, nome e classe --------------------------
+  //
+  // O retrato sai da MESMA tira que o herói usa no mundo (`heroIconCss`), e não
+  // de um arquivo próprio: um segundo arquivo divergiria na primeira vez que a
+  // arte fosse reexportada e ninguém lembrasse dele. Classe sem pack HD cai no
+  // ícone MiniWorld, exatamente como os cartões da tela de criação.
+  hud.portrait.style.cssText += HERO_ART_CLASSES.has(charClass)
+    ? heroIconCss(charClass, 44)
+    : classIconCss(charClass, 44);
+  hud.charname.textContent = playerName;
+  hud.charname.title = playerName; // o nome é cortado por `ellipsis` se for longo
+  hud.charclass.textContent = CLASSES[charClass].name;
 
   // Sprites de personagem gerados uma vez (você = azul, outros = vermelho).
   const selfTex = generateCharacterTextures(app.renderer, PALETTE_SELF);
