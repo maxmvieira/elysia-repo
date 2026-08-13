@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Espeto 3D — mundo em malha, personagens em 2D</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; overflow: hidden; background: #11161b; font-family: system-ui, sans-serif; }
+      canvas { display: block; }
+
+      #painel {
+        position: fixed; top: 12px; left: 12px; z-index: 10;
+        max-width: 340px; padding: 14px 16px;
+        background: rgba(12, 16, 20, 0.88);
+        border: 1px solid #2c3742; border-radius: 10px;
+        color: #d7e0e8; font-size: 13px; line-height: 1.5;
+      }
+      #painel h1 { margin: 0 0 8px; font-size: 15px; color: #fff; }
+      #painel p { margin: 0 0 10px; }
+      #painel ol { margin: 0 0 12px; padding-left: 18px; }
+      #painel li { margin-bottom: 7px; }
+      #painel b { color: #ffd479; }
+      .botoes { display: flex; flex-wrap: wrap; gap: 6px; }
+      button {
+        padding: 6px 10px; font-size: 12px; cursor: pointer;
+        background: #1e2a35; color: #d7e0e8;
+        border: 1px solid #3a4a5a; border-radius: 6px;
+      }
+      button:hover { background: #27364a; }
+      .dica { margin-top: 10px; font-size: 11.5px; color: #8b9aa8; }
+      #aviso {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        color: #8b9aa8; font-size: 14px; z-index: 5;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="aviso">montando a cena…</div>
+
+    <div id="painel">
+      <h1>Espeto 3D — descartável</h1>
+      <p>
+        Mundo em malha 3D, personagens em 2D. A arquitetura do Ragnarok, com a
+        arte que já existe no projeto.
+      </p>
+      <p>
+        <b>Arraste</b> para girar · <b>roda</b> ou <b>+ −</b> para aproximar ·
+        <b>setas</b> também giram
+      </p>
+
+      <p>O que olhar, em ordem:</p>
+      <ol>
+        <li>
+          <b>A nitidez.</b> Aproxime e gire, e olhe a borda do elmo. Em 2D um
+          pixel da arte cai num pixel da tela; aqui o sprite é um quad em
+          perspectiva. Não tem parâmetro que conserte — é o acordo do 3D.
+        </li>
+        <li>
+          <b>As 4 direções quebrando.</b> Os quatro cavaleiros encaram os quatro
+          lados do mundo e nunca se mexem. Gire: em 45° a face certa não existe,
+          porque só foram desenhadas 4. Ragnarok usa 8 por isso.
+        </li>
+        <li>
+          <b>O que o 3D compra.</b> O relevo — e isso o motor 2D não faz nem com
+          truque.
+        </li>
+      </ol>
+
+      <div class="botoes">
+        <button id="b-jogo">ângulo do jogo (2D)</button>
+        <button id="b-ro">ângulo Ragnarok</button>
+        <button id="b-girar">girar sozinho</button>
+        <button id="b-relevo">relevo on/off</button>
+        <button id="b-perto">aproximar ++</button>
+        <button id="b-longe">afastar −−</button>
+      </div>
+
+      <p class="dica">
+        Não fala com o servidor, não importa <code>main.ts</code>, não entra no
+        build. Lê os mesmos arquivos de arte que o jogo lê.
+      </p>
+    </div>
+
+    <script type="module" src="/src/espeto3d.ts"></script>
+  </body>
+</html>
