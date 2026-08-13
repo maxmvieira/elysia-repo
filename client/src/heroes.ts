@@ -479,11 +479,47 @@ export function golpeDe(art: HeroArt, pose: AttackPose): DirAnim | undefined {
  * porque o herói ocupa quase toda a célula de 64 e já fica legível no tamanho
  * do cartão.
  */
+/**
+ * A arma que a classe mostra no RETRATO, quando o corpo dela vem desarmado.
+ *
+ * 🔴 Sem isto o Knight aparece de mãos vazias no HUD e nos cartões — foi o
+ * primeiro defeito visto em tela depois de ele passar a usar o corpo desarmado.
+ *
+ * ⚠️ É a arma **canônica da classe**, não a equipada. O retrato é montado uma vez
+ * no `startGame`, e o cartão da tela de criação existe antes de haver
+ * personagem — nos dois casos não há arma equipada para consultar. Se um dia o
+ * retrato tiver que seguir o que está na mão, o lugar é o `mini.equipArt`, que
+ * já sabe qual peça é.
+ */
+const ARMA_DO_RETRATO: Partial<Record<PlayerClass, EquipPiece>> = {
+  knight: 'espada',
+};
+
+/**
+ * CSS inline do ícone: o quadro parado virado para baixo (linha 0 de
+ * `pose.png`), escalado para o box.
+ *
+ * 🔴 Para classe com corpo desarmado, empilha a arma por cima — **CSS aceita
+ * vários `background-image`, e o primeiro da lista fica em cima**. As duas tiras
+ * têm o mesmo tamanho e o mesmo layout de linhas, então um `background-size` só
+ * serve para as duas e não há posição a calcular.
+ *
+ * Diferente do `knightIconCss`, que recorta a CABEÇA: aqui cabe o corpo inteiro,
+ * porque o herói ocupa quase toda a célula de 64 e já fica legível no tamanho
+ * do cartão.
+ */
 export function heroIconCss(cls: PlayerClass, boxPx: number): string {
   const s = boxPx / CELL;
+  const raiz = COM_CAMADA.has(cls) ? BASE_LAYERED : BASE;
+  const peca = COM_CAMADA.has(cls) ? ARMA_DO_RETRATO[cls] : undefined;
+  const urls = [
+    ...(peca ? [`url('${raiz}/${cls}/arma-${peca}-pose.png')`] : []),
+    `url('${raiz}/${cls}/pose.png')`,
+  ];
+  const tamanho = `${CELL * s}px ${CELL * 4 * s}px`;
   return (
-    `background-image:url('${BASE}/${cls}/pose.png');image-rendering:pixelated;` +
+    `background-image:${urls.join(',')};image-rendering:pixelated;` +
     `background-repeat:no-repeat;background-position:0 0;` +
-    `background-size:${CELL * s}px ${CELL * 4 * s}px;`
+    `background-size:${urls.map(() => tamanho).join(',')};`
   );
 }

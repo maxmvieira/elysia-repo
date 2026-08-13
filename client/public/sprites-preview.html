@@ -37,6 +37,23 @@ function carrega(src) {
   });
 }
 
+/**
+ * De onde vem a arte de cada classe — e tem que ser EXATAMENTE a mesma escolha
+ * que o jogo faz, senão esta página mente.
+ *
+ * 🔴 Ela mentiu por dois dias. Estava fixa em `/assets/classes`, o pack antigo
+ * de 09/08, enquanto o jogo passou a usar `classes-pixellab` em 10/08 — e o
+ * handoff mandava "abra o sprites-preview antes do jogo" o tempo todo. Página de
+ * conferência apontando para o pack errado é pior que não existir: ela dá
+ * confiança falsa.
+ *
+ * ⚠️ Espelha o `COM_CAMADA` de `client/src/heroes.ts`. Se lá uma classe entrar
+ * ou sair do pack em camadas, aqui tem que mudar junto.
+ */
+const COM_CAMADA = ['knight'];
+const raizDe = (cls) =>
+  COM_CAMADA.includes(cls) ? '/assets/classes-layered' : '/assets/classes-pixellab';
+
 const out = document.getElementById('out');
 
 for (const cls of CLASSES) {
@@ -59,7 +76,7 @@ for (const cls of CLASSES) {
   out.appendChild(tab);
 
   for (const [arq, rot] of ANIMS) {
-    const img = await carrega(`/assets/classes/${cls}/${arq}.png`);
+    const img = await carrega(`${raizDe(cls)}/${cls}/${arq}.png`);
     for (let r = 0; r < DIRS.length; r++) {
       const td = document.createElement('td');
       if (!img) {
