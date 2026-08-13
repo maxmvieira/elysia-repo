@@ -82,6 +82,41 @@ anda com 2.
 
 ---
 
+## 🔴🔴 EXISTE UM PRODUTO "CHARACTERS" NO PIXELLAB, E ELE É MUITO MELHOR QUE ESTA RECEITA
+
+**Descoberto em 12/08, tarde, quando o dono mandou o link.** Tudo o que está
+escrito abaixo nesta receita foi construído em cima da **API crua**
+(`generate-image-pixflux` + `/rotate` + `inpaint` + `animate-with-skeleton`). O
+PixelLab tem também um produto de personagem em `pixellab.ai/create-character`,
+e ele entrega, de fábrica, coisas que a API crua **não entregou em ~44 gerações
+de tentativa**:
+
+| | esta receita (API crua) | Characters |
+|---|---|---|
+| Direções | **4** (o `/rotate` não faz 45° — ver abaixo) | **8** |
+| Animações | 1–2 quadros, montadas à mão | **8 animações, 9 quadros cada** |
+| Estados | não existe | `Idle` + "Create State" |
+| Vista | `high top-down` | `low top-down` |
+
+🔴 **E é quase certo que os packs de 09/08 vieram dali.** O Knight de lá é
+`60×60px`, e o `CELL` do pack antigo (`client/public/assets/classes/`) é
+**exatamente 60**. A descrição gravada é *"Knight class hero, wears polished
+steel plate armor with a blue tabard, carries a longsword and a tower shield"* —
+o mesmo sujeito. O `HISTORICO.md` os trata como se tivessem saído de um gerador
+3D; isso está errado.
+
+⚠️ **Isso derruba conclusões desta mesma receita**, tiradas na tarde de 12/08:
+
+- *"8 direções não saem deste gerador"* — saem, pelo Characters.
+- *"o `/rotate` não faz 45°"* — continua verdade **para a API crua**, e é por isso
+  que a conclusão foi tirada; mas ela não vale para a ferramenta certa.
+- Boa parte dos becos abaixo é sobre **montar à mão** o que o Characters já faz.
+
+🎯 **Antes de gastar mais geração pela API crua, avaliar o Characters.** As
+perguntas abertas: dá para exportar em `64×64`? Dá para gerar o corpo **sem
+arma** (o sistema de camada de 12/08 depende disso)? O `Export` entrega tira ou
+PNG por quadro? Quanto custa em créditos (a tela mostra `⚡39` por estado)?
+
 ## 🔴 ISOMÉTRICO: o gerador não faz, e isso está medido (12/08)
 
 O dono viu mockups isométricos, gostou, e perguntou se dava. **Não dá por este
