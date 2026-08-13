@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Espeto HD-2D — Tibia + Ragnarok + Diablo</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; overflow: hidden; background: #070a0d; font-family: system-ui, sans-serif; }
+      canvas { display: block; }
+
+      #painel {
+        position: fixed; top: 12px; left: 12px; z-index: 10;
+        max-width: 330px; padding: 13px 15px;
+        background: rgba(8, 11, 14, 0.9);
+        border: 1px solid #2a3038; border-radius: 10px;
+        color: #cfd8e0; font-size: 12.5px; line-height: 1.5;
+      }
+      #painel h1 { margin: 0 0 8px; font-size: 15px; color: #fff; }
+      #painel p { margin: 0 0 9px; }
+      #painel b { color: #ffbe6b; }
+      table { border-collapse: collapse; margin: 0 0 10px; font-size: 12px; }
+      td { padding: 2px 8px 2px 0; vertical-align: top; }
+      td:first-child { color: #8b9aa8; white-space: nowrap; }
+      .botoes { display: flex; flex-wrap: wrap; gap: 6px; }
+      button {
+        padding: 6px 10px; font-size: 12px; cursor: pointer;
+        background: #1b232c; color: #cfd8e0;
+        border: 1px solid #37424e; border-radius: 6px;
+      }
+      button:hover { background: #24303c; }
+      .dica { margin-top: 9px; font-size: 11px; color: #7d8b98; }
+      #aviso {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        color: #7d8b98; font-size: 14px; z-index: 5;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="aviso">desenhando texturas e montando o vilarejo…</div>
+
+    <div id="painel">
+      <h1>Tibia + Ragnarok + Diablo</h1>
+      <table>
+        <tr><td>câmera e grade</td><td><b>Tibia</b> — fixa, sem giro, sem zoom</td></tr>
+        <tr><td>arquitetura</td><td><b>Ragnarok</b> — cenário 3D, herói 2D</td></tr>
+        <tr><td>luz e clima</td><td><b>Diablo I</b> — escuro, tocha, contraste</td></tr>
+        <tr><td>técnica</td><td>HD-2D — bloom e desfoque de miniatura</td></tr>
+      </table>
+
+      <p>
+        <b>A geometria continua sendo caixa.</b> O que mudou é textura de pixel,
+        escuridão e luz de fogo — era esse o ponto a provar.
+      </p>
+      <p>
+        Aperte <b>“sem pós”</b> e <b>“dia”</b> para ver quanto do visual é luz e
+        pós-processamento, e quanto é modelo. É a resposta da sessão.
+      </p>
+
+      <div class="botoes">
+        <button id="b-pos">sem pós</button>
+        <button id="b-dia">dia / noite</button>
+        <button id="b-52">52°</button>
+        <button id="b-65">65°</button>
+      </div>
+
+      <p class="dica">
+        Texturas desenhadas em código — nenhuma é asset de terceiro. Descartável:
+        não fala com o servidor, não importa <code>main.ts</code>, não entra no
+        build.
+      </p>
+    </div>
+
+    <script type="module" src="/src/espeto3dhd2d.ts"></script>
+  </body>
+</html>
