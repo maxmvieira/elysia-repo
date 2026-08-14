@@ -41,6 +41,7 @@ import {
   type CityDef,
 } from './regions.js';
 import { WORLD_NPCS } from './worlddata.js';
+import { PREDIOS, tilesDoPredio } from './buildings.js';
 
 const T = {
   VOID: 0,
@@ -59,6 +60,7 @@ const T = {
   SWAMP: 13,
   CURSED: 14,
   LAVA: 15,
+  BUILDING: 16,
 } as const;
 
 const WIDTH = WORLD_SIZE;
@@ -545,6 +547,26 @@ function limpaPracaSegura(ground: number[]): { x0: number; y0: number; x1: numbe
   return { x0: cx - r, y0: cy - r, x1: cx + r, y1: cy + r };
 }
 
+/**
+ * Pinta a pegada dos prédios como tile sólido.
+ *
+ * 🔴 É isto que faz o jogador CONTORNAR a casa em vez de atravessá-la, e o
+ * motivo de morar no `worldgen` (compartilhado) e não no cliente: movimento é
+ * validado no servidor por `isWalkable`, que lê o mapa. Casa desenhada só no
+ * cliente seria casa fantasma — bonita e atravessável.
+ *
+ * ⚠️ A pegada é MENOR que o sprite de propósito: só a base de pedra encosta no
+ * chão. Ver `shared/src/buildings.ts`.
+ */
+function pintaPredios(ground: number[]): void {
+  for (const predio of PREDIOS) {
+    for (const { x, y } of tilesDoPredio(predio)) {
+      if (!dentro(x, y)) continue;
+      set(ground, x, y, T.BUILDING);
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 /**
@@ -577,6 +599,13 @@ export function buildWorldMap(): GameMap {
    * mantê-la é zero.
    */
   const depotZone = limpaPracaSegura(ground);
+
+  /*
+   * 🔴 DEPOIS da praça, e a ordem importa: `limpaPracaSegura` sobrescreve tudo
+   * com grama no raio 12, então pintar a casa antes dela a apagaria em silêncio.
+   * A casa de teste está a 8 tiles do centro, ou seja dentro do raio.
+   */
+  pintaPredios(ground);
 
   return {
     id: 'elysia',

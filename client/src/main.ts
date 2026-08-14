@@ -137,6 +137,7 @@ import {
   type HeroArt, type EquipArt, type EquipPiece,
 } from './heroes.js';
 import { loadTrees, treeTexFor, type ArvoreSprite } from './trees.js';
+import { loadBuildings, prediosNoPedaco, type PredioSprite } from './buildings.js';
 import { loadCrystals, crystalNodeSprite, crystalIconImage } from './crystals.js';
 
 const TS = TILE_SIZE;
@@ -689,6 +690,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const npcAnim = await loadNpcAnim();
   // Sprites de árvore (CraftPix), sorteados por bioma. 0 => desenho por código.
   await loadTrees();
+  // Prédios em posição fixa. 0 => o mundo fica como sempre foi. Ver `buildings.ts`.
+  await loadBuildings();
   /*
    * Sprites de cristal/minério. Carregados AQUI, antes de o mundo ser montado e
    * antes de qualquer ícone de mochila ser desenhado — `itemIconCanvas` cacheia
@@ -699,22 +702,37 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   const world = new Container(); // a "câmera"
   /*
-   * 🔴 O ZOOM TEM QUE SER INTEIRO, e é a razão de ele ser 2 e não 1,5.
+   * 🔴 O ZOOM TEM QUE SER INTEIRO. Esta é a regra, e ela não mudou.
    *
    * A filtragem é `nearest`. Em escala fracionária um pixel do desenho vira 2 na
    * tela e o vizinho vira 3, em faixas alternadas — é o serrilhado que picotava
-   * a silhueta e que já custou uma sessão inteira em 10/08. Em 2× cada pixel do
-   * desenho vira exatamente 4, sempre.
+   * a silhueta e que já custou uma sessão inteira em 10/08. Em escala inteira
+   * cada pixel do desenho vira sempre o mesmo número de pixels de tela.
    *
-   * A 1,0× o herói era desenhado a 58 px numa viewport de ~780 — cerca de metade
-   * do tamanho em que o preview o mostra, e bem menos do que ocupa nos mockups
-   * do dono. A 2× ele vai a 116 px.
+   * ⚠️ **Ele foi 2,0 entre 13/08 e 14/08, e voltou para 1,0** — não é
+   * desfazer por desfazer, e vale saber a troca antes de mexer de novo:
+   *
+   * | | 1,0× (hoje) | 2,0× |
+   * |---|---|---|
+   * | herói na tela | 58 px | 116 px |
+   * | mundo visível na vertical | ~24 tiles | ~12 tiles |
+   *
+   * A 2× o dono achou a câmera perto DEPOIS que a casa entrou, e o motivo é
+   * geométrico: a casa tem 7 tiles de largura, e em 12 tiles de altura visível
+   * ela toma a cena inteira. O que resolveu o problema do herói pequeno em
+   * 13/08 passou a criar um problema de enquadramento em 14/08, quando o
+   * cenário ganhou objeto grande.
+   *
+   * 🔴 **E não existe meio-termo:** 1,5× é justamente o que a regra de cima
+   * proíbe. Os degraus possíveis são 1, 2, 3 — se um dia isso virar controle de
+   * roda do mouse (o `HANDOFF` lista como disponível e não construído), tem que
+   * ser em degraus inteiros pelo mesmo motivo.
    *
    * ⚠️ `atualizaChunks` monta cenário pelo retângulo que a tela cobre, então
-   * zoom maior mostra MENOS mundo (24 → 12 tiles na vertical). O
-   * `SNAPSHOT_RANGE = 32` do servidor continua sobrando.
+   * zoom menor mostra MAIS mundo e monta mais pedaço. O `SNAPSHOT_RANGE = 32`
+   * do servidor cobre os ~24 tiles de 1× com folga.
    */
-  const ZOOM = 2.0;
+  const ZOOM = 1.0;
   world.scale.set(ZOOM);
   app.stage.addChild(world);
 
@@ -1218,6 +1236,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         const chaoId = t.height === 0 ? t.id : chaoSobTileAlto(x, y);
         desenhaChao(piso, x, y, chaoId);
 
+        /*
+         * 🔴 A pegada de prédio é SÓLIDA mas não desenha nada por código: quem
+         * desenha é o sprite da casa, adiante neste mesmo `montaChunk`. Sem
+         * este `continue` o bloco 2.5D cinza apareceria por baixo e em volta
+         * dela. É por isso que `building` tem `height: 0` mesmo sendo alto —
+         * ver o comentário do tile 16 em `shared/src/tiles.ts`.
+         */
+        if (t.name === 'building') continue;
+
         if (t.height === 0) continue;
         const arvore = t.name === 'tree' ? treeTexFor(chaoId, x, y) : null;
         if (arvore) {
@@ -1227,6 +1254,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           altos.push(makeBlock(x, y, t.name, t.color));
         }
       }
+    }
+
+    /*
+     * Prédios em posição fixa. Entram DEPOIS do laço de tiles porque prédio
+     * não é tile: ele é uma decoração solta ancorada numa coordenada, e o
+     * pedaço que a contém é quem o cria. Ver `buildings.ts`.
+     */
+    for (const { sprite, x, y } of prediosNoPedaco(cx * CHUNK, cy * CHUNK, x1, y1)) {
+      altos.push(makePredio(x, y, sprite));
     }
 
     floorRoot.addChild(piso);
@@ -1337,6 +1373,39 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     c.addChild(sombra, s);
 
     c.zIndex = y; // profundidade: linhas da frente cobrem as de trás
+    return c;
+  }
+
+  /**
+   * Um PRÉDIO no mundo. Mesma receita do `makeTree`, e de propósito.
+   *
+   * 🔴 A sombra é elipse por CÓDIGO, como na árvore, pelo mesmo motivo: a arte
+   * gerada traz uma sombra clara pintada, feita para fundo branco, que sobre a
+   * grama escura de Elysia vira borrão esbranquiçado.
+   *
+   * ⚠️ A elipse aqui é mais RASA que a da árvore (÷7 contra ÷14 na altura):
+   * copa de árvore é redonda vista de cima, base de casa é um retângulo largo.
+   */
+  function makePredio(x: number, y: number, pr: PredioSprite): Container {
+    const { tex, largura, base, centro, cheia } = pr;
+    const c = new Container();
+    const px = x * TS + TS / 2;
+    const py = y * TS + TS - 2;
+    const escala = (TS * largura) / (tex.width * cheia);
+
+    const sombra = new Graphics();
+    sombra.ellipse(px, py, (TS * largura) / 2.6, (TS * largura) / 7)
+      .fill({ color: 0x000000, alpha: 0.22 });
+
+    const s = new Sprite(tex);
+    // Âncora na caixa MEDIDA, não na moldura — ver `spritebox.ts`.
+    s.anchor.set(centro, base);
+    s.scale.set(escala);
+    s.x = px;
+    s.y = py;
+    c.addChild(sombra, s);
+
+    c.zIndex = y;
     return c;
   }
 

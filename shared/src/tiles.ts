@@ -59,6 +59,23 @@ export const TILE_TYPES: Record<number, TileType> = {
    * não a mira. É a mesma distinção que o `hasLineOfSight` já fazia para a água.
    */
   15: { id: 15, name: 'lava', solid: true, blocksSight: false, height: 0, color: 0xb0421a },
+  /**
+   * A pegada de um PRÉDIO desenhado por sprite (ver `shared/src/buildings.ts`).
+   *
+   * 🔴 **Ele existe porque `wall_stone` não servia, e a diferença é só de
+   * DESENHO.** Colisão o `wall_stone` já dava; mas o cliente desenha um bloco
+   * 2.5D cinza para todo tile de `height > 0` que não seja árvore, e esse bloco
+   * apareceria por baixo e em volta da casa, que já tem parede pintada na arte.
+   *
+   * Então `height` é **0 de propósito**, mesmo o prédio sendo alto: `height` é
+   * a altura DO DESENHO POR CÓDIGO, e aqui o desenho vem do sprite. O que
+   * importa para o jogo é `solid` e `blocksSight`, e os dois são `true`.
+   *
+   * ⚠️ A cor é a da pedra do térreo, e só serve de rede: se um dia a arte
+   * faltar, a pegada aparece como mancha cinza em vez de o jogador andar sobre
+   * o nada.
+   */
+  16: { id: 16, name: 'building', solid: true, blocksSight: true, height: 0, color: 0x6b6459 },
 };
 
 export const TILE_VOID = 0;

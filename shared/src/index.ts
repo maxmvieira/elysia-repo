@@ -2,6 +2,7 @@ export * from './constants.js';
 export * from './daynight.js';
 export * from './protocol.js';
 export * from './tiles.js';
+export * from './buildings.js';
 export * from './worldgen.js';
 export * from './worlddata.js';
 export * from './placement.js';

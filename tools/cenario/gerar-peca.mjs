@@ -340,6 +340,60 @@ const PECAS = {
       'no monsters, no trees, no ground, no road, no other buildings, no UI, no text, ' +
       'no watermark, no border.',
   },
+
+  /**
+   * 🔴 AS QUATRO INSTALACOES DA CASA — e elas NAO sao invencao minha.
+   *
+   * `docs/ELYSIA ONLINE.txt` 19.38 nomeia as quatro, explicitamente, como o que
+   * pertence estruturalmente a casa e se perde no despejo: **Forja**,
+   * **Laboratorio de Alquimia**, **Cozinha** e **Area de Treinamento**.
+   *
+   * E a 19.25 escalona por tamanho de propriedade:
+   *   casa pequena  -> Laboratorio
+   *   casa media    -> Laboratorio + Cozinha
+   *   grande        -> Forja + Laboratorio + Cozinha + outras
+   *
+   * O dono pediu cozinha, alquimia e forja em 14/08 — que e exatamente o
+   * patamar de GRANDE PROPRIEDADE. A Area de Treinamento entra junto porque a
+   * 19.38 a lista, e gerar as quatro de uma vez custa a mesma imagem.
+   *
+   * ⚠️ O que continua PENDENTE e nao se inventa: `PENDENTE 03` (tamanhos
+   * oficiais das propriedades), `PENDENTE 11` (quantas instalacoes por tamanho)
+   * e `PENDENTE 12` (niveis maximos de cada uma). Esta arte cobre a APARENCIA
+   * das quatro; quantas cabem em que casa e decisao do dono, nao do gerador.
+   */
+  instalacoes: {
+    size: '1536x1024',
+    semEstilo: true,
+    texto:
+      'A sprite sheet of complete isometric ROOM SHELLS for a 2D fantasy MMORPG, in the ' +
+      'visual tradition of Ragnarok Online but with much higher detail — hand-painted ' +
+      'digital art with rich texture, NOT a 3D render, NOT a photo.\n\n' +
+      'ONE single image containing EXACTLY FOUR complete room shells, arranged in two ' +
+      'rows of two, with generous empty space between them. Each room is a single ' +
+      'self-contained piece, drawn large and highly detailed.\n\n' +
+      'Each room shell is built the same way: a square wooden plank floor seen as an ' +
+      'isometric diamond, with TWO walls standing on its two far edges, forming an open ' +
+      'L-shaped corner. The two near edges are left open so the interior is fully ' +
+      'visible from above — a cutaway room, no ceiling, no roof.\n\n' +
+      'All four rooms share the SAME isometric tilt, the SAME floor size and the SAME ' +
+      'wall height, and are lit by the same soft directional light from the upper-left.\n\n' +
+      'The four rooms, each a crafting workshop in a medieval fantasy home:\n' +
+      '1. A FORGE: stone walls, a stone forge with glowing orange coals and a chimney ' +
+      '   hood, an anvil on a wooden block, a water quenching barrel, hammers and tongs ' +
+      '   hanging on the wall, a rack of horseshoes and sword blanks.\n' +
+      '2. An ALCHEMY LABORATORY: stone walls, a workbench covered with glass flasks and ' +
+      '   retorts holding coloured liquids, a small cauldron bubbling with green light, ' +
+      '   shelves of labelled jars and dried herbs hanging in bundles, a thick open book.\n' +
+      '3. A KITCHEN: half-timbered walls, a stone hearth with a cooking pot on a hook ' +
+      '   over the fire, a heavy wooden prep table with bread, vegetables and a cutting ' +
+      '   board, shelves of crockery, strings of onions and garlic hanging.\n' +
+      '4. A TRAINING ROOM: half-timbered walls, a straw practice dummy on a post, a ' +
+      '   weapon rack holding wooden swords and spears, a round wooden shield and a bow ' +
+      '   on the wall, a sandbag hanging from a beam, a low bench.\n\n' +
+      'Background: plain flat white, completely empty. No characters, no monsters, no ' +
+      'ground outside the rooms, no roof, no UI, no text labels, no watermark.',
+  },
 };
 
 async function gerar(nome, apiKey) {
