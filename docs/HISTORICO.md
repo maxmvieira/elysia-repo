@@ -9,6 +9,126 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-08-13 (tarde) — O 3D foi explorado a fundo e ESTACIONADO
+
+**Onde mora:** quatro páginas descartáveis em `client/espeto-*.html` +
+`client/src/espeto*.ts` e `client/src/texturas.ts` · a pipeline do Blender em
+`tools/blender/`.
+
+🔴 **NADA DISTO ESTÁ LIGADO NO JOGO.** Nenhum dos arquivos fala com o servidor,
+importa `main.ts` ou usa PixiJS, e nenhum é entrada do `vite build` (o Vite só
+constrói `index.html`). São páginas separadas, feitas para **olhar e decidir**.
+Apagá-las devolve o projeto ao estado anterior; o `three` está em
+`devDependencies` justamente para nunca entrar no bundle do jogo.
+
+### A pergunta, e por que ela foi levada a sério
+
+O dono perguntou se dava para modelar o mundo em 3D mantendo personagens, NPCs,
+monstros, magias e efeitos em 2D — a arquitetura do Ragnarok. A resposta técnica
+é **sim**, e o custo se distribui de um jeito que surpreende:
+
+| | Linhas | Destino num 3D |
+|---|---|---|
+| `server/` | 5.574 | **intacto** |
+| `shared/` | 9.686 | **intacto** |
+| `client/` | 8.389 | renderizador reescrito (Pixi → Three) |
+
+O servidor é autoritativo e trabalha em **grade de tiles** — ele não sabe nem se
+importa como o cliente desenha. Movimento, combate, loot, receitas, banco e os
+466 testes não seriam tocados.
+
+### Os quatro espetos, e o que cada um respondeu
+
+| | Página | Resposta |
+|---|---|---|
+| 1 | `espeto-3d.html` | mundo em malha funciona; **as 4 direções quebram** com câmera girando |
+| 2 | `espeto-3d-personagem.html` | 3D se comporta melhor, mas **a arte 2D não dá volume** |
+| 3 | `espeto-3d-cenario.html` | com **câmera fixa**, os dois custos do 3D caem |
+| 4 | `espeto-hd2d.html` | a infraestrutura presta, **a direção de arte não** |
+
+### ✅ O achado que mais vale guardar
+
+🔴 **Câmera FIXA derruba os dois argumentos contra o 3D de uma vez.**
+
+1. **As 8 direções deixam de ser pré-requisito.** O gargalo só existia porque a
+   câmera girava: o sprite é escolhido por `frente − yaw`, e com `yaw` variável
+   as 4 direções do tipo `DirAnim { down, up, right, left }` não bastam. Travada
+   a câmera, `yaw` é constante e a linha da tira é constante por personagem —
+   exatamente o que o jogo 2D já faz.
+2. **A nitidez volta.** Câmera fixa permite projeção **ortográfica**, que não
+   encolhe o que está longe: a escala é igual em qualquer canto da tela e pode
+   ser cravada em inteiro. `caixa = innerWidth / (2 · ZOOM_PX · 32)` dá **1 px de
+   arte = 2 px de tela, sempre**. Visto de perto: pixel uniforme.
+
+⚠️ Para isso o sprite **deita na câmera** (copia o quaternion dela) em vez de
+girar só no eixo Y — carta em pé vista de 52° apareceria achatada em `cos(52°) =
+0,62`, encolhendo o personagem a dois terços.
+
+### 🔴 90° NÃO FUNCIONA com cenário 3D
+
+No ângulo do Tibia de verdade a câmera só vê **telhado e copa** — não há fachada,
+não há tronco, e o 3D vira um mapa de manchas. Cenário 3D **exige** câmera
+inclinada: fixa como o Tibia no comportamento, inclinada como o Ragnarok no
+ângulo. E quanto mais alta a câmera, **mais telhado e menos fachada** — 52°
+mostra mais parede que 65°.
+
+### ⚠️ As armadilhas medidas, para ninguém repetir
+
+1. 🔴 **Escurecer três vezes o mesmo pixel.** Textura pintada escura "porque é
+   noite", luz baixa pelo mesmo motivo e tone mapping filmico por cima — os três
+   se **multiplicam**, e a tela ficou preta com uma fogueira no meio. **A textura
+   guarda a cor do MATERIAL, não a hora do dia.** Quem escurece é a luz, porque
+   só ela se desfaz sem repintar nada.
+2. 🔴 **Névoa exponencial com câmera ortográfica afastada.** `FogExp2(0.021)` com
+   a câmera a 60 unidades já dá **79 % de névoa no meio da cena** — a distância
+   que a névoa mede é a da CÂMERA, não a fundura aparente.
+3. **Misturar modelos de material.** O `GLTFLoader` cria `MeshStandardMaterial`
+   (PBR) e o resto da cena era `MeshLambertMaterial`; sob as mesmas luzes o PBR
+   divide a energia e sai muito mais escuro. A casa do Blender carregou quase
+   preta e por um instante isso foi lido como "o modelo ficou ruim". **Um modelo
+   de material só na cena inteira.**
+4. **Bloom com limiar baixo pega tudo.** Com limiar 0,22 ele floresceu até os
+   sprites (que usam `MeshBasicMaterial` e são desenhados em brilho cheio). O
+   limiar alto é o que faz o bloom significar "isto emite luz".
+5. **Botão que deduz o próprio estado.** O dia/noite decidia o lado com
+   `intensity > 1`; quando as intensidades subiram na calibragem, ele inverteu.
+6. **Em câmera inclinada, altura de telhado custa mais tela que altura de
+   parede.** A primeira casa saiu com um andar e um telhado gigante.
+
+### ❌ O que NÃO funcionou, e é honesto saber
+
+**Derivar modelo 3D da arte 2D não presta.** O volume foi montado por interseção
+de silhuetas (a vista do sul dá `(x,y)`, a do leste dá `(z,y)`). De frente
+convence; a 45° desmancha — o escudo, que é uma mancha larga de frente, é
+extrudado pela profundidade inteira e vira pilha de placas. **Duas silhuetas
+dizem ONDE há corpo, nunca QUÃO FUNDO**; a profundidade não está na arte. O
+`ACHATA_Z = 0,42` no gerador é chute declarado, sem nada a medir.
+
+⚠️ E o `Walls.png` (1024×1024) **não serve como textura 3D**: as peças estão em
+projeção **oblíqua**, com lado e topo já pintados. Do que o repositório tem, só
+os retalhos sólidos do `Ground.png` funcionam em 3D.
+
+### 🔴 A decisão, tomada pelo dono em 13/08
+
+**Personagem em 2D venceu.** Câmera fixa, sem girar e sem zoom. Ele gostou do
+cenário 3D, pediu vegetação e estruturas em 3D — e, depois de ver o resultado
+com textura procedural e luz de Diablo, decidiu **parar o 3D e voltar ao jogo**.
+
+**O motivo é honesto e vale registrar:** o alvo dele é a mistura de **Tibia**
+(câmera e grade), **Ragnarok** (cenário 3D com herói 2D) e **Diablo I** (luz,
+paleta e clima). Esse alvo é **direção de arte**, não geometria — o que faz a
+referência bonita é madeira gasta, musgo e reboco sujo, tudo textura pintada. A
+assistência entrega infraestrutura verificável e **não entrega gosto**; quatro
+tentativas de calibragem não convergiram.
+
+⚠️ **A pipeline do Blender fica no repositório**, funcionando: `comum.py` com as
+convenções (escala 1 unidade = 1 tile = 32 px; origem na base por `assenta()`;
+sRGB→linear), um gerador de exemplo e `npm run models:build`. Se o 3D voltar um
+dia, o caminho está aberto e medido — e as convenções são a tradução 3D das
+lições que o projeto já pagou em 2D.
+
+---
+
 ## 2026-08-13 — A câmera aproxima, e a rotação fica decidida de fora
 
 **Onde mora:** `ZOOM` e o bloco de câmera do ticker, em `client/src/main.ts`.

@@ -2,6 +2,98 @@
 
 ## ⏸️ ONDE PARAMOS — retomar 14/08
 
+### 🎯 A PRÓXIMA COISA: as 7 habilidades que faltam ao Guerreiro
+
+**O dono escolheu isto em 13/08**, e o plano já está fechado. ⚠️ Só **falta a
+aprovação dele** para escrever código — a granularidade combinada é por sistema.
+
+🔴 **Corrigindo uma impressão que é fácil de ter: a árvore de habilidades NÃO
+falta — ela existe e funciona.** `shared/src/skills.ts` (489 linhas) tem o motor
+inteiro, ligado de ponta a ponta: protocolo (`skillup`, `skillreset`), validação
+no servidor, persistência no banco e interface no cliente. Custo
+**1-1-1-2-2-3-3-4-5-6 = 28 SP**, SP/nível por classe, marcos, pré-requisitos,
+reset por gold, hotbar F1–F8, tecla **K**.
+
+**O que falta mesmo:**
+1. 🔧 **As 7 skills do Guerreiro** — é o trabalho escolhido. Todas com número no
+   [`ROADMAP-elysia.md`](./ROADMAP-elysia.md), Etapa 13.
+2. 🔴 **Três das quatro classes têm árvore VAZIA** — as 8 skills existentes são
+   todas `classes: ['knight']`. Quem cria Arqueiro, Assassino ou Feiticeiro não
+   tem onde gastar ponto.
+3. 🔴 **O GDD se corrige:** o cap. 67.N diz que *"'WARRIOR V1 = FECHADO COM 15
+   SKILLS' não representa mais a estrutura mais recente"*. A estrutura atual é
+   **Habilidades Gerais + linhas de maestria por família de arma (1H/2H)**. As 8
+   implementadas estão certas — mudam de lugar, não são jogadas fora.
+
+**O plano das 7, já levantado contra o código:** são **3 ativas** (Grito de
+Guerra 30 s · Contra-Ataque 6 s · Segundo Fôlego 45 s) e **4 passivas** (Pele de
+Ferro · Resistência · Maestria de Armadura Pesada · Última Resistência).
+
+⚠️ **Passiva é maquinaria que o motor NÃO tem** — `SkillEffectKind` só conhece
+`damage · charge · rupture · execution · taunt · stance · fury`. ✅ Mas o padrão
+existe: a Postura Defensiva usa funções puras no `shared`
+(`stanceDamagePenalty`) chamadas nos pontos certos do servidor. As passivas
+seguem isso.
+
+**Onde cada uma encaixa**, e nenhuma pede mecanismo novo:
+
+| Skill | Ponto de encaixe |
+|---|---|
+| Pele de Ferro (+12 % DEF) · Maestria de Armadura Pesada | `recompute()` |
+| Resistência (−20 % controle) | `ccDurationFactor()`, `shared/src/conditions.ts` |
+| Última Resistência · Contra-Ataque | caminho de dano recebido |
+| Segundo Fôlego (15 % HP) · Grito de Guerra | ativa direta / party |
+
+✅ **Duas armadilhas do `ROADMAP` já estão resolvidas no código, e é bom saber
+antes de começar:**
+- *"HP **normal**, não o inflado pela Fúria"* — o servidor já guarda
+  `player.fury.hpNormal` (`server/src/index.ts:343`) exatamente para isso.
+- *"controle ≠ debuff"* — `conditions.ts` já separa `ConditionCategory:
+  'control' | 'restriction' | 'dot' | 'partial'`. A Resistência filtra por
+  `'control'`.
+
+🔴 **DUAS DECISÕES DO DONO ESTÃO PENDENTES:**
+1. **A hotbar tem 8 slots e o Guerreiro passa a ter 15 skills.** O `SKILL_BAR` é
+   constante fixa hoje. O doc `14.54` quer que o jogador *"escolha quais levar"*
+   — ou seja, barra **configurável**, que é sistema próprio (protocolo +
+   persistência + arrastar). **Proposta:** por ora as passivas ficam fora da
+   barra por construção e a barra segue fixa; barra configurável vira sistema
+   separado. **Não fazer por conta.**
+2. **O que o doc não dá vai marcado `⚠️ REFERÊNCIA`:** custo de mana, nível
+   mínimo, pré-requisitos e curva por nível. Efeitos e cooldowns o doc dá.
+
+---
+
+### 🔴 13/08 — O 3D FOI EXPLORADO E ESTACIONADO. Decisão do dono.
+
+**Personagem em 2D venceu. Câmera fixa, sem girar e sem zoom.** Depois de quatro
+páginas de teste, o dono decidiu **parar o 3D e voltar ao jogo**.
+
+⚠️ **Nada disso está ligado no jogo** — quatro páginas descartáveis
+(`client/espeto-*.html`) que não falam com o servidor, não importam `main.ts` e
+não entram no build. O `three` está em `devDependencies`.
+
+📖 **O relato inteiro, com os números e as seis armadilhas medidas, está no
+[`HISTORICO.md`](./HISTORICO.md), bloco de 13/08 (tarde).** Vale ler antes de
+qualquer um reabrir o assunto. Os dois achados que mais importam:
+
+- 🔴 **Câmera FIXA derrubaria os dois custos do 3D** — as 8 direções deixam de
+  ser pré-requisito (com `yaw` constante, as 4 atuais bastam) e a nitidez volta
+  (ortográfica + escala inteira = 1 px de arte para 2 px de tela, cravado).
+- 🔴 **Mas 90° não funciona com cenário 3D** — no ângulo do Tibia só se vê
+  telhado e copa. Cenário 3D exige câmera inclinada.
+
+**Por que parou, e é honesto:** o alvo do dono é a mistura de **Tibia** (câmera e
+grade) + **Ragnarok** (cenário 3D, herói 2D) + **Diablo I** (luz e clima). Isso é
+**direção de arte, não geometria** — o que faz a referência bonita é textura
+pintada, e a assistência entrega infraestrutura verificável, não gosto.
+
+⚠️ **A pipeline do Blender fica no repositório e funciona** (`tools/blender/`,
+`npm run models:build`), com as convenções travadas em `comum.py`. Se o 3D
+voltar, o caminho está aberto e medido.
+
+---
+
 ### ✅ 13/08 — A CÂMERA APROXIMOU, e a rotação está decidida
 
 **`ZOOM` foi de 1,0× para 2,0×** em `client/src/main.ts`. O herói era desenhado
