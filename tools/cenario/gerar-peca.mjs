@@ -179,6 +179,47 @@ const PECAS = {
       'A single medieval wooden barrel with dark iron bands, standing upright, isometric ' +
       'view, resting on its own small contact shadow only.',
   },
+
+  /**
+   * 🔴 O EXPERIMENTO QUE DECIDE SE O CONJUNTO VIRA CASA.
+   *
+   * As 7 pecas soltas de 13/08 sairam boas e NAO se encaixam: sem grade comum,
+   * sem escala comum, cada uma num angulo proprio. A hipotese e que os sheets
+   * de referencia que o dono mandou sao coerentes porque cada um saiu de UMA
+   * geracao so — o modelo mantem grade e escala dentro da mesma imagem, e nao
+   * entre imagens diferentes.
+   *
+   * ⚠️ Esta peca quebra a regra "only ONE piece in the image" do bloco de
+   * estilo de proposito. E o unico caso em que varias pecas juntas sao o
+   * objetivo, e nao um defeito.
+   */
+  folha: {
+    size: '1536x1024',
+    semEstilo: true,
+    texto:
+      'A modular building kit sprite sheet for a 2D isometric fantasy MMORPG, in the ' +
+      'visual tradition of Ragnarok Online but with much higher detail — hand-painted ' +
+      'digital art, NOT a 3D render, NOT a photo.\n\n' +
+      'ONE single image containing MULTIPLE separate building pieces, laid out in a ' +
+      'neat grid with clear empty space between them, like a game asset catalog page.\n\n' +
+      'THE CRITICAL REQUIREMENT: every piece must share ONE common isometric grid and ' +
+      'ONE common scale, so that they can be snapped together to build a house. A wall ' +
+      'piece must be exactly as tall as the door that goes in it. The floor diamond must ' +
+      'be exactly twice as wide as it is tall (a 2:1 isometric tile). All pieces lit by ' +
+      'the same soft directional light from the upper-left.\n\n' +
+      'The pieces to include, all medieval:\n' +
+      '- a square wooden plank floor tile, as a 2:1 isometric diamond\n' +
+      '- a stone wall panel whose face recedes to the LEFT\n' +
+      '- the same stone wall panel mirrored, receding to the RIGHT\n' +
+      '- a half-timbered plaster-and-oak wall panel receding to the LEFT\n' +
+      '- the same half-timbered panel mirrored, receding to the RIGHT\n' +
+      '- a blue shingled roof panel\n' +
+      '- a wooden door mounted in a wall segment\n' +
+      '- a shuttered window with a flower box, mounted in a wall segment\n' +
+      '- a square stone corner pillar\n\n' +
+      'Background: plain flat white, completely empty. No characters, no monsters, no ' +
+      'ground, no assembled house, no UI, no text labels, no watermark, no border.',
+  },
 };
 
 async function gerar(nome, apiKey) {
@@ -193,10 +234,14 @@ async function gerar(nome, apiKey) {
     },
     body: JSON.stringify({
       model: 'gpt-image-1',
-      prompt: ESTILO + peca.texto,
+      // `semEstilo` existe so para a `folha`: o bloco de estilo exige "only ONE
+      // piece in the image", e a folha quer justamente varias.
+      prompt: peca.semEstilo ? peca.texto : ESTILO + peca.texto,
       size: peca.size,
       // 🔴 Os dois andam juntos: transparencia exige formato com canal alpha.
-      background: 'transparent',
+      // A folha e a excecao: ela pede fundo branco, porque o recorte dela e
+      // por peca, feito depois — nao pela API.
+      background: peca.semEstilo ? 'opaque' : 'transparent',
       output_format: 'png',
       quality: process.env.QUALIDADE ?? 'high',
       n: 1,

@@ -167,13 +167,20 @@ medieval.
 escudo**, depois que o prompt dela passou a citar a `parede-pedra` e a andar
 junto com o da porta.
 
-**O que tentar em seguida**, sem repetir o que já falhou:
-1. **Gerar a porta SEM moldura de pedra** — só a folha de madeira retangular. A
-   moldura vira peça separada, ou é desenhada por cima na montagem.
-2. **Corrigir na edição**, não na geração: recortar a base curva e completar as
-   colunas. O defeito é geometricamente simples e sempre no mesmo lugar.
-3. Usar o endpoint de **edição com máscara** (`/v1/images/edits`), mascarando só
-   a faixa de baixo — o resto da peça já está bom e não deve ser regerado.
+### ✅ RESOLVIDO — e não foi por prompt melhor, foi por CONTEXTO
+
+**A porta saiu certa na `folha`**, na primeira tentativa: arco apoiado em duas
+colunas retas que descem até o chão, base horizontal, sem ferradura nenhuma.
+
+🔴 **E o prompt da porta dentro da folha é mais CURTO que o das três tentativas
+que falharam** — uma linha, sem nenhum aviso sobre ferradura. O que mudou foi o
+contexto: pedida sozinha, a porta é um objeto solto e o modelo cai no viés de
+"arco medieval decorativo"; pedida dentro de um kit modular, ela é **uma peça
+que tem de encaixar numa parede**, e encaixar exige base reta.
+
+⚠️ **A lição vale para as próximas peças:** quando uma peça sair com defeito
+geométrico teimoso, antes de reescrever o prompt pela quarta vez, tente pedi-la
+**dentro de um conjunto** onde a função dela force a geometria certa.
 
 ---
 
@@ -191,11 +198,25 @@ peça é boa sozinha e elas **não se encaixam entre si**.
 - **Proporção do losango:** o piso saiu **1,53:1**, e o grid isométrico clássico
   é **2:1**. Corrigível com escala vertical na montagem, sem regerar.
 
-🔴 **Consequência:** este conjunto serve para julgar ESTILO, não para montar uma
-casa ainda. Para montar, as peças precisariam sair todas de uma mesma
-especificação de grade e ângulo — provavelmente pedindo **uma folha única com
-várias peças juntas** (como os sheets de referência que o dono mandou), em vez
-de sete imagens independentes.
+🔴 **Consequência:** as sete peças soltas servem para julgar ESTILO, não para
+montar casa.
+
+### ✅ E a folha única resolveu — a hipótese estava certa
+
+`node tools/cenario/gerar-peca.mjs folha` pede **11 peças numa geração só**, e
+elas saem na **mesma grade, mesma escala e mesma luz**. É por isso que os sheets
+de referência que o dono mandou são coerentes: o modelo mantém consistência
+**dentro** de uma imagem, e não **entre** imagens.
+
+⚠️ **O que a folha ainda não entrega**, e é honesto saber:
+
+| | |
+|---|---|
+| **Espelhamento** | pedi cada parede em duas mãos (recuando para a esquerda E para a direita) e **todas vieram na mesma mão**. Há peças de canto em L, que resolvem esquina — mas não há painel plano espelhado |
+| **Piso 2:1** | pedido explicitamente, e saiu quase quadrado. O 2:1 é a única coisa que a folha ignorou das que foram pedidas em número |
+| **Telhado** | saiu como pirâmide de quatro águas, não como painel plano modular |
+| **Textura** | ficou mais **simples** que a das peças soltas — o `piso.png` sozinho tem grão bem mais rico que o piso da folha. Parece haver troca entre coerência e detalhe |
+| **Recorte** | fundo creme (não branco puro) e **sombra projetada** sob cada peça, então recortar exige mais que tirar o branco |
 
 ---
 
