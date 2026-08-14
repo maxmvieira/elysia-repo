@@ -220,6 +220,126 @@ const PECAS = {
       'Background: plain flat white, completely empty. No characters, no monsters, no ' +
       'ground, no assembled house, no UI, no text labels, no watermark, no border.',
   },
+
+  /**
+   * A folha de 12 pecas resolveu a coerencia mas bateu em dois tetos, medidos
+   * ao montar a casa em 14/08:
+   *
+   * 1. RESOLUCAO — 12 pecas em 1536x1024 dao ~200 px cada. Menos pecas na
+   *    mesma folha e a unica forma de subir o detalhe, porque 1536x1024 e o
+   *    maximo do modelo.
+   * 2. MODULO — as paredes sairam de 174 a 207 px de largura e de 289 a 325 de
+   *    altura. A diferenca de 36 px entre a janela e a parede lisa obrigou a
+   *    erguer o telhado so para ele nao engolir a floreira. Kit de verdade tem
+   *    modulo unico, e por isso ele agora e pedido em numero.
+   */
+  folha2: {
+    size: '1536x1024',
+    semEstilo: true,
+    texto:
+      'A modular building kit sprite sheet for a 2D isometric fantasy MMORPG, in the ' +
+      'visual tradition of Ragnarok Online but with much higher detail — hand-painted ' +
+      'digital art with rich texture, NOT a 3D render, NOT a photo.\n\n' +
+      'ONE single image containing EXACTLY SIX separate wall pieces, arranged in two ' +
+      'rows of three, with generous empty space between them. Each piece should be ' +
+      'large and highly detailed, filling its share of the canvas.\n\n' +
+      'THE CRITICAL REQUIREMENT — all six pieces are the SAME MODULE: every piece is a ' +
+      'wall panel of exactly the same width, exactly the same height, and exactly the ' +
+      'same isometric tilt, so they can be stacked and placed side by side seamlessly ' +
+      'to build a house. A window panel must be exactly as tall as a plain panel. All ' +
+      'six lit by the same soft directional light from the upper-left.\n\n' +
+      'All six panels face the same direction: their front face angled toward the ' +
+      'lower-right, receding to the upper-right.\n\n' +
+      'The six pieces, all medieval:\n' +
+      '1. a plain rough stone block wall panel\n' +
+      '2. a stone wall panel with a wooden door set in a rounded arch, the door ' +
+      '   standing on straight vertical jambs with a flat threshold at the bottom\n' +
+      '3. a stone wall panel with a small shuttered window\n' +
+      '4. a plain half-timbered panel: cream plaster with dark oak beams\n' +
+      '5. a half-timbered panel with a shuttered window and a flower box\n' +
+      '6. a half-timbered panel with diagonal cross-brace beams\n\n' +
+      'Background: plain flat white, completely empty. No characters, no ground, no ' +
+      'assembled house, no roof, no floor, no UI, no text labels, no watermark.',
+  },
+
+  /**
+   * 🔴 CASCA DE COMODO PRONTA — pedido do dono em 14/08, tirado das folhas de
+   * referencia dele, que trazem o comodo inteiro como UMA peca.
+   *
+   * ⚠️ E provavelmente o caminho melhor que montar painel por painel. Montando
+   * a casa em 14/08 com as pecas da `folha`, o que mais atrapalhou foi o modulo
+   * inconsistente (parede de 289 px contra janela de 325). Num comodo pronto o
+   * encaixe ja vem resolvido pelo proprio desenho, e nao ha o que alinhar.
+   */
+  comodos: {
+    size: '1536x1024',
+    semEstilo: true,
+    texto:
+      'A sprite sheet of complete isometric ROOM SHELLS for a 2D fantasy MMORPG, in the ' +
+      'visual tradition of Ragnarok Online but with much higher detail — hand-painted ' +
+      'digital art with rich texture, NOT a 3D render, NOT a photo.\n\n' +
+      'ONE single image containing EXACTLY FOUR complete room shells, arranged in two ' +
+      'rows of two, with generous empty space between them. Each room is a single ' +
+      'self-contained piece, drawn large and highly detailed.\n\n' +
+      'Each room shell is built the same way: a square wooden plank floor seen as an ' +
+      'isometric diamond, with TWO walls standing on its two far edges, forming an open ' +
+      'L-shaped corner. The two near edges are left open so the interior is fully ' +
+      'visible from above — a cutaway room, no ceiling, no roof.\n\n' +
+      'All four rooms share the SAME isometric tilt, the SAME floor size and the SAME ' +
+      'wall height, and are lit by the same soft directional light from the upper-left.\n\n' +
+      'The four rooms:\n' +
+      '1. a rough stone-walled room, empty, with a small shuttered window in one wall\n' +
+      '2. a half-timbered room (cream plaster with dark oak beams), empty, with a ' +
+      '   shuttered window in one wall\n' +
+      '3. a furnished bedroom: half-timbered walls, a bed with blue blanket against one ' +
+      '   wall, a wooden wardrobe, a small side table with a candle, a rug on the floor, ' +
+      '   and a wooden chest\n' +
+      '4. a furnished kitchen or workshop: stone walls, a stone fireplace with a fire ' +
+      '   burning, a wooden work table, shelves with pots and jars, and a barrel\n\n' +
+      'Background: plain flat white, completely empty. No characters, no monsters, no ' +
+      'ground outside the rooms, no roof, no UI, no text labels, no watermark.',
+  },
+
+  /**
+   * 🔴 A CASA INTEIRA COMO UMA PECA SO.
+   *
+   * ⚠️ Existe porque montar por modulo FALHOU, e o motivo esta medido em
+   * 14/08: as pecas da `folha2` sao blocos de vitrine, com frente, lateral e
+   * topo visiveis. Duas lado a lado nao encostam — a lateral de uma cobre a
+   * frente da outra e o conjunto vira escada. Para encaixar, o modulo teria de
+   * ser um segmento de parede SEM lateral propria, e o gerador nao entrega
+   * isso porque desenha objeto, nao peca de encaixe.
+   *
+   * As folhas de referencia do dono trazem casas inteiras justamente assim: a
+   * casa e o asset, e o kit modular ao lado e complemento.
+   */
+  casa: {
+    size: '1024x1536',
+    semEstilo: true,
+    texto:
+      'A complete two-storey medieval fantasy house, drawn as a SINGLE isometric game ' +
+      'asset for a 2D MMORPG, in the visual tradition of Ragnarok Online but with much ' +
+      'higher detail and texture richness — hand-painted digital art, NOT a 3D render, ' +
+      'NOT a photo, NOT flat vector art.\n\n' +
+      'The house: the ground floor is built of rough hand-cut stone blocks with visible ' +
+      'mortar and weathering, with a wooden arched front door standing on straight ' +
+      'jambs with a flat stone threshold and a stone step. The upper storey is ' +
+      'half-timbered — cream lime plaster with dark aged oak beams, horizontal, ' +
+      'vertical and diagonal — and it juts out slightly over the ground floor, as real ' +
+      'medieval houses do. Several shuttered windows with blue-tinted glass, some with ' +
+      'flower boxes. A steep roof of many small deep-blue shingles with visible tonal ' +
+      'variation and soft shadow between the rows, with wide overhanging eaves and a ' +
+      'stone chimney. A wooden balcony with turned railing on the upper floor, and a ' +
+      'hanging iron lantern by the door.\n\n' +
+      'Camera: true isometric projection, viewed from above at the standard isometric ' +
+      'angle, showing two faces of the house plus the roof. The whole building is ' +
+      'visible and fits within the frame with a small margin.\n\n' +
+      'Lighting: soft directional light from the upper-left, warm and painterly, with ' +
+      'clearly defined but soft-edged shadows baked into the texture.\n\n' +
+      'Background: plain flat white, completely empty. Only ONE house. No characters, ' +
+      'no monsters, no trees, no ground, no road, no other buildings, no UI, no text, ' +
+      'no watermark, no border.',
+  },
 };
 
 async function gerar(nome, apiKey) {
