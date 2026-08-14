@@ -1,6 +1,151 @@
+# Handoff — estado do projeto em 2026-08-14
+
+## ⏸️ ONDE PARAMOS — retomar 15/08
+
+### 🔴 O PROJETO MUDOU DE RUMO NO CENÁRIO. Leia isto antes de tudo.
+
+**O dono decidiu em 13/08:** *"Estamos mudando o projeto para um jogo 100% 2D
+isométrico."* O cenário deixou de ser modelado em 3D e passou a ser **peça 2D
+isométrica gerada por IA de imagem**. O Blender fica para compor peça pronta,
+não para criar geometria.
+
+⚠️ **Isso NÃO derruba a decisão do personagem**, e é importante não confundir:
+herói e criaturas continuam em `high top-down` (ver 05/08 e 12/08). O
+isométrico vale para a linha de cenário. **Se o jogo inteiro vai migrar,
+ninguém decidiu** — a casa em tela é o primeiro dado real dessa conversa.
+
+### ✅ A CASA ESTÁ NO JOGO, com colisão — e o dono aprovou em tela
+
+Primeira peça de cenário ligada no mundo. Ela **não flutua mais** e o jogador
+**contorna** em vez de atravessar.
+
+| | Onde |
+|---|---|
+| Posição e pegada (fonte de verdade) | `shared/src/buildings.ts` |
+| Tile sólido novo (id **16**, `building`) | `shared/src/tiles.ts` |
+| Pintura da pegada | `pintaPredios` em `shared/src/worldgen.ts` |
+| Carregador do sprite | `client/src/buildings.ts` |
+| Desenho (`makePredio`) | `client/src/main.ts` |
+| A arte | `client/public/assets/buildings/` |
+
+🔴 **Colisão mora no SHARED, e não é detalhe.** Casa desenhada só no cliente
+seria casa fantasma — bonita e atravessável —, porque movimento é validado no
+servidor por `isWalkable`.
+
+🔴 **O tile 16 existe por causa do DESENHO, não da colisão.** `wall_stone` já
+bloqueava; o problema é que o cliente desenha um bloco 2.5D cinza para todo tile
+alto, e ele apareceria em volta da casa, que já tem parede pintada na arte. Por
+isso `building` tem **`height: 0` mesmo sendo alto**: `height` é a altura do
+desenho *por código*, e aqui quem desenha é o sprite.
+
+🔴 **A pegada é 4×3 e não 7×7, e isso é medição.** O sprite tem 7 tiles de
+largura, mas a base de pedra que encosta no chão tem **4,2** — o resto é
+telhado avançando e andar de cima em balanço, que passam *por cima* do jogador.
+⚠️ **A profundidade 3 é chute**, não medida: a base é um losango isométrico e
+quanto disso vira "fundo" no mundo quadrado é escolha. **É o primeiro número a
+ajustar** se a casa bloquear demais atrás.
+
+### 🎯 A PRÓXIMA COISA, em ordem
+
+1. ⏳ **Mover a casa para o vilarejo.** Hoje ela está em **(172,152), posição de
+   TESTE** — escolhida por ser onde o personagem do dono estava salvo. O lugar é
+   perto do `WORLD_SPAWN` (150,158), remontando Lumindale.
+   🔴 Mexe no `worldgen` e no `SAFE_ZONE_RADIUS`, que este documento marca como
+   coisa a **não pegar sem falar com o dono**.
+2. ⏳ **Interior de casa — só o visual.** O jogador entra, o telhado some, ele vê
+   o cômodo. **A arte já existe** (8 cômodos, ver abaixo). Não existe conceito de
+   interior no motor: isso é etapa, não ajuste.
+3. ⏳ **Afinar a profundidade da pegada** vendo o jogador contornar.
+
+### 🎨 A ARTE QUE EXISTE, e o que cada pasta é
+
+Tudo em `arte-fonte/cenario-iso/`, branch **`cenario-iso-2d`**.
+
+| Pasta | O que é | Serve? |
+|---|---|---|
+| `pecas-hd/casa-2-andares.png` | a casa inteira, 905×1228 | ✅ **está no jogo** |
+| `comodos-pecas/` | 4 cascas de sala (pedra, madeira, quarto, cozinha) | ✅ prontas, não ligadas |
+| `instalacoes-pecas/` | Forja · Alquimia · Cozinha · Treinamento | ✅ prontas, não ligadas |
+| `modulos/` | 6 painéis de parede em alta resolução | ⚠️ **não encaixam** — ver abaixo |
+| `pecas/` | as 12 primeiras peças, resolução menor | ⚠️ superadas |
+
+🔴 **As 4 instalações saem do Doc, não de invenção.** A **19.38** nomeia Forja,
+Laboratório de Alquimia, Cozinha e Área de Treinamento; a **19.25** escalona por
+tamanho, e *"Forja + Laboratório + Cozinha"* é exatamente o patamar de **grande
+propriedade**.
+⚠️ **O que continua `PENDENTE` e não se inventa:** `03` (tamanhos oficiais das
+propriedades), `11` (quantas instalações por tamanho) e `12` (níveis máximos).
+A arte cobre a **aparência** das quatro; a **regra** delas é decisão do dono.
+
+### ⚠️ Os becos desta linha — não repita
+
+📖 Inteiros em [`PROMPT-ARTE-CENARIO-2D.md`](./PROMPT-ARTE-CENARIO-2D.md).
+
+1. 🔴 **Montar casa por MÓDULO não funciona.** Cada peça sai como bloco de
+   vitrine, com frente, lateral **e** topo visíveis; duas lado a lado não
+   encostam — a lateral de uma cobre a frente da outra e vira escada. Para
+   encaixar, o módulo teria de ser segmento de parede **sem lateral própria**, e
+   o gerador desenha objeto, não peça de encaixe. **Foi isso que fez a casa
+   inteira virar uma peça só.**
+2. 🔴 **Gerador de imagem NÃO obedece negação.** Três tentativas de porta com
+   *"não é uma ferradura"* devolveram ferradura — a palavra no prompt vira
+   desenho. A porta só saiu certa quando foi pedida **dentro de um conjunto**,
+   onde a função dela (encaixar numa parede) força a geometria. **Prompt mais
+   curto, resultado certo.**
+3. ⚠️ **Menos peças por folha = mais resolução.** 1536×1024 é o teto do modelo;
+   12 peças davam ~200 px cada, 6 dão ~375 px. É a única alavanca que existe.
+4. ⚠️ **Coerência e riqueza brigam:** peça gerada sozinha tem textura mais rica,
+   peça gerada em folha encaixa melhor.
+
+### 🐛 Duas armadilhas de AMBIENTE achadas em 14/08
+
+1. 🔴 **Duas abas no mesmo personagem fazem a tela PISCAR.** Com
+   `ELYSIA_DEV_ACCOUNT` ligado, *qualquer* aba que abrir `localhost:5173` entra
+   automaticamente no mesmo personagem, e cada conexão nova expulsa a anterior
+   num laço de dezenas de vezes por segundo. **Não há aviso** — o sintoma é a
+   tela tremendo. A assinatura no log é `[conn] … (2 online)` seguido de
+   `[disc]` em sequência.
+2. ⚠️ **Sprite com sombra PINTADA na arte quebra a âncora.** A casa vinha com um
+   halo de chão claro descendo ~45 px abaixo da pedra; como a âncora usa a caixa
+   de alpha medida, ela ancorava no rodapé **do halo** e a casa flutuava. É a
+   mesma família do bug das árvores de 05/08.
+   🔴 **O limiar saiu de medir, e errei uma vez antes:** cortar por luminância a
+   0,62 quase não removeu nada, porque 0,62 está colado no halo (**0,667**).
+   Medido: halo 0,667 · pedra 0,207 · degrau 0,264 → **0,45** passa folgado.
+   ⚠️ **Separar por textura NÃO funciona:** variância local dá 0,049 no halo e
+   0,054 na pedra.
+
+### ⚠️ O ZOOM voltou para 1,0 — e não é desfazer por desfazer
+
+Ele foi a 2,0 em 13/08 para o herói parar de parecer pequeno. Com a casa em
+tela o dono pediu para afastar, e o motivo é geométrico: a 2× cabem ~12 tiles na
+vertical, e uma casa de 7 tiles toma a cena inteira.
+
+| | 1,0× (hoje) | 2,0× |
+|---|---|---|
+| herói na tela | 58 px | 116 px |
+| mundo visível | ~24 tiles | ~12 tiles |
+
+🔴 **A regra do zoom INTEIRO continua de pé** — 1,5× é exatamente o que traz de
+volta o serrilhado de 10/08. Os degraus possíveis são 1, 2, 3.
+
+### 💳 A conta nova: OpenAI, e ela COBRA
+
+A arte de cenário vem do **`gpt-image-1`** (`tools/cenario/gerar-peca.mjs`),
+escolhido por ser o único com **fundo transparente nativo**.
+
+🔴 **Diferente do PixelLab, ele cobra por imagem** — o PixelLab tem cota e
+*falha* em vez de cobrar. Por isso o script tem **teto obrigatório** de imagens
+por rodada e um diário em `arte-fonte/cenario-iso/geracoes.jsonl`.
+
+⚠️ Chave em `OPENAI_API_KEY` no `.env` (ignorado pelo git). **18 imagens
+gastas** das 25 que o dono autorizou em 13/08.
+
+---
+
 # Handoff — estado do projeto em 2026-08-13
 
-## ⏸️ ONDE PARAMOS — retomar 14/08
+## ⏸️ O bloco de 13/08, que abriu esta retomada
 
 ### 🎯 A PRÓXIMA COISA: as 7 habilidades que faltam ao Guerreiro
 
