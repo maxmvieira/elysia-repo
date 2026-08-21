@@ -39,7 +39,7 @@ import { loadSpriteMedido, type SpriteMedido } from './spritebox.js';
 // 🔴 A posição vem do SHARED, não daqui: o servidor usa a mesma lista para
 // pintar a pegada sólida. Se o cliente tivesse a própria cópia, casa desenhada
 // e casa com colisão poderiam sair de lugares diferentes.
-import { PREDIOS } from '@dominion/shared';
+import { PREDIOS, ANDARES, type AndarDef } from '@dominion/shared';
 
 const BASE = '/assets/buildings';
 
@@ -60,26 +60,74 @@ const BASE = '/assets/buildings';
  */
 const LARGURA: Record<string, number> = {
   'casa-2-andares': 7,
+  /*
+   * 🔴 7.48 e nao 7, e o numero sai de conta, nao de gosto.
+   *
+   * A versao de porta aberta NAO tem a mesma proporcao da fechada — 882x1121
+   * contra 905x1228 — porque gerador de imagem nao repete enquadramento. Com a
+   * mesma largura de 7 tiles ela sairia 19 px mais BAIXA, e a casa encolheria
+   * na hora de abrir a porta.
+   *
+   * Igualando a ALTURA na tela (304 px nas duas) o salto vertical some; sobra
+   * ~15 px a mais de largura, que incomoda muito menos.
+   *   7 * (1228/905) / (1121/882) = 7.48
+   *
+   * ⚠️ Mesmo assim a troca "pula" um pouco: as duas casas nao sao a mesma arte.
+   * O conserto de verdade seria a porta ser uma CAMADA sobre a casa, como as
+   * armas viraram camada sobre o corpo em 12/08 — mas isso pede a porta
+   * desenhada separada, que nao temos.
+   */
+  'casa-2-andares-aberta': 7.48,
 };
+
+/**
+ * Qual arte usar quando o jogador esta perto da porta.
+ *
+ * `null` para prédio sem versao aberta — a maioria.
+ */
+export const PORTA_ABERTA: Record<string, string> = {
+  'casa-2-andares': 'casa-2-andares-aberta',
+};
+
+/** A quantos tiles da soleira a porta abre. */
+export const RAIO_ABRIR = 3;
 
 const LARGURA_PADRAO = 5;
 
 /** A arte já medida, mais a largura pedida em tiles. */
 export interface PredioSprite extends SpriteMedido {
   largura: number;
+  /** O nome do PNG, para achar a variante de porta aberta. */
+  arquivo: string;
 }
 
 const carregados = new Map<string, PredioSprite>();
 
-/** Carrega os prédios de `PREDIOS`. Devolve quantos entraram. */
+/**
+ * Carrega os prédios e os interiores. Devolve quantos arquivos entraram.
+ *
+ * Interior e prédio passam pelo mesmo cache e pelo mesmo `spritebox` — a
+ * diferença entre eles é só ONDE são desenhados, não COMO são medidos.
+ */
 export async function loadBuildings(): Promise<number> {
-  for (const { arquivo } of PREDIOS) {
+  const pedidos: Array<{ arquivo: string; largura: number }> = [
+    ...PREDIOS.map((p) => ({ arquivo: p.arquivo, largura: LARGURA[p.arquivo] ?? LARGURA_PADRAO })),
+    // A variante de porta aberta, quando existir para aquele prédio.
+    ...PREDIOS.flatMap((p) => {
+      const aberta = PORTA_ABERTA[p.arquivo];
+      return aberta ? [{ arquivo: aberta, largura: LARGURA[aberta] ?? LARGURA_PADRAO }] : [];
+    }),
+    // A largura do interior não vem daqui: ele é esticado sobre o retângulo
+    // andável no `makeInterior`. O valor só preenche o campo do cache.
+    ...ANDARES.map((a) => ({ arquivo: a.arquivo, largura: a.planta[0]!.length })),
+  ];
+  for (const { arquivo, largura } of pedidos) {
     if (carregados.has(arquivo)) continue;
     const medido = await loadSpriteMedido(`${BASE}/${arquivo}.png`);
-    if (!medido) continue; // ausente: o mundo segue sem a casa
-    carregados.set(arquivo, { ...medido, largura: LARGURA[arquivo] ?? LARGURA_PADRAO });
+    if (!medido) continue; // ausente: o mundo segue sem ele
+    carregados.set(arquivo, { ...medido, largura, arquivo });
   }
-  console.log(`[buildings] ${carregados.size} de ${PREDIOS.length} carregados`);
+  console.log(`[buildings] ${carregados.size} de ${pedidos.length} carregados`);
   return carregados.size;
 }
 
@@ -96,13 +144,50 @@ export function predioSprite(arquivo: string): PredioSprite | null {
  * sumiria na primeira reciclagem.
  */
 export function prediosNoPedaco(
-  x0: number, y0: number, x1: number, y1: number,
+  x0: number, y0: number, x1: number, y1: number, floor: number,
 ): Array<{ sprite: PredioSprite; x: number; y: number }> {
   const saida: Array<{ sprite: PredioSprite; x: number; y: number }> = [];
-  for (const { arquivo, x, y } of PREDIOS) {
-    if (x < x0 || x >= x1 || y < y0 || y >= y1) continue;
-    const sprite = carregados.get(arquivo);
-    if (sprite) saida.push({ sprite, x, y });
+
+  // 🔴 O prédio visto de FORA só existe no andar 0. Sem este filtro a casa
+  // seria desenhada por cima do cômodo quando o jogador entrasse.
+  if (floor === 0) {
+    for (const { arquivo, x, y } of PREDIOS) {
+      if (x < x0 || x >= x1 || y < y0 || y >= y1) continue;
+      const sprite = carregados.get(arquivo);
+      if (sprite) saida.push({ sprite, x, y });
+    }
+  }
+
+  return saida;
+}
+
+/**
+ * Os INTERIORES do pedaço, para desenhar na camada de PISO.
+ *
+ * 🔴 **Interior vai no piso, e prédio vai nos altos — e a diferença é o
+ * jogador.** Na primeira versão o cômodo era desenhado junto das árvores e
+ * casas, ordenado por `zIndex = y`: com o cômodo ancorado na borda sul (y=153)
+ * e o jogador andando no meio dele (y=150), o cômodo ganhava e desenhava POR
+ * CIMA — o dono viu isso como *"o personagem anda embaixo"*.
+ *
+ * No piso não há disputa: tudo que é objeto (jogador, criatura, item) desenha
+ * depois, então o jogador anda SEMPRE sobre o assoalho.
+ *
+ * ⚠️ O preço é que as paredes do fundo também ficam sob o jogador. Num cômodo
+ * deste tamanho ele está quase sempre à frente delas, então quase nunca
+ * aparece; quando aparecer, o conserto é partir a arte em duas camadas (piso e
+ * parede) e devolver só a parede para os altos.
+ */
+export function andaresNoPedaco(
+  x0: number, y0: number, x1: number, y1: number, floor: number,
+): Array<{ sprite: PredioSprite; a: AndarDef }> {
+  const saida: Array<{ sprite: PredioSprite; a: AndarDef }> = [];
+  for (const a of ANDARES) {
+    if (a.floor !== floor) continue;
+    // Ancorado pelo canto noroeste: é o pedaço que cria a planta.
+    if (a.x0 < x0 || a.x0 >= x1 || a.y0 < y0 || a.y0 >= y1) continue;
+    const sprite = carregados.get(a.arquivo);
+    if (sprite) saida.push({ sprite, a });
   }
   return saida;
 }

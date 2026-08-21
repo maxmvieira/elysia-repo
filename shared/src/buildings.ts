@@ -53,6 +53,140 @@ export const PREDIOS: readonly PredioDef[] = [
 ];
 
 /**
+ * O INTERIOR de um prédio: o cômodo que se vê ao entrar pela porta.
+ *
+ * 🔴 **Isto reusa `floors` + `floorLinks`, que já existiam e estavam órfãos.**
+ * O `HANDOFF` de 05/08 registra que o Depósito era *"o único lugar que
+ * exercitava `floors` + `floorLinks`"* e que, apagado ele, *"o motor continua
+ * inteiro, mas nada mais o usa"*. Esta casa é o primeiro uso desde então — e,
+ * por tabela, o primeiro teste do mecanismo que as dungeons vão querer.
+ *
+ * ## Como a entrada funciona, e por que a porta fica FORA da pegada
+ *
+ * O servidor só consulta o `floorLink` **depois** de aprovar o passo:
+ *
+ *     if (!isWalkable(...)) return;      // ← barra aqui
+ *     const link = floorLinkAt(...);     // ← só chega aqui se andou
+ *
+ * 🔴 Ou seja: **tile de gatilho precisa ser ANDÁVEL.** Se a porta fosse um tile
+ * da pegada (que é `building`, sólido), o jogador nunca pisaria nela e o link
+ * jamais dispararia. Por isso o gatilho fica um tile ao sul da pegada — o
+ * jogador chega à porta e entra, em vez de entrar "dentro da parede".
+ *
+ * ⚠️ Isso também evita um empate de `zIndex`: dentro da pegada o jogador teria
+ * o mesmo `zIndex` do sprite da casa, e qual desenha na frente ficaria
+ * indefinido.
+ */
+export interface AndarDef {
+  /** PNG da planta em `client/public/assets/buildings/`, sem extensão. */
+  arquivo: string;
+  /** Andar do mapa. 0 é o mundo lá fora; a casa usa 1 (térreo) e 2 (superior). */
+  floor: number;
+  /** Canto noroeste da planta, em tile de mundo. */
+  x0: number;
+  y0: number;
+  /**
+   * A planta EM TEXTO — uma linha por fileira de tiles, todas do mesmo tamanho.
+   *
+   * 🔴 **É daqui que sai a colisão, e é por isso que ela existe.** O dono
+   * reportou em 14/08 que *"estou conseguindo passar por cima"* dos móveis: até
+   * então só a parede externa barrava, porque o cômodo era um retângulo cheio
+   * de chão andável com um desenho por cima. Com a planta em texto, cada mesa,
+   * bigorna e barril vira tile sólido — o desenho e a colisão saem da MESMA
+   * fonte.
+   *
+   * | | |
+   * |---|---|
+   * | `#` | parede — **sólido** |
+   * | `F` | móvel (mesa, bigorna, barril, cama…) — **sólido** |
+   * | `.` | chão livre |
+   * | `e` | entrada/saída da casa (só no térreo) |
+   * | `>` | escada que SOBE |
+   * | `<` | escada que DESCE |
+   *
+   * `#` e `F` bloqueiam igual; são símbolos diferentes só para a planta ficar
+   * legível — dá para ver de relance onde é parede e onde é mobília.
+   *
+   * ⚠️ **Os `F` foram marcados a OLHO sobre a imagem gerada**, não
+   * medidos. É a primeira coisa a acertar se algo bloquear onde parece vazio,
+   * ou vice-versa. A planta é texto justamente para isso: dá para corrigir um
+   * caractere e recarregar.
+   */
+  planta: readonly string[];
+}
+
+/**
+ * A casa de teste, dois andares.
+ *
+ * 🔴 O desenho segue o pedido do dono em 14/08: **quarto em cima, cozinha,
+ * forja e alquimia embaixo, escada ligando**. Cada andar é UMA planta gerada
+ * inteira, com as portas internas e a escada já desenhadas — em vez de quatro
+ * salas soltas que eu teria de furar para ligar. É a mesma lição da `folha2`:
+ * peça modular não encaixa, peça inteira encaixa.
+ *
+ * ⚠️ As duas plantas ficam no MESMO `x0,y0` de propósito: assim os andares se
+ * empilham, e a escada leva ao lugar que faz sentido no mapa.
+ *
+ * ⚠️ **A escada do térreo está desenhada à direita e a do superior à esquerda**
+ * — o gerador as pôs assim, e elas não se alinham. Como o link teleporta, não
+ * quebra nada; é realismo que falta, não bug.
+ */
+export const ANDARES: readonly AndarDef[] = [
+  {
+    arquivo: 'terreo',
+    floor: 1,
+    x0: 166, y0: 146,
+    planta: [
+      '############',
+      '#FFF#FFF#FF#',
+      '#FFF#FFF#FF#',
+      '#...#...#..#',
+      '#FF.#.F.#FF#',
+      '#...#...#..#',
+      '#FF.....#..#',
+      '#.......#..#',
+      '###.#####..#',
+      '#.......#>>#',
+      '#.......#>>#',
+      '##e#########',
+    ],
+  },
+  {
+    arquivo: 'superior',
+    floor: 2,
+    x0: 166, y0: 146,
+    planta: [
+      '############',
+      '#<<<...FFF.#',
+      '#<<<...FFF.#',
+      '#<<<...FFF.#',
+      '#......FFF.#',
+      '#..........#',
+      '#FF........#',
+      '#FF.....FFF#',
+      '#.......FFF#',
+      '#FF.....FFF#',
+      '#FF........#',
+      '############',
+    ],
+  },
+];
+
+/** Onde o jogador entra na casa, no andar 0. Precisa ser ANDÁVEL — ver acima. */
+export const PORTA_DA_CASA = { x: 171, y: 153 } as const;
+/** Onde ele pousa ao sair. Um tile ao sul, para não repisar o gatilho. */
+export const VOLTA_DA_CASA = { x: 171, y: 154 } as const;
+
+/** Acha o primeiro tile de um símbolo na planta, em coordenada de mundo. */
+export function achaNaPlanta(a: AndarDef, simbolo: string): { x: number; y: number } | null {
+  for (let ly = 0; ly < a.planta.length; ly++) {
+    const lx = a.planta[ly]!.indexOf(simbolo);
+    if (lx >= 0) return { x: a.x0 + lx, y: a.y0 + ly };
+  }
+  return null;
+}
+
+/**
  * Os tiles que um prédio ocupa.
  *
  * A pegada cresce para o NORTE (y menor) porque o sprite é ancorado pelo pé:

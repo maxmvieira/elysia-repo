@@ -301,6 +301,151 @@ const PECAS = {
   },
 
   /**
+   * 🔴 INTERIORES EM VISTA DE CIMA — e eles existem porque o isometrico FALHOU
+   * em tela, em 14/08.
+   *
+   * Os `comodos` isometricos ficaram bonitos e nao servem para andar dentro: o
+   * assoalho deles e um LOSANGO e o jogo move em GRADE QUADRADA. O jogador anda
+   * em linha reta sobre um chao que recua na diagonal, e o dono descreveu como
+   * *"esta incomodando muito"*.
+   *
+   * ⚠️ A decisao (14/08, depois do `espeto-iso.html`) foi **manter o jogo
+   * top-down**. Entao o interior tem de ser desenhado na projecao do JOGO, nao
+   * na da arte de cenario.
+   *
+   * ⚠️ **A casa vista de FORA continua isometrica de proposito.** Ela funciona
+   * como arvore: o jogador contorna, nunca pisa nela. Regerar seria trocar algo
+   * que o dono ja aprovou em tela.
+   *
+   * 🔴 O prompt insiste em "straight down" varias vezes porque gerador de
+   * imagem tem vies FORTE para isometrico quando ouve "game asset" — foi o que
+   * ele entregou em todas as pecas anteriores sem ser pedido.
+   */
+  'comodos-topdown': {
+    size: '1024x1024',
+    semEstilo: true,
+    texto:
+      'A sprite sheet of medieval room interiors for a 2D top-down RPG in the style of ' +
+      'Tibia — hand-painted digital art, rich texture, NOT a 3D render, NOT a photo.\n\n' +
+      'CAMERA — this is the single most important requirement: the camera is directly ' +
+      'OVERHEAD, looking STRAIGHT DOWN at the floor from above, like a floor plan or a ' +
+      'blueprint seen from a helicopter. The floor is a flat SQUARE, drawn as a square ' +
+      'on the page. This is NOT an isometric view: there is no diamond, no 45-degree ' +
+      'tilt, no visible wall faces receding into the distance. You are looking down at ' +
+      'the tops of everything.\n\n' +
+      'ONE single image containing EXACTLY FOUR square rooms in a 2x2 arrangement, with ' +
+      'clear empty space between them. Each room is a square wooden plank floor with a ' +
+      'stone wall border running around all four edges, seen from directly above — the ' +
+      'wall reads as a thick band framing the floor, because from overhead you see the ' +
+      'top of the wall.\n\n' +
+      'The furniture is also seen from directly above: you see the top of the bed, the ' +
+      'top of the table, the top of the chest.\n\n' +
+      'The four rooms:\n' +
+      '1. a bedroom: a bed against one wall, a wardrobe, a small rug, a chest\n' +
+      '2. a forge: a stone forge with glowing coals, an anvil, a water barrel\n' +
+      '3. an alchemy laboratory: a long table with coloured glass flasks, a cauldron, ' +
+      '   shelves of jars\n' +
+      '4. a kitchen: a stone hearth with a pot, a preparation table, barrels\n\n' +
+      'Lighting: soft, even, from above, with short shadows falling close around each ' +
+      'object — consistent with an overhead sun.\n\n' +
+      'Background: plain flat white, completely empty. No characters, no monsters, no ' +
+      'roof, no UI, no text labels, no watermark, no grid lines.',
+  },
+
+  /**
+   * 🔴 PLANTA DE UM ANDAR INTEIRO, em vista de cima — uma peca por andar.
+   *
+   * ⚠️ Existe em vez de colar as 4 salas soltas, e o motivo ja custou caro
+   * antes: peca modular NAO encaixa (ver `folha2`). Salas soltas teriam moldura
+   * de pedra fechada nos quatro lados, e ligar uma na outra exigiria FURAR a
+   * parede na imagem — trabalho manual, propenso a erro, e que o gerador faz
+   * de graca se o comodo inteiro for pedido de uma vez.
+   *
+   * Pedido do dono em 14/08: quarto em cima, o resto embaixo, escada ligando, e
+   * *"que fique mais realista o acesso"*.
+   */
+  'planta-terreo': {
+    size: '1024x1024',
+    semEstilo: true,
+    texto:
+      'A floor plan of the GROUND FLOOR of a small medieval house, for a 2D top-down RPG ' +
+      'in the style of Tibia — hand-painted digital art, rich texture, NOT a 3D render.\n\n' +
+      'CAMERA: directly OVERHEAD, looking STRAIGHT DOWN. The floor is a flat SQUARE drawn ' +
+      'as a square on the page. This is NOT isometric: no diamond, no 45-degree tilt, no ' +
+      'wall faces receding. You see the tops of everything.\n\n' +
+      'ONE single square building footprint, filling the frame, divided by interior stone ' +
+      'walls into THREE rooms of roughly equal size, with open DOORWAYS (gaps in the ' +
+      'walls) connecting them so a person could walk from any room to any other.\n\n' +
+      'The three rooms:\n' +
+      '- a KITCHEN: stone hearth with a fire, preparation table, barrels, hanging pots\n' +
+      '- a FORGE: stone forge with glowing coals, an anvil, a water barrel, tools\n' +
+      '- an ALCHEMY LABORATORY: long table with coloured glass flasks, a cauldron, shelves\n\n' +
+      'Also in the plan, and both must be clearly visible from above:\n' +
+      '- a wooden FRONT DOOR in the outer wall at the BOTTOM edge of the square, drawn ' +
+      '  open or as an obvious doorway gap\n' +
+      '- a wooden STAIRCASE going up, drawn as a run of parallel steps seen from above, ' +
+      '  placed against one wall\n\n' +
+      'The outer wall is thick stone running around all four edges. Floors are wooden ' +
+      'planks. Lighting soft and even from above, short shadows.\n\n' +
+      'Background outside the building: plain flat white, completely empty. No characters, ' +
+      'no roof, no UI, no text labels, no grid lines, no watermark.',
+  },
+
+  'planta-superior': {
+    size: '1024x1024',
+    semEstilo: true,
+    texto:
+      'A floor plan of the UPPER FLOOR of a small medieval house, for a 2D top-down RPG ' +
+      'in the style of Tibia — hand-painted digital art, rich texture, NOT a 3D render.\n\n' +
+      'CAMERA: directly OVERHEAD, looking STRAIGHT DOWN. The floor is a flat SQUARE drawn ' +
+      'as a square on the page. This is NOT isometric: no diamond, no tilt, no wall faces ' +
+      'receding. You see the tops of everything.\n\n' +
+      'ONE single square building footprint, filling the frame, the SAME size and the SAME ' +
+      'outer wall as a ground floor it sits on top of. Inside it is mostly ONE large ' +
+      'BEDROOM: a bed with a blanket against one wall, a wooden wardrobe, a bedside table ' +
+      'with a candle, a rug on the floor, a chest.\n\n' +
+      'Also clearly visible from above: a wooden STAIRCASE arriving from the floor below, ' +
+      'drawn as a run of parallel steps seen from above, placed against one wall, with a ' +
+      'small open landing beside it.\n\n' +
+      'The outer wall is thick stone running around all four edges. Floors are wooden ' +
+      'planks. Lighting soft and even from above, short shadows.\n\n' +
+      'Background outside the building: plain flat white, completely empty. No characters, ' +
+      'no roof, no UI, no text labels, no grid lines, no watermark.',
+  },
+
+  /**
+   * A MESMA casa, com a porta ABERTA.
+   *
+   * 🔴 O prompt repete a descricao inteira da casa e pede UMA mudanca. Sem
+   * isso o gerador devolve outra casa — outro telhado, outra janela — e trocar
+   * o sprite em tela faria a casa piscar de identidade.
+   *
+   * ⚠️ Ainda assim NAO ha garantia de que os dois PNGs alinhem pixel a pixel:
+   * gerador de imagem nao repete enquadramento. Se a casa "pular" na troca, o
+   * conserto e alinhar pela caixa de alpha ao carregar, nao regerar.
+   */
+  'casa-porta-aberta': {
+    size: '1024x1536',
+    semEstilo: true,
+    texto:
+      'A complete two-storey medieval fantasy house, drawn as a SINGLE isometric game ' +
+      'asset for a 2D MMORPG, hand-painted digital art, NOT a 3D render.\n\n' +
+      'The house: ground floor of rough hand-cut stone with visible mortar; upper storey ' +
+      'half-timbered, cream plaster with dark oak beams, jutting out slightly over the ' +
+      'ground floor; steep roof of many small deep-blue shingles with wide eaves, a ' +
+      'dormer window and a stone chimney; shuttered windows with blue glass and flower ' +
+      'boxes; a wooden balcony with turned railing; a lit iron lantern by the door.\n\n' +
+      'THE ONE THING THAT MATTERS: the front door stands WIDE OPEN, swung inward, so the ' +
+      'dark interior of the house is visible through the doorway. The open door leaf is ' +
+      'clearly drawn at an angle against the inner wall. Stone steps lead up to it.\n\n' +
+      'Camera: true isometric projection from above, showing two faces plus the roof, the ' +
+      'whole building inside the frame with a small margin. Lighting soft from the ' +
+      'upper-left, warm and painterly.\n\n' +
+      'Background: plain flat white, completely empty. Only ONE house. No characters, no ' +
+      'trees, no ground, no other buildings, no UI, no text, no watermark.',
+  },
+
+  /**
    * 🔴 A CASA INTEIRA COMO UMA PECA SO.
    *
    * ⚠️ Existe porque montar por modulo FALHOU, e o motivo esta medido em

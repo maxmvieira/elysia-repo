@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Espeto isométrico — o herói de hoje num mundo em losango</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; overflow: hidden; background: #101216; font-family: system-ui, sans-serif; }
+      canvas { display: block; }
+
+      #painel {
+        position: fixed; top: 12px; left: 12px; z-index: 10;
+        max-width: 360px; padding: 14px 16px;
+        background: rgba(12, 16, 20, 0.9);
+        border: 1px solid #2c3742; border-radius: 10px;
+        color: #d7e0e8; font-size: 13px; line-height: 1.5;
+      }
+      #painel h1 { margin: 0 0 8px; font-size: 15px; color: #fff; }
+      #painel p { margin: 0 0 10px; }
+      #painel ul { margin: 0 0 10px; padding-left: 18px; }
+      #painel b { color: #ffd479; }
+      #aviso { color: #ff9c9c; }
+
+      .rotulo {
+        position: fixed; top: 64px; z-index: 9;
+        color: #9fb0c0; font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+      }
+      #rot-iso { left: 25%; }
+      #rot-top { left: 72%; }
+    </style>
+  </head>
+  <body>
+    <div id="painel">
+      <h1>Espeto isométrico</h1>
+      <p>
+        A pergunta é <b>uma só</b>: os sprites das 4 classes, feitos em
+        <i>high top-down</i>, aguentam um mundo isométrico?
+      </p>
+      <p>Use <b>setas</b> ou <b>WASD</b> para andar. O mesmo herói aparece nos dois lados.</p>
+      <ul>
+        <li><b>Esquerda:</b> mundo isométrico (losango 2:1)</li>
+        <li><b>Direita:</b> como o jogo é hoje (grade quadrada)</li>
+      </ul>
+      <p>
+        O chão é cor chapada de propósito — o <code>Ground.png</code> é top-down e
+        não existe versão isométrica dele. <b>Refazer o tileset é um custo real
+        da migração</b>, e este espeto não o esconde.
+      </p>
+      <p id="aviso">carregando…</p>
+    </div>
+    <div class="rotulo" id="rot-iso">isométrico</div>
+    <div class="rotulo" id="rot-top">top-down (hoje)</div>
+    <script type="module" src="/src/espetoiso.ts"></script>
+  </body>
+</html>

@@ -41,7 +41,9 @@ import {
   type CityDef,
 } from './regions.js';
 import { WORLD_NPCS } from './worlddata.js';
-import { PREDIOS, tilesDoPredio } from './buildings.js';
+import {
+  PREDIOS, ANDARES, PORTA_DA_CASA, VOLTA_DA_CASA, tilesDoPredio, achaNaPlanta,
+} from './buildings.js';
 
 const T = {
   VOID: 0,
@@ -567,6 +569,87 @@ function pintaPredios(ground: number[]): void {
   }
 }
 
+/**
+ * Escava as PLANTAS dos andares da casa e liga porta e escada.
+ *
+ * 🔴 O andar nasce inteiro de , e  é **sólido** — a laje já barra
+ * tudo por padrão. Escavar é só abrir o que a planta marca como chão. O que
+ * ficar de fora continua intransponível sem eu desenhar parede nenhuma.
+ *
+ * 🔴 E é aqui que os MÓVEIS ganham física: cada  da planta simplesmente
+ * **não é escavado**. O dono reportou em 14/08 que passava por cima da mobília;
+ * a causa era o cômodo ser um retângulo de chão livre com um desenho por cima.
+ * Agora desenho e colisão saem da mesma planta.
+ *
+ * ⚠️ A soleira, no andar 0, é aberta em : ela **precisa ser andável**,
+ * senão o servidor barra o passo antes de olhar o link.
+ */
+function escavaAndares(
+  ground: number[], porAndar: Map<number, number[]>, links: FloorLink[],
+): void {
+  const andarDe = (f: number): number[] => {
+    let camada = porAndar.get(f);
+    if (!camada) { camada = makeLayer(T.VOID); porAndar.set(f, camada); }
+    return camada;
+  };
+
+  for (const a of ANDARES) {
+    const camada = andarDe(a.floor);
+    for (let ly = 0; ly < a.planta.length; ly++) {
+      const linha = a.planta[ly]!;
+      for (let lx = 0; lx < linha.length; lx++) {
+        const c = linha[lx]!;
+        // 🔴 '#' (parede) e 'F' (móvel) NÃO são escavados: ficam VOID, sólido.
+        if (c === '#' || c === 'F') continue;
+        const x = a.x0 + lx, y = a.y0 + ly;
+        if (dentro(x, y)) set(camada, x, y, T.STONE);
+      }
+    }
+  }
+
+  const terreo = ANDARES.find((a) => a.arquivo === 'terreo');
+  const superior = ANDARES.find((a) => a.arquivo === 'superior');
+
+  if (terreo) {
+    const saida = achaNaPlanta(terreo, 'e');
+    if (saida) {
+      // A soleira do lado de fora.
+      if (dentro(PORTA_DA_CASA.x, PORTA_DA_CASA.y)) {
+        set(ground, PORTA_DA_CASA.x, PORTA_DA_CASA.y, T.STONE);
+      }
+      /*
+       * ⚠️ Entrando, o jogador pousa UM TILE ACIMA da soleira interna, não
+       * sobre ela: pousar no próprio gatilho o devolveria para fora no passo
+       * seguinte, e a casa viraria uma porta giratória.
+       */
+      links.push({
+        x: PORTA_DA_CASA.x, y: PORTA_DA_CASA.y, fromFloor: 0,
+        toX: saida.x, toY: saida.y - 1, toFloor: terreo.floor, kind: 'up',
+      });
+      links.push({
+        x: saida.x, y: saida.y, fromFloor: terreo.floor,
+        toX: VOLTA_DA_CASA.x, toY: VOLTA_DA_CASA.y, toFloor: 0, kind: 'down',
+      });
+    }
+  }
+
+  if (terreo && superior) {
+    const sobe = achaNaPlanta(terreo, '>');
+    const desce = achaNaPlanta(superior, '<');
+    if (sobe && desce) {
+      // Mesmo cuidado: pousa ao lado da escada, nunca em cima dela.
+      links.push({
+        x: sobe.x, y: sobe.y, fromFloor: terreo.floor,
+        toX: desce.x, toY: desce.y + 3, toFloor: superior.floor, kind: 'up',
+      });
+      links.push({
+        x: desce.x, y: desce.y, fromFloor: superior.floor,
+        toX: sobe.x, toY: sobe.y - 1, toFloor: terreo.floor, kind: 'down',
+      });
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 /**
@@ -606,13 +689,31 @@ export function buildWorldMap(): GameMap {
    * A casa de teste está a 8 tiles do centro, ou seja dentro do raio.
    */
   pintaPredios(ground);
+  /*
+   * ⚠️ DEPOIS de `pintaPredios`: a soleira precisa sobrescrever a pegada se um
+   * dia ela cair dentro dela. Hoje fica um tile ao sul, mas a ordem protege
+   * contra a porta virar parede em silêncio se alguém mexer nos números.
+   */
+  /*
+   * 🔴 Os andares da casa saem daqui, e podem ser MAIS de um.
+   *
+   * O mundo tinha só 0 (chão) e 1 (alto) porque o único usuário de andar — o
+   * Depósito — foi apagado em 05/08. A casa de dois andares pediu um terceiro,
+   * e `floors` é `Record<number, number[]>`: acrescentar é de graça. O cliente
+   * já trata andar inexistente (`if (!map.floors[floor]) return`).
+   */
+  const porAndar = new Map<number, number[]>([[1, upper]]);
+  escavaAndares(ground, porAndar, floorLinks);
+
+  const floors: Record<number, number[]> = { 0: ground };
+  for (const [n, camada] of porAndar) floors[n] = camada;
 
   return {
     id: 'elysia',
     name: 'Elysia',
     width: WIDTH,
     height: HEIGHT,
-    floors: { 0: ground, 1: upper },
+    floors,
     floorLinks,
     spawn: { ...WORLD_SPAWN },
     depotZone,

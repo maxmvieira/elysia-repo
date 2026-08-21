@@ -137,7 +137,11 @@ import {
   type HeroArt, type EquipArt, type EquipPiece,
 } from './heroes.js';
 import { loadTrees, treeTexFor, type ArvoreSprite } from './trees.js';
-import { loadBuildings, prediosNoPedaco, type PredioSprite } from './buildings.js';
+import {
+  loadBuildings, prediosNoPedaco, andaresNoPedaco, predioSprite,
+  PORTA_ABERTA, RAIO_ABRIR, type PredioSprite,
+} from './buildings.js';
+import type { AndarDef } from '@dominion/shared';
 import { loadCrystals, crystalNodeSprite, crystalIconImage } from './crystals.js';
 
 const TS = TILE_SIZE;
@@ -1261,8 +1265,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * não é tile: ele é uma decoração solta ancorada numa coordenada, e o
      * pedaço que a contém é quem o cria. Ver `buildings.ts`.
      */
-    for (const { sprite, x, y } of prediosNoPedaco(cx * CHUNK, cy * CHUNK, x1, y1)) {
+    for (const { sprite, x, y } of prediosNoPedaco(cx * CHUNK, cy * CHUNK, x1, y1, renderedFloor)) {
       altos.push(makePredio(x, y, sprite));
+    }
+
+    /*
+     * 🔴 Interior entra no PISO, não nos altos — ver `interioresNoPedaco`.
+     * Nos altos ele disputava `zIndex` com o jogador e ganhava, escondendo
+     * quem estava dentro do cômodo.
+     */
+    for (const { sprite, a } of andaresNoPedaco(cx * CHUNK, cy * CHUNK, x1, y1, renderedFloor)) {
+      piso.addChild(makeAndar(a, sprite));
     }
 
     floorRoot.addChild(piso);
@@ -1280,6 +1293,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     for (const v of chunksVivos.values()) descartaChunk(v);
     chunksVivos.clear();
     chunkRangeAtual = '';
+    // 🔴 Os sprites acabaram de ser destruídos — ver `portasVivas`.
+    portasVivas.length = 0;
   }
 
   /**
@@ -1386,6 +1401,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * ⚠️ A elipse aqui é mais RASA que a da árvore (÷7 contra ÷14 na altura):
    * copa de árvore é redonda vista de cima, base de casa é um retângulo largo.
    */
+  /**
+   * Os prédios com porta que abre, vivos no cenário montado agora.
+   *
+   * ⚠️ Esvaziado a cada `limpaChunks`: os sprites morrem junto com o pedaço, e
+   * guardar referência a `Sprite` destruído faria o ticker escrever em objeto
+   * morto — o Pixi não avisa, só para de desenhar.
+   */
+  const portasVivas: Array<{
+    corpo: Sprite; sombra: Sprite;
+    fechada: PredioSprite; aberta: PredioSprite;
+    x: number; y: number; abertaAgora: boolean;
+  }> = [];
+
   function makePredio(x: number, y: number, pr: PredioSprite): Container {
     const { tex, largura, base, centro, cheia } = pr;
     const c = new Container();
@@ -1393,9 +1421,30 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const py = y * TS + TS - 2;
     const escala = (TS * largura) / (tex.width * cheia);
 
-    const sombra = new Graphics();
-    sombra.ellipse(px, py, (TS * largura) / 2.6, (TS * largura) / 7)
-      .fill({ color: 0x000000, alpha: 0.22 });
+    /*
+     * 🔴 A SOMBRA É A PRÓPRIA SILHUETA ACHATADA, e não uma elipse.
+     *
+     * A elipse fazia a casa parecer FLUTUAR, e a medição explica: um prédio
+     * isométrico encosta no chão numa QUINA. Medido neste sprite — no pé ele
+     * tem **1 px** de largura opaca, e só 50 px acima é que chega a 174. A
+     * elipse tinha 172 px centrados naquele ponto, então metade dela ficava
+     * exposta ABAIXO de uma casa que quase não tocava ali: um oval escuro sob
+     * um prédio suspenso.
+     *
+     * Projetar a silhueta resolve porque a sombra passa a ter a FORMA do
+     * prédio. E vale para qualquer construção futura sem número novo para
+     * afinar — a elipse precisaria de um raio por prédio.
+     *
+     * ⚠️ O deslocamento é para BAIXO-DIREITA porque a luz da arte vem de
+     * cima-esquerda. Se um dia a arte mudar de luz, este sinal muda junto.
+     */
+    const sombra = new Sprite(tex);
+    sombra.anchor.set(centro, base);
+    sombra.scale.set(escala, escala * 0.30); // achatada contra o chão
+    sombra.x = px + TS * 0.8;
+    sombra.y = py;
+    sombra.tint = 0x000000;
+    sombra.alpha = 0.42;
 
     const s = new Sprite(tex);
     // Âncora na caixa MEDIDA, não na moldura — ver `spritebox.ts`.
@@ -1406,7 +1455,49 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     c.addChild(sombra, s);
 
     c.zIndex = y;
+
+    /*
+     * A porta abre por PROXIMIDADE, e quem troca a textura é o `app.ticker`.
+     * Guardo os dois sprites aqui em vez de procurar filho por índice depois:
+     * índice quebraria em silêncio se a ordem do container mudasse.
+     */
+    const nomeAberta = PORTA_ABERTA[pr.arquivo];
+    const aberta = nomeAberta ? predioSprite(nomeAberta) : null;
+    if (aberta) portasVivas.push({ corpo: s, sombra, fechada: pr, aberta, x, y, abertaAgora: false });
+
     return c;
+  }
+
+  /**
+   * O assoalho de um cômodo, desenhado na camada de PISO.
+   *
+   * Difere do `makePredio` em duas coisas, e as duas por ser piso:
+   * **não tem sombra** (nada projeta sombra no próprio chão) e **não tem
+   * `zIndex` próprio** — dentro do `piso` a ordem é a de inserção, e o que
+   * importa é ele vir antes de todo objeto, o que já acontece por estar noutro
+   * container.
+   */
+  /**
+   * A planta de um ANDAR, desenhada na camada de PISO.
+   *
+   * 🔴 O sprite e esticado exatamente sobre o retangulo da planta, tile a
+   * tile: a imagem tem a mesma largura e altura em tiles que o texto da
+   * planta. Assim parede desenhada cai onde o mapa barra, e movel desenhado
+   * cai onde o mapa barra — desenho e colisao saem da MESMA fonte.
+   *
+   * ⚠️ Vai no PISO e nao nos altos: nos altos ele disputava zIndex com o
+   * jogador e ganhava, escondendo quem estava dentro.
+   */
+  function makeAndar(a: AndarDef, pr: PredioSprite): Sprite {
+    const s = new Sprite(pr.tex);
+    const larg = a.planta[0]!.length;
+    const alt = a.planta.length;
+    s.anchor.set(0, 0);
+    s.width = larg * TS;
+    s.height = alt * TS;
+    s.x = a.x0 * TS;
+    s.y = a.y0 * TS;
+    return s;
   }
 
   /** Árvore, muro de pedra (tijolos) ou de madeira (tábuas), em 2.5D. */
@@ -4395,6 +4486,29 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // Loop de render ---------------------------------------------------------
   app.ticker.add(() => {
     if (myFloor !== renderedFloor) rebuildFloor(myFloor);
+
+    /*
+     * A PORTA ABRE quando o jogador chega perto, e fecha quando ele afasta.
+     *
+     * ⚠️ Só troca quando o estado MUDA. Reatribuir textura todo quadro é
+     * trabalho de GPU à toa, e aqui seria 60× por segundo por casa.
+     *
+     * ⚠️ A escala é recalculada na troca porque as duas artes não têm a mesma
+     * proporção — ver `LARGURA` em `buildings.ts`.
+     */
+    for (const p of portasVivas) {
+      const perto = Math.max(Math.abs(p.x - myTileX), Math.abs(p.y - myTileY)) <= RAIO_ABRIR;
+      if (perto === p.abertaAgora) continue;
+      p.abertaAgora = perto;
+      const arte = perto ? p.aberta : p.fechada;
+      const escala = (TS * arte.largura) / (arte.tex.width * arte.cheia);
+      p.corpo.texture = arte.tex;
+      p.corpo.anchor.set(arte.centro, arte.base);
+      p.corpo.scale.set(escala);
+      p.sombra.texture = arte.tex;
+      p.sombra.anchor.set(arte.centro, arte.base);
+      p.sombra.scale.set(escala, escala * 0.30);
+    }
 
     const now = performance.now();
     // TECLADO MANDA: se o jogador tocou numa tecla de direção, a rota do clique
