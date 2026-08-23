@@ -1,6 +1,63 @@
 # Handoff — estado do projeto em 2026-08-15
 
-## ⏸️ ONDE PARAMOS — retomar 16/08
+## 🔴 DECISÃO DO DONO NO FIM DE 15/08 — LEIA ANTES DE TUDO
+
+**A casa ilustrada foi ABANDONADA. A casa vai ser refeita DO ZERO em pixel art,
+pelo PixelLab.** Palavras dele: *"podemos fazer a casa em pixelart mesmo. esquece
+essa outra."*
+
+### Por que isso agora faz sentido, e não fazia em 12/08
+
+O `PIXELLAB-RECEITA.md` registra que a API dele **não tem ângulo isométrico** —
+`view` aceita só `'side'`, `'low top-down'` e `'high top-down'`. Foi por isso que
+ele saiu de cena quando o cenário virou isométrico.
+
+🔴 **Mas em 15/08 o dono decidiu MANTER O JOGO TOP-DOWN** (depois do
+`espeto-iso.html`), e `high top-down` é exatamente a projeção do jogo — a mesma
+dos personagens que já estão nele. O que era o defeito do PixelLab virou o
+encaixe certo.
+
+E ele tem duas vantagens sobre o `gpt-image-1` usado até aqui: **cota em vez de
+cobrança** (estoura e falha, não gera fatura) e **pixel art nativa**, em vez de
+ilustração que precisa ser reduzida.
+
+### ⚠️ O que morre e o que FICA — não jogue fora o que presta
+
+| | |
+|---|---|
+| ❌ **Morre** | a arte ilustrada: `casa-2-andares`, `casa-porta-aberta`, `porta-aberta`, as plantas `terreo`/`superior`, `interior-tiles.png` |
+| ✅ **FICA** | **todo o código.** Ele não sabe de onde vem a arte |
+
+O que fica, e por que continua valendo:
+
+- **Interior por TILE** (ids 17–21 em `tiles.ts`) — a decisão que consertou
+  "ando em cima do muro". Vale para qualquer arte: só troca o PNG dos retalhos.
+- **`shared/src/buildings.ts`** — `ANDARES`, plantas em texto, `PREDIOS`,
+  `tilesDoPredio`. Estrutura e posição não dependem do estilo.
+- **Links de andar** (porta e escada) e a lição de que **tile de gatilho precisa
+  ser ANDÁVEL**.
+- **`shared/tests/buildings.test.ts`** — os 5 testes que andam pela planta.
+  🔴 Foram eles que pegaram a escada murada; mantenha-os passando.
+- **A colisão no SHARED**, porque quem valida movimento é o servidor.
+- As ferramentas de `tools/cenario/` — `folha-para-tiles.mjs` serve igual para
+  arte do PixelLab.
+
+### 🎯 Por onde começar em 16/08
+
+1. **Reler os seis becos do `PIXELLAB-RECEITA.md`** antes de gerar em lote. São
+   ~44 gerações já perdidas neles (o Knight que criou asas, o escudo que some no
+   esqueleto, `generate-image-pixflux` que não vira o personagem).
+2. **Começar pelos MÓVEIS**, não pela casa. Cada móvel é peça pequena e
+   independente, o molde de desenho já existe (`makeTree`), e erro sai barato.
+   Hoje móvel é `wall_interior` e desenha como parede — a cama parece muro.
+3. **Depois os tiles de interior**, e por último a casa vista de fora.
+
+⚠️ **A casa atual continua no jogo até a nova existir.** Não apague a arte velha
+antes de ter a substituta: o mundo ficaria com a pegada sólida e nada desenhado.
+
+---
+
+## ⏸️ O RESTO DO ESTADO — retomar 16/08
 
 ### 🎯 A PRÓXIMA COISA, em ordem
 
