@@ -414,6 +414,41 @@ const PECAS = {
   },
 
   /**
+   * A PORTA sozinha, aberta — para ser CAMADA sobre a casa.
+   *
+   * 🔴 Isto e a segunda tentativa. A primeira gerou a casa INTEIRA com a porta
+   * aberta (`casa-porta-aberta`) e trocava o sprite por proximidade; o dono viu
+   * em tela e cortou: *"foram feitas duas casas diferentes"*. E eram — 882x1121
+   * contra 905x1228, telhado e varanda diferentes. O predio trocava de
+   * identidade para a porta abrir.
+   *
+   * 🔴 A licao ja estava no projeto, em 12/08: **o que muda tem de ser
+   * desenhado separado do que fica.** Foi por isso que a arma saiu do corpo do
+   * personagem e virou camada. Porta e o mesmo caso.
+   *
+   * ⚠️ Pede a MOLDURA junto, e nao so a folha da porta. Alinhar uma folha solta
+   * dentro do vao pintado exigiria acerto de sub-pixel; uma moldura um pouco
+   * maior COBRE o vao inteiro, e o que sobra de erro fica escondido sob pedra.
+   */
+  'porta-aberta-camada': {
+    size: '1024x1024',
+    semEstilo: true,
+    texto:
+      'A single medieval stone doorway with the wooden door standing WIDE OPEN, drawn as ' +
+      'an isolated 2D game asset — hand-painted digital art, NOT a 3D render, NOT a photo.\n\n' +
+      'The piece: a rounded stone arch on two straight stone jambs that run down to a flat ' +
+      'stone threshold. Between them the doorway is OPEN — the heavy oak door is swung ' +
+      'inward and seen at an angle against the inner wall, and through the gap the inside ' +
+      'of the house is dark. Wrought-iron hinges and a round iron ring handle on the door.\n\n' +
+      'Camera: true isometric projection seen from above at the standard isometric angle, ' +
+      'as if this doorway were part of a wall whose face angles down-left toward the ' +
+      'viewer. The stone of the arch is light warm grey, the oak is dark brown.\n\n' +
+      'Lighting: soft directional light from the upper-left, warm and painterly.\n\n' +
+      'Background: fully transparent. ONLY the doorway and its stone frame — no wall around ' +
+      'it, no house, no roof, no ground, no characters, no UI, no text, no watermark.',
+  },
+
+  /**
    * A MESMA casa, com a porta ABERTA.
    *
    * 🔴 O prompt repete a descricao inteira da casa e pede UMA mudanca. Sem

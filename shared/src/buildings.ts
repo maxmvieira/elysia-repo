@@ -136,30 +136,50 @@ export const ANDARES: readonly AndarDef[] = [
     arquivo: 'terreo',
     floor: 1,
     x0: 166, y0: 146,
+    /*
+     * ⚠️ ESTA PLANTA É APROXIMADA, e a aproximação é deliberada.
+     *
+     * Traçar à mão a planta PINTADA sobre uma grade de 12×12 não converge: as
+     * paredes da arte têm ~0,7 tile de espessura e os móveis atravessam célula.
+     * Tentei duas vezes e nas duas deixei a escada MURADA — uma coluna inteira
+     * de parede sem vão, que só aparece jogando.
+     *
+     * 🔴 Então a regra aqui passou a ser: **primeiro correto, depois bonito.**
+     * O que esta planta garante é (a) o jogador nunca sai do prédio, (b) todo
+     * tile livre é alcançável da porta, e (c) a escada é alcançável. Conferir
+     * com `tools/cenario/conferir-planta.mjs` (sobrepõe na imagem) e com o
+     * teste de rota, que é o que pega o murado.
+     *
+     * ⚠️ Ela NÃO acompanha o desenho célula a célula. Onde a arte mostra parede
+     * e aqui é chão, o jogador anda "sobre" a parede pintada. É o preço de
+     * planta pintada num jogo de grade, e o conserto de verdade é interior
+     * montado por TILE (piso, parede, móvel como peças), não por imagem única.
+     */
     planta: [
       '############',
-      '#FFF#FFF#FF#',
-      '#FFF#FFF#FF#',
-      '#...#...#..#',
-      '#FF.#.F.#FF#',
-      '#...#...#..#',
+      '#FFF#FF#FFF#',
+      '#FF.#..#.FF#',
+      '#...#..#..F#',
+      '#..........#',
+      '#FF.F...#..#',
       '#FF.....#..#',
-      '#.......#..#',
-      '###.#####..#',
+      '#.......#>>#',
+      '#..##...#>>#',
       '#.......#>>#',
       '#.......#>>#',
-      '##e#########',
+      '###e########',
     ],
   },
   {
     arquivo: 'superior',
     floor: 2,
     x0: 166, y0: 146,
+    // ⚠️ Também aproximada — ver a nota do térreo.
     planta: [
       '############',
       '#<<<...FFF.#',
       '#<<<...FFF.#',
-      '#<<<...FFF.#',
+      '#<<....FFF.#',
       '#......FFF.#',
       '#..........#',
       '#FF........#',

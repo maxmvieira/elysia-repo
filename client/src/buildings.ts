@@ -83,11 +83,30 @@ const LARGURA: Record<string, number> = {
 /**
  * Qual arte usar quando o jogador esta perto da porta.
  *
- * `null` para prédio sem versao aberta — a maioria.
+ * 🔴 **VAZIO de proposito — a troca de sprite foi DESFEITA em 15/08.**
+ *
+ * A ideia era: perto da porta, troca a casa pela versao com a porta aberta. Em
+ * tela o dono viu na hora o que o numero ja dizia e eu subestimei: *"foram
+ * feitas duas casas diferentes"*. E eram mesmo — 882x1121 contra 905x1228,
+ * telhado diferente, varanda do outro lado, janelas em outro lugar. Compensar a
+ * altura tirou o pulo vertical e nao tirou o essencial: **o predio inteiro
+ * trocava de identidade para a porta abrir**.
+ *
+ * ⚠️ Gerador de imagem NAO reproduz o mesmo desenho, nem com a descricao
+ * repetida palavra por palavra. Isso ja estava escrito no `PROMPT-ARTE-*` para
+ * personagem ("nao segura o mesmo personagem por 32 quadros") e vale igual para
+ * predio.
+ *
+ * O caminho certo e a porta ser uma CAMADA sobre a casa — exatamente o que as
+ * armas viraram sobre o corpo em 12/08, e pela mesma razao: o que muda tem de
+ * ser desenhado separado do que fica. Precisa da porta desenhada sozinha, que
+ * nao temos. Ate la a porta fica fechada na arte, e quem da o retorno de
+ * "entrei" e a troca de andar.
+ *
+ * A arte da casa aberta fica em `arte-fonte/` e no `client/public`, sem uso —
+ * serve de referencia para quando a porta virar camada.
  */
-export const PORTA_ABERTA: Record<string, string> = {
-  'casa-2-andares': 'casa-2-andares-aberta',
-};
+export const PORTA_ABERTA: Record<string, string> = {};
 
 /** A quantos tiles da soleira a porta abre. */
 export const RAIO_ABRIR = 3;
