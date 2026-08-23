@@ -1,6 +1,122 @@
+# Handoff — estado do projeto em 2026-08-15
+
+## ⏸️ ONDE PARAMOS — retomar 16/08
+
+### 🎯 A PRÓXIMA COISA, em ordem
+
+1. ⏳ **Móvel virar OBJETO, não parede.** Hoje cada `F` da planta é
+   `wall_interior`: bloqueia certo e **desenha como parede de pedra**. A cama
+   parece muro. O molde já existe e está provado — `makeTree` em
+   `client/src/main.ts` desenha árvore como sprite sobre um tile sólido. Móvel é
+   o mesmo caso. **É o que mais melhora a leitura do interior por hora de
+   trabalho.**
+2. ⏳ **A porta que abre — e é trabalho de PROTOCOLO, não de arte.** Ver abaixo.
+3. ⏳ **Mover a casa para o vilarejo.** Ela está em **(172,152), posição de
+   TESTE**. O lugar é perto do `WORLD_SPAWN` (150,158).
+   🔴 Mexe no `SAFE_ZONE_RADIUS`, que este documento marca como coisa a não
+   pegar sem falar com o dono.
+
+### ✅ O INTERIOR VIROU TILE — e foi isso que consertou "ando em cima do muro"
+
+🔴 **A causa era estrutural, e três tentativas de ajuste não a tocaram.** Com a
+planta PINTADA, **desenho e colisão eram fontes diferentes**: a imagem dizia
+parede num lugar, o texto da planta dizia chão noutro, e onde discordavam o
+jogador andava sobre parede.
+
+Tentei fazer os dois baterem de três formas, e **nenhuma fecha célula a célula**:
+
+| Tentativa | Por que falhou |
+|---|---|
+| Traçar a planta a olho | errei **duas vezes**, e nas duas deixei a escada murada |
+| Derivar por cor (`planta-para-texto.mjs`) | o veio da tábua estoura o desvio, e cor não distingue **tapete** de **mesa** |
+| Sobrepor para conferir (`conferir-planta.mjs`) | acha o erro, mas planta pintada tem parede de 0,7 tile e móvel atravessando célula |
+
+✅ **Agora cada símbolo vira um TILE de verdade** — ids **17–21** em
+`shared/src/tiles.ts`: `wood_floor`, `stone_slab`, `wall_interior`,
+`door_closed`, `door_open`. O motor desenha a parede **e** a barra, do mesmo id.
+A classe de bug some por construção. Medido: **0 divergências** entre planta e
+`isWalkable` nos dois andares.
+
+### 🔴 A PORTA NÃO ABRE, e o que falta é PROTOCOLO
+
+Não é arte, e já gastei duas tentativas de arte descobrindo isso.
+
+`DOOR_CLOSED` é sólido, e o servidor consulta o `floorLink` **depois** de
+aprovar o passo — porta fechada na saída prenderia o jogador dentro de casa. Por
+isso a soleira é `DOOR_OPEN` (vão passável) por ora.
+
+🔴 **O que falta:** o mapa é calculado por `buildWorldMap` **nos dois lados**, e
+**nada no protocolo avisa "o tile (x,y) mudou"**. Sem esse canal o servidor
+abriria a porta e o cliente continuaria desenhando fechada.
+
+⚠️ **As duas tentativas por ARTE falharam pela mesma causa, e a lição vale para
+o projeto inteiro: gerador de imagem NÃO reproduz a geometria de um desenho que
+ele mesmo fez.**
+
+1. **Casa inteira com a porta aberta** → saiu **outra casa** (882×1121 contra
+   905×1228, telhado e varanda diferentes). O dono viu na hora: *"foram feitas
+   duas casas diferentes"*.
+2. **Porta isolada, para sobrepor** → outra perspectiva. A porta *pintada* na
+   casa é ~90×230 (proporção **0,39**); a gerada é 694×946 (**0,73**). Casando a
+   altura ela fica com 169 px de largura contra 90 do vão — cobriria a lanterna.
+
+A arte das duas está guardada em `arte-fonte/cenario-iso/`, sem uso.
+
+### 🆕 As ferramentas que nasceram disso
+
+| | |
+|---|---|
+| `tools/cenario/gerar-peca.mjs` | gera arte pelo `gpt-image-1` — 💳 **cobra por imagem**, tem teto |
+| `tools/cenario/recortar-folha.mjs` | folha → peças com fundo transparente |
+| `tools/cenario/folha-para-tiles.mjs` | folha → tira de tiles de 32 px, por **média** de bloco |
+| `tools/cenario/conferir-planta.mjs` | sobrepõe a planta em texto na imagem, para conferir |
+| `tools/cenario/planta-para-texto.mjs` | tenta derivar a planta da imagem — ⚠️ **não fecha sozinho** |
+
+🔴 **Um bug que o Blender escondia e custou uma sessão:** o decodificador de PNG
+do projeto (`tools/pixellab/compor.mjs`) **assume RGBA**, mas as folhas geradas
+com fundo opaco vêm em **RGB**. Ele lia tudo deslocado — pixels magenta com alfa
+2 — e a folha inteira virava uma peça só. O `recortar-folha.mjs` já aceita os
+dois; **o do pixellab não foi corrigido.**
+
+### ⚠️ Duas armadilhas de AMBIENTE, que não estão em lugar nenhum do código
+
+1. 🔴 **Duas abas no mesmo personagem fazem a tela PISCAR.** Com
+   `ELYSIA_DEV_ACCOUNT` ligado, *qualquer* aba que abrir `localhost:5173` entra
+   no mesmo personagem, e cada conexão nova expulsa a anterior num laço de
+   dezenas de vezes por segundo. **Não há aviso.** A assinatura no log do
+   servidor é `[conn] … (2 online)` seguido de `[disc]` em sequência.
+2. ⚠️ **Os comandos de teste não checam QUEM digitou.** `handleDevCommand` só
+   olha se `ELYSIA_DEV=1`. Com túnel público aberto, qualquer um pode
+   `/level 500`. Em 14/08 entrou uma pessoa não convidada pelo link.
+
+### 🌍 Como abrir para o irmão testar
+
+`cloudflared` já está instalado (winget, oficial da Cloudflare):
+
+```bash
+cloudflared tunnel --url http://localhost:5173 --no-autoupdate
+```
+
+🔴 **Suba o servidor SEM auto-login** (`ELYSIA_DEV=1 npm run dev`), senão quem
+abrir o link entra como `Frank`, no personagem nível 22. O `vite.config.ts` já
+tem `allowedHosts: true` e faz proxy do WebSocket pela mesma origem — testado,
+funciona ponta a ponta.
+
+⚠️ **O dono não lembra a senha do `Frank`.** Ela é `scrypt` com salt, não tem
+como recuperar — só trocar por uma nova.
+
+### 💳 A conta da OpenAI
+
+**23 de 25 imagens** autorizadas foram gastas. Chave em `OPENAI_API_KEY` no
+`.env` (ignorado pelo git). 🔴 Diferente do PixelLab, **cobra por imagem** — o
+PixelLab tem cota e *falha* em vez de cobrar. Combinar teto novo antes de gerar
+em lote.
+
+---
+
 # Handoff — estado do projeto em 2026-08-14
 
-## ⏸️ ONDE PARAMOS — retomar 15/08
+## ⏸️ O bloco de 14/08, que abriu esta retomada
 
 ### 🔴 O PROJETO MUDOU DE RUMO NO CENÁRIO. Leia isto antes de tudo.
 
