@@ -76,7 +76,41 @@ export const TILE_TYPES: Record<number, TileType> = {
    * o nada.
    */
   16: { id: 16, name: 'building', solid: true, blocksSight: true, height: 0, color: 0x6b6459 },
+
+  /*
+   * --- INTERIOR DE PRÉDIO (17–21) ---
+   *
+   * 🔴 Entraram em 15/08 substituindo a "planta pintada", e a razão é uma só:
+   * com uma imagem de planta, **desenho e colisão são fontes diferentes**. A
+   * imagem dizia parede num lugar e o texto da planta dizia chão noutro, e onde
+   * discordavam o dono **andava em cima do muro**. Nenhum ajuste de planta
+   * resolve isso — só resolve fazendo os dois saírem do MESMO dado, que é o
+   * tile: `wood_floor` é desenhado como tábua E anda como tábua.
+   *
+   * A arte vem de `client/public/assets/interior-tiles.png`, uma tira de quatro
+   * retalhos de 32 px — o mesmo esquema do `Ground.png`, sem autotiling.
+   */
+  17: { id: 17, name: 'wood_floor', solid: false, blocksSight: false, height: 0, color: 0x7a5230 },
+  18: { id: 18, name: 'stone_slab', solid: false, blocksSight: false, height: 0, color: 0x8d8a80 },
+  /** Parede de interior. `height: 1` para ganhar o deslocamento 2.5D do motor. */
+  19: { id: 19, name: 'wall_interior', solid: true, blocksSight: true, height: 1, color: 0x8d8a80 },
+  /**
+   * Porta FECHADA e porta ABERTA.
+   *
+   * 🔴 São dois TIPOS e não um estado, porque o mapa é um vetor de ids: trocar
+   * o id do tile é tudo que "abrir a porta" precisa ser, e a mudança viaja para
+   * o cliente pelo caminho que já existe. Estado à parte exigiria um canal novo
+   * no protocolo para uma porta.
+   *
+   * ⚠️ A fechada bloqueia VISÃO também; a aberta não bloqueia nada — é um vão.
+   */
+  20: { id: 20, name: 'door_closed', solid: true, blocksSight: true, height: 0, color: 0x5a3a1c },
+  21: { id: 21, name: 'door_open', solid: false, blocksSight: false, height: 0, color: 0x3a2612 },
 };
+
+/** Os dois estados da porta, para quem precisa alternar. */
+export const DOOR_CLOSED = 20;
+export const DOOR_OPEN = 21;
 
 export const TILE_VOID = 0;
 

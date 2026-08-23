@@ -63,6 +63,11 @@ const T = {
   CURSED: 14,
   LAVA: 15,
   BUILDING: 16,
+  WOOD_FLOOR: 17,
+  STONE_SLAB: 18,
+  WALL_INTERIOR: 19,
+  DOOR_CLOSED: 20,
+  DOOR_OPEN: 21,
 } as const;
 
 const WIDTH = WORLD_SIZE;
@@ -593,16 +598,48 @@ function escavaAndares(
     return camada;
   };
 
+  /*
+   * 🔴 CADA SÍMBOLO VIRA UM TILE DE VERDADE — e é isto que conserta o
+   * "ando em cima do muro".
+   *
+   * Antes a planta só ESCAVAVA: chão virava `STONE` e o resto ficava `VOID`,
+   * enquanto o desenho vinha de uma imagem pintada por cima. Duas fontes, e
+   * onde discordavam o jogador andava sobre parede desenhada.
+   *
+   * Agora parede é `WALL_INTERIOR`: o motor a desenha (bloco 2.5D, como faz com
+   * as paredes do mundo) E a barra. Desenho e colisão deixam de poder discordar
+   * porque são o mesmo dado.
+   */
+  const TILE_DE: Record<string, number> = {
+    '#': T.WALL_INTERIOR,
+    'F': T.WALL_INTERIOR, // móvel ainda é parede; vira objeto próprio depois
+    '.': T.WOOD_FLOOR,
+    /*
+     * 🔴 A soleira é DOOR_OPEN, ou seja ANDÁVEL — e isso é uma limitação
+     * assumida, não descuido.
+     *
+     * `DOOR_CLOSED` é sólido, e o servidor barra o passo **antes** de olhar o
+     * `floorLink`. Uma porta fechada aqui seria uma saída que nunca abre: o
+     * jogador entraria na casa e ficaria preso.
+     *
+     * ⚠️ Porta que ABRE de verdade (fechada até alguém clicar) precisa de uma
+     * peça que não existe: o mapa é calculado por `buildWorldMap` nos DOIS lados
+     * e nada no protocolo avisa "o tile (x,y) mudou". Sem esse canal, o servidor
+     * abriria a porta e o cliente continuaria desenhando fechada.
+     */
+    'e': T.DOOR_OPEN,
+    '>': T.STONE_SLAB,
+    '<': T.STONE_SLAB,
+  };
+
   for (const a of ANDARES) {
     const camada = andarDe(a.floor);
     for (let ly = 0; ly < a.planta.length; ly++) {
       const linha = a.planta[ly]!;
       for (let lx = 0; lx < linha.length; lx++) {
-        const c = linha[lx]!;
-        // 🔴 '#' (parede) e 'F' (móvel) NÃO são escavados: ficam VOID, sólido.
-        if (c === '#' || c === 'F') continue;
         const x = a.x0 + lx, y = a.y0 + ly;
-        if (dentro(x, y)) set(camada, x, y, T.STONE);
+        if (!dentro(x, y)) continue;
+        set(camada, x, y, TILE_DE[linha[lx]!] ?? T.WALL_INTERIOR);
       }
     }
   }

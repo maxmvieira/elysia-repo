@@ -1269,14 +1269,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       altos.push(makePredio(x, y, sprite));
     }
 
-    /*
-     * 🔴 Interior entra no PISO, não nos altos — ver `interioresNoPedaco`.
-     * Nos altos ele disputava `zIndex` com o jogador e ganhava, escondendo
-     * quem estava dentro do cômodo.
-     */
-    for (const { sprite, a } of andaresNoPedaco(cx * CHUNK, cy * CHUNK, x1, y1, renderedFloor)) {
-      piso.addChild(makeAndar(a, sprite));
-    }
 
     floorRoot.addChild(piso);
     for (const a of altos) objects.addChild(a);

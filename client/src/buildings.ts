@@ -138,7 +138,7 @@ export async function loadBuildings(): Promise<number> {
     }),
     // A largura do interior não vem daqui: ele é esticado sobre o retângulo
     // andável no `makeInterior`. O valor só preenche o campo do cache.
-    ...ANDARES.map((a) => ({ arquivo: a.arquivo, largura: a.planta[0]!.length })),
+    
   ];
   for (const { arquivo, largura } of pedidos) {
     if (carregados.has(arquivo)) continue;

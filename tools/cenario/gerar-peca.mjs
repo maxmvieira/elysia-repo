@@ -414,6 +414,52 @@ const PECAS = {
   },
 
   /**
+   * TILESET de interior — o caminho que substitui a planta pintada.
+   *
+   * 🔴 Decisao do dono em 15/08, vendo a casa em tela: *"vamos pro tileset, nao
+   * ficou bom... consigo andar em cima do muro"*.
+   *
+   * A causa daquele bug e estrutural, e nenhum ajuste de planta a resolve: com
+   * planta PINTADA, **desenho e colisao sao fontes diferentes** — a imagem diz
+   * uma coisa, o texto da planta diz outra, e onde discordam o jogador anda
+   * sobre parede. Com TILE os dois sao o mesmo dado: o tile 'parede' e desenhado
+   * como parede E barra como parede.
+   *
+   * ⚠️ Sao 4 tiles numa grade 2x2, cada um pedido para LADRILHAR — o mesmo
+   * criterio dos retalhos de `Ground.png`, que o `tileset.ts` recorta solidos e
+   * repete sem autotiling ("bordas bonitas fica para uma etapa futura").
+   *
+   * ⚠️ Cada quadrante sai grande e e REDUZIDO para 32 px pelo recortador. Pedir
+   * 32x32 direto ao gerador nao funciona: ele desenha um objetinho no meio de
+   * um quadro vazio, nao uma textura.
+   */
+  'tileset-interior': {
+    size: '1024x1024',
+    semEstilo: true,
+    texto:
+      'A sheet of FOUR seamless tiling textures for a 2D top-down RPG in the style of ' +
+      'Tibia — hand-painted digital art, rich texture, NOT a 3D render, NOT a photo.\n\n' +
+      'CAMERA: straight down from directly overhead. Each texture is a flat square seen ' +
+      'from above. NOT isometric — no tilt, no perspective, no visible side faces.\n\n' +
+      'The image is divided into a strict 2x2 grid of four equal squares that FILL the ' +
+      'frame edge to edge, with NO gap, NO border and NO background between them. Each ' +
+      'square is one texture, and each must TILE SEAMLESSLY: the pattern continues across ' +
+      'the square edges with no seam, no vignette, no lighting gradient, and no single ' +
+      'large feature that would obviously repeat.\n\n' +
+      'The four textures:\n' +
+      '- top-left: WOODEN PLANK FLOOR, warm mid-brown boards running horizontally, with ' +
+      '  visible grain and thin dark seams between planks\n' +
+      '- top-right: GREY STONE WALL seen from above, irregular hand-cut blocks with ' +
+      '  visible mortar, reading as the TOP of a thick wall\n' +
+      '- bottom-left: STONE SLAB FLOOR, large flat flagstones, cooler grey than the wall\n' +
+      '- bottom-right: DARK WOODEN FLOOR, the same planks but a deeper, older brown\n\n' +
+      'Even flat lighting with no directional shadow — a shadow would repeat with the ' +
+      'tile and give the grid away.\n\n' +
+      'No characters, no furniture, no objects, no UI, no text labels, no grid lines ' +
+      'drawn on top, no watermark.',
+  },
+
+  /**
    * A PORTA sozinha, aberta — para ser CAMADA sobre a casa.
    *
    * 🔴 Isto e a segunda tentativa. A primeira gerou a casa INTEIRA com a porta

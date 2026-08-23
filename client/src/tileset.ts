@@ -30,6 +30,24 @@ const GROUND_PATCHES: Record<number, [number, number]> = {
   8: [112, 48], // sand   -> terra (idem; praia vira terra batida por ora)
 };
 
+/**
+ * Retalhos do INTERIOR, em `interior-tiles.png` — uma tira de 4 tiles de 32 px.
+ *
+ * 🔴 Arquivo separado do `Ground.png` de propósito: aquele é um pack de
+ * terceiro com licença de "não redistribuir" (ver `CREDITS.md` e o aviso do
+ * `HANDOFF` de 11/08 sobre o repositório ser público). Este é gerado pelo
+ * projeto, então pode ser versionado sem essa dúvida.
+ *
+ * A tira sai de `tools/cenario/folha-para-tiles.mjs`, que reduz a folha grande
+ * por MÉDIA de bloco — amostrar devolveria veio de tábua serrilhado.
+ */
+const INTERIOR_PATCHES: Record<number, number> = {
+  17: 0, // wood_floor    -> tábua clara
+  19: 1, // wall_interior -> pedra vista de cima
+  18: 2, // stone_slab    -> laje
+  20: 3, // door_closed   -> tábua escura (a porta em si é desenhada por cima)
+};
+
 export interface GroundTiles {
   byId: Map<number, Texture>;
   cell: number;
@@ -45,9 +63,31 @@ export async function loadGroundTiles(): Promise<GroundTiles | null> {
       byId.set(Number(idStr), new Texture({ source: sheet.source, frame }));
     }
     console.log('[tileset] Ground.png carregado.');
+    await carregaInterior(byId);
     return { byId, cell: GROUND_PATCH };
   } catch (err) {
     console.warn('[tileset] Ground.png ausente — usando placeholders.', err);
+    // ⚠️ O interior é arquivo separado e não depende do Ground: se aquele
+    // faltar, este ainda entra, e só o chão de fora cai no placeholder.
+    const byId = new Map<number, Texture>();
+    if (await carregaInterior(byId)) return { byId, cell: GROUND_PATCH };
     return null;
+  }
+}
+
+/** Acrescenta os retalhos de interior ao mapa. `false` se o arquivo faltar. */
+async function carregaInterior(byId: Map<number, Texture>): Promise<boolean> {
+  try {
+    const tira = await Assets.load<Texture>('/assets/interior-tiles.png');
+    tira.source.scaleMode = 'nearest';
+    for (const [idStr, col] of Object.entries(INTERIOR_PATCHES)) {
+      const frame = new Rectangle(col * GROUND_PATCH, 0, GROUND_PATCH, GROUND_PATCH);
+      byId.set(Number(idStr), new Texture({ source: tira.source, frame }));
+    }
+    console.log('[tileset] interior-tiles.png carregado.');
+    return true;
+  } catch {
+    console.warn('[tileset] interior-tiles.png ausente — interior cai na cor do tile.');
+    return false;
   }
 }
