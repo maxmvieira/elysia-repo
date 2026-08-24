@@ -238,13 +238,29 @@ export const ANDARES: readonly AndarDef[] = [
      * Antes era um cômodo único com os móveis espalhados, e o dono viu isso
      * como *"interior ficou ruim"*.
      */
+    /*
+     * ⚠️ OS BLOCOS TÊM TAMANHO DE MÓVEL DE VERDADE, e antes não tinham.
+     *
+     * A escada ocupava **1 tile**, o que é absurdo — escada sobe um andar
+     * inteiro. Aqui ela é 2×3, a forja 2×2 e a mesa 2×2. Um herói ocupa 1 tile,
+     * então é essa a régua: mesa de dois lugares tem o dobro dele.
+     *
+     * 🔴 A escada fica com o topo do lance no `>` de cima, e é lá que o link
+     * dispara: sobe-se os degraus e o andar troca no fim, não no primeiro.
+     */
     planta: [
       '#########',
-      '#MM....K#',
-      '#......Q#',
-      '#...#...#',
-      '#>..#...#',
-      '#R..#..G#',
+      '#MM.>>.K#',
+      '#MM.>>.Q#',
+      /*
+       * ⚠️ Sem parede nesta linha, e não é descuido: com `#` na coluna 3 aqui,
+       * os dois tiles à esquerda ficavam numa BOLSA — cercados pela mesa acima,
+       * pela forja abaixo e por parede dos dois lados. O teste de
+       * alcançabilidade pegou; a olho eu não teria visto.
+       */
+      '#...>>..#',
+      '#JJ#....#',
+      '#JJ#.GR.#',
       '#.......#',
       '####e####',
     ],
@@ -260,11 +276,11 @@ export const ANDARES: readonly AndarDef[] = [
     // de móvel encostado na parede de BAIXO.
     planta: [
       '#########',
-      '#CCC..AA#',
-      '#CCC..AA#',
-      '#CCC....#',
-      '#<......#',
-      '#B......#',
+      '#CC..AA.#',
+      '#CC..AA.#',
+      '#CC.....#',
+      '#<<.....#',
+      '#<<.BB..#',
       '#.......#',
       '#########',
     ],

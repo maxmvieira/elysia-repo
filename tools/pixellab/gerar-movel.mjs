@@ -139,10 +139,19 @@ const MOVEIS = {
    * mas o `>` virava `stone_slab`, que desenha uma laje. **A mecânica existia e
    * a arte não**, então subia-se por um pedaço de chão sem nada à vista.
    */
+  /*
+   * ⚠️ A descrição pede um LANCE COMPRIDO, e a primeira não pedia.
+   *
+   * A primeira escada saiu como um degrauzinho quadrado, e ocupava 1 tile na
+   * planta. O dono: *"a escada está pequena e não realista"*. Escada de verdade
+   * é longa — sobe um andar inteiro —, então tanto a arte quanto o bloco
+   * precisam ser compridos. Aqui ela ocupa **2×3 tiles**.
+   */
   escada: {
-    tiles: 1,
-    desc: 'a wooden staircase going up, seen from directly above, showing a run '
-      + 'of parallel steps in dark oak with a side rail',
+    tiles: 2,
+    desc: 'a long straight flight of wooden stairs seen from directly above, '
+      + 'running from the bottom of the image to the top, with about ten '
+      + 'parallel steps in dark oak and a wooden handrail along one side',
   },
   // --- alquimia ---
   caldeirao: {

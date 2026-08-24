@@ -1560,14 +1560,28 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * invadisse o tile vizinho — que é parede na maioria dos casos. Um móvel
      * ligeiramente afastado da parede é o que um móvel de verdade faz.
      */
-    const FOLGA = 0.9;
-    const larg = (m.x1 - m.x0 + 1) * TS * FOLGA;
-    const alt = (m.y1 - m.y0 + 1) * TS * FOLGA;
-    s.anchor.set(0.5, 0.5);
-    s.width = larg;
-    s.height = alt;
+    /*
+     * 🔴 PRESERVA A PROPORÇÃO do desenho — antes eu ESTICAVA para preencher o
+     * bloco, e isso deformava tudo que não tivesse a mesma proporção dele.
+     *
+     * Uma escada é comprida e estreita; espremê-la num bloco quadrado a
+     * transformava num degrau achatado. O dono viu como *"a escada está pequena
+     * e não realista"* — parte era o bloco de 1 tile, e parte era esta
+     * deformação.
+     *
+     * Agora o móvel é encaixado DENTRO do bloco pelo lado mais apertado, e
+     * assentado pela BASE: móvel de verdade fica no chão, não flutua no meio da
+     * célula.
+     */
+    const FOLGA = 0.92;
+    const cxBloco = (m.x1 - m.x0 + 1) * TS * FOLGA;
+    const cyBloco = (m.y1 - m.y0 + 1) * TS * FOLGA;
+    const escala = Math.min(cxBloco / mv.tex.width, cyBloco / mv.tex.height);
+    s.anchor.set(0.5, 1);
+    s.scale.set(escala);
     s.x = ((m.x0 + m.x1 + 1) / 2) * TS;
-    s.y = ((m.y0 + m.y1 + 1) / 2) * TS;
+    // Assentado na base do bloco — âncora `(0.5, 1)`, ver acima.
+    s.y = (m.y1 + 1) * TS - 2;
     c.addChild(s);
     // Ordena pela ÚLTIMA linha do bloco: quem está à frente cobre quem está
     // atrás, como nas árvores.
