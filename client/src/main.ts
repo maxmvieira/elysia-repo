@@ -141,7 +141,7 @@ import {
   loadBuildings, prediosNoPedaco, andaresNoPedaco, predioSprite,
   PORTA_ABERTA, RAIO_ABRIR, type PredioSprite,
 } from './buildings.js';
-import { ANDARES, type AndarDef } from '@dominion/shared';
+import { ANDARES, moveisDoAndar, type AndarDef, type MovelPosto } from '@dominion/shared';
 import { loadFurniture, movelDaLetra, type MovelSprite } from './furniture.js';
 import { loadCrystals, crystalNodeSprite, crystalIconImage } from './crystals.js';
 
@@ -1260,12 +1260,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
          * `furniture` (sólido). Qual móvel é decisão da planta, e é ela que
          * garante que desenho e colisão falem da mesma célula.
          */
-        if (t.name === 'furniture') {
-          const letra = letraDaPlanta(x, y, renderedFloor);
-          const movel = letra ? movelDaLetra(letra) : null;
-          if (movel) altos.push(makeMovel(x, y, movel));
-          continue;
-        }
+        // 🔴 Móvel NÃO é desenhado aqui: um sprite por TILE dava seis camas
+        // empilhadas. Ele sai por BLOCO, depois do laço — ver `moveisDoAndar`.
+        if (t.name === 'furniture') continue;
 
         if (t.height === 0) continue;
         const arvore = t.name === 'tree' ? treeTexFor(chaoId, x, y) : null;
@@ -1285,6 +1282,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     for (const { sprite, x, y } of prediosNoPedaco(cx * CHUNK, cy * CHUNK, x1, y1, renderedFloor)) {
       altos.push(makePredio(x, y, sprite));
+    }
+
+    /*
+     * MÓVEIS, um por BLOCO contíguo da planta. Nascem com o pedaço que contém
+     * o canto noroeste deles, pelo mesmo motivo dos prédios: o 
+     * recicla pedaços, e quem não nasce junto some na primeira reciclagem.
+     */
+    for (const a of ANDARES) {
+      if (a.floor !== renderedFloor) continue;
+      for (const m of moveisDoAndar(a)) {
+        if (m.x0 < cx * CHUNK || m.x0 >= x1 || m.y0 < cy * CHUNK || m.y0 >= y1) continue;
+        const mv = movelDaLetra(m.letra);
+        if (mv) altos.push(makeMovel(m, mv));
+      }
     }
 
 
@@ -1487,35 +1498,34 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * importa é ele vir antes de todo objeto, o que já acontece por estar noutro
    * container.
    */
-  /** A letra da planta naquele tile, ou `null` se não houver andar ali. */
-  function letraDaPlanta(x: number, y: number, floor: number): string | null {
-    for (const a of ANDARES) {
-      if (a.floor !== floor) continue;
-      const ly = y - a.y0, lx = x - a.x0;
-      if (ly < 0 || ly >= a.planta.length) continue;
-      const linha = a.planta[ly]!;
-      if (lx < 0 || lx >= linha.length) continue;
-      return linha[lx]!;
-    }
-    return null;
-  }
-
   /**
-   * Um MÓVEL sobre o tile. Mesma receita do `makeTree`, e de propósito.
+   * Um MÓVEL, esticado sobre o BLOCO de tiles que a planta reservou para ele.
    *
-   * ⚠️ Sem sombra própria: móvel fica DENTRO de casa, onde não há sol para
-   * projetar. A elipse que a árvore usa aqui só sujaria o assoalho.
+   * 🔴 **Por bloco, e não por tile** — foi aí que eu errei antes. Desenhando um
+   * sprite por tile, a cama (6 tiles na planta) saía **seis vezes empilhada**, e
+   * como cada sprite é mais largo que um tile, todos vazavam para o vizinho,
+   * inclusive parede. O dono viu as duas coisas em tela.
+   *
+   * Esticando sobre o bloco, o desenho passa a ter exatamente o tamanho que a
+   * planta reservou: não sobra para invadir parede, e existe um por móvel.
+   *
+   * ⚠️ Sem sombra própria: móvel fica DENTRO de casa, onde não há sol. A elipse
+   * que a árvore usa só sujaria o assoalho.
    */
-  function makeMovel(x: number, y: number, mv: MovelSprite): Container {
-    const { tex, largura, base, centro, cheia } = mv;
+  function makeMovel(m: MovelPosto, mv: MovelSprite): Container {
     const c = new Container();
-    const s = new Sprite(tex);
-    s.anchor.set(centro, base);
-    s.scale.set((TS * largura) / (tex.width * cheia));
-    s.x = x * TS + TS / 2;
-    s.y = y * TS + TS - 2;
+    const s = new Sprite(mv.tex);
+    const larg = (m.x1 - m.x0 + 1) * TS;
+    const alt = (m.y1 - m.y0 + 1) * TS;
+    s.anchor.set(0.5, 0.5);
+    s.width = larg;
+    s.height = alt;
+    s.x = ((m.x0 + m.x1 + 1) / 2) * TS;
+    s.y = ((m.y0 + m.y1 + 1) / 2) * TS;
     c.addChild(s);
-    c.zIndex = y; // quem está à frente cobre quem está atrás, como as árvores
+    // Ordena pela ÚLTIMA linha do bloco: quem está à frente cobre quem está
+    // atrás, como nas árvores.
+    c.zIndex = m.y1;
     return c;
   }
 

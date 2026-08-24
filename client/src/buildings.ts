@@ -59,6 +59,21 @@ const BASE = '/assets/buildings';
  * depois de ver em tela.
  */
 const LARGURA: Record<string, number> = {
+  /*
+   * 🔴 4 TILES, e o número sai de uma conta, não de gosto.
+   *
+   * A casa em pixel art tem 64 px de origem. A escala é
+   * `(32 * largura) / 64`, ou seja `largura / 2` — então **só largura PAR dá
+   * escala inteira**. Em 4 a escala é exatamente **2,0×**.
+   *
+   * ⚠️ Escala fracionária é o defeito que custou a sessão de 10/08: com
+   * filtragem `nearest`, um pixel do desenho vira 2 na tela e o vizinho vira 3,
+   * em faixas alternadas, e a silhueta sai picotada. Pedir 5 tiles aqui daria
+   * 2,5× e traria o serrilhado de volta.
+   *
+   * ⚠️ A ilustrada aguentava 7 porque tinha 905 px de origem; esta não.
+   */
+  'casa-pixel': 4,
   'casa-2-andares': 7,
   /*
    * 🔴 7.48 e nao 7, e o numero sai de conta, nao de gosto.

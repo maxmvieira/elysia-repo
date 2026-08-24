@@ -49,7 +49,20 @@ export interface PredioDef {
  * primeira coisa a ajustar depois de ver o jogador contornando a casa.
  */
 export const PREDIOS: readonly PredioDef[] = [
-  { arquivo: 'casa-2-andares', x: 172, y: 152, larg: 4, prof: 3 },
+  /*
+   * 🔴 `casa-pixel`, e não mais `casa-2-andares` — a ilustrada isométrica foi
+   * abandonada pelo dono em 15/08.
+   *
+   * Ela era bonita e não encaixava: isométrica num jogo de grade quadrada, e com
+   * uma proporção que **nenhuma versão nova reproduzia** — foi isso que matou
+   * tanto a troca de sprite para abrir a porta quanto a porta em camada. Esta
+   * sai em `high top-down`, a mesma projeção do jogo e dos personagens.
+   *
+   * ⚠️ A arte velha continua em `client/public/assets/buildings/` de propósito,
+   * sem uso: serve de referência, e apagá-la antes de a nova estar aprovada
+   * deixaria o mundo com pegada sólida e nada desenhado.
+   */
+  { arquivo: 'casa-pixel', x: 172, y: 152, larg: 4, prof: 3 },
 ];
 
 /**
@@ -220,6 +233,58 @@ export const MOVEL_DA_LETRA: Record<string, string> = {
 export const PORTA_DA_CASA = { x: 171, y: 153 } as const;
 /** Onde ele pousa ao sair. Um tile ao sul, para não repisar o gatilho. */
 export const VOLTA_DA_CASA = { x: 171, y: 154 } as const;
+
+/** Um móvel colocado: a letra e o retângulo de tiles que ele ocupa. */
+export interface MovelPosto {
+  letra: string;
+  x0: number; y0: number;
+  x1: number; y1: number;
+}
+
+/**
+ * Agrupa as letras de móvel da planta em BLOCOS contíguos.
+ *
+ * 🔴 **Um móvel é UM objeto, não um por tile** — e isto existe porque eu errei
+ * exatamente aí. Na primeira versão o cliente desenhava um sprite por tile de
+ * `furniture`: a cama ocupa 6 tiles na planta (`CC` em três linhas) e saíam
+ * **seis camas empilhadas**. E como cada sprite é mais largo que um tile, todas
+ * vazavam para o vizinho — o dono viu *"objetos entrando dentro da parede"*.
+ *
+ * Agrupando, a cama vira um retângulo 2×3 e o cliente desenha **um** sprite
+ * esticado sobre ele. Some a empilhada e some o vazamento, porque o desenho
+ * passa a ter exatamente o tamanho que a planta reservou.
+ *
+ * ⚠️ Blocos são retangulares por construção: dois grupos da MESMA letra que se
+ * tocam viram um só. Para duas camas separadas, deixe um tile entre elas ou use
+ * letras diferentes.
+ */
+export function moveisDoAndar(a: AndarDef): MovelPosto[] {
+  const alt = a.planta.length, larg = a.planta[0]!.length;
+  const visto = Array.from({ length: alt }, () => new Array<boolean>(larg).fill(false));
+  const saida: MovelPosto[] = [];
+
+  for (let ly = 0; ly < alt; ly++) {
+    for (let lx = 0; lx < larg; lx++) {
+      const letra = a.planta[ly]![lx]!;
+      if (visto[ly]![lx] || !MOVEL_DA_LETRA[letra]) continue;
+
+      // Cresce o retângulo enquanto a mesma letra continuar.
+      let x1 = lx;
+      while (x1 + 1 < larg && a.planta[ly]![x1 + 1] === letra && !visto[ly]![x1 + 1]) x1++;
+      let y1 = ly;
+      cresce: while (y1 + 1 < alt) {
+        for (let x = lx; x <= x1; x++) {
+          if (a.planta[y1 + 1]![x] !== letra || visto[y1 + 1]![x]) break cresce;
+        }
+        y1++;
+      }
+      for (let y = ly; y <= y1; y++) for (let x = lx; x <= x1; x++) visto[y]![x] = true;
+
+      saida.push({ letra, x0: a.x0 + lx, y0: a.y0 + ly, x1: a.x0 + x1, y1: a.y0 + y1 });
+    }
+  }
+  return saida;
+}
 
 /** Acha o primeiro tile de um símbolo na planta, em coordenada de mundo. */
 export function achaNaPlanta(a: AndarDef, simbolo: string): { x: number; y: number } | null {
