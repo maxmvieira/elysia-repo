@@ -59,21 +59,7 @@ const BASE = '/assets/buildings';
  * depois de ver em tela.
  */
 const LARGURA: Record<string, number> = {
-  /*
-   * 🔴 4 TILES, e o número sai de uma conta, não de gosto.
-   *
-   * A casa em pixel art tem 64 px de origem. A escala é
-   * `(32 * largura) / 64`, ou seja `largura / 2` — então **só largura PAR dá
-   * escala inteira**. Em 4 a escala é exatamente **2,0×**.
-   *
-   * ⚠️ Escala fracionária é o defeito que custou a sessão de 10/08: com
-   * filtragem `nearest`, um pixel do desenho vira 2 na tela e o vizinho vira 3,
-   * em faixas alternadas, e a silhueta sai picotada. Pedir 5 tiles aqui daria
-   * 2,5× e traria o serrilhado de volta.
-   *
-   * ⚠️ A ilustrada aguentava 7 porque tinha 905 px de origem; esta não.
-   */
-  'casa-pixel': 4,
+  // `casa-pixel` NÃO entra aqui: ela usa `ESCALA_INTEIRA` — ver abaixo.
   'casa-2-andares': 7,
   /*
    * 🔴 7.48 e nao 7, e o numero sai de conta, nao de gosto.
@@ -127,6 +113,34 @@ export const PORTA_ABERTA: Record<string, string> = {};
 export const RAIO_ABRIR = 3;
 
 const LARGURA_PADRAO = 5;
+
+/**
+ * Prédios desenhados numa escala INTEIRA fixa, em vez de "N tiles de largura".
+ *
+ * 🔴 **Isto existe porque "N tiles" NÃO garante escala inteira, e eu errei
+ * exatamente aí.** A escala é `(TS * largura) / (tex.width * cheia)`, e `cheia`
+ * é a fração da moldura que o desenho ocupa. Pedi 8 tiles para a casa
+ * calculando `8 × 32 / 128 = 2,0×` — mas o desenho ocupa **83 px** dos 128, e a
+ * escala real saiu `256 / 83 = 3,08×`. Fracionária, que é justamente o defeito
+ * que custou a sessão de 10/08.
+ *
+ * O erro é fácil de repetir porque o número da moldura é o que se vê no
+ * arquivo, e `cheia` só aparece depois de medir. Declarar a ESCALA em vez do
+ * tamanho tira a conta do caminho: 3 é 3, e continua 3 se a arte for regerada
+ * com outra sobra de transparência.
+ *
+ * ⚠️ O preço é que o tamanho na tela passa a depender de quanto o gerador
+ * desenhou dentro da moldura. Vale: pixel nítido importa mais aqui do que meio
+ * tile de diferença.
+ */
+const ESCALA_INTEIRA: Record<string, number> = {
+  'casa-pixel': 3,
+};
+
+/** A escala inteira pedida para aquele prédio, ou `null` se ele usa `LARGURA`. */
+export function escalaInteiraDe(arquivo: string): number | null {
+  return ESCALA_INTEIRA[arquivo] ?? null;
+}
 
 /** A arte já medida, mais a largura pedida em tiles. */
 export interface PredioSprite extends SpriteMedido {

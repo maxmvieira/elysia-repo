@@ -138,7 +138,7 @@ import {
 } from './heroes.js';
 import { loadTrees, treeTexFor, type ArvoreSprite } from './trees.js';
 import {
-  loadBuildings, prediosNoPedaco, andaresNoPedaco, predioSprite,
+  loadBuildings, prediosNoPedaco, andaresNoPedaco, predioSprite, escalaInteiraDe,
   PORTA_ABERTA, RAIO_ABRIR, type PredioSprite,
 } from './buildings.js';
 import { ANDARES, moveisDoAndar, type AndarDef, type MovelPosto } from '@dominion/shared';
@@ -1440,7 +1440,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const c = new Container();
     const px = x * TS + TS / 2;
     const py = y * TS + TS - 2;
-    const escala = (TS * largura) / (tex.width * cheia);
+    /*
+     * 🔴 Escala INTEIRA quando o prédio pede uma — ver `ESCALA_INTEIRA`.
+     *
+     * "N tiles de largura" não garante escala inteira, porque a conta divide
+     * pela caixa MEDIDA e não pela moldura: pedir 8 tiles para esta casa dava
+     * 3,08×, não os 2,0× que a moldura de 128 px sugeria. Pixel art em escala
+     * fracionária serrilha — foi o defeito de 10/08.
+     */
+    const escala = escalaInteiraDe(pr.arquivo)
+      ?? (TS * largura) / (tex.width * cheia);
 
     /*
      * 🔴 A SOMBRA É A PRÓPRIA SILHUETA ACHATADA, e não uma elipse.

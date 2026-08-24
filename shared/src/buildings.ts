@@ -62,7 +62,16 @@ export const PREDIOS: readonly PredioDef[] = [
    * sem uso: serve de referência, e apagá-la antes de a nova estar aprovada
    * deixaria o mundo com pegada sólida e nada desenhado.
    */
-  { arquivo: 'casa-pixel', x: 172, y: 152, larg: 4, prof: 3 },
+  /*
+   * ⚠️ A pegada MEDIDA, não herdada: 7×4.
+   *
+   * A casa isométrica antiga tocava o chão numa quina estreita (4 tiles), e a
+   * nova é vista de cima — a base ocupa quase toda a largura do desenho.
+   * Medido no PNG a 3×: a faixa 24 px acima do pé tem **6,9 tiles** de largura.
+   * Manter os 4 da casa velha deixaria o jogador atravessando as paredes
+   * laterais.
+   */
+  { arquivo: 'casa-pixel', x: 172, y: 152, larg: 7, prof: 4 },
 ];
 
 /**
