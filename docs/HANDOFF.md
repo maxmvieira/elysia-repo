@@ -1,6 +1,111 @@
+# Handoff — estado do projeto em 2026-08-16
+
+## ⏸️ ONDE PARAMOS — para quem pegar daqui
+
+> Escrito para alguém que **não acompanhou** a sessão. Se você é o irmão do
+> dono: comece por aqui e não precisa ler os blocos de baixo.
+
+### 🚀 Subir o jogo em 60 segundos
+
+```bash
+git checkout cenario-iso-2d && npm install && npm run dev
+```
+
+Abra `http://localhost:5173` e crie sua conta na tela de login. O banco nasce
+sozinho no primeiro boot (`server/data/` é ignorado pelo git), então seu mundo
+começa vazio — os personagens do dono não vêm junto.
+
+🔴 **NÃO use `npm run dev:test` se forem jogar juntos.** Ele liga o auto-login,
+e aí *toda* aba entra no MESMO personagem: os dois se expulsam num laço e a tela
+pisca. Não há aviso; a assinatura no log é `[conn] … (2 online)` seguido de
+`[disc]` em sequência.
+
+### 🏠 O que existe hoje: uma casa que se entra
+
+A casa fica em **(172, 152)** — 22 tiles a leste do nascimento. Ande até a porta
+pela frente (sul).
+
+**Ela funciona como no Tibia:** não há troca de mapa para entrar. Parede é tile
+sólido, a porta é um **vão** que se atravessa andando, e o que acontece ao entrar
+é **o telhado sumir**. A rua continua em volta.
+
+🔴 Isso foi decisão do dono em 16/08, e substituiu uma versão que teleportava
+para outro andar — *"entrando dentro dela sem mudar totalmente o ambiente, pode
+ser igual o tibia, a gente continua vendo o lado de fora"*.
+
+| | |
+|---|---|
+| Térreo | andar **0**, dentro da pegada — cozinha, forja, alquimia, escada |
+| Andar de cima | andar **1**, pela escada — cama, armário, baú |
+| Móveis | 10 peças em pixel art, cada uma sólida e desenhada |
+
+### 🎯 A PRÓXIMA COISA, em ordem
+
+1. ⏳ **Afinar tamanho de móvel.** O bloco de cada um está em
+   `shared/src/buildings.ts` (as plantas em texto). Mexer é trocar letras e
+   recarregar — mas **rode `npm test` depois**: há um teste que anda pela planta
+   e pega móvel que fecha caminho, coisa que a olho não se vê.
+2. ⏳ **Mover a casa para o vilarejo.** Hoje ela está em posição de TESTE. O
+   lugar é perto do `WORLD_SPAWN` (150,158), remontando Lumindale.
+   🔴 Mexe no `SAFE_ZONE_RADIUS` — **não pegue sem falar com o dono.**
+3. ⏳ **Mais prédios.** `tools/pixellab/gerar-predio.mjs` gera; a receita está
+   provada.
+
+### 🔴 As quatro regras que este cenário aprendeu na marra
+
+Cada uma custou pelo menos uma rodada de retrabalho.
+
+**1. Desenho e colisão têm de sair do MESMO dado.** Enquanto o interior era uma
+imagem de planta com a colisão escrita à parte, o dono andava em cima do muro.
+Nenhum ajuste resolvia — só resolveu quando cada símbolo virou um **tile**, que
+o motor desenha *e* barra.
+
+**2. Escala de pixel art tem de ser INTEIRA.** E o número de tiles **não
+garante** isso: a conta divide pela caixa medida, não pela moldura. Pedir "8
+tiles" para a casa dava 3,08× porque o desenho ocupa 83 px de 128. Por isso
+existe `ESCALA_INTEIRA` em `client/src/buildings.ts` — declara-se a escala, não
+o tamanho.
+
+**3. Gerador de imagem NÃO reproduz a geometria de um desenho que ele mesmo
+fez.** Provado duas vezes: a casa "com a porta aberta" saiu outra casa, e a
+porta isolada saiu noutra perspectiva. O que muda tem de ser desenhado separado
+do que fica — como as armas viraram camada sobre o corpo em 12/08.
+
+**4. Não desenhe móvel por TILE, e sim por BLOCO.** Um sprite por tile fazia a
+cama (6 tiles) sair seis vezes empilhada, cada uma vazando para a parede.
+
+### ⚠️ Duas armadilhas do MOTOR que vão morder de novo
+
+1. **Parede tem efeito 2.5D: a face dela sobe e cobre o tile de cima.** Móvel na
+   fileira logo acima da parede de baixo fica *atrás* dela e parece entrar no
+   muro. Por isso a mobília se encosta no topo e nas laterais, nunca na base.
+2. **Tile de gatilho precisa ser ANDÁVEL.** O servidor consulta o `floorLink`
+   **depois** de aprovar o passo — escada sólida é escada que ninguém sobe. É
+   por isso que a escada é desenhada como móvel mas o tile dela continua chão.
+
+### 🎨 Gerar arte nova
+
+**PixelLab** (`tools/pixellab/`) — tem cota, **não cobra**. Token em
+`PIXELLAB_TOKEN` no `.env`.
+
+```bash
+node tools/pixellab/gerar-movel.mjs --lista
+node tools/pixellab/gerar-predio.mjs casa-pixel
+```
+
+🔴 **Leia os seis becos do [`PIXELLAB-RECEITA.md`](./PIXELLAB-RECEITA.md) antes
+de gerar em lote** — são ~44 gerações já perdidas neles. O maior é *girar o
+desenho para 4 direções*; móvel e prédio não giram, e é por isso que passam
+limpo (15 gerações, zero becos).
+
+⚠️ Há também uma conta **OpenAI** (`gpt-image-1`), usada na fase ilustrada. Ela
+**COBRA por imagem** — 23 de 25 autorizadas foram gastas. Prefira o PixelLab.
+
+---
+
 # Handoff — estado do projeto em 2026-08-15
 
-## 🔴 DECISÃO DO DONO NO FIM DE 15/08 — LEIA ANTES DE TUDO
+## 🔴 DECISÃO DO DONO NO FIM DE 15/08
 
 **A casa ilustrada foi ABANDONADA. A casa vai ser refeita DO ZERO em pixel art,
 pelo PixelLab.** Palavras dele: *"podemos fazer a casa em pixelart mesmo. esquece
