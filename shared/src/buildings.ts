@@ -71,7 +71,7 @@ export const PREDIOS: readonly PredioDef[] = [
    * Manter os 4 da casa velha deixaria o jogador atravessando as paredes
    * laterais.
    */
-  { arquivo: 'casa-pixel', x: 172, y: 152, larg: 7, prof: 4 },
+  { arquivo: 'casa-pixel', x: 172, y: 152, larg: 9, prof: 8 },
 ];
 
 /**
@@ -178,8 +178,12 @@ export const ANDARES: readonly AndarDef[] = [
   {
     arquivo: 'terreo',
     floor: 0,
-    // Alinhado à pegada da casa: o interior fica DEBAIXO do sprite dela.
-    x0: 169, y0: 147,
+    /*
+     * Alinhado para que a PORTA da planta caia sob a porta desenhada na casa:
+     * a casa é ancorada em (172,152) e a porta está na coluna 4 da última
+     * linha, logo `x0 = 172-4 = 168` e `y0 = 152-7 = 145`.
+     */
+    x0: 168, y0: 145,
     /*
      * ⚠️ ESTA PLANTA É APROXIMADA, e a aproximação é deliberada.
      *
@@ -223,13 +227,26 @@ export const ANDARES: readonly AndarDef[] = [
      * A parede de cima não tem esse problema — ela sobe para fora do cômodo.
      * Por isso a mobília se encosta no topo e nas laterais, nunca na base.
      */
+    /*
+     * ⚠️ 9×8, contra os 7×6 de antes — cresceu junto com a casa, que foi de 3×
+     * para 4×. O interior não pode passar do que o sprite cobre: a 4× o desenho
+     * tem ~10,4 tiles de largura, então 9 cabe com folga de beiral.
+     *
+     * 🔴 A divisão em duas alas é o que faz ler como CASA e não como galpão: a
+     * parede interna na coluna 4 separa cozinha (esquerda, com a escada) de
+     * oficina (direita, forja e alquimia), e se contorna por cima ou por baixo.
+     * Antes era um cômodo único com os móveis espalhados, e o dono viu isso
+     * como *"interior ficou ruim"*.
+     */
     planta: [
-      '#######',
-      '#M...K#',
-      '#..>..#',
-      '#R...G#',
-      '#.....#',
-      '###e###',
+      '#########',
+      '#MM....K#',
+      '#......Q#',
+      '#...#...#',
+      '#>..#...#',
+      '#R..#..G#',
+      '#.......#',
+      '####e####',
     ],
   },
   {
@@ -237,16 +254,19 @@ export const ANDARES: readonly AndarDef[] = [
     // 🔴 Continua andar de verdade: dois pisos não cabem na mesma célula.
     floor: 1,
     // Mesma posição do térreo: os andares se empilham.
-    x0: 169, y0: 147,
+    x0: 168, y0: 145,
     // Mesmo tamanho do térreo — os andares se empilham, então têm de casar.
-    // ⚠️ Mesma regra do térreo: nada de móvel encostado na parede de BAIXO.
+    // ⚠️ Mesmo tamanho do térreo (os andares se empilham) e mesma regra: nada
+    // de móvel encostado na parede de BAIXO.
     planta: [
-      '#######',
-      '#CC..A#',
-      '#CC<..#',
-      '#CCB..#',
-      '#.....#',
-      '#######',
+      '#########',
+      '#CCC..AA#',
+      '#CCC..AA#',
+      '#CCC....#',
+      '#<......#',
+      '#B......#',
+      '#.......#',
+      '#########',
     ],
   },
 ];

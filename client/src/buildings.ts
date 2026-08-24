@@ -134,7 +134,14 @@ const LARGURA_PADRAO = 5;
  * tile de diferença.
  */
 const ESCALA_INTEIRA: Record<string, number> = {
-  'casa-pixel': 3,
+  /*
+   * ⚠️ 4× — subiu de 3 em 16/08, a pedido do dono: *"a casa ficou pequena"*.
+   *
+   * O desenho tem 83 px de largura, então 3× dava 249 px (7,8 tiles) e 4× dá
+   * 332 px (**10,4 tiles**). Os degraus são inteiros e só: 3, 4, 5. Não existe
+   * "um pouco maior" sem trazer de volta o serrilhado de 10/08.
+   */
+  'casa-pixel': 4,
 };
 
 /** A escala inteira pedida para aquele prédio, ou `null` se ele usa `LARGURA`. */
