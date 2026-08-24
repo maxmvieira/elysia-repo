@@ -28,7 +28,7 @@
  */
 
 import type { GameMap, FloorLink } from './tiles.js';
-import { TILE_VOID } from './tiles.js';
+import { TILE_VOID, getTileType } from './tiles.js';
 import {
   REGIONS,
   CITIES,
@@ -567,8 +567,33 @@ function limpaPracaSegura(ground: number[]): { x0: number; y0: number; x1: numbe
  * ⚠️ A pegada é MENOR que o sprite de propósito: só a base de pedra encosta no
  * chão. Ver `shared/src/buildings.ts`.
  */
+/**
+ * Pinta a pegada dos prédios que **não têm interior**.
+ *
+ * 🔴 Prédio COM planta de térreo não passa por aqui — a planta dele já pinta
+ * parede, chão e porta, e é ela que manda. Pintar a pegada sólida antes
+ * tamparia a porta e o interior inteiro em silêncio.
+ *
+ * Fica para os prédios que forem só cenário: aí a pegada `building` continua
+ * sendo o jeito certo de bloquear sem desenhar bloco por código.
+ */
 function pintaPredios(ground: number[]): void {
+  /*
+   * A ligação prédio↔planta é por SOBREPOSIÇÃO, não por nome: o sprite se chama
+   * `casa-pixel` e a planta dele `terreo`. Checar geometria se mantém sozinho
+   * se alguém renomear um dos dois.
+   */
+  const plantasNoChao = ANDARES.filter((a) => a.floor === 0);
+  const temInterior = (p: (typeof PREDIOS)[number]): boolean =>
+    plantasNoChao.some((a) => {
+      const ax1 = a.x0 + a.planta[0]!.length - 1, ay1 = a.y0 + a.planta.length - 1;
+      return tilesDoPredio(p).some(
+        ({ x, y }) => x >= a.x0 && x <= ax1 && y >= a.y0 && y <= ay1,
+      );
+    });
+
   for (const predio of PREDIOS) {
+    if (temInterior(predio)) continue;
     for (const { x, y } of tilesDoPredio(predio)) {
       if (!dentro(x, y)) continue;
       set(ground, x, y, T.BUILDING);
@@ -658,41 +683,58 @@ function escavaAndares(
   const terreo = ANDARES.find((a) => a.arquivo === 'terreo');
   const superior = ANDARES.find((a) => a.arquivo === 'superior');
 
-  if (terreo) {
-    const saida = achaNaPlanta(terreo, 'e');
-    if (saida) {
-      // A soleira do lado de fora.
-      if (dentro(PORTA_DA_CASA.x, PORTA_DA_CASA.y)) {
-        set(ground, PORTA_DA_CASA.x, PORTA_DA_CASA.y, T.STONE);
-      }
-      /*
-       * ⚠️ Entrando, o jogador pousa UM TILE ACIMA da soleira interna, não
-       * sobre ela: pousar no próprio gatilho o devolveria para fora no passo
-       * seguinte, e a casa viraria uma porta giratória.
-       */
-      links.push({
-        x: PORTA_DA_CASA.x, y: PORTA_DA_CASA.y, fromFloor: 0,
-        toX: saida.x, toY: saida.y - 1, toFloor: terreo.floor, kind: 'up',
-      });
-      links.push({
-        x: saida.x, y: saida.y, fromFloor: terreo.floor,
-        toX: VOLTA_DA_CASA.x, toY: VOLTA_DA_CASA.y, toFloor: 0, kind: 'down',
-      });
-    }
-  }
+  /*
+   * 🔴 A PORTA NÃO TEM LINK NENHUM — e é isso que faz a casa parecer do Tibia.
+   *
+   * Ela é um VÃO na parede: o `e` da planta vira `DOOR_OPEN`, que é andável, e
+   * o jogador simplesmente entra. Sem teleporte, sem troca de andar, sem
+   * transição. A rua continua em volta e o que muda é o telhado sumir.
+   *
+   * ⚠️ Isto substituiu um par de links (entrar/sair) que existia até 16/08. O
+   * dono viu aquilo e cortou: entrar "mudava totalmente o ambiente".
+   */
 
   if (terreo && superior) {
     const sobe = achaNaPlanta(terreo, '>');
     const desce = achaNaPlanta(superior, '<');
     if (sobe && desce) {
-      // Mesmo cuidado: pousa ao lado da escada, nunca em cima dela.
+      /*
+       * 🔴 O pouso é um VIZINHO ANDÁVEL da escada, procurado — e não um
+       * deslocamento fixo.
+       *
+       * A versão anterior usava `+3`, herdado de quando a planta tinha 12
+       * linhas. Com a planta em 6 (o interior encolheu para caber sob a casa),
+       * `+3` passou a cair na parede de baixo: o jogador subia e ficava preso
+       * dentro de pedra. Número mágico que depende do tamanho da planta quebra
+       * calado quando a planta muda.
+       *
+       * ⚠️ E não pode ser a própria escada: pousar no gatilho devolve o jogador
+       * no passo seguinte, e a escada vira elevador maluco.
+       */
+      const vizinhoLivre = (
+        camada: number[], p: { x: number; y: number },
+      ): { x: number; y: number } => {
+        for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]] as const) {
+          const nx = p.x + dx, ny = p.y + dy;
+          if (dentro(nx, ny) && !getTileType(get(camada, nx, ny)).solid) {
+            return { x: nx, y: ny };
+          }
+        }
+        return p; // sem saída: melhor pousar na escada do que fora do mapa
+      };
+
+      const camadaCima = andarDe(superior.floor);
+      const camadaBaixo = andarDe(terreo.floor);
+      const pousoCima = vizinhoLivre(camadaCima, desce);
+      const pousoBaixo = vizinhoLivre(camadaBaixo, sobe);
+
       links.push({
         x: sobe.x, y: sobe.y, fromFloor: terreo.floor,
-        toX: desce.x, toY: desce.y + 3, toFloor: superior.floor, kind: 'up',
+        toX: pousoCima.x, toY: pousoCima.y, toFloor: superior.floor, kind: 'up',
       });
       links.push({
         x: desce.x, y: desce.y, fromFloor: superior.floor,
-        toX: sobe.x, toY: sobe.y - 1, toFloor: terreo.floor, kind: 'down',
+        toX: pousoBaixo.x, toY: pousoBaixo.y, toFloor: terreo.floor, kind: 'down',
       });
     }
   }
@@ -750,7 +792,18 @@ export function buildWorldMap(): GameMap {
    * e `floors` é `Record<number, number[]>`: acrescentar é de graça. O cliente
    * já trata andar inexistente (`if (!map.floors[floor]) return`).
    */
-  const porAndar = new Map<number, number[]>([[1, upper]]);
+  /*
+   * 🔴 O ANDAR 0 PRECISA ESTAR AQUI, e omiti-lo apagou o mundo inteiro.
+   *
+   * `escavaAndares` cria a camada que não achar no mapa. Com o térreo da casa
+   * mudando para o andar 0 (o jeito do Tibia), ele deixou de achar o 0 aqui,
+   * **criou uma camada nova de `VOID`** e ela sobrescreveu `ground` na volta —
+   * mundo inteiro vazio, sem minério, sem cidade, sem chão.
+   *
+   * ⚠️ O sintoma não apontava para cá: quebraram testes de recurso, de praça
+   * segura e de rota entre cidades, nenhum deles falando de casa.
+   */
+  const porAndar = new Map<number, number[]>([[0, ground], [1, upper]]);
   escavaAndares(ground, porAndar, floorLinks);
 
   const floors: Record<number, number[]> = { 0: ground };

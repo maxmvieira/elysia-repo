@@ -17,6 +17,7 @@ import {
   WORLD_CREATURE_SPAWNS,
   tileValidoMaisProximo,
   starterTown,
+  ANDARES,
   type GameMap,
 } from '../src/index.js';
 
@@ -215,13 +216,28 @@ test('🔴 decoração nunca encosta em decoração (a mata continua atravessáv
   const perto = (x: number, y: number): boolean =>
     CITIES.some((c) => Math.max(Math.abs(c.x - x), Math.abs(c.y - y)) < 22);
 
+  /*
+   * ⚠️ Prédio também é construção, e o teste sempre quis excluí-lo — o
+   * comentário acima já dizia *"muralha e casa são paredes coladas de
+   * propósito"*. Só que a exclusão era por PROXIMIDADE DE CIDADE, e a casa de
+   * teste caiu a exatamente 22 tiles de Lumindale, um a mais que o `< 22`.
+   *
+   * Excluir pela PLANTA cobre o que a regra sempre disse cobrir, e não abre a
+   * mão em lugar nenhum: a invariante continua valendo em cada tile onde
+   * ninguém construiu.
+   */
+  const construido = (x: number, y: number): boolean =>
+    ANDARES.some((a) => a.floor === 0
+      && x >= a.x0 && x < a.x0 + a.planta[0]!.length
+      && y >= a.y0 && y < a.y0 + a.planta.length);
+
   let encostados = 0;
   for (let y = 1; y < map.height - 1; y++) {
     for (let x = 1; x < map.width - 1; x++) {
       const t = getTileType(tileAt(map, x, y, 0));
       if (t.height === 0 && t.name !== 'lava') continue; // só decoração alta e lava
       if (t.name === 'water') continue;
-      if (perto(x, y)) continue;
+      if (perto(x, y) || construido(x, y)) continue;
       for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]] as const) {
         const v = getTileType(tileAt(map, x + dx, y + dy, 0));
         if (v.name === t.name) encostados++;

@@ -153,11 +153,33 @@ export interface AndarDef {
  * — o gerador as pôs assim, e elas não se alinham. Como o link teleporta, não
  * quebra nada; é realismo que falta, não bug.
  */
+/**
+ * 🔴 O TÉRREO MORA NO ANDAR 0, DENTRO DA PEGADA — é o jeito do Tibia.
+ *
+ * Até 16/08 entrar na casa era um `floorLink`: o jogador ia para o andar 1, num
+ * lugar separado do mapa. O dono viu e cortou: *"não tem animação de porta
+ * abrindo nem entrando dentro dela sem mudar totalmente o ambiente, pode ser
+ * igual o tibia, a gente continua vendo o lado de fora"*.
+ *
+ * No Tibia **não se troca de mapa para entrar**. A casa é um pedaço do mundo
+ * como qualquer outro: paredes são tiles sólidos, a porta é um VÃO andável, e o
+ * que acontece ao entrar é o **telhado sumir**. A rua continua em volta, os
+ * monstros continuam à vista, e não há transição nenhuma para estranhar.
+ *
+ * ⚠️ Isso apaga a necessidade da porta que abre: no Tibia a porta é um vão, e o
+ * retorno de "entrei" é o telhado sumindo — que é bem mais visível que uma folha
+ * de porta girando, e não precisa de arte nova nem de canal novo no protocolo.
+ *
+ * ⚠️ **O andar de cima CONTINUA sendo andar de verdade** (`floor: 1`), pelo
+ * mesmo motivo que no Tibia: dois pisos não cabem na mesma célula do mapa. Só a
+ * entrada deixou de ser troca de andar; subir a escada continua sendo.
+ */
 export const ANDARES: readonly AndarDef[] = [
   {
     arquivo: 'terreo',
-    floor: 1,
-    x0: 166, y0: 146,
+    floor: 0,
+    // Alinhado à pegada da casa: o interior fica DEBAIXO do sprite dela.
+    x0: 169, y0: 147,
     /*
      * ⚠️ ESTA PLANTA É APROXIMADA, e a aproximação é deliberada.
      *
@@ -177,39 +199,43 @@ export const ANDARES: readonly AndarDef[] = [
      * planta pintada num jogo de grade, e o conserto de verdade é interior
      * montado por TILE (piso, parede, móvel como peças), não por imagem única.
      */
+    /*
+     * ⚠️ 7×6, e o tamanho é DITADO PELA CASA, não escolhido.
+     *
+     * O interior mora debaixo do sprite dela, então não pode ser maior que o
+     * que ela cobre: medido, o desenho tem ~7,8 tiles de largura a 3×. A planta
+     * de 12×12 que existia antes só cabia porque ficava num andar separado, onde
+     * nada precisava bater com o desenho.
+     *
+     * ⚠️ Sobram 5×4 = 20 tiles andáveis. É pouco, e é honesto: a casa é pequena
+     * vista de fora, então o interior tem de ser pequeno. Casa maior por dentro
+     * do que por fora é justamente o que faria o Tibia parecer errado.
+     *
+     * A porta é o `e` na parede de baixo — um VÃO, sem link nenhum.
+     */
     planta: [
-      '############',
-      '#MM.#.J#QQ.#',
-      '#...#..#...#',
-      '#RR.#..#..K#',
-      '#..........#',
-      '#R..G...#..#',
-      '#.......#..#',
-      '#.......#>>#',
-      '#..##...#>>#',
-      '#.......#>>#',
-      '#.......#>>#',
-      '###e########',
+      '#######',
+      '#M...K#',
+      '#..>..#',
+      '#.....#',
+      '#R...G#',
+      '###e###',
     ],
   },
   {
     arquivo: 'superior',
-    floor: 2,
-    x0: 166, y0: 146,
-    // ⚠️ Também aproximada — ver a nota do térreo.
+    // 🔴 Continua andar de verdade: dois pisos não cabem na mesma célula.
+    floor: 1,
+    // Mesma posição do térreo: os andares se empilham.
+    x0: 169, y0: 147,
+    // Mesmo tamanho do térreo — os andares se empilham, então têm de casar.
     planta: [
-      '############',
-      '#<<<...CC..#',
-      '#<<<...CC..#',
-      '#<<....CC..#',
-      '#..........#',
-      '#..........#',
-      '#M.........#',
-      '#M......AA.#',
-      '#.......AA.#',
-      '#B.........#',
-      '#B.........#',
-      '############',
+      '#######',
+      '#CC..A#',
+      '#CC<..#',
+      '#CC...#',
+      '#B....#',
+      '#######',
     ],
   },
 ];

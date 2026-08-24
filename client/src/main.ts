@@ -1316,6 +1316,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     chunkRangeAtual = '';
     // 🔴 Os sprites acabaram de ser destruídos — ver `portasVivas`.
     portasVivas.length = 0;
+    telhadosVivos.length = 0;
   }
 
   /**
@@ -1429,6 +1430,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * guardar referência a `Sprite` destruído faria o ticker escrever em objeto
    * morto — o Pixi não avisa, só para de desenhar.
    */
+  /**
+   * Os prédios cujo telhado some quando se entra neles.
+   *
+   * O retângulo é a PLANTA do térreo, não a pegada do sprite: é onde o jogador
+   * está de fato dentro de casa. ⚠️ Esvaziado junto com os pedaços, como o
+   * `portasVivas` — guardar `Sprite` destruído faz o ticker escrever em objeto
+   * morto, e o Pixi não avisa: só para de desenhar.
+   */
+  const telhadosVivos: Array<{
+    corpo: Sprite; sombra: Sprite;
+    x0: number; y0: number; x1: number; y1: number;
+    escondido: boolean;
+  }> = [];
+
   const portasVivas: Array<{
     corpo: Sprite; sombra: Sprite;
     fechada: PredioSprite; aberta: PredioSprite;
@@ -1491,6 +1506,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * Guardo os dois sprites aqui em vez de procurar filho por índice depois:
      * índice quebraria em silêncio se a ordem do container mudasse.
      */
+    /*
+     * Registra o telhado para o ticker poder escondê-lo. O retângulo vem da
+     * PLANTA do térreo que cai sobre este prédio — é onde se está dentro de
+     * casa, e não a pegada do sprite, que inclui beiral.
+     */
+    for (const a of ANDARES) {
+      if (a.floor !== 0) continue;
+      const ax1 = a.x0 + a.planta[0]!.length - 1;
+      const ay1 = a.y0 + a.planta.length - 1;
+      if (x < a.x0 - 2 || x > ax1 + 2 || y < a.y0 - 2 || y > ay1 + 2) continue;
+      telhadosVivos.push({ corpo: s, sombra, x0: a.x0, y0: a.y0, x1: ax1, y1: ay1, escondido: false });
+      break;
+    }
+
     const nomeAberta = PORTA_ABERTA[pr.arquivo];
     const aberta = nomeAberta ? predioSprite(nomeAberta) : null;
     if (aberta) portasVivas.push({ corpo: s, sombra, fechada: pr, aberta, x, y, abertaAgora: false });
@@ -4557,6 +4586,26 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ⚠️ A escala é recalculada na troca porque as duas artes não têm a mesma
      * proporção — ver `LARGURA` em `buildings.ts`.
      */
+    /*
+     * 🔴 O TELHADO SOME QUANDO O JOGADOR ENTRA — é assim que o Tibia faz, e foi
+     * o pedido do dono: *"a gente continua vendo o lado de fora"*.
+     *
+     * Não há troca de mapa nem transição: o interior está ali o tempo todo,
+     * debaixo do sprite da casa. Entrar é só andar pelo vão da porta, e o que
+     * dá o retorno visual é a casa deixar de ser desenhada.
+     *
+     * ⚠️ Só troca quando o estado MUDA. Reatribuir `visible` todo quadro é
+     * trabalho à toa, 60× por segundo por casa.
+     */
+    for (const t of telhadosVivos) {
+      const dentro = myTileX >= t.x0 && myTileX <= t.x1
+        && myTileY >= t.y0 && myTileY <= t.y1;
+      if (dentro === t.escondido) continue;
+      t.escondido = dentro;
+      t.corpo.visible = !dentro;
+      t.sombra.visible = !dentro;
+    }
+
     for (const p of portasVivas) {
       const perto = Math.max(Math.abs(p.x - myTileX), Math.abs(p.y - myTileY)) <= RAIO_ABRIR;
       if (perto === p.abertaAgora) continue;
