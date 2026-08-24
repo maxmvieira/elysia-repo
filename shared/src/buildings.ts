@@ -157,12 +157,12 @@ export const ANDARES: readonly AndarDef[] = [
      */
     planta: [
       '############',
-      '#FFF#FF#FFF#',
-      '#FF.#..#.FF#',
-      '#...#..#..F#',
+      '#MM.#.J#QQ.#',
+      '#...#..#...#',
+      '#RR.#..#..K#',
       '#..........#',
-      '#FF.F...#..#',
-      '#FF.....#..#',
+      '#R..G...#..#',
+      '#.......#..#',
       '#.......#>>#',
       '#..##...#>>#',
       '#.......#>>#',
@@ -177,20 +177,44 @@ export const ANDARES: readonly AndarDef[] = [
     // ⚠️ Também aproximada — ver a nota do térreo.
     planta: [
       '############',
-      '#<<<...FFF.#',
-      '#<<<...FFF.#',
-      '#<<....FFF.#',
-      '#......FFF.#',
+      '#<<<...CC..#',
+      '#<<<...CC..#',
+      '#<<....CC..#',
       '#..........#',
-      '#FF........#',
-      '#FF.....FFF#',
-      '#.......FFF#',
-      '#FF.....FFF#',
-      '#FF........#',
+      '#..........#',
+      '#M.........#',
+      '#M......AA.#',
+      '#.......AA.#',
+      '#B.........#',
+      '#B.........#',
       '############',
     ],
   },
 ];
+
+/**
+ * A LETRA da planta → o PNG do móvel em `client/public/assets/furniture/`.
+ *
+ * 🔴 A letra diz duas coisas de uma vez: que o tile é **sólido** e **qual**
+ * móvel desenhar ali. Antes existia só `F`, que virava parede genérica — a cama
+ * aparecia como muro. Uma letra por móvel resolve os dois de uma fonte só, que
+ * é a regra que este arquivo inteiro segue.
+ *
+ * ⚠️ Letra que não estiver aqui e não for `#`, `.`, `e`, `>` ou `<` vira parede.
+ * É de propósito: errar a letra fecha o caminho em vez de abrir buraco no chão,
+ * e caminho fechado o teste de rota pega.
+ */
+export const MOVEL_DA_LETRA: Record<string, string> = {
+  C: 'cama',
+  B: 'bau',
+  A: 'armario',
+  M: 'mesa',
+  R: 'barril',
+  G: 'bigorna',
+  J: 'forja',
+  K: 'caldeirao',
+  Q: 'bancada',
+};
 
 /** Onde o jogador entra na casa, no andar 0. Precisa ser ANDÁVEL — ver acima. */
 export const PORTA_DA_CASA = { x: 171, y: 153 } as const;

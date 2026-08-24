@@ -42,7 +42,8 @@ import {
 } from './regions.js';
 import { WORLD_NPCS } from './worlddata.js';
 import {
-  PREDIOS, ANDARES, PORTA_DA_CASA, VOLTA_DA_CASA, tilesDoPredio, achaNaPlanta,
+  PREDIOS, ANDARES, PORTA_DA_CASA, VOLTA_DA_CASA, MOVEL_DA_LETRA,
+  tilesDoPredio, achaNaPlanta,
 } from './buildings.js';
 
 const T = {
@@ -68,6 +69,7 @@ const T = {
   WALL_INTERIOR: 19,
   DOOR_CLOSED: 20,
   DOOR_OPEN: 21,
+  FURNITURE: 22,
 } as const;
 
 const WIDTH = WORLD_SIZE;
@@ -612,7 +614,6 @@ function escavaAndares(
    */
   const TILE_DE: Record<string, number> = {
     '#': T.WALL_INTERIOR,
-    'F': T.WALL_INTERIOR, // móvel ainda é parede; vira objeto próprio depois
     '.': T.WOOD_FLOOR,
     /*
      * 🔴 A soleira é DOOR_OPEN, ou seja ANDÁVEL — e isso é uma limitação
@@ -639,7 +640,17 @@ function escavaAndares(
       for (let lx = 0; lx < linha.length; lx++) {
         const x = a.x0 + lx, y = a.y0 + ly;
         if (!dentro(x, y)) continue;
-        set(camada, x, y, TILE_DE[linha[lx]!] ?? T.WALL_INTERIOR);
+        const c = linha[lx]!;
+        /*
+         * 🔴 Letra de MÓVEL vira `FURNITURE`: sólido, mas com o CHÃO desenhado
+         * por baixo — o móvel em si é sprite por cima, no molde do `makeTree`.
+         * Antes ele virava `wall_interior` e a cama aparecia como muro.
+         *
+         * ⚠️ Letra desconhecida cai em parede de propósito: errar a letra fecha
+         * caminho em vez de abrir buraco, e caminho fechado o teste de rota pega.
+         */
+        const tile = TILE_DE[c] ?? (MOVEL_DA_LETRA[c] ? T.FURNITURE : T.WALL_INTERIOR);
+        set(camada, x, y, tile);
       }
     }
   }

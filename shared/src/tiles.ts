@@ -112,6 +112,26 @@ export const TILE_TYPES: Record<number, TileType> = {
 export const DOOR_CLOSED = 20;
 export const DOOR_OPEN = 21;
 
+/**
+ * Tile ocupado por MÓVEL.
+ *
+ * 🔴 Ele existe porque móvel não é parede, e antes era. Até 15/08 cada `F` da
+ * planta virava `wall_interior`: bloqueava certo e **desenhava como pedra**, e
+ * o dono via a cama como um muro no meio do quarto.
+ *
+ * Agora o tile é o CHÃO (o cliente desenha o mesmo retalho de tábua) e o móvel
+ * vem por cima como sprite, no molde do `makeTree`. O que este tipo carrega é
+ * só a regra: **sólido**, porque não se anda sobre a mesa.
+ *
+ * ⚠️ `blocksSight: false` de propósito, e a diferença importa: mesa e baú são
+ * baixos, então enxerga-se e mira-se por cima deles. É a mesma distinção que a
+ * água já fazia — barra o passo, não a mira.
+ */
+TILE_TYPES[22] = {
+  id: 22, name: 'furniture', solid: true, blocksSight: false, height: 0, color: 0x7a5230,
+};
+export const TILE_FURNITURE = 22;
+
 export const TILE_VOID = 0;
 
 export function getTileType(id: number): TileType {

@@ -141,7 +141,8 @@ import {
   loadBuildings, prediosNoPedaco, andaresNoPedaco, predioSprite,
   PORTA_ABERTA, RAIO_ABRIR, type PredioSprite,
 } from './buildings.js';
-import type { AndarDef } from '@dominion/shared';
+import { ANDARES, type AndarDef } from '@dominion/shared';
+import { loadFurniture, movelDaLetra, type MovelSprite } from './furniture.js';
 import { loadCrystals, crystalNodeSprite, crystalIconImage } from './crystals.js';
 
 const TS = TILE_SIZE;
@@ -696,6 +697,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   await loadTrees();
   // Prédios em posição fixa. 0 => o mundo fica como sempre foi. Ver `buildings.ts`.
   await loadBuildings();
+  // Móveis de interior. 0 => o tile fica sólido e sem desenho, nada quebra.
+  await loadFurniture();
   /*
    * Sprites de cristal/minério. Carregados AQUI, antes de o mundo ser montado e
    * antes de qualquer ícone de mochila ser desenhado — `itemIconCanvas` cacheia
@@ -1249,6 +1252,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
          */
         if (t.name === 'building') continue;
 
+        /*
+         * 🔴 MÓVEL: o tile já desenhou o CHÃO acima (`desenhaChao`), e agora o
+         * móvel entra como objeto por cima — no molde do `makeTree`.
+         *
+         * A letra vem da planta do andar, não do tile: o tile só sabe que ali é
+         * `furniture` (sólido). Qual móvel é decisão da planta, e é ela que
+         * garante que desenho e colisão falem da mesma célula.
+         */
+        if (t.name === 'furniture') {
+          const letra = letraDaPlanta(x, y, renderedFloor);
+          const movel = letra ? movelDaLetra(letra) : null;
+          if (movel) altos.push(makeMovel(x, y, movel));
+          continue;
+        }
+
         if (t.height === 0) continue;
         const arvore = t.name === 'tree' ? treeTexFor(chaoId, x, y) : null;
         if (arvore) {
@@ -1469,6 +1487,38 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * importa é ele vir antes de todo objeto, o que já acontece por estar noutro
    * container.
    */
+  /** A letra da planta naquele tile, ou `null` se não houver andar ali. */
+  function letraDaPlanta(x: number, y: number, floor: number): string | null {
+    for (const a of ANDARES) {
+      if (a.floor !== floor) continue;
+      const ly = y - a.y0, lx = x - a.x0;
+      if (ly < 0 || ly >= a.planta.length) continue;
+      const linha = a.planta[ly]!;
+      if (lx < 0 || lx >= linha.length) continue;
+      return linha[lx]!;
+    }
+    return null;
+  }
+
+  /**
+   * Um MÓVEL sobre o tile. Mesma receita do `makeTree`, e de propósito.
+   *
+   * ⚠️ Sem sombra própria: móvel fica DENTRO de casa, onde não há sol para
+   * projetar. A elipse que a árvore usa aqui só sujaria o assoalho.
+   */
+  function makeMovel(x: number, y: number, mv: MovelSprite): Container {
+    const { tex, largura, base, centro, cheia } = mv;
+    const c = new Container();
+    const s = new Sprite(tex);
+    s.anchor.set(centro, base);
+    s.scale.set((TS * largura) / (tex.width * cheia));
+    s.x = x * TS + TS / 2;
+    s.y = y * TS + TS - 2;
+    c.addChild(s);
+    c.zIndex = y; // quem está à frente cobre quem está atrás, como as árvores
+    return c;
+  }
+
   /**
    * A planta de um ANDAR, desenhada na camada de PISO.
    *
