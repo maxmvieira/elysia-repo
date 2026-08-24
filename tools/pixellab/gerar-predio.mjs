@@ -73,15 +73,31 @@ const COMUM = {
 };
 
 const PREDIOS = {
+  /*
+   * 🔴 A FACHADA TEM DE ESTAR DE FRENTE — e o prompt insiste nisso porque a
+   * primeira casa saiu em três quartos, com a porta na face ESQUERDA.
+   *
+   * O jogador chega pelo SUL: a porta da planta fica na parede de baixo. Com a
+   * porta desenhada à esquerda, ele atravessava a fachada por um ponto onde não
+   * há porta nenhuma no desenho. O dono viu: *"vira a casa de frente de acordo
+   * com a entrada dela para ficar realista"*.
+   *
+   * ⚠️ Isto não é capricho de ângulo: em jogo top-down o jogador só encosta na
+   * casa pelas quatro direções da grade, e a porta tem de cair numa delas.
+   */
   'casa-pixel': {
     tiles: 8,
     desc: 'a two-storey medieval half-timbered house seen from above at a high '
-      + 'top-down angle. The ground floor is grey stone blocks with visible mortar. '
-      + 'The upper floor is cream plaster crossed by dark oak beams and juts out '
-      + 'slightly over the ground floor. A steep roof of small blue slate shingles '
-      + 'with a wide overhang, a grey stone chimney, small windows with wooden '
-      + 'shutters and warm yellow light inside, and a dark wooden front door with a '
-      + 'stone step at the bottom.',
+      + 'top-down angle, facing the viewer DIRECTLY — the front wall with the door '
+      + 'is parallel to the bottom edge of the image and fully visible, not turned '
+      + 'to one side, no three-quarter view. '
+      + 'The ground floor is grey stone blocks with visible mortar. The upper floor '
+      + 'is cream plaster crossed by dark oak beams and juts out slightly over the '
+      + 'ground floor. A steep roof of small blue slate shingles with a wide '
+      + 'overhang and a grey stone chimney. Small windows with wooden shutters and '
+      + 'warm yellow light inside. '
+      + 'In the MIDDLE of the front wall, a dark wooden door with a stone step, '
+      + 'centred and facing the viewer.',
   },
 };
 

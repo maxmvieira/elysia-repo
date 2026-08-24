@@ -131,6 +131,19 @@ const MOVEIS = {
     desc: 'a stone blacksmith forge with glowing orange coals burning inside, '
       + 'seen from directly above',
   },
+  /*
+   * --- A ESCADA ---
+   *
+   * 🔴 Ela faltava, e o sintoma foi o dono dizer *"não tem escada, construa
+   * ela"*. A planta já tinha o `>`, e o worldgen já criava o link que sobe —
+   * mas o `>` virava `stone_slab`, que desenha uma laje. **A mecânica existia e
+   * a arte não**, então subia-se por um pedaço de chão sem nada à vista.
+   */
+  escada: {
+    tiles: 1,
+    desc: 'a wooden staircase going up, seen from directly above, showing a run '
+      + 'of parallel steps in dark oak with a side rail',
+  },
   // --- alquimia ---
   caldeirao: {
     tiles: 1,

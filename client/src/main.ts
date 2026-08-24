@@ -1553,8 +1553,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   function makeMovel(m: MovelPosto, mv: MovelSprite): Container {
     const c = new Container();
     const s = new Sprite(mv.tex);
-    const larg = (m.x1 - m.x0 + 1) * TS;
-    const alt = (m.y1 - m.y0 + 1) * TS;
+    /*
+     * ⚠️ FOLGA de 10%: o móvel é desenhado um pouco menor que o bloco.
+     *
+     * Sem ela, o desenho encosta na borda do bloco e o olho lê como se ele
+     * invadisse o tile vizinho — que é parede na maioria dos casos. Um móvel
+     * ligeiramente afastado da parede é o que um móvel de verdade faz.
+     */
+    const FOLGA = 0.9;
+    const larg = (m.x1 - m.x0 + 1) * TS * FOLGA;
+    const alt = (m.y1 - m.y0 + 1) * TS * FOLGA;
     s.anchor.set(0.5, 0.5);
     s.width = larg;
     s.height = alt;

@@ -213,12 +213,22 @@ export const ANDARES: readonly AndarDef[] = [
      *
      * A porta é o `e` na parede de baixo — um VÃO, sem link nenhum.
      */
+    /*
+     * ⚠️ A FILEIRA LOGO ACIMA DA PAREDE DE BAIXO FICA LIVRE, de propósito.
+     *
+     * O motor desenha parede com efeito 2.5D: a face dela sobe `WALL_H` px e
+     * **cobre o tile de cima**. Móvel ali é desenhado ATRÁS dessa face, e o
+     * dono viu como *"objetos entrando dentro da parede"*.
+     *
+     * A parede de cima não tem esse problema — ela sobe para fora do cômodo.
+     * Por isso a mobília se encosta no topo e nas laterais, nunca na base.
+     */
     planta: [
       '#######',
       '#M...K#',
       '#..>..#',
-      '#.....#',
       '#R...G#',
+      '#.....#',
       '###e###',
     ],
   },
@@ -229,12 +239,13 @@ export const ANDARES: readonly AndarDef[] = [
     // Mesma posição do térreo: os andares se empilham.
     x0: 169, y0: 147,
     // Mesmo tamanho do térreo — os andares se empilham, então têm de casar.
+    // ⚠️ Mesma regra do térreo: nada de móvel encostado na parede de BAIXO.
     planta: [
       '#######',
       '#CC..A#',
       '#CC<..#',
-      '#CC...#',
-      '#B....#',
+      '#CCB..#',
+      '#.....#',
       '#######',
     ],
   },
@@ -253,6 +264,17 @@ export const ANDARES: readonly AndarDef[] = [
  * e caminho fechado o teste de rota pega.
  */
 export const MOVEL_DA_LETRA: Record<string, string> = {
+  /*
+   * 🔴 A ESCADA É DESENHADA COMO MÓVEL, mas o tile dela NÃO é `furniture`.
+   *
+   * Ela precisa das duas coisas ao mesmo tempo, e cada uma vem de um lugar:
+   * o **desenho** daqui (senão sobe-se por um pedaço de chão vazio, que foi o
+   * que o dono viu), e o tile continua `stone_slab` — **andável** — porque o
+   * servidor consulta o `floorLink` só DEPOIS de aprovar o passo. Escada sólida
+   * seria escada que ninguém sobe.
+   */
+  '>': 'escada',
+  '<': 'escada',
   C: 'cama',
   B: 'bau',
   A: 'armario',
