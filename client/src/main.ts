@@ -1573,11 +1573,29 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * assentado pela BASE: móvel de verdade fica no chão, não flutua no meio da
      * célula.
      */
+    /*
+     * 🔴 A CAIXA MEDIDA do desenho, não a moldura do PNG — e é o mesmo erro que
+     * o `spritebox.ts` conta ter custado caro nas árvores, repetido aqui.
+     *
+     * Todos estes PNGs são 64×64, mas o desenho dentro deles ocupa de 62% a 91%
+     * da moldura, e **a sobra é diferente em cada arquivo**. Dividindo por
+     * `tex.width`, cada móvel saía encolhido por um fator próprio: o barril
+     * (62%) minguava, a mesa (91%) quase acertava, e o conjunto parecia ter
+     * escalas sorteadas. Medido, o bloco vale para o que se vê.
+     */
     const FOLGA = 0.92;
     const cxBloco = (m.x1 - m.x0 + 1) * TS * FOLGA;
     const cyBloco = (m.y1 - m.y0 + 1) * TS * FOLGA;
-    const escala = Math.min(cxBloco / mv.tex.width, cyBloco / mv.tex.height);
-    s.anchor.set(0.5, 1);
+    const largDesenho = mv.tex.width * mv.cheia;
+    const altDesenho = mv.tex.height * mv.alta;
+    const escala = Math.min(cxBloco / largDesenho, cyBloco / altDesenho);
+    /*
+     * 🔴 Âncora na caixa, pelo mesmo motivo — e é o segundo bug do
+     * `spritebox.ts`: `(0.5, 1)` apoia no rodapé da MOLDURA, e todos estes
+     * arquivos têm de 3 a 7 px de transparência embaixo. O móvel ficava
+     * flutuando acima do próprio bloco, cada um por uma altura diferente.
+     */
+    s.anchor.set(mv.centro, mv.base);
     s.scale.set(escala);
     s.x = ((m.x0 + m.x1 + 1) / 2) * TS;
     // Assentado na base do bloco — âncora `(0.5, 1)`, ver acima.

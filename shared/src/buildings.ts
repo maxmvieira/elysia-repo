@@ -248,6 +248,25 @@ export const ANDARES: readonly AndarDef[] = [
      * 🔴 A escada fica com o topo do lance no `>` de cima, e é lá que o link
      * dispara: sobe-se os degraus e o andar troca no fim, não no primeiro.
      */
+    /*
+     * 🔴 **O BLOCO TAMBÉM É A PROPORÇÃO, e não só o tamanho.**
+     *
+     * O cliente ENCAIXA o desenho dentro do bloco preservando a proporção
+     * (`makeMovel`, com `Math.min` nos dois eixos) — ele não estica, porque
+     * esticar achatava a escada. A consequência é que **bloco com proporção
+     * diferente da do desenho sobra chão**: o móvel enche um eixo e deixa o
+     * outro pela metade, e o jogador vê tile bloqueado onde parece vazio — que
+     * é exatamente o defeito que esta planta existe para não ter.
+     *
+     * Medido nos PNGs (caixa de alpha, a 64×64 de moldura), largura ÷ altura do
+     * desenho: mesa 1,05 · forja 1,02 · caldeirão 1,12 · bancada 1,00 ·
+     * bigorna 0,93 · baú 0,98 · cama 0,89 · escada 0,81 · barril 0,71 ·
+     * armário 0,75.
+     *
+     * ⚠️ Então a régua tem DOIS lados: tamanho realista em tiles **e**
+     * proporção parecida com a do desenho. Os blocos do térreo já batem
+     * (enchem de 82% a 100%); foi o andar de cima que precisou de conserto.
+     */
     planta: [
       '#########',
       '#MM.>>.K#',
@@ -274,13 +293,29 @@ export const ANDARES: readonly AndarDef[] = [
     // Mesmo tamanho do térreo — os andares se empilham, então têm de casar.
     // ⚠️ Mesmo tamanho do térreo (os andares se empilham) e mesma regra: nada
     // de móvel encostado na parede de BAIXO.
+    /*
+     * ⚠️ TRÊS BLOCOS MUDARAM em 24/08, e cada um por uma conta, não por gosto.
+     *
+     * | móvel | era | é | por quê |
+     * |---|---|---|---|
+     * | baú | 2×1 | 1×1 | o desenho é quadrado (0,98). Num bloco 2×1 ele enchia **49%** da largura: um baú miúdo no meio de dois tiles sólidos |
+     * | cama | 2×3 | 2×2 | o desenho é quase quadrado (0,89), não comprido. Em 2×3 sobrava 3/4 de tile de chão bloqueado ao pé da cama |
+     * | escada | 2×2 | 2×3 | **o mesmo sprite estava saindo de dois tamanhos**: o `>` do térreo é 2×3 e o `<` daqui era 2×2. Os andares se empilham; a escada tem de ser a mesma |
+     *
+     * ⚠️ O armário fica em 2×3 (era 2×2): o desenho é estreito e alto (0,75) —
+     * é um armário visto de cima, com a frente inteira aparecendo — e num bloco
+     * quadrado ele enchia só 75% da largura.
+     *
+     * ⚠️ A fileira 6 continua vazia pela regra da parede de baixo, e é por isso
+     * que a escada desce até a 5 e não até a 6.
+     */
     planta: [
       '#########',
       '#CC..AA.#',
       '#CC..AA.#',
-      '#CC.....#',
+      '#<<..AA.#',
       '#<<.....#',
-      '#<<.BB..#',
+      '#<<.B...#',
       '#.......#',
       '#########',
     ],

@@ -3,8 +3,12 @@
  * `client/public/assets/furniture/`).
  *
  * Primo do [`trees.ts`](./trees.ts) e do [`buildings.ts`](./buildings.ts):
- * reusa o mesmo `spritebox` (caixa de alpha medida), a mesma âncora pelo pé e a
- * mesma escala por **largura em tiles**. Nenhum sistema novo.
+ * reusa o mesmo `spritebox` (caixa de alpha medida) e a mesma âncora pelo pé do
+ * DESENHO. Nenhum sistema novo.
+ *
+ * ⚠️ **Só a escala é diferente, e de propósito.** Árvore e prédio declaram uma
+ * largura em tiles; móvel não declara nada — ele é encaixado no BLOCO que a
+ * planta já reservou para ele. Ver o bloco sobre a tabela que não existe aqui.
  *
  * ## 🔴 Por que móvel virou objeto, e não continuou parede
  *
@@ -42,35 +46,20 @@ import { MOVEL_DA_LETRA } from '@dominion/shared';
 const BASE = '/assets/furniture';
 
 /**
- * Largura de cada móvel, **em tiles**.
+ * 🔴 **NÃO existe tabela de largura aqui, e a ausência é a decisão.**
  *
- * 🔴 É a largura do DESENHO, não a do arquivo — a escala divide pela caixa
- * medida, como em `trees.ts`. Lá isso já fez dois aumentos seguidos entregarem
- * metade do pedido.
+ * Havia uma — `cama: 2`, `bau: 0.9`, … — e ela era **código morto**: quem
+ * dimensiona o móvel é o BLOCO da planta (`moveisDoAndar` em
+ * `shared/src/buildings.ts`), e o `makeMovel` nunca leu esta tabela. Quem
+ * fosse afinar tamanho por aqui mexeria nos números e não veria nada mudar.
  *
- * Calibragem: o tile tem 32 px e o herói 58 px de altura (~1,8 tile). Uma cama
- * de casal ocupa 2 tiles, um baú menos de 1.
+ * Pior que morta, ela era uma SEGUNDA FONTE para o tamanho — exatamente o que
+ * este cenário aprendeu a não ter: desenho e colisão saem do mesmo dado. O
+ * bloco da planta é esse dado, porque é ele que já decide onde não se pisa.
  *
- * ⚠️ Números de referência, não medição. São a primeira coisa a ajustar depois
- * de ver o quarto em tela.
+ * ⚠️ Para mudar o tamanho de um móvel, mexa nas LETRAS da planta.
  */
-const LARGURA: Record<string, number> = {
-  cama: 2,
-  bau: 0.9,
-  armario: 1.3,
-  mesa: 1.5,
-  barril: 0.9,
-  bigorna: 1.1,
-  forja: 1.6,
-  caldeirao: 1,
-  bancada: 1.6,
-};
-
-const LARGURA_PADRAO = 1;
-
-export interface MovelSprite extends SpriteMedido {
-  largura: number;
-}
+export type MovelSprite = SpriteMedido;
 
 const carregados = new Map<string, MovelSprite>();
 
@@ -81,7 +70,7 @@ export async function loadFurniture(): Promise<number> {
     if (carregados.has(nome)) continue;
     const medido = await loadSpriteMedido(`${BASE}/${nome}.png`);
     if (!medido) continue; // ausente: o tile fica sólido e sem desenho
-    carregados.set(nome, { ...medido, largura: LARGURA[nome] ?? LARGURA_PADRAO });
+    carregados.set(nome, medido);
   }
   console.log(`[furniture] ${carregados.size} de ${nomes.length} carregados`);
   return carregados.size;

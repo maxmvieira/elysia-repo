@@ -42,6 +42,16 @@ export interface SpriteMedido {
   centro: number;
   /** Quanto da largura da moldura o desenho ocupa (0..1). Divide a escala. */
   cheia: number;
+  /**
+   * Quanto da ALTURA da moldura o desenho ocupa (0..1).
+   *
+   * 🔴 Existe porque `cheia` sozinha só serve para quem escala pela LARGURA — a
+   * árvore e o prédio. Quem precisa CABER dentro de uma caixa (o móvel, que é
+   * encaixado no bloco da planta) divide os dois eixos, e sem isto o eixo
+   * vertical continuaria mirando a moldura — o mesmo erro que `cheia` conserta
+   * no horizontal.
+   */
+  alta: number;
 }
 
 /**
@@ -67,24 +77,26 @@ export async function loadSpriteMedido(url: string): Promise<SpriteMedido | null
     tex.source.scaleMode = 'nearest'; // pixel art nítida
 
     const { data } = g.getImageData(0, 0, cv.width, cv.height);
-    let x0 = cv.width, x1 = -1, y1 = -1;
+    let x0 = cv.width, x1 = -1, y0 = cv.height, y1 = -1;
     for (let y = 0; y < cv.height; y++) {
       for (let x = 0; x < cv.width; x++) {
         if (data[(y * cv.width + x) * 4 + 3]! > ALPHA_MIN) {
           if (x < x0) x0 = x;
           if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
           y1 = y;
         }
       }
     }
     // PNG inteiramente transparente: devolve a moldura e não divide por zero.
-    if (x1 < 0) return { tex, base: 1, centro: 0.5, cheia: 1 };
+    if (x1 < 0) return { tex, base: 1, centro: 0.5, cheia: 1, alta: 1 };
 
     return {
       tex,
       base: (y1 + 1) / cv.height,
       centro: (x0 + x1 + 1) / 2 / cv.width,
       cheia: (x1 - x0 + 1) / cv.width,
+      alta: (y1 - y0 + 1) / cv.height,
     };
   } catch {
     return null;
