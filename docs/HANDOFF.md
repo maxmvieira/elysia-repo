@@ -1,3 +1,75 @@
+# Handoff — estado do projeto em 2026-08-24
+
+## ⏸️ ONDE PARAMOS — retomar daqui
+
+> Sessão curta e com um pé no freio: o móvel foi consertado e **aprovado só em
+> parte**, e apareceu uma pendência de licença que é decisão do dono.
+
+### ✅ O que foi feito e está commitado
+
+**Tamanho de móvel — o item 1 da fila de 16/08.** A causa não estava na planta,
+estava no cliente: o `makeMovel` escalava pela **moldura** do PNG (todos são
+64×64) em vez da **caixa medida do desenho**, que ocupa de 62% a 91% da moldura
+e numa proporção diferente em cada arquivo. Cada móvel saía encolhido por um
+fator próprio — escada e armário perdiam mais de 50% — e ainda flutuava até
+5,5 px acima do chão, porque a âncora `(0.5, 1)` apoiava no rodapé da moldura,
+que é transparência.
+
+🔴 **É o mesmo par de bugs que o `spritebox.ts` documenta ter custado caro nas
+árvores**, repetido no móvel. O conserto reusa o que já estava medido lá
+(`cheia`, `centro`, `base`) mais um `alta` novo.
+
+Junto veio a regra que isso desmascarou: **o bloco da planta também é a
+PROPORÇÃO**, não só o tamanho — bloco desproporcional deixa chão bloqueado onde
+parece vazio. No andar de cima o baú enchia 49% da largura; agora **baú 1×1,
+cama 2×2, armário 2×3**, e a **escada do superior virou 2×3** porque era 2×2 e
+desenhava o MESMO sprite num tamanho diferente do térreo.
+
+⚠️ Morreu a tabela `LARGURA` de `client/src/furniture.ts`: era **código morto**
+(o `makeMovel` nunca a leu) e uma segunda fonte para o tamanho. **Para afinar
+móvel, mexa só nas letras da planta.**
+
+### 🎯 A PRÓXIMA COISA
+
+1. 🔴 **A ESCADA NÃO FICOU BOA — e é aqui que a próxima sessão começa.** O dono
+   testou em tela, reprovou a escada e **foi buscar referências**. Espere as
+   referências dele antes de mexer.
+
+   O que qualquer solução tem de respeitar:
+   - O tile da escada continua **andável** (`stone_slab`), senão ninguém sobe: o
+     servidor consulta o `floorLink` **depois** de aprovar o passo.
+   - O sprite é **o mesmo nos dois andares**, e o `>` do térreo tem o topo do
+     lance onde o link dispara.
+   - ⚠️ **`high top-down` esconde degrau** — é possível que escada precise ser
+     exceção (projeção `side`, ou peça em duas partes), e não mais um móvel. Se
+     for gerar no PixelLab, releia os becos do `PIXELLAB-RECEITA.md` antes.
+
+   ⚠️ **Não se sabe se os OUTROS móveis ficaram bons.** A pergunta foi feita e
+   não respondida. Pergunte antes de assumir que a correção de medida agradou.
+
+2. 🔴 **Licença dos assets — decisão do DONO, não trabalho de código.** Ver
+   [`LICENCAS-DE-ARTE.md`](./LICENCAS-DE-ARTE.md), escrito nesta sessão. Resumo:
+   o `CREDITS.md` lista 2 packs, existem **8 lotes de terceiros**, um deles
+   proíbe redistribuir por escrito, e o repositório está público. O primeiro
+   passo é **privar o repositório**, e é um clique na conta dele.
+
+3. ⏳ **Mover a casa para o vilarejo** — inalterado desde 16/08, e continua
+   mexendo no `SAFE_ZONE_RADIUS`. Não pegue sem falar com o dono.
+
+### 🔧 Duas coisas práticas desta sessão
+
+- **`tools/resetar-senha.mjs`** (novo) troca a senha de uma conta no banco local:
+  `node tools/resetar-senha.mjs <usuario> <novaSenha>`. Gera salt novo e grava
+  `scryptSync(senha, salt, 64)` — o mesmo hash do `store.ts`, senão o login
+  recusa. Faz backup por `VACUUM INTO` antes (cópia de arquivo não serve: em WAL
+  o `.db` sozinho está desatualizado). ⚠️ **Pare o servidor antes.**
+- ⚠️ **"Não consigo logar" foi o servidor fora do ar, não senha.** O `npm run
+  dev` sobe cliente (5173) e servidor (8080) em paralelo; o Vite sobreviveu a um
+  Ctrl+C e o servidor não. Sintoma: a tela de login aceita o clique e nada
+  acontece. **Confira a 8080 antes de suspeitar de credencial.**
+
+---
+
 # Handoff — estado do projeto em 2026-08-16
 
 ## ⏸️ ONDE PARAMOS — para quem pegar daqui
@@ -41,10 +113,33 @@ ser igual o tibia, a gente continua vendo o lado de fora"*.
 
 ### 🎯 A PRÓXIMA COISA, em ordem
 
-1. ⏳ **Afinar tamanho de móvel.** O bloco de cada um está em
-   `shared/src/buildings.ts` (as plantas em texto). Mexer é trocar letras e
-   recarregar — mas **rode `npm test` depois**: há um teste que anda pela planta
-   e pega móvel que fecha caminho, coisa que a olho não se vê.
+1. ✅ **Afinar tamanho de móvel — FEITO em 24/08.** Ver abaixo. O bloco de cada
+   um continua em `shared/src/buildings.ts` (as plantas em texto): mexer é
+   trocar letras e recarregar — mas **rode `npm test` depois**, há um teste que
+   anda pela planta e pega móvel que fecha caminho, coisa que a olho não se vê.
+
+   🔴 **A causa não estava na planta, estava no cliente.** O `makeMovel` escalava
+   o móvel pela **moldura** do PNG (todos são 64×64) em vez da **caixa medida do
+   desenho**, que ocupa de 62% a 91% da moldura e **numa proporção diferente em
+   cada arquivo**. Cada móvel saía encolhido por um fator próprio — a escada e o
+   armário perdiam mais de 50% do tamanho — e ainda flutuava até 5,5 px acima do
+   chão, porque a âncora `(0.5, 1)` apoiava no rodapé da moldura, que é
+   transparência. É o mesmo par de bugs que o `spritebox.ts` documenta ter
+   custado caro nas árvores, repetido no móvel; o conserto foi usar o que já
+   estava medido lá (`cheia`, `centro`, `base`, mais um `alta` novo).
+
+   ⚠️ Isso desmascarou um segundo problema: **o bloco também é a PROPORÇÃO**, não
+   só o tamanho. O cliente encaixa o desenho no bloco preservando a proporção,
+   então bloco desproporcional sobra chão bloqueado onde parece vazio. Os blocos
+   do térreo já batiam; no andar de cima o baú (2×1) enchia 49% da largura, e a
+   cama e o armário 75%. Agora: **baú 1×1, cama 2×2, armário 2×3, e a escada do
+   superior virou 2×3** — ela era 2×2 e desenhava o MESMO sprite num tamanho
+   diferente do térreo.
+
+   ⚠️ Junto foi embora a tabela `LARGURA` de `client/src/furniture.ts`: era
+   código morto (o `makeMovel` nunca a leu) e, pior, uma segunda fonte para o
+   tamanho. Quem for afinar móvel daqui em diante mexe **só nas letras da
+   planta**.
 2. ⏳ **Mover a casa para o vilarejo.** Hoje ela está em posição de TESTE. O
    lugar é perto do `WORLD_SPAWN` (150,158), remontando Lumindale.
    🔴 Mexe no `SAFE_ZONE_RADIUS` — **não pegue sem falar com o dono.**
