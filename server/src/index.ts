@@ -1502,9 +1502,12 @@ function spawnCreature(
  * troca do mapa faria um commit que ninguém consegue revisar.
  */
 function spawnInitialCreatures(): void {
-  // Snake, Rotworm, Coelho, Javali e Aranha seguem DORMENTES a pedido: as
-  // CreatureDefs e os desenhos continuam no código, só não nascem. Para
-  // reintroduzir qualquer uma, basta uma linha no creatures.json.
+  // Snake, Rotworm, Javali e Aranha seguem DORMENTES a pedido: as CreatureDefs
+  // e os desenhos continuam no código, só não nascem. Para reintroduzir
+  // qualquer uma, basta uma linha no creatures.json.
+  //
+  // ⚠️ O Coelho SAIU dessa lista em 2026-08-29: ele voltou a nascer junto com o
+  // resto do pasto (Cabra, Ganso, Cavalo e os filhotes), que ganhou arte.
   let fora = 0;
   for (const s of WORLD_CREATURE_SPAWNS) {
     if (!CREATURES[s.type]) {
@@ -4312,9 +4315,24 @@ function updateCreatures(now: number): void {
         const fy = c.tileY * 2 - perto.tileY;
         const step = stepToward(c.tileX, c.tileY, fx, fy, c.floor, avoidCenter, c.id);
         if (step) {
+          /*
+           * 🔴 A DIREÇÃO SAI ANTES DO PASSO, e a ordem é o bug inteiro.
+           *
+           * Estava assim: movia `c.tileX`/`c.tileY` para o destino e SÓ ENTÃO
+           * calculava `dirFromDelta(step.x - c.tileX, ...)` — que, depois da
+           * atribuição, é `step.x - step.x`, ou seja **zero nos dois eixos**.
+           * `dirFromDelta(0, 0, atual)` devolve a direção que já estava lá, e o
+           * bicho fugia sem nunca virar: andava de costas, de lado, de ré.
+           *
+           * ⚠️ O defeito é ANTIGO e só apareceu em 29/08 porque **fugir é
+           * exclusividade do pacífico**, e até a fauna de pasto entrar não havia
+           * uma única criatura pacífica nascendo no mundo. Os outros dois ramos
+           * (perseguir e perambular) sempre calcularam antes, e por isso nunca
+           * mostraram o problema.
+           */
+          c.direction = dirFromDelta(step.x - c.tileX, step.y - c.tileY, c.direction);
           c.tileX = step.x;
           c.tileY = step.y;
-          c.direction = dirFromDelta(step.x - c.tileX, step.y - c.tileY, c.direction);
           c.lastMoveAt = now;
         }
         continue; // fugir é a única coisa que ele faz

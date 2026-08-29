@@ -169,7 +169,7 @@ import type { Behavior } from './bestiary.js';
 export type CreatureFamily =
   | 'slime' | 'aranha' | 'formiga' | 'goblin' | 'lobo' | 'orc'
   | 'morto-vivo' | 'minotauro' | 'urso' | 'kobold' | 'troll'
-  | 'serpente' | 'fauna';
+  | 'serpente' | 'fauna' | 'ave' | 'golem';
 
 /**
  * 🔴 `DD-DROP-006` — material característico por FAMÍLIA.
@@ -234,9 +234,37 @@ export const FAMILY_MATERIALS: Record<CreatureFamily, Array<{ kind: string; chan
     { kind: 'troll_blood', chance: 0.25 },
   ],
   serpente: [{ kind: 'snake_skin', chance: 0.6 }],
-  // Fauna sem material próprio ainda (Coelho, Javali). Estão DORMENTES, então
-  // não quebram o `DD-DROP-001` na prática — mas a lista vazia é um lembrete.
-  fauna: [],
+  /*
+   * 🔴 **A lista da fauna DEIXOU DE SER VAZIA em 2026-08-29**, e não por
+   * capricho: enquanto Coelho e Javali estavam dormentes (não nasciam no mapa),
+   * a lista vazia não quebrava o `DD-DROP-001` na prática — era só um lembrete.
+   * Com sete espécies de pasto nascendo perto da vila, ela passaria a ser
+   * exatamente o que o `DD-DROP-001` proíbe: bicho que só dá XP.
+   *
+   * Um material por família, como a serpente. O couro é o insumo de costura que
+   * o iniciante consegue ANTES de encontrar lobo — que é o papel do pasto.
+   */
+  fauna: [{ kind: 'animal_hide', chance: 0.55 }],
+  /*
+   * ⚠️ **`ave` é família nova, e existe por causa da pena.** Ganso não é
+   * mamífero e largar couro seria errado; e a família `pena` do Material Bible
+   * estava declarada sem nenhum material, com o comentário "não há criatura
+   * voadora" em `materials.ts`. Agora há.
+   */
+  ave: [{ kind: 'feather', chance: 0.65 }],
+  /*
+   * ⚠️ **`golem` é família de UM só, e isso é aceitável aqui.** `DD-DROP-006`
+   * quer material por FAMÍLIA para o jogador aprender uma vez e a lição servir
+   * para a linha inteira — e uma linha de golens é conteúdo previsto (o pack
+   * traz três: terra, pedra e lava). O segundo entra sem tocar nesta tabela.
+   *
+   * ⚠️ **0,45 é TETO, não escolha:** `DD-DROP-002` quer que o material raro
+   * continue sendo evento, e há teste cravando `chance <= 0.45` para tudo que
+   * é `rare`. A primeira versão tinha 0,9 — "chefe não pode dar nada" — e o
+   * teste pegou. Quem quiser o núcleo garantido tem de baixar a raridade dele,
+   * e aí a regra passa a valer para o resto da família também.
+   */
+  golem: [{ kind: 'stone_core', chance: 0.45 }],
 };
 
 /**
@@ -281,9 +309,20 @@ export const CREATURE_FAMILY: Record<string, CreatureFamily> = {
   kobold_hunter: 'kobold',
   troll: 'troll',
   snake: 'serpente',
-  // Fauna sem material próprio ainda — as duas estão DORMENTES.
+  // Fauna de pasto. O Javali continua DORMENTE (não nasce no mapa); os outros
+  // passaram a nascer em 2026-08-29, junto com a arte da CraftPix.
   rabbit: 'fauna',
+  rabbit_cub: 'fauna',
+  goat: 'fauna',
+  goatling: 'fauna',
+  horse: 'fauna',
+  foal: 'fauna',
   boar: 'fauna',
+  // Aves. Os dois únicos, e a razão de a família existir.
+  goose: 'ave',
+  gosling: 'ave',
+  // Construtos. O chefe de pedra; os irmãos de terra e lava seguem no pack.
+  golem: 'golem',
 };
 
 /** Materiais característicos que esta espécie pode largar (`DD-DROP-006`). */
@@ -408,6 +447,131 @@ export const CREATURES: Record<string, CreatureDef> = {
     attackCooldownMs: 9999,
     moveCooldownMs: 900, // o mais ágil da fauna
     xpReward: 6,
+    goldMin: 0,
+    goldMax: 2,
+  },
+  // === Fauna de pasto (pack CraftPix, 2026-08-29) ==========================
+  //
+  // 🔴 **Sete espécies que existem porque a ARTE existe**, e a ordem é essa
+  // mesma: o pack veio com oito bichos animados em quatro direções, e o Coelho
+  // acima já estava no bestiário desde sempre — os sete abaixo são os que
+  // faltavam para o pack inteiro entrar no mundo.
+  //
+  // 🔴 **Nenhum número aqui vem de doc.** O GDD não tem ficha de cabra. Todos
+  // são ⚠️ REFERÊNCIA, ancorados no Slime Verde (50 HP / 10 XP), que é a âncora
+  // canônica de `DD-BAL-027`: nada de pasto pode render mais que ele, porque
+  // isso faria caçar galinha valer mais que enfrentar monstro.
+  //
+  // ⚠️ **O filhote não é uma variante — é espécie própria**, porque o pack
+  // desenhou os dois separados. Cada par (adulto/filhote) divide comportamento
+  // e material, e difere em vida, XP e tamanho na tela.
+  rabbit_cub: {
+    type: 'rabbit_cub',
+    name: 'Coelhinho',
+    behavior: 'peaceful',
+    maxHp: 12,
+    strength: 0,
+    defense: 0,
+    aggroRange: 7, // o mais assustado do mapa: foge antes de todo mundo
+    attackCooldownMs: 9999,
+    moveCooldownMs: 800, // e o mais rápido a fugir
+    xpReward: 3,
+    goldMin: 0,
+    goldMax: 0,
+  },
+  goat: {
+    type: 'goat',
+    name: 'Cabra',
+    // NEUTRA, e não pacífica: cabra não foge, cabra dá marrada. É o degrau
+    // entre o Coelho (que só corre) e o Javali (que machuca de verdade).
+    behavior: 'neutral',
+    maxHp: 45,
+    strength: 7,
+    defense: 2,
+    aggroRange: 4,
+    attackCooldownMs: 1400,
+    moveCooldownMs: 1100,
+    xpReward: 10,
+    goldMin: 0,
+    goldMax: 3,
+  },
+  goatling: {
+    type: 'goatling',
+    name: 'Cabrito',
+    behavior: 'peaceful',
+    maxHp: 18,
+    strength: 0,
+    defense: 0,
+    aggroRange: 6,
+    attackCooldownMs: 9999,
+    moveCooldownMs: 1000,
+    xpReward: 4,
+    goldMin: 0,
+    goldMax: 1,
+  },
+  goose: {
+    type: 'goose',
+    name: 'Ganso',
+    // ⚠️ NEUTRO de propósito, e não é piada: ganso ataca quem chega perto. Um
+    // bicho de 30 de vida que revida ensina a ler comportamento sem punir —
+    // que é justamente o papel que o Slime tem para monstros.
+    behavior: 'neutral',
+    maxHp: 30,
+    strength: 4,
+    defense: 0,
+    aggroRange: 3, // curto: ele só briga com quem encosta
+    attackCooldownMs: 1200,
+    moveCooldownMs: 1000,
+    xpReward: 7,
+    goldMin: 0,
+    goldMax: 2,
+  },
+  gosling: {
+    type: 'gosling',
+    name: 'Filhote de Ganso',
+    behavior: 'peaceful',
+    maxHp: 10,
+    strength: 0,
+    defense: 0,
+    aggroRange: 6,
+    attackCooldownMs: 9999,
+    moveCooldownMs: 950,
+    xpReward: 3,
+    goldMin: 0,
+    goldMax: 0,
+  },
+  horse: {
+    type: 'horse',
+    name: 'Cavalo',
+    // NEUTRO e o mais forte do pasto: coice de cavalo dói. É também o mais
+    // RÁPIDO do mapa inteiro (800 ms/passo) — fugir dele a pé não funciona,
+    // e isso é a identidade da espécie, não desbalanceamento.
+    //
+    // ⚠️ Ele NÃO é montaria. Montar é sistema (protocolo, velocidade do
+    // jogador, arte do herói montado) e nada disso existe. Por ora é fauna
+    // grande, como o Urso.
+    behavior: 'neutral',
+    maxHp: 90,
+    strength: 10,
+    defense: 3,
+    aggroRange: 4,
+    attackCooldownMs: 1500,
+    moveCooldownMs: 800,
+    xpReward: 18,
+    goldMin: 0,
+    goldMax: 5,
+  },
+  foal: {
+    type: 'foal',
+    name: 'Potro',
+    behavior: 'peaceful',
+    maxHp: 35,
+    strength: 0,
+    defense: 1,
+    aggroRange: 6,
+    attackCooldownMs: 9999,
+    moveCooldownMs: 850,
+    xpReward: 8,
     goldMin: 0,
     goldMax: 2,
   },
@@ -1010,6 +1174,70 @@ export const CREATURES: Record<string, CreatureDef> = {
     // temporariamente sua velocidade de ataque (sem alterar sua velocidade de
     // deslocamento)." É a lição de FASES DE COMBATE.
     enrage: { hpPct: 0.5, attackSpeedMult: 0.6, durationMs: 12000 },
+  },
+
+  /**
+   * 🗿 **GOLEM DE PEDRA — o segundo chefe do mundo** (pack CraftPix, 29/08).
+   *
+   * ⚠️ **Nenhum número aqui vem de doc**: o GDD não tem ficha de golem. Todos
+   * são ⚠️ REFERÊNCIA, e foram postos por COMPARAÇÃO com o Super Slime, que é o
+   * único outro chefe e cuja ficha (`DD-BAL-036`) é canônica.
+   *
+   * O contraste com ele é de propósito, e é o que dá identidade aos dois:
+   *
+   * | | Super Slime | Golem |
+   * |---|---|---|
+   * | Vida | 500 | **900** |
+   * | Defesa | 8 | **18** — é o dobro, e é o ponto dele |
+   * | Passo | 700 ms (rápido) | **1800 ms (quase o Zumbi)** |
+   * | XP | 250 | **420** |
+   *
+   * 🔴 **O Super Slime pune quem não se prepara; o Golem pune quem bate no
+   * lugar errado.** Ele é lento a ponto de dar para fugir andando — a ameaça
+   * não é alcançar o jogador, é a parede de defesa: com 18 de defesa, dano
+   * físico baixo quase não o arranha, e é aí que entra a fraqueza abaixo.
+   *
+   * ⚠️ `moveCooldownMs` tem que continuar **abaixo de 2000**: o Zumbi é o mais
+   * lento do mapa por identidade de espécie, e há teste garantindo isso.
+   */
+  golem: {
+    type: 'golem',
+    name: 'Golem de Pedra',
+    // FANÁTICO, como o outro chefe: chefe que desiste e volta para casa no meio
+    // da luta transformaria a briga em perseguição chata.
+    behavior: 'fanatic',
+    boss: true,
+    maxHp: 900,
+    strength: 32,
+    defense: 18,
+    magicDefense: 6,
+    aggroRange: 7,
+    // Golpe lento e pesado: dá tempo de ler e sair de perto entre um e outro.
+    attackCooldownMs: 1900,
+    moveCooldownMs: 1800,
+    xpReward: 420,
+    goldMin: 350,
+    goldMax: 700,
+    respawnMs: 120000, // 2 min — chefe não pode virar rota de farm
+    avoidCenter: true, // não invade a praça segura, como o Super Slime
+    /**
+     * 🔴 A fraqueza é o CONSERTO da parede de defesa, não um enfeite.
+     *
+     * `defense` só corta dano **físico**; com 18, uma espada quase não o
+     * arranha. Sem uma saída, o Golem viraria uma esponja que se mata na
+     * paciência — que é o oposto de "ensinar preparação".
+     *
+     * ⚠️ Gelo e elétrico, e a escolha tem razão: pedra racha com choque
+     * térmico, e um corpo mineral conduz. Fogo NÃO entra — pedra não queima, e
+     * dar fraqueza a fogo faria dele mais um alvo do mesmo feitiço de sempre.
+     */
+    resistances: { ice: -0.4, electric: -0.35, physical: 0.2 },
+    // Soco no chão: mesma lição de POSICIONAMENTO do Super Slime, mais forte e
+    // mais espaçado — o corpo dele é grande e o jogador vê o braço subir.
+    slam: { power: 30, radius: 2, range: 4, cooldownMs: 12000, damageType: 'physical' },
+    // Aos 40 %, e não aos 50 % do Super Slime: com 900 de vida, 50 % chegaria
+    // cedo demais e a fúria duraria metade da luta.
+    enrage: { hpPct: 0.4, attackSpeedMult: 0.65, durationMs: 14000 },
   },
 };
 

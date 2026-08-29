@@ -9,9 +9,14 @@
  * Se faltar qualquer coisa, o carregador devolve `null` e o jogo cai no
  * MiniWorld. Nada aqui pode derrubar o carregamento: é arte.
  *
- * ⚠️ **O pack em uso NÃO tem `idle` nem `hurt`**, e os dois têm queda
- * conhecida: sem `idle` o motor congela no quadro 0 do `walk`, que é justamente
- * a pose parada; sem `hurt` ele pisca vermelho, como sempre fez.
+ * ⚠️ **Nenhum pack tem `hurt`**, e a queda é conhecida: sem ele o motor pisca
+ * vermelho, como sempre fez. (Sem `idle` ele congelaria no quadro 0 do `walk`,
+ * que é a pose parada — mas os dois packs têm `idle`.)
+ *
+ * 🔴 **O pack é ESCOLHIDO POR CLASSE** desde 2026-08-29 — ver `PACK_DA_CLASSE`.
+ * O Knight lê `/assets/classes` (o antigo, com os cinco golpes) e as outras três
+ * leem `/assets/classes-pixellab`. Nenhuma medida de tira pode ser constante de
+ * módulo por causa disso.
  *
  * Para regerar (ver `docs/PIXELLAB-RECEITA.md`):
  *
@@ -138,73 +143,95 @@ export function outfitDaUrl(): Outfit | null {
 }
 
 /**
- * De onde vem a arte de classe.
+ * Um pack de arte de classe: a pasta e as CINCO medidas que vêm com ela.
  *
- * 🔴 **É o pack do PixelLab desde 2026-08-10**, gerado por
- * `tools/pixellab/gerar-classe.mjs` e montado em tiras pelo
- * `tools/pixellab2strip.mjs`. O pack antigo (render 3D reduzido) continua
- * versionado em `/assets/classes` — para voltar atrás, troque esta linha **e as
- * cinco constantes abaixo**, que são de outro tamanho. Não dá para trocar só uma.
- *
- * | | pack antigo (`classes`) | PixelLab (`classes-pixellab`) |
- * |---|---|---|
- * | `CELL` | 60 | 64 |
- * | `CONTENT_H` | 30 | 58 |
- * | `FEET_Y` | 44 | 60 |
- * | `CENTER_X` | 29.5 | 31.5 |
- * | `TARGET_H` | 60 | 58 |
+ * 🔴 **As seis andam JUNTAS, e é por isso que viraram um objeto.** Até
+ * 2026-08-29 elas eram seis constantes soltas no módulo, com um comentário
+ * pedindo para "trocar as cinco ao mesmo tempo" — trocar a pasta sem trocar os
+ * números enterra ou levanta o herói no chão. Agrupadas, não há como esquecer
+ * uma; e como a escolha passou a ser **por classe**, soltas elas nem serviriam.
  */
-const BASE = '/assets/classes-pixellab';
-
-/** Lado da célula nas tiras. O PixelLab entrega 64x64. */
-const CELL = 64;
+interface Pack {
+  /** Pasta em `client/public`. */
+  base: string;
+  /** Lado da célula nas tiras. */
+  cell: number;
+  /** Altura do bounding box de ALPHA do conteúdo, medida — não a moldura. */
+  contentH: number;
+  /** Linha da sola dentro da célula. O conversor GARANTE o pé aqui. */
+  feetY: number;
+  /** Centro horizontal médio do conteúdo. */
+  centerX: number;
+  /** Altura de tela que o conteúdo deve ocupar (~2 tiles). */
+  targetH: number;
+}
 
 /**
- * Altura de tela que o CONTEÚDO do herói deve ocupar (~2 tiles).
+ * O pack do PixelLab, gerado por `tools/pixellab/gerar-classe.mjs` e montado em
+ * tiras por `tools/pixellab2strip.mjs`.
  *
- * 🔴 **`TARGET_H === CONTENT_H`, ou seja escala 1,0× — e é o melhor caso que
- * existe: não há serrilhado de escala quando não há escala.** O sprite é
- * desenhado exatamente no tamanho em que foi criado.
+ * 🔴 **`targetH === contentH`, ou seja escala 1,0× — o melhor caso que existe:
+ * não há serrilhado de escala quando não há escala.** O sprite é desenhado
+ * exatamente no tamanho em que foi criado.
  *
- * Vale a história, porque ela explica as duas constantes: o pack antigo tinha
- * 30 px de conteúdo desenhados a 64 → **2,133×**, e numa escala fracionária com
- * filtragem `nearest` cada pixel vira 2 pixels de tela ou 3, em faixas
- * alternadas. Era o defeito que mais saltava aos olhos. Passou a 60 (2,0×
- * exato) e, com o pack do PixelLab, a 1,0×.
+ * 🔴 **`feetY` não é chute:** `tools/pixellab2strip.mjs` mede o chão de cada
+ * quadro e desce/sobe o quadro inteiro para o pé cair em `GROUND_Y = 60`. **São
+ * o mesmo número em dois arquivos** — mudar um sem o outro enterra as classes.
  *
- * ⚠️ Quem trocar o pack tem que fechar a conta de novo: **`TARGET_H` tem que ser
- * múltiplo inteiro de `CONTENT_H`.** Qualquer outro valor devolve o serrilhado.
- */
-const TARGET_H = 58;
-
-/**
- * Medidas do bounding box de ALPHA, não da moldura do PNG.
- *
- * 🔴 É a lição que o `spritebox.ts` já tinha aprendido à força: tratar o quadro
- * como se fosse a arte fez a árvore boiar acima da sombra e tudo sair com metade
- * do tamanho pedido.
- *
- * ⚠️ A âncora é **uma só para as quatro direções** porque `makeMiniActor` aceita
- * um valor só. Ancorar pela direção de frente jogaria o erro inteiro nas
- * laterais, e o personagem daria um pulinho lateral toda vez que virasse.
- *
- * 🔴 **`FEET_Y` não é chute: o conversor GARANTE a sola nesta linha.**
- * `tools/pixellab2strip.mjs` mede o chão de cada quadro e desce/sobe o quadro
- * inteiro para o pé cair em `GROUND_Y = 60`. **São o mesmo número em dois
- * arquivos** — mudar um sem o outro enterra ou levanta as quatro classes.
- *
- * ⚠️ **`CONTENT_H` é o mesmo para as quatro, e a variação real é de propósito.**
+ * ⚠️ **`contentH` é o mesmo para as quatro, e a variação real é de propósito.**
  * Medido: Arqueiro 55, Knight 58, Feiticeiro 59, Assassino 60. Como a escala é
- * 1,0×, cada classe é desenhada no seu tamanho natural — o Arqueiro sai um
- * pouco mais baixo que o Assassino, e isso é a arte, não erro de âncora.
+ * 1,0×, cada classe sai no seu tamanho natural — o Arqueiro um pouco mais baixo
+ * que o Assassino, e isso é a arte, não erro de âncora.
  *
- * ⚠️ **`CENTER_X` é média medida, e é de propósito.** O centro horizontal varia
+ * ⚠️ **`centerX` é média medida, e é de propósito.** O centro horizontal varia
  * dentro do ciclo de passos, mas essa variação é a PERNA ALTERNANDO —
  * normalizá-la como se fosse erro congelaria a caminhada.
  */
-const CONTENT_H = 58;
-const FEET_Y = 60;
-const CENTER_X = 31.5;
+const PACK_PIXELLAB: Pack = {
+  base: '/assets/classes-pixellab',
+  cell: 64, contentH: 58, feetY: 60, centerX: 31.5, targetH: 58,
+};
+
+/**
+ * O pack ANTIGO — render 3D reduzido, montado por `tools/frames2strip.mjs`.
+ * Entrou em 09/08, saiu em 10/08 quando o PixelLab chegou, e **voltou para o
+ * Knight em 29/08 por decisão do dono**.
+ *
+ * ✅ **É o único pack com CINCO golpes** (`sword`, `spear`, `bow`, `staff` e o
+ * `dagger` por fallback). O do PixelLab só tem `attack_sword`, e é isso que faz
+ * o `attackPoseFallback` empurrar arma nenhuma para o gesto de espada.
+ *
+ * 🔴 **A escala aqui é 2,0×, e o número é escolhido, não herdado.** 30 px de
+ * conteúdo desenhados a **60** dão o dobro exato. ⚠️ Desenhá-lo a 64, como já
+ * foi feito, dá **2,133×** — e em escala fracionária com filtragem `nearest`
+ * cada pixel do desenho vira 2 pixels de tela ou 3, em faixas alternadas. Era o
+ * serrilhado que custou a sessão de 10/08. **`targetH` tem que ser múltiplo
+ * INTEIRO de `contentH`; qualquer outro valor traz o defeito de volta.**
+ */
+const PACK_ANTIGO: Pack = {
+  base: '/assets/classes',
+  cell: 60, contentH: 30, feetY: 44, centerX: 29.5, targetH: 60,
+};
+
+/**
+ * Que pack cada classe usa. Ausente = `PACK_PIXELLAB`.
+ *
+ * 🔴 **O Knight voltou ao pack antigo em 2026-08-29, a pedido do dono**, que
+ * viu em tela e disse que o do PixelLab não servia. As outras três continuam no
+ * PixelLab — ele não reclamou delas, e mexer nelas seria decidir por ele.
+ *
+ * ⚠️ **Misturar packs é visível, e é a troca aceita conscientemente:** o Knight
+ * passa a ser desenhado a 2,0× a partir de 30 px de conteúdo, enquanto as
+ * outras três saem a 1,0× a partir de ~58. A âncora do pé e o `targetH` fazem
+ * os quatro pisarem na mesma linha e terem quase a mesma altura de tela, então
+ * o que muda é a **densidade do desenho**: o Knight fica com o pixel duas vezes
+ * maior que o das colegas. É o preço de ter os cinco golpes de volta.
+ */
+const PACK_DA_CLASSE: Partial<Record<PlayerClass, Pack>> = {
+  knight: PACK_ANTIGO,
+};
+
+const packDe = (cls: PlayerClass): Pack => PACK_DA_CLASSE[cls] ?? PACK_PIXELLAB;
 
 /** Uma classe com arte HD carregada. */
 export interface HeroArt {
@@ -247,7 +274,7 @@ const COM_ARTE: PlayerClass[] = [...HERO_ART_CLASSES];
  * diferentes (andar tem 4, golpe tem 9) e hardcodar isso quebraria calado na
  * primeira arte reexportada com outra contagem.
  */
-async function fatia(path: string, pintar?: Pintor): Promise<DirAnim> {
+async function fatia(path: string, cell: number, pintar?: Pintor): Promise<DirAnim> {
   // 🔴 Com outfit o caminho é OUTRO: `Assets.load` devolve textura de GPU, e
   // recolorir exige os pixels na mão. Passa pelo canvas 2D, como `spritebox.ts`
   // já faz pelo mesmo motivo. Sem outfit continua o caminho de sempre — nada
@@ -259,12 +286,12 @@ async function fatia(path: string, pintar?: Pintor): Promise<DirAnim> {
     ? Texture.from(pintar(await loadImage(path)))
     : await Assets.load<Texture>(path);
   sheet.source.scaleMode = 'nearest'; // pixel-art nítido ao escalar
-  const cols = Math.max(1, Math.round(sheet.width / CELL));
+  const cols = Math.max(1, Math.round(sheet.width / cell));
   const linha = (r: number): Texture[] =>
     Array.from({ length: cols }, (_, i) =>
       new Texture({
         source: sheet.source,
-        frame: new Rectangle(i * CELL, r * CELL, CELL, CELL),
+        frame: new Rectangle(i * cell, r * cell, cell, cell),
       }),
     );
   return { down: linha(0), up: linha(1), right: linha(2), left: linha(3) };
@@ -274,9 +301,11 @@ async function fatia(path: string, pintar?: Pintor): Promise<DirAnim> {
 type Pintor = (img: HTMLImageElement) => HTMLCanvasElement;
 
 /** Tenta cortar uma tira opcional. Ausente vira `undefined`, sem barulho. */
-async function fatiaOpcional(path: string, pintar?: Pintor): Promise<DirAnim | undefined> {
+async function fatiaOpcional(
+  path: string, cell: number, pintar?: Pintor,
+): Promise<DirAnim | undefined> {
   try {
-    return await fatia(path, pintar);
+    return await fatia(path, cell, pintar);
   } catch {
     return undefined;
   }
@@ -289,9 +318,9 @@ async function fatiaOpcional(path: string, pintar?: Pintor): Promise<DirAnim | u
  * aceita outfit e desenha com a cor original. Nada aqui pode derrubar o
  * carregamento — é arte.
  */
-async function carregaGrupos(cls: PlayerClass): Promise<Grupos | null> {
+async function carregaGrupos(cls: PlayerClass, base: string): Promise<Grupos | null> {
   try {
-    const r = await fetch(`${BASE}/${cls}/grupos.json`);
+    const r = await fetch(`${base}/${cls}/grupos.json`);
     if (!r.ok) return null;
     const g = (await r.json()) as Grupos;
     return g.grupos && g.cores ? g : null;
@@ -309,38 +338,52 @@ async function carregaGrupos(cls: PlayerClass): Promise<Grupos | null> {
  * Quem entra nesta lista tem que ter as duas coisas; quem não entra continua
  * com o corpo armado de sempre e sem camada nenhuma.
  *
- * ⚠️ Só o Knight, porque só ele foi desarmado. As outras três continuam no pack
- * antigo, e isso é estado esperado, não pendência esquecida.
+ * ⚠️ Só o Knight foi desarmado. As outras três nunca tiveram camada, e isso é
+ * estado esperado, não pendência esquecida.
+ *
+ * 🔴 **VAZIO desde 2026-08-29, por decisão do dono: o Knight desarmado ficou
+ * feio em tela e ele mandou voltar ao corpo ARMADO do PixelLab.** Nada foi
+ * apagado — `classes-layered/` continua versionado, `loadEquipArt` e
+ * `pecaDaArma` continuam de pé e testados. **Religar é pôr `'knight'` de volta
+ * nesta linha**, e só nela.
+ *
+ * ⚠️ Quem religar tem que lembrar por que a camada existia: no corpo armado a
+ * arma é PINTADA, então lança, arco e cajado do Knight continuam parecendo a
+ * espada dele — foi o defeito nº 1 da lista de 12/08. A camada resolvia isso;
+ * o corpo armado o traz de volta em troca de um sprite melhor de olhar.
  */
-const COM_CAMADA: ReadonlySet<PlayerClass> = new Set<PlayerClass>(['knight']);
+const COM_CAMADA: ReadonlySet<PlayerClass> = new Set<PlayerClass>([]);
 
 export const temCamada = (cls: PlayerClass): boolean => COM_CAMADA.has(cls);
 
 async function carregaClasse(cls: PlayerClass, outfit: Outfit | null): Promise<HeroArt | null> {
-  const raiz = COM_CAMADA.has(cls) ? BASE_LAYERED : BASE;
-  const p = (nome: string) => `${raiz}/${cls}/${nome}.png`;
+  // ⚠️ O pack em camadas ganha do pack da classe: quem tem corpo desarmado tem
+  // que ler o corpo desarmado, senão a arma seria desenhada duas vezes. Ele usa
+  // as medidas do PixelLab porque saiu dele — mesma célula, mesmo chão.
+  const pack = COM_CAMADA.has(cls) ? { ...PACK_PIXELLAB, base: BASE_LAYERED } : packDe(cls);
+  const p = (nome: string) => `${pack.base}/${cls}/${nome}.png`;
 
-  const grupos = outfit ? await carregaGrupos(cls) : null;
+  const grupos = outfit ? await carregaGrupos(cls, pack.base) : null;
   const pintar: Pintor | undefined = grupos && outfit
     ? (img) => recolore(img, grupos, outfit)
     : undefined;
 
   let walk: DirAnim;
   try {
-    walk = await fatia(p('walk'), pintar);
+    walk = await fatia(p('walk'), pack.cell, pintar);
   } catch {
     return null; // sem ciclo de passos não há o que mostrar — cai no MiniWorld
   }
 
   const [idle, hurt, death, sword, dagger, spear, bow, staff] = await Promise.all([
-    fatiaOpcional(p('idle'), pintar),
-    fatiaOpcional(p('hurt'), pintar),
-    fatiaOpcional(p('death'), pintar),
-    fatiaOpcional(p('attack_sword'), pintar),
-    fatiaOpcional(p('attack_dagger'), pintar),
-    fatiaOpcional(p('attack_spear'), pintar),
-    fatiaOpcional(p('attack_bow'), pintar),
-    fatiaOpcional(p('attack_staff'), pintar),
+    fatiaOpcional(p('idle'), pack.cell, pintar),
+    fatiaOpcional(p('hurt'), pack.cell, pintar),
+    fatiaOpcional(p('death'), pack.cell, pintar),
+    fatiaOpcional(p('attack_sword'), pack.cell, pintar),
+    fatiaOpcional(p('attack_dagger'), pack.cell, pintar),
+    fatiaOpcional(p('attack_spear'), pack.cell, pintar),
+    fatiaOpcional(p('attack_bow'), pack.cell, pintar),
+    fatiaOpcional(p('attack_staff'), pack.cell, pintar),
   ]);
 
   const attacks: Partial<Record<AttackPose, DirAnim>> = {};
@@ -356,10 +399,10 @@ async function carregaClasse(cls: PlayerClass, outfit: Outfit | null): Promise<H
     hurt,
     death,
     attacks,
-    scale: TARGET_H / CONTENT_H,
-    anchorX: CENTER_X / CELL,
-    anchorY: FEET_Y / CELL,
-    labelTop: -TARGET_H + 26,
+    scale: pack.targetH / pack.contentH,
+    anchorX: pack.centerX / pack.cell,
+    anchorY: pack.feetY / pack.cell,
+    labelTop: -pack.targetH + 26,
   };
 }
 
@@ -422,9 +465,12 @@ export function pecaDaArma(hold: Hold): EquipPiece | null {
 
 async function carregaPeca(cls: PlayerClass, peca: EquipPiece): Promise<EquipArt | null> {
   const p = (anim: string) => `${BASE_LAYERED}/${cls}/arma-${peca}-${anim}.png`;
+  // A tira de arma tem a mesma célula e o mesmo layout de linhas do corpo
+  // desarmado, por construção do `armas2strip.mjs` — daí a medida do PixelLab.
+  const c = PACK_PIXELLAB.cell;
   const [walk, pose, attack, idle] = await Promise.all([
-    fatiaOpcional(p('walk')), fatiaOpcional(p('pose')),
-    fatiaOpcional(p('attack_sword')), fatiaOpcional(p('idle')),
+    fatiaOpcional(p('walk'), c), fatiaOpcional(p('pose'), c),
+    fatiaOpcional(p('attack_sword'), c), fatiaOpcional(p('idle'), c),
   ]);
   // ⚠️ `idle` cai na pose se faltar: o corpo respira e a arma fica parada, que é
   // feio mas não quebra. Faltar `walk` ou `pose`, sim, invalida a peça.
@@ -514,14 +560,17 @@ const ARMA_DO_RETRATO: Partial<Record<PlayerClass, EquipPiece>> = {
  * do cartão.
  */
 export function heroIconCss(cls: PlayerClass, boxPx: number): string {
-  const s = boxPx / CELL;
-  const raiz = COM_CAMADA.has(cls) ? BASE_LAYERED : BASE;
+  // 🔴 A célula sai do PACK DA CLASSE, não de uma constante do módulo. Desde que
+  // o Knight voltou ao pack antigo (60 px) e as outras três seguem no PixelLab
+  // (64), um número fixo aqui recortaria o retrato de alguém pela metade.
+  const pack = COM_CAMADA.has(cls) ? { ...PACK_PIXELLAB, base: BASE_LAYERED } : packDe(cls);
+  const s = boxPx / pack.cell;
   const peca = COM_CAMADA.has(cls) ? ARMA_DO_RETRATO[cls] : undefined;
   const urls = [
-    ...(peca ? [`url('${raiz}/${cls}/arma-${peca}-pose.png')`] : []),
-    `url('${raiz}/${cls}/pose.png')`,
+    ...(peca ? [`url('${pack.base}/${cls}/arma-${peca}-pose.png')`] : []),
+    `url('${pack.base}/${cls}/pose.png')`,
   ];
-  const tamanho = `${CELL * s}px ${CELL * 4 * s}px`;
+  const tamanho = `${pack.cell * s}px ${pack.cell * 4 * s}px`;
   return (
     `background-image:${urls.join(',')};image-rendering:pixelated;` +
     `background-repeat:no-repeat;background-position:0 0;` +

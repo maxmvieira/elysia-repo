@@ -46,3 +46,8 @@ COUPON.png
 # Fica ignorado em vez de apagado para não voltar a ser baixado por engano. Pode
 # apagar a pasta à vontade; a decisão está registrada aqui e no HANDOFF.
 map/Tiled/
+
+# Forquilha de recurso que o macOS enfia em todo zip aberto por lá. É metadado
+# do sistema de arquivos, não arte: cada pasta `__MACOSX` só espelha a irmã ao
+# lado com arquivos `._` vazios. ~1 MB por pack baixado, e zero uso.
+__MACOSX/

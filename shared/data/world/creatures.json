@@ -4,7 +4,38 @@
 
   "_enxugado_2026_08_05": "🔴 A lista caiu de 32 spawns para 10, e de 21 especies para 4, a pedido do dono vendo em tela ('tem muuuito monstro'). Ficaram Slime Verde, Slime Azul, Zumbi e o Super Slime, este ultimo empurrado para longe (dist 44). O CREATURE_RESPAWN_MS tambem subiu de 8s para 45s no servidor -- os dois se somam, entao mexer num sem olhar o outro engana. NADA FOI PERDIDO: a lista antiga inteira esta em _removidos abaixo, e voltar e recortar de volta para spawns. ⚠️ CONSEQUENCIA REAL: 17 especies sumiram do mundo, e com elas a UNICA origem de varios materiais do Doc 4 (osso, escama, chifre, garra, presa vem de morto-vivo, lobo, urso, orc, troll). Fabricacao que dependa disso fica sem insumo ate a lista voltar ou o passo 4 (povoar por regiao) acontecer.",
 
+  "_fauna_2026_08_29": "🔴 O PASTO ENTROU: 14 spawns de fauna, das 8 especies do pack CraftPix (arte por npm run animals:build). Nao sao monstros e nao contam para o 'tem muuuito monstro' de 05/08 -- Coelho, Cabrito, Filhote de Ganso, Potro e Coelhinho sao PACIFICOS (nunca atacam, sempre fogem); Cabra, Ganso e Cavalo sao NEUTROS (so revidam). Todos estao entre distancia 13 e 20 da vila (150,158), ou seja FORA da praca segura, que tem raio 12: bicho nascido dentro dela ficaria travado, porque creatureCanEnter barra a praca para toda criatura. Ficaram ao NORTE e a OESTE de proposito, do lado oposto aos zumbis (180,158 e 176,172), para dar para testar o pasto sem esbarrar em Tier III.",
+
+  "_teste_2026_08_29": "⚠️ AS 8 LINHAS ABAIXO SAO ANDAIME, e da para apagar todas sem pensar. O dono estava em (231,185) quando o pasto entrou -- 81 tiles da vila, e como SNAPSHOT_RANGE e 32 o servidor nem mandava os bichos do pasto para ele. Este grupo poe UMA de cada especie ao lado dele, so para ver as oito de uma vez. O pasto de verdade e o bloco seguinte, perto da vila.",
+
   "spawns": [
+    { "type": "horse", "x": 230, "y": 181 },
+    { "type": "foal", "x": 231, "y": 182 },
+    { "type": "goat", "x": 234, "y": 183 },
+    { "type": "goatling", "x": 235, "y": 184 },
+    { "type": "goose", "x": 229, "y": 188 },
+    { "type": "gosling", "x": 228, "y": 189 },
+    { "type": "rabbit", "x": 233, "y": 187 },
+    { "type": "rabbit_cub", "x": 234, "y": 188 },
+
+    { "type": "goat", "x": 144, "y": 142 },
+    { "type": "goat", "x": 147, "y": 141 },
+    { "type": "goat", "x": 152, "y": 140 },
+    { "type": "goatling", "x": 145, "y": 143 },
+    { "type": "goatling", "x": 150, "y": 141 },
+
+    { "type": "goose", "x": 136, "y": 166 },
+    { "type": "goose", "x": 134, "y": 168 },
+    { "type": "gosling", "x": 135, "y": 167 },
+    { "type": "gosling", "x": 133, "y": 169 },
+
+    { "type": "rabbit", "x": 160, "y": 144 },
+    { "type": "rabbit", "x": 140, "y": 172 },
+    { "type": "rabbit_cub", "x": 161, "y": 145 },
+
+    { "type": "horse", "x": 156, "y": 138 },
+    { "type": "foal", "x": 157, "y": 139 },
+
     { "type": "slime", "x": 138, "y": 154 },
     { "type": "slime", "x": 162, "y": 154 },
     { "type": "slime", "x": 146, "y": 146 },
@@ -17,7 +48,9 @@
     { "type": "zombie", "x": 180, "y": 158 },
     { "type": "zombie", "x": 176, "y": 172 },
 
-    { "type": "super_slime", "x": 172, "y": 202 }
+    { "type": "super_slime", "x": 172, "y": 202 },
+
+    { "type": "golem", "x": 128, "y": 196 }
   ],
 
   "_removidos": [

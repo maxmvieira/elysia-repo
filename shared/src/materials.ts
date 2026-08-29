@@ -161,9 +161,10 @@ function mat(
  * Cristais estavam proibidos por esta regra — e a consequência era dura: **o
  * Ferreiro não tinha minério e o Alquimista não tinha erva.**
  *
- * ⚠️ O que **continua** de fora: Penas (não há criatura voadora) e as famílias
- * que dependem de conteúdo inexistente. A regra não mudou; só deixou de bloquear
- * o que agora tem origem.
+ * ✅ **Penas entraram em 2026-08-29**, pelo mesmo critério: o Ganso e o Filhote
+ * de Ganso passaram a nascer no mundo, então a família deixou de ser matéria sem
+ * origem. Era a única exceção anotada aqui — o que continua de fora são as
+ * famílias que dependem de conteúdo que não existe.
  */
 export const MATERIALS: Record<string, MaterialDef> = {
   // === Coleta e mineração (`44.1`) ==========================================
@@ -261,6 +262,35 @@ export const MATERIALS: Record<string, MaterialDef> = {
     'goblin_tooth', 'presa', 'humanoide', 'common', 'joalheria',
     'muito-leve', 'baixo',
     'Amarelado e afiado. Vira colar entre os próprios goblins e amuleto entre humanos.',
+  ),
+
+  // === Fauna de pasto (`DD-DROP-006`, família `fauna` e `ave`) =============
+  // Os dois materiais mais BAIXOS da cadeia, de propósito: são o que o
+  // iniciante consegue no pasto ao lado da vila, antes de haver lobo ou aranha.
+  animal_hide: mat(
+    'animal_hide', 'couro', 'animal', 'common', 'costura',
+    'leve', 'baixo',
+    'Couro fino de bicho de pasto. Não segura golpe, mas todo aprendiz de '
+    + 'costureiro estraga uns vinte antes de acertar a primeira bota.',
+  ),
+  feather: mat(
+    'feather', 'pena', 'animal', 'common', 'costura',
+    'muito-leve', 'baixo',
+    'Pena de ganso, dessas que ficam presas no barro da margem. Enche '
+    + 'travesseiro, empena flecha e, se for das grandes, vira pena de escrever.',
+  ),
+
+  // === Golens (chefe) =======================================================
+  stone_core: mat(
+    'stone_core', 'fragmento', 'elemental', 'rare', 'encantamento',
+    'pesado', 'alto',
+    'O caroço que fazia a pedra andar. Ainda morno, e some devagar — quem '
+    + 'guarda um diz que ele fica leve quando o dono original é vingado.',
+    // ⚠️ `physical`, e não "terra": os tipos de dano são SETE
+    // (`DD-ELM-002`) e terra não é um deles. O vocabulário é único de
+    // propósito — inventar um oitavo aqui abriria a porta para dois sistemas
+    // de elemento discordando, e há teste impedindo.
+    { affinity: 'physical' },
   ),
 
   // === Lobos (o exemplo literal do doc: couros, presas, pelos) =============

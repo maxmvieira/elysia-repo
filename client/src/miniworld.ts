@@ -326,7 +326,33 @@ function sliceDirSheet(sheet: Texture, cell: number): { anim: DirAnim; mirrored:
 }
 
 /**
- * 🔴 **Criaturas que JÁ TÊM folha desenhada, e o lado da célula de cada uma.**
+ * Como desenhar a folha de uma espécie.
+ *
+ * 🔴 **`scale` TEM QUE SER INTEIRO.** A filtragem é `nearest`: em escala
+ * fracionária um pixel do desenho vira 2 na tela e o vizinho vira 3, em faixas
+ * alternadas — o serrilhado que custou a sessão de 10/08 (a história está em
+ * `heroes.ts`). O tamanho final do bicho é **consequência** do multiplicador,
+ * não um alvo que se persegue com decimais.
+ *
+ * ⚠️ `anchorX`/`anchorY` são o bounding box de ALPHA medido, não a moldura da
+ * célula. Errar por 1 px faz o bicho flutuar ou afundar no chão, e é o tipo de
+ * defeito que ninguém acha olhando.
+ */
+export interface CreatureSheetCfg {
+  /** Lado da célula na tira, em px. */
+  cell: number;
+  /** Multiplicador de desenho. **Inteiro.** */
+  scale: number;
+  /** Centro horizontal do conteúdo, em fração da célula. */
+  anchorX?: number;
+  /** Linha do pé, em fração da célula. */
+  anchorY?: number;
+  /** Y do nome e da barra de vida, acima da cabeça. */
+  labelTop?: number;
+}
+
+/**
+ * 🔴 **Criaturas que JÁ TÊM folha desenhada, e como desenhar cada uma.**
  *
  * Esta lista é o interruptor: espécie que não está aqui continua no blob
  * placeholder colorido, e nem tenta carregar arquivo.
@@ -339,12 +365,46 @@ function sliceDirSheet(sheet: Texture, cell: number): { anim: DirAnim; mirrored:
  * 404. E o tamanho da célula **não dá para adivinhar** — uma folha de 4×4 células
  * de 32px tem exatamente as mesmas dimensões de uma de 2×2 de 64px.
  *
+ * 🔴 **Os oito animais abaixo NÃO foram digitados à mão: o bloco inteiro é
+ * impresso por `npm run animals:build`**, que mede o alpha de cada folha. Se a
+ * arte for reexportada, rode o conversor e cole a saída de novo — corrigir um
+ * número aqui sem passar por ele é como o pé sai do lugar.
+ *
+ * ⚠️ Nenhum deles tem `attack`, `hurt` nem `death`: o pack da CraftPix só traz
+ * andar e parado. O motor cai no que existe — sem `attack` volta o pulinho do
+ * placeholder, sem `hurt` pisca vermelho. Para bicho pacífico isso quase não
+ * aparece; para a Cabra e o Cavalo, que revidam, o golpe é o pulinho.
+ *
  * ⚠️ O Zumbi NÃO está aqui: ele usa `Zombie-alfa.png` na raiz, no formato LPC
  * antigo, com loader próprio (`loadZombieAnim`). Quando for redesenhado no
  * formato da spec, entra nesta lista e o loader antigo pode sair.
  */
-export const CREATURE_SHEETS: Record<string, number> = {
-  // Nada ainda. Exemplo de como fica: `forest_spider: 32,`
+export const CREATURE_SHEETS: Record<string, CreatureSheetCfg> = {
+  // --- Fauna da CraftPix (`npm run animals:build`) --------------------------
+  //
+  // 🔴 **2× em todos**, fechado com o dono em 2026-08-29 na terceira rodada. A
+  // lição está inteira no `ESCALA` de `tools/animals2strip.mjs`: perseguir uma
+  // ALTURA IGUAL para todos é que punha filhote maior que adulto. A CraftPix já
+  // desenhou as proporções certas dentro do pack, e um multiplicador único as
+  // preserva. A hierarquia sai sozinha, sem ninguém escolher número:
+  //   Cavalo 62 > Potro 54 > Ganso 52 > Cabra 50 > Coelho 42
+  //            > Cabrito 36 = Filhote de Ganso 36 > Coelhinho 30
+  // ⚠️ Os dois coelhos são a exceção ao 2×, pedida em 29/08: o Coelho no
+  // tamanho que o Coelhinho tinha, e o Coelhinho no tamanho do COGUMELO.
+  rabbit: { cell: 32, scale: 1, anchorX: 0.5, anchorY: 0.875, labelTop: -27 }, // 21px -> 21
+  rabbit_cub: { cell: 16, scale: 1, anchorX: 0.5, anchorY: 0.9375, labelTop: -21 }, // 15 -> 15
+  goat: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.8125, labelTop: -56 }, // 25 -> 50
+  goatling: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.8125, labelTop: -42 }, // 18 -> 36
+  goose: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.8125, labelTop: -58 }, // 26 -> 52
+  gosling: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.78125, labelTop: -42 }, // 18 -> 36
+  horse: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.65625, labelTop: -68 }, // 31 -> 62
+  foal: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.65625, labelTop: -60 }, // 27 -> 54
+
+  // --- Chefe (`npm run golem:build`) ---------------------------------------
+  // 🔴 O único com as CINCO animações: andar, parado, golpe, dano e morte. E o
+  // maior do mapa por larga margem — 142 px contra 62 do Cavalo e 60 do herói.
+  // ⚠️ As linhas 2 e 3 do pack vinham TROCADAS; quem inverte é o conversor.
+  golem: { cell: 128, scale: 2, anchorX: 0.49609375, anchorY: 0.7421875, labelTop: -148 },
 };
 
 /**

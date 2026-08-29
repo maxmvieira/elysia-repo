@@ -1,4 +1,56 @@
-# Handoff — estado do projeto em 2026-08-13
+# Handoff — estado do projeto em 2026-08-29
+
+## ⏸️ ONDE PARAMOS — 29/08, o dia dos BICHOS
+
+**Tudo abaixo foi visto em tela pelo dono e aprovado.** Typecheck limpo nos 3
+pacotes, **466 testes**. `npm run dev` → `localhost:5173`.
+
+### O que entrou
+
+| | |
+|---|---|
+| 🐐 **Fauna de pasto** | 8 espécies novas da CraftPix (cabra, ganso, cavalo, coelho + os 4 filhotes), 4 direções, andar e parado. `npm run animals:build` |
+| 🗿 **Golem de Pedra** | 2º chefe do jogo. **Único com as 5 animações** (andar/parado/golpe/dano/morte). Um só, em (128,196). `npm run golem:build` |
+| 📖 **Bestiário virou LIVRO** | Kit CraftPix: página esquerda = grade, direita = ficha. Tecla **B**. `npm run bestiario:build` |
+| 🎥 **Câmera** | `ZOOM` voltou de 2× para **1×** — decisão do dono, achou perto demais |
+| ⚔️ **Knight** | Voltou ao pack ANTIGO (`/assets/classes`), o dos **cinco golpes**. `COM_CAMADA` está vazio |
+
+### 🔴 Quatro bugs consertados, e três eram antigos
+
+1. **Moonwalk da fauna** (`server/src/index.ts`, ramo de fuga): a direção era
+   calculada **depois** de mover, então o delta dava sempre zero. Só apareceu
+   agora porque **fugir é exclusividade do pacífico**, e não havia nenhum no mapa.
+2. **Rastejar depois de renascer**: o ator entrava em `death` e não saía. O
+   gatilho do conserto é a **vida voltando no snapshot**, não uma mensagem nova —
+   `respawn` só chega a quem morreu, e foi essa assimetria que criou o defeito.
+3. **Não dava para parar de atacar**: `clearTarget` só existia no **Esc**. Agora
+   clicar de novo no mesmo alvo cancela, e o menu vira "🛑 Parar de atacar".
+4. **Clique no bestiário não pegava**: a grade era refeita a cada `stats`, e
+   clique cujo `mousedown` cai num nó que some não vira `click`. Agora só
+   redesenha quando a lista muda, e a escuta é delegada.
+
+### ⚠️ O que saber antes de mexer
+
+- 🔴 **ESCALA DE PIXEL ART É SEMPRE INTEIRA.** Fracionária devolve o serrilhado
+  em faixas de 10/08. Foi o que travou "todos do tamanho do cavalo": a faixa é
+  50–63 px, não um número.
+- 🔴 **A ordem das linhas do pack NÃO é padrão.** A fauna veio na ordem do jogo;
+  o **Golem veio com as linhas 2 e 3 TROCADAS**. Olhe a arte antes de converter —
+  errar aqui dá moonwalk.
+- ⚠️ **Só 8 das 28 espécies têm retrato no bestiário.** O kit traz 20 monstros
+  genéricos que não são os nossos. As outras 20 usam ícone desenhado por código
+  (agora com silhueta por família, não mais o blob verde de todo mundo).
+- ⚠️ **`assets/Farm/` entrou no repo e NÃO foi implementada.** Ninguém pediu.
+
+### 🎯 A PRÓXIMA COISA
+
+Continua sendo **as 7 skills do Guerreiro** — plano fechado, ⚠️ **falta a
+aprovação do dono** e as duas decisões dele sobre a hotbar. Ver o bloco de 13/08
+mais abaixo, que segue valendo inteiro.
+
+---
+
+# Handoff — 13/08 (bloco anterior)
 
 ## ⏸️ ONDE PARAMOS — retomar 14/08
 

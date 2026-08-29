@@ -1123,79 +1123,210 @@
         margin-top: 8px;
         font-variant-numeric: tabular-nums;
       }
-      /* Bestiário (tecla B) */
+      /* ---------- Bestiário (tecla B) — livro aberto da CraftPix ----------
+         🔴 TODA medida abaixo é MÚLTIPLA de 3, e não por estética: a arte é
+         pixel art de 272x192 desenhada para ampliar em escala INTEIRA. `--bs`
+         é essa escala e está em um lugar só; trocar para 2 encolhe o livro
+         inteiro sem desalinhar nada. Fracionário traz o serrilhado em faixas
+         que já custou uma sessão neste projeto (ver client/src/heroes.ts).
+         As áreas de página saem de BOOK, em client/src/bestiario.ts, medidas
+         varrendo a cor do papel — não são chute. */
       #bestiary {
+        --bs: 3;
+        --bw: calc(272px * var(--bs));
+        --bh: calc(192px * var(--bs));
         position: fixed;
-        top: 20px;
-        right: 260px;
-        width: 320px;
-        max-height: 80vh;
-        overflow-y: auto;
-        background: var(--panel);
-        border: 2px solid var(--border);
-        border-radius: 6px;
-        padding: 12px;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: var(--bw);
+        height: var(--bh);
+        background: url('/assets/ui/bestiary/page.png') no-repeat center;
+        background-size: var(--bw) var(--bh);
+        image-rendering: pixelated;
         display: none;
         z-index: 8;
         font-size: 12px;
+        /* O livro tem borda irregular e fundo próprio: nada de painel aqui. */
+        color: #4a3524;
       }
-      #bestiary h3 {
-        margin: 0 0 8px;
-        color: #c9a86a;
-        font-size: 14px;
+      /* 🔴 A fita fica ACIMA do livro e mal encosta nele. A primeira versão a
+         punha com 669px de largura e 171 de altura, e ela cobria o topo das
+         duas páginas — o "tá tudo em cima" relatado jogando. Agora a arte é só
+         o corpo da fita (130x40) e ela termina 6px depois de onde as páginas
+         começam, ou seja, sobre a margem, não sobre o texto. */
+      #best-ribbon {
+        position: absolute;
+        left: 50%;
+        top: calc(-24px * var(--bs));
+        transform: translateX(-50%);
+        width: calc(130px * var(--bs));
+        height: calc(40px * var(--bs));
+        background: url('/assets/ui/bestiary/ribbon.png') no-repeat center;
+        background-size: 100% 100%;
+        image-rendering: pixelated;
+        pointer-events: none;
+      }
+      #best-titulo {
+        position: absolute;
+        left: 0;
+        right: 0;
+        /* A barra plana da fita vai de y=0 a y=22 na arte; o texto assenta nela. */
+        top: calc(4px * var(--bs));
+        text-align: center;
+        font-size: calc(7px * var(--bs));
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #fdf1d8;
+        text-shadow: 0 2px 0 #8a3a18;
+      }
+      /* 🔴 O ✕ saiu de DENTRO da fita e foi para a capa do livro. Dentro dela
+         ele acompanhava a arte e acabava boiando fora do livro. */
+      #best-close {
+        position: absolute;
+        right: calc(10px * var(--bs));
+        top: calc(6px * var(--bs));
+        font-size: calc(6px * var(--bs));
+        color: #f0d8b0;
+        cursor: pointer;
+        text-shadow: 0 2px 0 #5a1a10;
+        z-index: 2;
+      }
+      #best-close:hover {
+        color: #fff;
+      }
+      /* Página ESQUERDA: a grade de espécies encontradas. */
+      #best-grid {
+        position: absolute;
+        left: calc(30px * var(--bs));
+        top: calc(14px * var(--bs));
+        width: calc(96px * var(--bs));
+        height: calc(144px * var(--bs));
+        overflow-y: auto;
+        overflow-x: hidden;
         display: flex;
-        justify-content: space-between;
+        flex-wrap: wrap;
+        align-content: flex-start;
+        gap: calc(3px * var(--bs));
+        scrollbar-width: thin;
+        scrollbar-color: #a4713f transparent;
       }
-      .brow2 {
-        border: 1px solid #241f18;
-        border-radius: 5px;
-        padding: 7px 8px;
-        margin-bottom: 6px;
-        background: #16130f;
+      /* Página DIREITA: a ficha da espécie selecionada. */
+      #best-ficha {
+        position: absolute;
+        left: calc(146px * var(--bs));
+        top: calc(14px * var(--bs));
+        width: calc(98px * var(--bs));
+        height: calc(144px * var(--bs));
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-width: thin;
+        scrollbar-color: #a4713f transparent;
       }
-      .brow2 .top {
+      /* Um encaixe da grade: moldura vazada + retrato/ícone dentro + nome. */
+      .bslot {
+        width: calc(20px * var(--bs));
+        cursor: pointer;
+        text-align: center;
+        background: none;
+        border: 0;
+        padding: 0;
+        font: inherit;
+        color: inherit;
+      }
+      .bslot > .moldura {
+        width: calc(20px * var(--bs));
+        height: calc(20px * var(--bs));
+        background: url('/assets/ui/bestiary/slot.png') no-repeat center;
+        background-size: 100% 100%;
+        image-rendering: pixelated;
         display: flex;
         align-items: center;
-        gap: 8px;
+        justify-content: center;
       }
-      .brow2 img {
-        width: 26px;
-        height: 26px;
+      .bslot img {
+        max-width: calc(16px * var(--bs));
+        max-height: calc(16px * var(--bs));
         image-rendering: pixelated;
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        background: #14110d;
       }
-      .brow2 .nm {
-        flex: 1;
-        color: #d8cfbf;
-        font-weight: 600;
+      .bslot > .nm {
+        font-size: calc(3px * var(--bs));
+        line-height: 1.2;
+        margin-top: 2px;
+        color: #6b4c2e;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .brow2 .pc {
-        color: #c9a86a;
+      .bslot.sel > .moldura {
+        filter: brightness(1.25) drop-shadow(0 0 calc(1px * var(--bs)) #e08a2a);
+      }
+      .bslot.sel > .nm {
+        color: #8a3a18;
+        font-weight: 700;
+      }
+      /* A ficha da direita. */
+      .bficha-topo {
+        text-align: center;
+        margin-bottom: calc(3px * var(--bs));
+      }
+      .bficha-topo img {
+        max-width: calc(38px * var(--bs));
+        max-height: calc(30px * var(--bs));
+        image-rendering: pixelated;
+      }
+      .bficha-nome {
+        font-size: calc(5px * var(--bs));
+        font-weight: 700;
+        color: #5a2f1a;
+        text-align: center;
+        margin-top: calc(2px * var(--bs));
+      }
+      .bficha-pct {
+        font-size: calc(4px * var(--bs));
+        color: #8a5a2a;
+        text-align: center;
         font-variant-numeric: tabular-nums;
       }
-      .brow2 .kn {
-        color: #a89f8f;
-        font-size: 10.5px;
-        line-height: 1.5;
-        margin-top: 4px;
+      /* Uma linha da ficha, sobre a plaquinha do kit. */
+      .bplate {
+        background: url('/assets/ui/bestiary/plate.png') no-repeat center;
+        background-size: 100% 100%;
+        image-rendering: pixelated;
+        min-height: calc(9px * var(--bs));
+        display: flex;
+        align-items: center;
+        padding: 0 calc(3px * var(--bs));
+        margin-top: calc(2px * var(--bs));
+        font-size: calc(3.4px * var(--bs));
+        color: #4a3524;
+        line-height: 1.25;
       }
-      .brow2 .locked {
-        color: #6d6659;
+      /* Era #8d7b62 sobre a plaquinha bege — contraste de ~1,6:1, ilegível na
+         tela. O trancado tem que ser LIDO como trancado, não sumir: é ele que
+         diz ao jogador o que ainda falta caçar para revelar. */
+      .bplate.locked {
+        color: #6b5a45;
         font-style: italic;
       }
       .bestbar {
-        height: 4px;
-        background: #0a0908;
+        height: calc(2px * var(--bs));
+        background: #6b4c2e44;
         border-radius: 2px;
         overflow: hidden;
-        margin-top: 5px;
+        margin: calc(2px * var(--bs)) 0;
       }
       .bestbar > i {
         display: block;
         height: 100%;
-        background: linear-gradient(90deg, #9a7d3f, #e0c070);
+        background: linear-gradient(90deg, #a4713f, #e0a050);
+      }
+      .bvazio {
+        color: #6b4c2e;
+        font-style: italic;
+        text-align: center;
+        padding-top: calc(20px * var(--bs));
+        font-size: calc(4px * var(--bs));
       }
       /* Espólio do corpo (clicar num cadáver no chão) */
       #corpsewin {
@@ -2067,13 +2198,20 @@
         <button id="craft-do">Fabricar</button>
       </div>
     </div>
+    <!--
+      Bestiário — livro aberto (kit CraftPix, recortado por `npm run bestiario:build`).
+      Página esquerda = grade de espécies encontradas. Direita = ficha da selecionada.
+    -->
     <div id="bestiary">
-      <h3>
-        <span>📖 Bestiário</span>
-        <span id="best-close" style="cursor: pointer">✕</span>
-      </h3>
-      <div id="best-list"></div>
-      <div class="hint" style="margin-top: 8px">Cace mais para revelar cada ficha.</div>
+      <!--
+        🔴 O ✕ fica FORA da fita de propósito. Dentro dela ele herdava o
+        `pointer-events: none` que a fita usa para não roubar cliques da grade,
+        e virava um botão que não fecha nada.
+      -->
+      <div id="best-ribbon"><span id="best-titulo">Bestiário</span></div>
+      <span id="best-close" title="Fechar (B ou Esc)">✕</span>
+      <div id="best-grid"></div>
+      <div id="best-ficha"></div>
     </div>
     <div id="corpsewin">
       <h3>

@@ -61,9 +61,11 @@ test('DD-DROP-006: toda espécie tem família declarada', () => {
 });
 
 test('DD-DROP-001: toda espécie ATIVA larga algum material próprio', () => {
-  // As dormentes (Coelho, Javali) estão de fora de propósito: não nascem no
-  // mapa, então não há jogador matando-as por XP pura.
-  const dormentes = new Set(['rabbit', 'boar']);
+  // ⚠️ Só o Javali continua dormente: não nasce no mapa, então não há jogador
+  // matando-o por XP pura. O Coelho SAIU desta lista em 2026-08-29 — ele voltou
+  // a nascer junto com a fauna de pasto, e a família `fauna` deixou de ter
+  // material vazio no mesmo dia. Quem puser Javali no mundo tira ele daqui.
+  const dormentes = new Set(['boar']);
   for (const tipo of Object.keys(CREATURES)) {
     if (dormentes.has(tipo)) continue;
     const mats = materialsOf(tipo);

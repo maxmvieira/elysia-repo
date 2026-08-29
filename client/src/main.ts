@@ -103,6 +103,7 @@ import {
   CONDITIONS,
   CONDITION_COLORS,
   CREATURE_PLACEHOLDER_COLORS,
+  CREATURE_FAMILY,
   ELEMENT_INFO,
   type ConditionId,
   type SkullKind,
@@ -132,6 +133,7 @@ import {
   type DirAnim,
 } from './miniworld.js';
 import { loadKnightSprites, knightIconCss, type KnightArt } from './knight.js';
+import { retratoUrl } from './bestiario.js';
 import {
   loadHeroArt, loadEquipArt, golpeDe, heroIconCss, pecaDaArma, temCamada, HERO_ART_CLASSES,
   type HeroArt, type EquipArt, type EquipPiece,
@@ -673,8 +675,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // `CREATURE_SHEETS` — as outras seguem no blob placeholder e nem tentam
   // requisitar arquivo. Ver o comentário da lista para o porquê.
   const creatureSheets = new Map<string, CreatureSheets>();
-  for (const [type, cell] of Object.entries(CREATURE_SHEETS)) {
-    const sheets = await loadCreatureSheets(type, cell);
+  for (const [type, cfg] of Object.entries(CREATURE_SHEETS)) {
+    const sheets = await loadCreatureSheets(type, cfg.cell);
     if (sheets) creatureSheets.set(type, sheets);
   }
   // Knight em arte HD (masculino/feminino) — sobrepõe o MiniWorld p/ knight.
@@ -684,7 +686,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const heroArt = await loadHeroArt();
   // Equipamento em camada, para as classes cujo corpo vem desarmado. Vazio para
   // as outras, e aí o herói é desenhado como sempre foi.
-  const equipArt = await loadEquipArt('knight');
+  //
+  // ⚠️ A guarda do `temCamada` evita 16 buscas de tira que ninguém desenharia:
+  // com `COM_CAMADA` vazio (ver `heroes.ts`) o Knight voltou ao corpo armado, e
+  // a camada só volta a carregar quando ele voltar para a lista.
+  const equipArt = temCamada('knight') ? await loadEquipArt('knight') : {};
   // Sprite do NPC comerciante.
   const npcAnim = await loadNpcAnim();
   // Sprites de árvore (CraftPix), sorteados por bioma. 0 => desenho por código.
@@ -706,15 +712,25 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * a silhueta e que já custou uma sessão inteira em 10/08. Em 2× cada pixel do
    * desenho vira exatamente 4, sempre.
    *
-   * A 1,0× o herói era desenhado a 58 px numa viewport de ~780 — cerca de metade
-   * do tamanho em que o preview o mostra, e bem menos do que ocupa nos mockups
-   * do dono. A 2× ele vai a 116 px.
+   * A 1,0× o herói é desenhado a 58 px numa viewport de ~780 — cerca de metade
+   * do tamanho em que o preview o mostra. A 2× ele ia a 116 px.
+   *
+   * 🔴 **DE VOLTA A 1,0× em 2026-08-29, por decisão do dono: a 2× a câmera
+   * ficou perto demais.** O 2× durou de 13/08 até aqui. O conserto que veio
+   * junto dele — a câmera andando em pixel de tela inteiro, com o float em
+   * `camX/camY` — **fica**: ele não custa nada a 1× e é o que impede o cenário
+   * de cintilar se alguém voltar a aproximar.
+   *
+   * ⚠️ **1,0× é o piso do que é bonito.** O próximo degrau inteiro para baixo
+   * seria 0,5×, e aí dois pixels de arte viram um de tela — o desenho perde
+   * metade da informação e o herói fica com 29 px. Para ver mais mundo sem isso,
+   * o caminho é viewport maior, não zoom menor.
    *
    * ⚠️ `atualizaChunks` monta cenário pelo retângulo que a tela cobre, então
-   * zoom maior mostra MENOS mundo (24 → 12 tiles na vertical). O
-   * `SNAPSHOT_RANGE = 32` do servidor continua sobrando.
+   * zoom menor mostra MAIS mundo (12 → 24 tiles na vertical) — e agora o
+   * `SNAPSHOT_RANGE = 32` do servidor volta a ser o limite que importa.
    */
-  const ZOOM = 2.0;
+  const ZOOM = 1.0;
   world.scale.set(ZOOM);
   app.stage.addChild(world);
 
@@ -964,7 +980,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     destMark.visible = true;
   }
 
+  /**
+   * Mira um alvo — ou LARGA o que já estava mirado, se for o mesmo.
+   *
+   * 🔴 **O segundo clique no mesmo alvo cancela**, e isso entrou em 2026-08-29
+   * depois de o dono ficar preso batendo no irmão: *"eu clico novamente, mas
+   * fica o círculo vermelho e continuo atacando infinitamente"*. O
+   * `clearTarget` já existia e já funcionava — o servidor trata `cancel` desde
+   * sempre — mas só estava ligado ao **Esc** e à própria morte. Quem joga de
+   * mouse não tinha como parar, e no PvP isso é grave: não dá para desistir de
+   * um golpe que rende ⚪ Caveira Branca.
+   *
+   * ⚠️ É toggle, e não "clicar fora cancela": clicar no chão é ANDAR, e no modo
+   * Perseguir andar é justamente o que o alvo faz o jogador fazer. Cancelar ali
+   * tiraria o alvo toda vez que alguém se movesse.
+   */
   function setTarget(id: string): void {
+    if (id === targetId) { clearTarget(); return; }
     targetId = id;
     net.send({ t: 'attack', targetId: id });
     // Em modo Perseguir, mirar já começa a andar — senão o jogador teria que
@@ -3426,69 +3458,191 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // Chefe é diferente — a primeira morte já entrega metade, porque exigir
   // centenas de abates de algo raro não faria sentido.
   const bestPanel = el('bestiary');
-  const bestList = el('best-list');
+  const bestGrid = el('best-grid');
+  const bestFicha = el('best-ficha');
   el('best-close').onclick = () => (bestPanel.style.display = 'none');
 
+  /**
+   * Espécie aberta na página da direita.
+   *
+   * ⚠️ Mora fora do `updateBestiary` porque as stats chegam a cada tique e
+   * redesenham o painel: guardar a seleção dentro da função a perderia a cada
+   * atualização, e o livro voltaria sozinho para a primeira criatura enquanto o
+   * jogador estivesse lendo a ficha de outra.
+   */
+  let bestSel: string | null = null;
+  /** Últimas stats vistas, para redesenhar a ficha ao clicar num encaixe. */
+  let bestStats: S2C_Stats | null = null;
+  /**
+   * Assinatura da grade desenhada — mesmo padrão do `myCondKey` das condições.
+   *
+   * 🔴 **Sem isto a grade era reconstruída a cada `stats`**, e `stats` chega a
+   * cada abate, cada item fabricado, cada ponto gasto. Reconstruir troca os
+   * `<button>` por nós novos, e um clique cujo `mousedown` cai num nó que
+   * desaparece antes do `mouseup` **não vira `click` nenhum** — foi o
+   * *"clico no monstro e ele não carrega as informações"* de 29/08.
+   */
+  let bestKey = '';
+
+  /**
+   * O retrato da espécie: pintado quando existe, ícone de código quando não.
+   *
+   * 🔴 8 das 28 espécies têm retrato — ver `bestiario.ts` para o porquê e para a
+   * alternativa que foi descartada (empurrar retrato parecido para espécie
+   * errada). A mistura aparece, e foi decidida sabendo disso.
+   */
+  function bestImg(tipo: string, alt: string): HTMLImageElement {
+    const img = document.createElement('img');
+    img.src = retratoUrl(tipo) ?? creatureIconUrl(tipo);
+    img.alt = alt;
+    return img;
+  }
+
+  /** Realça na grade o encaixe da espécie aberta. */
+  function marcaSelecionado(): void {
+    for (const filho of bestGrid.children) {
+      filho.classList.toggle('sel', (filho as HTMLElement).dataset.tipo === bestSel);
+    }
+  }
+
+  /*
+   * 🔴 **Uma escuta só, no contêiner — não uma por botão.** A grade é
+   * reconstruída quando a lista muda, e handler preso a cada `<button>` morre
+   * junto com ele. Delegado, o clique continua funcionando por cima de qualquer
+   * redesenho, e não há N closures presas a nós que já saíram do documento.
+   */
+  bestGrid.addEventListener('click', (ev) => {
+    const slot = (ev.target as HTMLElement | null)?.closest<HTMLElement>('.bslot');
+    const tipo = slot?.dataset.tipo;
+    if (!tipo) return;
+    bestSel = tipo;
+    marcaSelecionado();
+    renderFicha(); // só a página da direita muda; nada a pedir ao servidor
+  });
+
+  /** Uma linha da ficha, sobre a plaquinha do kit. `???` sai em itálico. */
+  function bestLinha(texto: string): HTMLDivElement {
+    const d = document.createElement('div');
+    d.className = texto.startsWith('???') ? 'bplate locked' : 'bplate';
+    d.textContent = texto;
+    return d;
+  }
+
+  /** Desenha a página da DIREITA: a ficha da espécie selecionada. */
+  function renderFicha(): void {
+    bestFicha.textContent = '';
+    const s = bestStats;
+    const tipo = bestSel;
+    const e = s && tipo ? s.bestiary[tipo] : undefined;
+    const def = tipo ? CREATURES[tipo] : undefined;
+    if (!e || !def) {
+      const dica = document.createElement('div');
+      dica.className = 'bvazio';
+      dica.textContent = 'Escolha uma criatura na página ao lado.';
+      bestFicha.appendChild(dica);
+      return;
+    }
+
+    const boss = !!def.boss;
+    const pct = bestiaryPercent(e.kills, boss);
+    const tier = bestiaryTier(e.kills, boss);
+
+    const topo = document.createElement('div');
+    topo.className = 'bficha-topo';
+    topo.appendChild(bestImg(tipo!, def.name));
+    const nome = document.createElement('div');
+    nome.className = 'bficha-nome';
+    nome.textContent = def.name;
+    const pc = document.createElement('div');
+    pc.className = 'bficha-pct';
+    pc.textContent = `${pct}% conhecido · ${e.kills} abate${e.kills === 1 ? '' : 's'}`;
+
+    const bar = document.createElement('div');
+    bar.className = 'bestbar';
+    const fill = document.createElement('i');
+    fill.style.width = `${pct}%`;
+    bar.appendChild(fill);
+
+    bestFicha.append(topo, nome, pc, bar);
+
+    // Cada patamar libera um bloco. O que não foi revelado sai como "???" — é o
+    // incentivo para continuar caçando, e é a regra que já existia.
+    bestFicha.appendChild(bestLinha(
+      tier >= 1 ? `Vida ${def.maxHp} · XP ${def.xpReward}` : '??? vida e experiência',
+    ));
+    bestFicha.appendChild(bestLinha(
+      tier >= 2 ? `Ataque ${def.strength} · Defesa ${def.defense}` : '??? ataque e defesa',
+    ));
+    bestFicha.appendChild(bestLinha(
+      tier >= 3
+        ? `${BEHAVIOR_LABEL[def.behavior ?? 'hostile']} · ouro ${def.goldMin}–${def.goldMax}`
+        : '??? comportamento e loot',
+    ));
+    bestFicha.appendChild(bestLinha(
+      tier >= 4 ? `Aggro ${def.aggroRange} tiles · ficha completa` : '??? alcance de aggro',
+    ));
+    if (e.variants.length > 1) {
+      bestFicha.appendChild(bestLinha(`Variantes vistas: ${e.variants.length}`));
+    }
+  }
+
   function updateBestiary(s: S2C_Stats): void {
+    bestStats = s;
     const entradas = Object.entries(s.bestiary)
       .filter(([, e]) => e.encountered)
       .sort((a, b) => b[1].kills - a[1].kills);
-    bestList.textContent = '';
+
     if (entradas.length === 0) {
-      const vazio = document.createElement('div');
-      vazio.className = 'hint';
-      vazio.textContent = 'Nenhuma criatura encontrada ainda.';
-      bestList.appendChild(vazio);
+      if (bestKey !== 'vazio') {
+        bestKey = 'vazio';
+        bestGrid.textContent = '';
+        const vazio = document.createElement('div');
+        vazio.className = 'bvazio';
+        vazio.textContent = 'Nenhuma criatura encontrada ainda.';
+        bestGrid.appendChild(vazio);
+      }
+      bestSel = null;
+      renderFicha();
       return;
     }
-    for (const [tipo, e] of entradas) {
-      const def = CREATURES[tipo];
-      if (!def) continue;
-      const boss = !!def.boss;
-      const pct = bestiaryPercent(e.kills, boss);
-      const tier = bestiaryTier(e.kills, boss);
 
-      const row = document.createElement('div');
-      row.className = 'brow2';
-      const top = document.createElement('div');
-      top.className = 'top';
-      const img = document.createElement('img');
-      img.src = creatureIconUrl(tipo);
-      const nm = document.createElement('span');
-      nm.className = 'nm';
-      nm.textContent = def.name;
-      const pc = document.createElement('span');
-      pc.className = 'pc';
-      pc.textContent = `${pct}%`;
-      top.append(img, nm, pc);
+    // A seleção some se a espécie sair da lista (não sai hoje, mas some se um
+    // save antigo for carregado). Sem isto a ficha ficaria presa num fantasma.
+    if (!bestSel || !entradas.some(([t]) => t === bestSel)) bestSel = entradas[0]![0];
 
-      // Cada patamar libera um bloco de informação. O que ainda não foi
-      // revelado aparece como "???" — é o incentivo para continuar caçando.
-      const kn = document.createElement('div');
-      kn.className = 'kn';
-      const linhas: string[] = [`Abates: ${e.kills}`];
-      linhas.push(tier >= 1 ? `Vida ${def.maxHp} · XP ${def.xpReward}` : '??? vida e experiência');
-      linhas.push(tier >= 2 ? `Ataque ${def.strength} · Defesa ${def.defense}` : '??? ataque e defesa');
-      linhas.push(
-        tier >= 3
-          ? `${BEHAVIOR_LABEL[def.behavior ?? 'hostile']} · ouro ${def.goldMin}–${def.goldMax}`
-          : '??? comportamento e loot',
-      );
-      if (tier >= 4) linhas.push(`Alcance de aggro ${def.aggroRange} tiles · ficha completa`);
-      if (e.variants.length > 1) linhas.push(`Variantes vistas: ${e.variants.length}`);
-      kn.innerHTML = linhas
-        .map((l) => (l.startsWith('???') ? `<span class="locked">${l}</span>` : l))
-        .join('<br>');
+    // 🔴 Só redesenha quando a LISTA muda. Ver `bestKey` para o porquê — é o
+    // conserto do clique que não pegava.
+    const chave = entradas.map(([t, e]) => `${t}:${e.kills}`).join('|');
+    if (chave !== bestKey) {
+      bestKey = chave;
+      bestGrid.textContent = '';
+      for (const [tipo, e] of entradas) {
+        const def = CREATURES[tipo];
+        if (!def) continue;
+        const pct = bestiaryPercent(e.kills, !!def.boss);
 
-      const bar = document.createElement('div');
-      bar.className = 'bestbar';
-      const fill = document.createElement('i');
-      fill.style.width = `${pct}%`;
-      bar.appendChild(fill);
+        const slot = document.createElement('button');
+        slot.type = 'button';
+        slot.className = 'bslot';
+        // O clique é resolvido por DELEGAÇÃO, na escuta única lá em cima: o
+        // tipo viaja no dataset em vez de num closure por botão.
+        slot.dataset.tipo = tipo;
+        slot.title = `${def.name} — ${pct}% conhecido`;
 
-      row.append(top, kn, bar);
-      bestList.appendChild(row);
+        const moldura = document.createElement('div');
+        moldura.className = 'moldura';
+        moldura.appendChild(bestImg(tipo, def.name));
+
+        const nm = document.createElement('div');
+        nm.className = 'nm';
+        nm.textContent = def.name;
+
+        slot.append(moldura, nm);
+        bestGrid.appendChild(slot);
+      }
     }
+    marcaSelecionado();
+    renderFicha();
   }
 
   const myCondEl = el('mycond');
@@ -4048,11 +4202,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // pode revidar sem punição. Uma ação com esse preço não pode custar um
     // clique — e o alvo com caveira é a exceção justamente porque atacá-lo já
     // não custa nada (`17.38`).
-    const custaCaveira = !alvo.skull;
+    /*
+     * 🔴 **Se ELE já é o alvo, o botão vira "Parar de atacar"** — e sem
+     * confirmação nenhuma. Parar não custa caveira; a confirmação existe para
+     * proteger de COMEÇAR uma briga, e exigi-la para desistir seria o contrário
+     * do que ela serve. Também não há motivo de recusa que impeça parar: mesmo
+     * que o `motivoAtacar` diga "está no seu grupo", largar o alvo é válido.
+     */
+    const jaMirado = alvo.id === targetId;
+    const custaCaveira = !alvo.skull && !jaMirado;
     const btnAtacar = itemMenu(
-      alvo.skull ? '⚔️ Atacar (⚪ alvo livre)' : '⚔️ Atacar',
-      motivoAtacar,
-      () => setTarget(alvo.id),
+      jaMirado ? '🛑 Parar de atacar' : alvo.skull ? '⚔️ Atacar (⚪ alvo livre)' : '⚔️ Atacar',
+      jaMirado ? null : motivoAtacar,
+      () => setTarget(alvo.id), // toggle: com `jaMirado`, isto cancela
     );
     if (!motivoAtacar && custaCaveira) {
       btnAtacar.classList.add('ctxdanger');
@@ -5565,11 +5727,38 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     c.zIndex = c.y / TS + 0.5;
   }
 
+  /**
+   * 🔴 **A RESSURREIÇÃO MORA AQUI, e não numa mensagem de rede.**
+   *
+   * O ator entrava em `death` e não saía nunca: `startOneShot` recusa qualquer
+   * coisa quando `oneShot === 'death'`, e o `onComplete` também volta cedo, de
+   * propósito — o corpo tem que ficar caído no último quadro. Faltava quem
+   * DESFIZESSE isso, e ninguém fazia: o servidor manda `respawn` só para o
+   * próprio morto, e o handler dele apenas escondia o aviso de morte na tela.
+   * O resultado, relatado jogando: o jogador renascia e andava **rastejando**,
+   * com o sprite congelado na pose de tombado.
+   *
+   * ⚠️ **O gatilho é a VIDA voltando, e não uma mensagem nova**, porque só isso
+   * conserta os dois lados de uma vez: quem morreu vê a si mesmo de pé, e quem
+   * matou vê o outro de pé. Uma mensagem `respawn` só chega a quem morreu — foi
+   * exatamente essa assimetria que criou o defeito.
+   *
+   * ⚠️ `hp` ausente NÃO ressuscita ninguém: `undefined` quer dizer "esta
+   * entidade não tem barra de vida" (item, nó de recurso), não "está viva".
+   */
+  function setHp(hp?: number, maxHp?: number): void {
+    if (oneShot === 'death' && hp !== undefined && hp > 0) {
+      oneShot = null;
+      applyState();
+    }
+    hpbar.set(hp, maxHp);
+  }
+
   return {
     container: c,
     setDirection,
     setTarget,
-    setHp: hpbar.set,
+    setHp,
     update,
     // Com folha de ataque, toca a animação; sem ela, cai no pulinho de sempre.
     // Os dois efeitos coexistem de propósito: o pulinho continua dando peso ao
@@ -5842,10 +6031,21 @@ function makeCreatureView(
   // tem precedência sobre tudo — se a espécie foi desenhada, é assim que aparece.
   const folhas = e.creatureType ? mini.creatureSheets.get(e.creatureType) : undefined;
   if (folhas) {
+    /*
+     * 🔴 A escala e as âncoras saem do `CREATURE_SHEETS`, não de um número fixo
+     * aqui. Era `scale: 2` para todo mundo, o que só servia enquanto todas as
+     * folhas tivessem a mesma célula — e a fauna da CraftPix vem em três
+     * tamanhos (16, 32 e 64). Um 2× cravado poria o cavalo a 124 px de altura,
+     * o dobro do herói.
+     */
+    const cfg = CREATURE_SHEETS[e.creatureType!]!;
     return makeMiniActor({
       e,
       anim: folhas.walk,
-      scale: 2,
+      scale: cfg.scale,
+      anchorX: cfg.anchorX,
+      anchorY: cfg.anchorY,
+      labelTop: cfg.labelTop,
       nameColor: lighten(CREATURE_PLACEHOLDER_COLORS[e.creatureType!] ?? 0xa0e0a0, 0.45),
       creatureTint: true,
       idleAnim: folhas.idle,
@@ -6310,31 +6510,149 @@ function creatureIconUrl(type: string | undefined): string {
     g.lineTo(cxp + 0.6, cyc - 5.2);
     g.stroke();
   } else {
-    // Slime: blob verde (#5fae5f/#2f5f2f). Super Slime (chefe): roxo e maior.
-    const boss = key === 'super_slime';
-    const w = boss ? 18 : 15;
-    const h = boss ? 15 : 12;
-    const x = cxp - w / 2;
-    const y = S - 3 - h;
-    const r = boss ? 6 : 5;
-    g.beginPath();
-    g.moveTo(x + r, y);
-    g.arcTo(x + w, y, x + w, y + h, r);
-    g.arcTo(x + w, y + h, x, y + h, r);
-    g.arcTo(x, y + h, x, y, r);
-    g.arcTo(x, y, x + w, y, r);
-    g.closePath();
-    g.fillStyle = boss ? '#a657ff' : '#5fae5f';
-    g.fill();
-    g.lineWidth = 1.5;
-    g.strokeStyle = boss ? '#5a2f8a' : '#2f5f2f';
-    g.stroke();
-    // Olhos.
-    g.fillStyle = '#0a1a0a';
-    g.beginPath();
-    g.arc(cxp - 3, y + h * 0.42, 1.4, 0, Math.PI * 2);
-    g.arc(cxp + 3, y + h * 0.42, 1.4, 0, Math.PI * 2);
-    g.fill();
+    /*
+     * 🔴 **A SILHUETA SAI DA FAMÍLIA, e a cor da espécie.**
+     *
+     * Antes esta perna final desenhava um **blob verde de Slime para todo mundo
+     * que não fosse um dos seis casos escritos à mão** — 22 das 28 espécies. No
+     * bestiário, que mostra todas lado a lado, o resultado era uma página de
+     * gosmas verdes idênticas com nomes diferentes, e foi o que o dono relatou
+     * jogando em 29/08: *"o ícone de cada monstro tá quase todos a mesma foto"*.
+     *
+     * Não é arte — continua sendo andaime, como o comentário do
+     * `CREATURE_PLACEHOLDER_COLORS` diz. Mas andaime que DISTINGUE: seis
+     * silhuetas por família mais a cor da espécie separam lobo de formiga sem
+     * pedir um único desenho novo.
+     *
+     * ⚠️ Espécie sem cor na tabela cai na cor da FAMÍLIA, e não num cinza
+     * genérico: a fauna de pasto inteira entrou em 29/08 sem passar por lá, e
+     * um padrão neutro devolveria o problema que este bloco existe para
+     * resolver.
+     */
+    const fam = CREATURE_FAMILY[key];
+    const CorDaFamilia: Record<string, number> = {
+      slime: 0x5fae5f, aranha: 0x6a4a7a, formiga: 0xa06a3a, goblin: 0x7aa04a,
+      lobo: 0x9a9a9a, orc: 0x6a8a4a, 'morto-vivo': 0xd8d0b8, minotauro: 0x8a4a3a,
+      urso: 0x7a5a3a, kobold: 0xb08a4a, troll: 0x5a7a5a, serpente: 0x4f8a3a,
+      fauna: 0xb59a72, ave: 0xe8e2d6,
+    };
+    const cor = CREATURE_PLACEHOLDER_COLORS[key]
+      ?? (fam ? CorDaFamilia[fam] : undefined)
+      ?? 0x5fae5f;
+    const hex = (n: number): string => `#${n.toString(16).padStart(6, '0')}`;
+    const escurece = (n: number, f: number): string => hex(
+      (Math.round(((n >> 16) & 0xff) * f) << 16)
+      | (Math.round(((n >> 8) & 0xff) * f) << 8)
+      | Math.round((n & 0xff) * f),
+    );
+    const claro = hex(cor);
+    const escuro = escurece(cor, 0.5);
+    g.fillStyle = claro;
+    g.strokeStyle = escuro;
+    g.lineWidth = 1.2;
+    const chao = S - 3;
+    const olhos = (x: number, y: number, r: number): void => {
+      g.fillStyle = '#12100c';
+      g.beginPath();
+      g.arc(x - r, y, 0.9, 0, Math.PI * 2);
+      g.arc(x + r, y, 0.9, 0, Math.PI * 2);
+      g.fill();
+    };
+    const elipse = (x: number, y: number, rx: number, ry: number): void => {
+      g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+    };
+
+    if (fam === 'fauna' || fam === 'lobo' || fam === 'urso') {
+      // QUADRÚPEDE: tronco deitado, cabeça à frente, quatro patas.
+      g.strokeStyle = escuro;
+      g.lineWidth = 1.6;
+      for (const px of [-4, -1.5, 2, 4.5]) {
+        g.beginPath(); g.moveTo(cxp + px, chao - 5); g.lineTo(cxp + px, chao); g.stroke();
+      }
+      g.lineWidth = 1.2;
+      elipse(cxp - 0.5, chao - 7, 6, 3.6);
+      elipse(cxp + 5.5, chao - 9.5, 3, 2.6);
+      olhos(cxp + 5.8, chao - 10, 1.3);
+    } else if (fam === 'ave') {
+      // AVE: corpo em gota, pescoço alto, bico.
+      g.strokeStyle = escuro;
+      g.lineWidth = 1.6;
+      for (const px of [-1.5, 1.5]) {
+        g.beginPath(); g.moveTo(cxp + px, chao - 4); g.lineTo(cxp + px, chao); g.stroke();
+      }
+      g.lineWidth = 1.2;
+      elipse(cxp, chao - 6, 5, 4);
+      elipse(cxp + 2, chao - 12, 2.4, 2.6);
+      g.fillStyle = '#e8a23a';
+      g.beginPath();
+      g.moveTo(cxp + 4, chao - 12.5); g.lineTo(cxp + 7.5, chao - 11.5);
+      g.lineTo(cxp + 4, chao - 10.5); g.closePath(); g.fill();
+      olhos(cxp + 2.2, chao - 12.6, 1);
+    } else if (fam === 'morto-vivo') {
+      // CAVEIRA: crânio com órbitas fundas e mandíbula.
+      elipse(cxp, chao - 9, 5.5, 5);
+      g.fillStyle = claro;
+      g.beginPath(); g.rect(cxp - 3, chao - 5.5, 6, 3.5); g.fill(); g.stroke();
+      g.fillStyle = '#12100c';
+      g.beginPath();
+      g.ellipse(cxp - 2.2, chao - 10, 1.7, 2, 0, 0, Math.PI * 2);
+      g.ellipse(cxp + 2.2, chao - 10, 1.7, 2, 0, 0, Math.PI * 2);
+      g.fill();
+    } else if (fam === 'formiga' || fam === 'aranha') {
+      // ARTRÓPODE: três segmentos e pernas em leque.
+      g.strokeStyle = escuro;
+      g.lineWidth = 1.1;
+      for (let i = 0; i < 3; i++) {
+        const dy = -2 + i * 2.4;
+        g.beginPath(); g.moveTo(cxp, chao - 7); g.lineTo(cxp - 7, chao - 7 + dy); g.stroke();
+        g.beginPath(); g.moveTo(cxp, chao - 7); g.lineTo(cxp + 7, chao - 7 + dy); g.stroke();
+      }
+      elipse(cxp - 2.5, chao - 6, 3.4, 3);
+      elipse(cxp + 2.5, chao - 8, 3, 2.6);
+      olhos(cxp + 3, chao - 8.5, 1.1);
+    } else if (fam === 'goblin' || fam === 'orc' || fam === 'kobold'
+      || fam === 'troll' || fam === 'minotauro') {
+      // HUMANOIDE: cabeça, tronco, braços e pernas.
+      g.strokeStyle = escuro;
+      g.lineWidth = 1.6;
+      for (const px of [-2.2, 2.2]) {
+        g.beginPath(); g.moveTo(cxp + px, chao - 4); g.lineTo(cxp + px, chao); g.stroke();
+      }
+      g.beginPath(); g.moveTo(cxp - 5.5, chao - 7); g.lineTo(cxp + 5.5, chao - 7); g.stroke();
+      g.lineWidth = 1.2;
+      elipse(cxp, chao - 7, 4, 3.6);
+      elipse(cxp, chao - 12, 3.4, 3);
+      // Chifres para o minotauro — a única silhueta que pede assinatura própria.
+      if (fam === 'minotauro') {
+        g.strokeStyle = '#efe8d8';
+        g.lineWidth = 1.4;
+        g.beginPath(); g.moveTo(cxp - 3, chao - 14); g.lineTo(cxp - 5.5, chao - 16); g.stroke();
+        g.beginPath(); g.moveTo(cxp + 3, chao - 14); g.lineTo(cxp + 5.5, chao - 16); g.stroke();
+      }
+      olhos(cxp, chao - 12.4, 1.4);
+    } else {
+      // SLIME e qualquer família nova: o blob de sempre, agora com a cor certa.
+      // O chefe é maior — é a única diferença de porte no ícone.
+      const boss = key === 'super_slime';
+      const w = boss ? 18 : 15;
+      const h = boss ? 15 : 12;
+      const x = cxp - w / 2;
+      const y = chao - h;
+      const r = boss ? 6 : 5;
+      g.beginPath();
+      g.moveTo(x + r, y);
+      g.arcTo(x + w, y, x + w, y + h, r);
+      g.arcTo(x + w, y + h, x, y + h, r);
+      g.arcTo(x, y + h, x, y, r);
+      g.arcTo(x, y, x + w, y, r);
+      g.closePath();
+      g.fillStyle = claro;
+      g.fill();
+      g.lineWidth = 1.5;
+      g.strokeStyle = escuro;
+      g.stroke();
+      olhos(cxp, y + h * 0.42, 3);
+    }
   }
 
   const url = cv.toDataURL();
