@@ -17,6 +17,7 @@ import {
   WORLD_CREATURE_SPAWNS,
   tileValidoMaisProximo,
   starterTown,
+  dentroDaFarm,
   type GameMap,
 } from '../src/index.js';
 
@@ -170,7 +171,14 @@ test('🔴 dá para SAIR de Lumindale — os portões existem e abrem', () => {
     [map.spawn.x, 140], // ao norte, fora da paliçada
     [map.spawn.x, 178], // ao sul
     [130, map.spawn.y], // a oeste
-    [170, map.spawn.y], // a leste
+    /*
+     * ⚠️ A leste **era (170,158) e deixou de servir em 30/08**: a fazenda entrou
+     * colada na praça, e esse tile caiu bem dentro do CHIQUEIRO — um curral
+     * fechado de propósito, que o jogador não alcança a pé (o portão é sólido).
+     * O teste continua provando a mesma coisa; só precisou de um ponto a leste
+     * que não fosse dentro de um cercado.
+     */
+    [185, map.spawn.y], // a leste, atravessando a fazenda
   ] as const;
   for (const [x, y] of foraDaVila) {
     assert.ok(visto[y * map.width + x], `(${x},${y}) fora da vila é inalcançável a partir do spawn`);
@@ -212,8 +220,17 @@ test('🔴 decoração nunca encosta em decoração (a mata continua atravessáv
   // impede a floresta densa de fechar corredores e quebrar o BFS do
   // clique-para-andar. Vale só onde ninguém construiu: muralha e casa são
   // paredes coladas de propósito.
+  /*
+   * ⚠️ **A fazenda entra na mesma isenção das cidades, e pelo mesmo motivo.**
+   * A regra vale "só onde ninguém construiu" — e a fazenda é lugar construído,
+   * com 293 células de parede, cerca e celeiro que ENCOSTAM umas nas outras de
+   * propósito. Sem esta linha o teste acusava 513 pares colados, todos dentro
+   * dela, e estaria certo pela letra e errado pela intenção: o que ele protege é
+   * a mata gerada por regra continuar atravessável.
+   */
   const perto = (x: number, y: number): boolean =>
-    CITIES.some((c) => Math.max(Math.abs(c.x - x), Math.abs(c.y - y)) < 22);
+    dentroDaFarm(x, y)
+    || CITIES.some((c) => Math.max(Math.abs(c.x - x), Math.abs(c.y - y)) < 22);
 
   let encostados = 0;
   for (let y = 1; y < map.height - 1; y++) {

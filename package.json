@@ -27,7 +27,9 @@
     "typecheck:server": "npm run typecheck --workspace server",
     "typecheck:client": "npm run typecheck --workspace client",
     "bestiario:build": "node tools/bestiario2ui.mjs",
-    "golem:build": "node tools/golem2strip.mjs"
+    "golem:build": "node tools/golem2strip.mjs",
+    "farm:build": "node tools/farm/build.mjs && node tools/farm/bichos.mjs",
+    "farm:overlay": "node tools/farm/overlay.mjs farm-colisao.png"
   },
   "devDependencies": {
     "npm-run-all": "^4.1.5",

@@ -387,24 +387,57 @@ export const CREATURE_SHEETS: Record<string, CreatureSheetCfg> = {
   // ALTURA IGUAL para todos é que punha filhote maior que adulto. A CraftPix já
   // desenhou as proporções certas dentro do pack, e um multiplicador único as
   // preserva. A hierarquia sai sozinha, sem ninguém escolher número:
-  //   Cavalo 62 > Potro 54 > Ganso 52 > Cabra 50 > Coelho 42
-  //            > Cabrito 36 = Filhote de Ganso 36 > Coelhinho 30
-  // ⚠️ Os dois coelhos são a exceção ao 2×, pedida em 29/08: o Coelho no
-  // tamanho que o Coelhinho tinha, e o Coelhinho no tamanho do COGUMELO.
+  //   Cavalo 62 > Potro 54 > Cabra 50 > Cabrito 36 > Ganso 26
+  //            > Coelho 21 > Gansinho 18 > Coelhinho 15
+  // ⚠️ QUATRO são exceção ao 2×, e as duas vezes por decisão do dono em tela:
+  // os coelhos em 29/08 (Coelho no tamanho do Coelhinho, Coelhinho no do
+  // COGUMELO) e os gansos em 30/08 — *"o ganso tá mt grande"*, e estava: a 2×
+  // ele dava 52 px, acima da Cabra. O Gansinho desceu junto por obrigação,
+  // senão o filhote (36) ficaria maior que o adulto (26).
   rabbit: { cell: 32, scale: 1, anchorX: 0.5, anchorY: 0.875, labelTop: -27 }, // 21px -> 21
   rabbit_cub: { cell: 16, scale: 1, anchorX: 0.5, anchorY: 0.9375, labelTop: -21 }, // 15 -> 15
   goat: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.8125, labelTop: -56 }, // 25 -> 50
   goatling: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.8125, labelTop: -42 }, // 18 -> 36
-  goose: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.8125, labelTop: -58 }, // 26 -> 52
-  gosling: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.78125, labelTop: -42 }, // 18 -> 36
+  goose: { cell: 32, scale: 1, anchorX: 0.5, anchorY: 0.8125, labelTop: -32 }, // 26 -> 26
+  gosling: { cell: 32, scale: 1, anchorX: 0.5, anchorY: 0.78125, labelTop: -24 }, // 18 -> 18
   horse: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.65625, labelTop: -68 }, // 31 -> 62
   foal: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.65625, labelTop: -60 }, // 27 -> 54
 
+  // --- Bichos da fazenda (`npm run farm:build`) ----------------------------
+  //
+  // 🔴 **2× porque é a escala da própria fazenda.** O pack desenhou o
+  // galinheiro, as cercas e o celeiro em arte de 16 px, e a fazenda inteira
+  // entra no jogo a 2× (16 → 32 px por tile). Pôr os bichos em qualquer outra
+  // escala faria a galinha não caber no poleiro que o autor desenhou para ela.
+  //
+  // ⚠️ **Isto deixa a Galinha (36) maior que o Ganso (26), e é uma inconsistência
+  // real** — ganso é maior que galinha. A causa é que são dois packs de autores
+  // diferentes e o Ganso foi encolhido à mão em 30/08 a pedido do dono. Não
+  // "consertei" a galinha porque encolhê-la a desalinharia do galinheiro; **vale
+  // olhar os dois lado a lado em tela** e decidir qual dos dois se move.
+  pig: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.875, labelTop: -44 }, // 19 -> 38
+  cow: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.71875, labelTop: -60 }, // 27 -> 54
+  chicken: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.875, labelTop: -42 }, // 18 -> 36
+
   // --- Chefe (`npm run golem:build`) ---------------------------------------
-  // 🔴 O único com as CINCO animações: andar, parado, golpe, dano e morte. E o
-  // maior do mapa por larga margem — 142 px contra 62 do Cavalo e 60 do herói.
+  // 🔴 O único com as CINCO animações: andar, parado, golpe, dano e morte.
   // ⚠️ As linhas 2 e 3 do pack vinham TROCADAS; quem inverte é o conversor.
-  golem: { cell: 128, scale: 2, anchorX: 0.49609375, anchorY: 0.7421875, labelTop: -148 },
+  //
+  // 🔴 **A âncora sai só de `walk`+`idle`, e é o conserto do "golem flutuando".**
+  // Antes o conversor media a UNIÃO das cinco folhas, e o `attack` — que é um
+  // baque no chão — puxava a linha do pé de 76 para 95. Como a âncora é pregada
+  // no chão do tile, o golem parado subia (95−77)×2 = **36 px**, mais de um tile
+  // acima da própria sombra: a sombra parecia ter ficado nos grids de baixo.
+  // O mesmo inchaço mandava o nome 66 px acima da cabeça (labelTop −148).
+  // ⚠️ Não conserte isto editando os números aqui — rode `npm run golem:build` e
+  // cole a saída, que é onde a regra mora.
+  //
+  // ⚠️ **Em pé ele tem 76 px, não os 142 que o handoff de 29/08 registrou** —
+  // aquele número era a mesma medida inflada. Continua o maior do mapa (Cavalo
+  // 62, herói 60), mas por pouco. Se o dono quiser um chefe que intimide de
+  // longe, o caminho é `scale: 3` (114 px) no conversor — decisão de arte,
+  // vista em tela, não parte deste conserto.
+  golem: { cell: 128, scale: 2, anchorX: 0.49609375, anchorY: 0.6015625, labelTop: -82 },
 };
 
 /**

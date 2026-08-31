@@ -51,3 +51,7 @@ map/Tiled/
 # do sistema de arquivos, não arte: cada pasta `__MACOSX` só espelha a irmã ao
 # lado com arquivos `._` vazios. ~1 MB por pack baixado, e zero uso.
 __MACOSX/
+
+# Saída de conferência do conversor da fazenda (`npm run farm:overlay`).
+# É imagem de depuração gerada na raiz, não arte do jogo.
+farm-colisao.png

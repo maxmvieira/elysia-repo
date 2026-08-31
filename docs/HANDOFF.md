@@ -1,3 +1,615 @@
+# Handoff — estado do projeto em 2026-08-31
+
+## 📌 LEIA ISTO PRIMEIRO (resumo da virada de 30–31/08)
+
+> Este bloco existe para quem chega **frio** ao projeto — pessoa ou IA. Os
+> blocos abaixo dele são o diário detalhado, em ordem de assunto; volte a eles
+> quando precisar do *porquê* de alguma decisão.
+
+**Estado:** typecheck limpo nos 3 pacotes · **493 testes** (465 shared + 28
+server) · `npm run dev` → `localhost:5173`.
+
+### O que entrou nesta virada
+
+| | |
+|---|---|
+| 🚜 **A fazenda** | o **primeiro mapa autoral** de Elysia no mundo. 45×32 tiles colados na praça segura, em (163,141). Lago com peixe, moinho girando, portas que abrem, 2 interiores no andar 1, e porco/vaca/galinha como criatura de verdade. |
+| 🧰 **Ferramentas de autoria** | `/remove`, `/clone`, `/paste`, `/undo` — editar o cenário **enquanto se joga**. |
+| 🧱 **Construtor de mapas** | tecla **E**: paleta de 871 sprites, giro de 90°, três alturas de desenho e três modos de colisão. |
+
+### Como a fazenda funciona (o desenho central)
+
+O `Farm.tmx` do pack é convertido por `npm run farm:build` em **duas saídas
+separadas**, e essa separação é o que faz tudo o resto funcionar:
+
+| Para o motor | Para os olhos |
+|---|---|
+| `shared/data/world/farm.json` | `client/public/assets/farm/*` |
+| colisão, portas, spawn de bicho | 2 PNGs assados + folha de animação + paleta |
+| **lido pelos DOIS lados** | **só o cliente** |
+
+🔴 É isso que preserva a invariante do `worldgen.ts`: *terreno não trafega pela
+rede; os dois lados calculam o mesmo mundo.* O servidor carimba `WALL_WOOD` e
+`WATER` e **nem sabe que existe um moinho desenhado ali**.
+
+### As ferramentas, em uma tabela
+
+Todas atrás de `DEV_MODE` — só com `npm run dev:test`.
+
+| | |
+|---|---|
+| `/remove` | apaga o tile de frente (item → nó de coleta → tile, nessa ordem) |
+| `/clone` · `/paste` | Ctrl+C / Ctrl+V de tile **e** da arte assada da fazenda |
+| `/clone solido` · `/paste livre` | força a colisão da cópia (`solido`/`livre`/`passa`/`abre`) |
+| **E** | abre o construtor: escolhe sprite, **R** gira, camada, colisão, e `/ok` põe |
+| clique com o painel aberto | **conta-gotas**: acha a peça daquele tile na paleta |
+| `/undo` | desfaz a última coisa — decalque ou edição de tile, o que veio por último |
+| `aqui` | sufixo em qualquer posição: age no tile **sob** o boneco |
+
+**Onde isso mora:** `shared/src/worldedit.ts` (o modelo e o *porquê* de não
+violar a invariante) · `server/src/store/schema.ts` (migrações **v6 a v9**) ·
+`client/src/editor.ts` (o painel) · `client/src/farmart.ts` (a arte da fazenda).
+
+### 🔴 As cinco lições desta virada (as que custaram caro)
+
+1. **`acima` não é sobre vegetação, é sobre ALTURA.** A camada que fica sobre o
+   jogador acumulou telhado, varanda, copa e hélice; ler a regra como "folhagem"
+   produziu três bugs seguidos no moinho.
+2. **Mato pintado na mesma célula de um prédio fica ATRÁS do prédio.** É a única
+   decisão de profundidade que não é sobre o jogador — é entre duas artes.
+3. **Conferir animação por amostra de quadro é conferir por sorte.** O bug das
+   pás quase não existia no quadro 0 e era enorme no 3; eu renderizei justamente
+   os quadros em que ele não aparecia. Meça em TODOS os quadros.
+4. **Quando todas as medições dizem "está certo", o errado é a leitura do
+   relato.** Perdi duas rodadas procurando nas pás o que estava no telhado.
+   Ampliar a captura antes de teorizar teria resolvido.
+5. **"Editada" e "apagada" não são a mesma pergunta.** Célula que recebeu arte
+   colada continua sendo desenhada; célula do `/remove` some. Confundir as duas
+   apaga em silêncio o que se acabou de colar.
+
+### ⚠️ O que está pendente, e é conhecido
+
+- 🔴 **As pás do moinho são SÓLIDAS** célula a célula, no formato do X do quadro
+  0 — há parede invisível no ar em volta dele. É pré-existente. Agora dá para
+  abrir com o construtor (`🚪 abre passagem`) sem tocar no conversor.
+- ⚠️ **Moinho e galinheiro têm porta que abre e não leva a lugar nenhum** — o
+  `farm:build` avisa. Faltam os dois interiores.
+- ⚠️ **Galinha (36 px) está maior que o Ganso (26 px)**, e ganso é maior que
+  galinha. Packs de autores diferentes; o ganso foi encolhido à mão em 30/08.
+  **Decisão de arte, quer ser vista em tela.**
+- ⚠️ **O Golem tem 76 px em pé**, não os 142 que o handoff de 29/08 registrou —
+  aquele número era medida inflada pelo quadro de ataque.
+- ⚠️ O construtor **não substitui o Tiled**: o `Farm.tmx` segue sendo a fonte da
+  fazenda, e o que se põe pelo painel é uma camada de remendos por cima.
+
+### 🎯 A PRÓXIMA COISA
+
+1. **Consertar as arestas da fazenda com o construtor** — é para isso que ele
+   existe, e é o trabalho que estava em curso quando esta sessão terminou.
+2. Depois disso, **as 7 skills do Guerreiro**, que continua sendo o trabalho
+   escolhido pelo dono em 13/08. Ver o bloco daquele dia, mais abaixo.
+
+---
+
+## Diário da virada — os blocos por assunto
+
+## ⏸️ ONDE PARAMOS — 31/08, a varanda que engolia o herói
+
+Typecheck limpo nos 3 pacotes, **483 testes** (459 shared + 24 server).
+`npm run dev` → `localhost:5173`. ⚠️ **Nada disto foi visto em tela ainda** — a
+conferência é a próxima coisa a fazer.
+
+### 🚜 A FAZENDA (feita em 30/08, e NÃO estava registrada aqui)
+
+O primeiro mapa autoral de Elysia entrou no mundo, cumprindo a regra de 03/08
+(*cidade é mapa do Tiled, não retângulo procedural*). 45×32 tiles colados na
+praça segura, em (163,141). Tudo ainda **sem commit**.
+
+| Onde | O quê |
+|---|---|
+| `tools/farm/` | o conversor `Farm.tmx` → jogo. `npm run farm:build` |
+| `shared/src/farm.ts` + `shared/data/world/farm.json` | a COLISÃO, lida pelos dois lados |
+| `client/public/assets/farm/` | a ARTE: dois PNGs assados + folha de animação |
+| `client/src/farmart.ts` | quem desenha, anima e abre porta |
+
+🔴 **A divisão é o miolo do desenho:** o servidor carimba `WALL_WOOD`/`WATER` e
+não sabe que existe um moinho desenhado ali. Assim a invariante do `worldgen.ts`
+(*terreno não trafega pela rede*) fica de pé. Tem lago com peixe, moinho com pás
+girando, porta que abre, dois interiores (casa e celeiro) no andar 1, e porco,
+vaca e galinha como criatura de verdade — o pack os tinha pintado como enfeite
+parado.
+
+### 🔴 Os dois consertos de hoje, e os dois vinham da sessão de 30/08 parada no meio
+
+**1. O herói sumia na porta da casa** — é a captura `erros/00-erro-fazenda.png`,
+com a seta vermelha do dono. Só as botas e a ponta da espada apareciam por baixo
+do deck da varanda.
+
+A camada `porch_roof` do pack guarda **duas coisas que querem lados opostos do
+jogador**: o telhado (y 3–7, tem que ficar SOBRE ele) e a varanda com escada
+(y 9–10, é chão que se PISA). A camada inteira estava marcada `acima`, e essas
+6 células andáveis são justamente o único caminho até a porta.
+
+Conserto: a profundidade passou a ser decidida **por tile e não por camada** —
+`desenhaAcima` + `VARANDA_HOUSES` em `tools/farm/layers.mjs`, o mesmo remédio
+que `CERCA_GGB` já dava para a camada `beds`.
+
+⚠️ **O que se perde:** parado na varanda, o herói passa NA FRENTE do corrimão em
+vez de atrás. É o lado certo de errar.
+
+**2. A troca da grama estava escrita e nunca tinha sido assada.** O
+`tools/farm/build.mjs` estava **quebrado** desde 30/08 às 18h51 —
+`SyntaxError: Identifier 'GRAMA_DO_JOGO' has already been declared`. A sessão
+anterior trocou a repintura de grama de POR CÉLULA para POR PIXEL (que é o
+conserto de *"a borda está bugada, com os canteiros de graminha todos errados"*)
+e não chegou a apagar o bloco antigo. Os PNGs no disco eram os de antes.
+
+Terminei a refatoração: o bloco velho saiu, e o que sobrou dele virou
+`ehGramadoLimpo` — que agora pergunta *"esta célula É a grama do jogo?"* sobre o
+resultado, em vez de *"é uma cor verde só?"* sobre a arte do pack. É o que marca
+`g` no mapa e pinta o gramado no minimapa.
+
+### 🆕 O relatório do `farm:build` ganhou a linha que denuncia esse bug
+
+```
+camadas "acima" sobre células andáveis (o jogador passa ATRÁS delas): Trees (pomar)(120) Trees2 (pomar)(100)
+```
+
+⚠️ **Número alto não é erro** — as duas do pomar escondem ~220 células de
+propósito. A linha não julga: ela obriga a olhar e perguntar, por linha, *"é
+folhagem ou é chão?"*. Chão em `acima` é o bug. Com a varanda quebrada ela
+mostrava `porch_roof(6)`; conferido que aparece e que some.
+
+🔴 **Um detector automático foi TENTADO e descartado**, e vale saber por quê: nem
+"célula sem arte no `baixo`" nem "`acima` 100% opaco" separam varanda de copa de
+árvore — as duas têm a mesma forma. A diferença é semântica, e semântica é o que
+a tabela escrita à mão do `layers.mjs` existe para guardar.
+
+### 🔴 Segunda rodada de 31/08 — três bugs vistos em tela pelo dono
+
+Captura: `erros/01-erro-fazenda.png`, com quatro setas amarelas. Os três têm
+causa diferente e nenhuma delas era onde parecia.
+
+**1. *"O personagem está passando embaixo do pé das árvores."*** As duas camadas
+do pomar eram `acima` inteiras, então o herói parado rente ao tronco sumia atrás
+das raízes.
+
+⚠️ **A regra óbvia — "a fileira de baixo da mancha", a mesma que a colisão usa
+para o tronco — NÃO serve aqui**, e foi a primeira tentativa. No pomar as copas
+se tocam de propósito (é o que impede as hortas de ficarem ilhadas), então as
+árvores formam colunas contínuas: só **26 de 222** células são fim de mancha.
+
+A regra que ficou é pela ARTE, e é descoberta, não digitada: tile do pomar cujos
+pixels opacos são majoritariamente MARROM é raiz. A separação é limpa — os 8
+tiles de raiz dão de **87% a 100%** de marrom e o primeiro tile de copa depois
+deles dá **23%**. Ver `PES_DO_POMAR` no `build.mjs`. A copa continua `acima`:
+andar ATRÁS da folhagem é o efeito pedido; atrás do PÉ é que era o bug.
+
+**2. *"O catavento está girando todo quebrado, faltando partes."*** Não faltava
+parte nenhuma. O cliente começa cada célula animada num **quadro sorteado** — é o
+que faz o lago cintilar em vez de piscar todo junto, e é certo para água e peixe.
+As pás do moinho são **77 células de UMA hélice só**: sorteadas, cada uma mostrava
+um instante diferente do giro.
+
+Agora o conversor marca a faixa como `sincrona` (`ANIMACAO_EM_BLOCO`) e o
+cliente começa essas no quadro 0. Como todas avançam no mesmo laço, com o mesmo
+`agora` e as mesmas durações, ficam travadas juntas sem relógio global.
+
+**3. *"As bordas estão todas erradas — algumas grids que deveriam seguir viradas
+para a esquerda estão viradas pra direita, e aí quebra o caminho da borda."***
+Estava exatamente isso, e a causa é de uma linha: 🔴 **o `tmx.mjs` APAGAVA os
+flip flags do gid** (`& ~FLIP`). São **37 células espelhadas** no `Farm.tmx`, e
+25 delas são a cerca-viva (`Hill`) e a grama da borda — o autor desenhou meia
+curva e espelhou a outra metade, que é como se trabalha no Tiled.
+
+Agora `resolveGid` devolve `flipH/flipV/flipD` e o compositor desespelha na
+ordem do Tiled (V, H, e a **diagonal por último** — trocar a ordem só estraga
+tiles rotacionados, que são D+H, e passaria despercebido). Para as 9 células
+animadas espelhadas, o espelho entra na CHAVE da faixa e a tira é assada já
+virada: o cliente não precisa saber que espelho existe.
+
+---
+
+### 🔴 O moinho, terceira vez: era o TELHADO, não as pás
+
+Relato: *"a parte de cima do catavento ainda está por baixo"* —
+`erros/03-erro-fazenda.png`.
+
+⚠️ **Eu procurei no lugar errado por duas rodadas**, e vale registrar como: li
+"catavento" como *as pás* e fui atrás delas. Ampliando a captura a 14×, a ponta
+da pá aparece **inteira, com contorno escuro** — ela nunca esteve cortada nesta
+rodada. O que estava decapitado era o **telhado do moinho**.
+
+Quem cobria: `Trees_outside2` — a cerca-viva da borda NORTE — que é `acima` e
+tem **27 células em cima do moinho**, a fileira y=3 inteira.
+
+**A regra nova:** *mato pintado na MESMA célula de um prédio fica ATRÁS do
+prédio.* As camadas de construção ganharam `construcao: true`, as de vegetação
+`vegetacao: true`, e o `build.mjs` faz uma pré-passada marcando as células com
+prédio.
+
+🔴 **É a primeira decisão de `acima` que NÃO é sobre o jogador, e é isso que a
+torna segura.** Todas as outras perguntam *"o herói passa na frente ou atrás?"*.
+Esta é entre duas ARTES: o autor pintou a fileira de mato e plantou o moinho em
+cima — o mato está atrás do prédio no mundo, e desenhá-lo por cima é errado com
+jogador ou sem. Não há caso em que a troca piore algo, e célula de prédio é
+sempre sólida, então nenhuma oclusão de personagem muda.
+
+#### ⚠️ Três becos sem saída, para ninguém repetir
+
+1. **"A arte do pack está cortada."** Falso. O `Sails_animation.png` é 160×864 =
+   6 blocos de 10×9 tiles, e o conteúdo de cada bloco cabe com folga (medido:
+   `y 4..141` no pior). Renderizei a hélice recortada no bloco e ela *parecia*
+   serrada — era o meu crop, não a arte.
+2. **"É cache do navegador."** Falso. `curl` no Vite mostrou `Cache-Control:
+   no-cache` e o JSON servido já com `acima: true` nas 77 células; e o log do
+   dev server mostrou a página recarregando depois do rebuild.
+3. **"É a ordem das camadas no cliente."** Falso. `farmArte.acima` é o último
+   filho do mundo depois de `objects`, e `world.sortableChildren` é `false`.
+
+A lição das três: **quando as medições todas dizem "está certo", o errado é a
+minha leitura do relato, não os dados.** Ampliar a captura antes de teorizar
+teria poupado duas rodadas.
+
+---
+
+### 🔴 O moinho, segunda vez: as pás passavam por baixo do cenário
+
+Relato do dono: *"o catavento está passando por baixo de alguns elementos
+(árvores, grids do chão)"* — captura `erros/02-erro-fazenda.png`.
+
+As pás nasciam na camada `baixo`, junto do chão. A hélice tem **10×9 células**:
+ela transborda o moinho e cruza a cerca-viva ao norte, que é `acima`. As pontas
+sumiam atrás do mato e a hélice parecia serrada.
+
+Conserto: a camada `Sails` (45) virou `acima`.
+
+🔴 **A regra da camada `acima` não é sobre vegetação, é sobre ALTURA.** Tudo o
+que estava lá até agora era folhagem e corrimão, e é fácil ler a regra errado. A
+pergunta certa é *"está acima da cabeça?"*: uma hélice a três tiles do chão não
+pode ser encoberta por um arbusto ao nível do solo. Isto também põe as pás sobre
+o JOGADOR, que é o certo — passa-se por baixo do catavento.
+
+#### ⚠️ A lição de verificação, que vale mais que o conserto
+
+Eu tinha "conferido" o moinho na rodada anterior renderizando três quadros — e
+passou. Medindo depois, quadro a quadro, quantos pixels de pá caíam sob o
+`acima` assado:
+
+| quadro | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| pixels tapados | **20** | 480 | 1488 | **1596** | 624 | 108 |
+
+O defeito quase não existe no quadro 0 e é enorme no 3. **Renderizei justamente
+os quadros em que ele não aparece.** Conferir animação por amostra de quadro é
+conferir por sorte; o certo é medir a sobreposição em TODOS os quadros, que é o
+que a tabela acima faz.
+
+#### ⚠️ Fica pendente, e é decisão de mapa
+
+**As pás são SÓLIDAS**, célula a célula, no formato do X do quadro 0 — há parede
+invisível no ar em volta do moinho. É pré-existente e não foi mexido: tirar a
+solidez abriria passagem nova e mudaria as ilhas andáveis. Quer ser visto em tela.
+
+---
+
+### 🆕 Construtor de mapas na tecla **E**
+
+Pedido do dono em 31/08, depois de o `/clone` + `/paste` se mostrarem lentos:
+*"escolher os sprites, girar 90°, posicionar... escolher o nível que quero
+colocar o objeto"*.
+
+⚠️ **NÃO foi visto em tela.** Typecheck limpo, 493 testes.
+
+**Fluxo:** `E` abre o painel → escolhe o sprite na paleta → `R` gira 90° →
+escolhe a camada → **`/ok`** no chat (ou o botão "pôr") → o objeto entra no tile
+**de frente** para o boneco. `/undo` desfaz. O painel é arrastável pelo título.
+
+#### A paleta: 871 sprites, assados
+
+Só entram os tiles que a fazenda **realmente usa** — 871 de mais de 10.000 nos 24
+tilesets do pack. Despejar tudo daria uma paleta impossível de percorrer; o que o
+autor usou é o vocabulário visual desta fazenda, e é com ele que se conserta uma
+aresta sem inventar estilo novo.
+
+🔴 **Assar é o único jeito de eles existirem no cliente:** os tilesets moram em
+`assets/`, fora de `client/public`, e o navegador não os alcança.
+
+⚠️ **O índice na paleta é o que vai para o banco.** Reordenar a paleta troca o
+desenho de tudo que já foi posicionado — grupos novos entram sempre no FIM.
+
+#### As três camadas, e por que exatamente três
+
+Não são um número escolhido: são os três lugares que **já existiam** na pilha de
+containers do cliente.
+
+```
+floorRoot → decChao → fazenda(baixo) → decBaixo → objects → fazenda(acima) → decAcima
+```
+
+| `camada` | para quê |
+|---|---|
+| `chao` | remendar terreno sem cobrir o que está em cima |
+| `baixo` | o caso comum: objeto no chão, o herói passa na frente |
+| `acima` | sobre tudo, inclusive o herói — *"a hélice por cima dos objetos"* |
+
+#### 🔴 Duas decisões que valem saber
+
+**1. Tabela separada da `world_edit`, e a razão é a CHAVE.** Uma edição de tile é
+única por célula (um tile tem um tipo). Um decalque é o contrário: o valor dele é
+poder **empilhar** — uma pedra sobre a grama, a hélice sobre a pedra. Chave por
+célula mataria exatamente o que o comando existe para fazer. Então `world_decal`
+(schema v8) tem id próprio e a célula é só mais uma coluna; a ordem de desenho
+dentro da mesma célula é a de inserção.
+
+**2. `/undo` tem DUAS pilhas e um comando só.** O editor grava em duas tabelas, e
+o dono não tem por que saber disso: ele desfez a última coisa que fez. O comando
+compara os dois carimbos de tempo e desfaz o mais recente. ⚠️ Sem isso, pôr um
+objeto e apertar `/undo` desfaria a REMOÇÃO de dez minutos atrás e deixaria o
+objeto lá — o pior tipo de desfazer, o que mexe no que você não estava olhando.
+
+⚠️ **`/ok` é o ÚNICO comando resolvido no cliente**, e tem de ser: o que ele manda
+(sprite, giro, camada) é estado de interface, que o servidor não conhece. O
+`chatInputEl` intercepta e envia `C2S_Decal`; a célula-alvo continua sendo
+calculada no servidor, como em todos os outros.
+
+⚠️ **Não substitui o Tiled.** O `Farm.tmx` segue sendo a fonte da fazenda; isto é
+uma camada de remendos por cima. Refazer 4.400 células à mão aqui seria desfazer
+a razão de o conversor existir.
+
+---
+
+#### 🆕 Colisão também no `/clone` e no `/paste` (31/08)
+
+Relato: *"estou copiando coisas e passando por cima delas e não pode"*.
+
+| palavra | o que a célula colada vira |
+|---|---|
+| (nenhuma) | **herda a colisão da ORIGEM** — o Ctrl+V honesto, e o padrão |
+| `solido` | `WALL_WOOD`: ninguém passa |
+| `livre` · `passa` · `abre` | o chão do bioma: passa-se por cima |
+
+Vale nos dois: `/clone solido` **guarda a escolha na área de transferência** e
+todas as colagens seguintes saem iguais — é o que torna consertar uma cerca
+inteira suportável. `/paste solido` sobrepõe só naquela colagem.
+
+⚠️ **`aqui` agora vale em qualquer posição** (`/paste solido aqui`). Antes só o
+primeiro argumento era lido, e `/paste solido aqui` teria mirado no tile da
+frente calado.
+
+🔴 **Sem modificador NÃO é "andável": é o que a origem era.** Clonar uma parede e
+colar tem de dar uma parede, senão o Ctrl+V mentiria. Foi a decisão mais fácil de
+errar aqui — o reflexo é fazer o padrão ser "decoração".
+
+⚠️ **`passa` e `abre` são a mesma coisa na colagem, e no construtor NÃO são.** Lá
+o decalque é desenho puro, então "passa por cima" quer dizer *não mexa no tile* e
+"abre passagem" quer dizer *derrube a parede que já existia* — dois efeitos. Na
+colagem o tile é SEMPRE escrito, então as duas viram a mesma ordem. As três
+palavras são aceitas para quem vem do painel não ter de lembrar de qual lado da
+fronteira está.
+
+---
+
+#### 🆕 Colisão no construtor (31/08)
+
+Relato do dono: *"tem peças que eu coloco que o herói atravessa, tipo uma parede
+ou um barranco"*. E atravessava — **decalque é desenho, e desenho não para
+ninguém**: a colisão do mundo mora no TIPO DE TILE, num lugar completamente
+separado do que se vê.
+
+O seletor novo, ao lado do de camada:
+
+| opção | o que faz no tile |
+|---|---|
+| **passa por cima** (padrão) | nada — a peça é só enfeite |
+| 🧱 **sólido** | vira `WALL_WOOD`: ninguém passa, e o mapa da tecla M mostra |
+| 🚪 **abre passagem** | vira o chão do bioma: tira parede invisível de onde sobrou |
+
+⚠️ **`abre passagem` não é enfeite da lista.** É como se remove a parede invisível
+que sobrou de arte antiga — o caso das pás sólidas do moinho, ainda pendente.
+
+🔴 **A colisão é uma `WorldEdit` GÊMEA**, gravada junto do decalque na mesma
+célula. É o mesmo mecanismo do `/remove`, reaproveitado: "esta parede bloqueia"
+não é uma propriedade nova do mundo, é o tile daquela célula mudando.
+
+⚠️ **Dentro da fazenda a edição gêmea leva `arte` apontando para a PRÓPRIA
+célula**, e sem isso a colisão apagaria o desenho: `farmDesenhaCelula` devolve
+`false` para célula editada **sem** arte (é o `/remove`), e a fazenda pararia de
+pintar ali. Apontando para si mesma, a célula continua desenhada com os pixels
+originais — a colagem vira um no-op visual e só a colisão muda.
+
+⚠️ **O `/undo` desfaz as duas de uma vez.** Tirar o desenho e deixar a colisão é o
+pior resultado possível: sobra parede invisível e nada em tela denuncia o que
+ficou. A coluna `colisao` (schema v9) existe só para isso — não para desenhar.
+
+---
+
+#### 🆕 Segunda rodada do construtor (31/08, mesmo dia)
+
+**Redimensionar e zoom.** O painel virou flex em coluna com `resize: both`; quem
+cresce é a GRADE, não o cabeçalho. O zoom tem cinco degraus (0,5× a 3×) e a grade
+usa `repeat(auto-fill, var(--ed-cell))` — é isso que faz zoom e redimensionamento
+conversarem sem número de colunas fixo em lugar nenhum.
+
+⚠️ **Os degraus são inteiros e meio, nunca arbitrários.** A arte é de 16 px a 2×;
+ampliar por fator quebrado devolve o serrilhado em faixas que assombra este
+projeto desde 10/08. 1,5× cai em 48 px, múltiplo inteiro de 16 — por isso ele
+entra e 1,25× não.
+
+🔴 **Tamanho, posição e zoom sobrevivem à recarga** (`localStorage`), e isso não é
+enfeite: o fluxo é *mexe → Ctrl+Shift+R → olha*, dezenas de vezes seguidas. Sem
+guardar, cada recarga devolvia o painel ao canto e à peça de 32 px.
+
+**Conta-gotas: clicar no jogo acha a peça.** Pedido do dono: *"clicar no grid que
+quero no game e ele localiza o grupo dele, vai ajudar a encontrar os 'parentes'
+de cada área"*. Caçar uma cerca específica entre 871 peças é procurar agulha;
+apontar para a que já está no mapa acha na hora.
+
+O `farm:build` passou a emitir `paleta.celulas`: **1.408 células** mapeadas para a
+pilha de peças que as compõem.
+
+⚠️ **É uma LISTA por célula, não uma peça só**, e é aí que está o valor: uma
+célula da fazenda costuma ter três ou quatro camadas (chão + mato + cerca).
+Guardar só a de cima esconderia justamente o chão que se quer copiar. Clicar de
+novo na mesma célula desce um degrau.
+
+🔴 **A ordem é por COBERTURA, não por camada — e a primeira versão foi por camada,
+que estava errada.** O dono relatou: *"ele localiza vários que não têm nada a
+ver"*. E localizava: **a camada mais alta de uma célula quase nunca é o que se
+vê**. No telhado da casa a peça de cima é a HERA (um galho de ~20 pixels opacos)
+sobre o telhado inteiro; no moinho é um farelo de pá; no lago, um peixe. Clicar
+no telhado devolvia a hera.
+
+A pergunta certa é *"o que ocupa mais esta célula?"*, e ela se responde contando
+pixel opaco no conversor. Empate desempata pela camada mais alta — o critério
+antigo virou desempate em vez de regra. Conferido em seis células conhecidas
+(telhado, porta, moinho, lago, pomar, grama): o primeiro clique agora entrega
+exatamente o que está na tela.
+
+🔴 **Com o painel aberto o clique vira conta-gotas e NÃO caminhada** — modal de
+propósito. A alternativa (Shift+clique) é pior aqui: quem conserta cenário clica
+em tile atrás de tile procurando a peça, e segurar tecla o tempo todo cansa. Para
+andar, WASD; fechar com `E` devolve o clique-para-andar na hora.
+
+⚠️ O `farm.json` do cliente foi de 30 KB para **93 KB** por causa do mapa de
+células. É asset local de desenvolvimento e paga o preço; se um dia incomodar, o
+caminho é emitir só as células com mais de uma peça.
+
+---
+
+### 🆕 `/remove` — a ferramenta de AUTORIA de cenário
+
+Pedido do dono em 31/08: *"eu logado no servidor, coloco /remove e você remove a
+árvore/item/plantação/textura do grid que estiver de FRENTE para o meu boneco"*.
+
+⚠️ **NÃO foi visto em tela ainda.** Typecheck limpo, 491 testes.
+
+| comando | o que faz |
+|---|---|
+| `/remove` | apaga o que está no tile para onde o boneco está VIRADO |
+| `/clone` | copia esse tile (Ctrl+C) |
+| `/paste` | carimba o copiado no tile de frente (Ctrl+V) |
+| `/undo` | desfaz a última edição (LIFO). `/restaura` é o mesmo |
+
+Os três primeiros aceitam `aqui` (`/clone aqui`) para agir sobre o tile **sob** o
+boneco em vez do de frente.
+
+#### 🔴 O `/clone` copia DUAS coisas, e a diferença é tudo
+
+| | de onde vem | quem desenha |
+|---|---|---|
+| **o tile** | `map.floors` — grama, terra, árvore, parede | o motor |
+| **a arte** | o PNG assado da fazenda | o cliente, copiando pixels |
+
+Fora da fazenda só existe a primeira: o mundo é 16 tipos de tile e o que se vê É
+o tipo. Dentro da fazenda existem as duas, **independentes** — colisão do tile,
+desenho do PNG. Por isso `/clone` guarda o tile sempre e a origem da arte só
+dentro da fazenda; colar arte de fazenda fora dela é recusado com aviso (não há
+PNG lá para receber os pixels).
+
+⚠️ **Não copia o que está VIVO**: bicho, item no chão, nó de coleta, água
+correndo e as pás do moinho são entidades ou sprites animados, não pixels
+assados. Clonar uma célula do lago copia o fundo parado. O destino PERDE os
+sprites vivos dele — senão a água correria sobre a arte nova.
+
+🔴 **A fonte dos pixels é o PNG ORIGINAL, não o canvas em uso**, e isso não é
+detalhe: copiar do canvas faria o resultado depender da ORDEM em que as edições
+foram aplicadas — colar de uma célula que depois foi apagada daria coisas
+diferentes para quem chega agora e para quem já estava online. Lendo do original,
+a mesma lista de edições dá sempre a mesma fazenda.
+
+#### ⚠️ "Editada" e "apagada" NÃO são a mesma pergunta
+
+É a armadilha que o `/paste` criou, e há teste travando as duas:
+
+- **sem `arte`** → célula APAGADA: a fazenda para de desenhar, o motor pinta o
+  chão do bioma. É o `/remove`.
+- **com `arte`** → célula COLADA: a fazenda continua desenhando, com os pixels
+  copiados. É o `/paste`.
+
+`farmDesenhaCelula` pergunta `foiApagada`, nunca `foiEditada` — trocar uma pela
+outra apagaria em silêncio justamente o que se acabou de colar. E a origem da
+arte é PERSISTIDA (colunas `arte_x`/`arte_y`, schema v7): sem elas, no restart
+seguinte toda colagem viraria remoção.
+
+Só em `DEV_MODE` (`npm run dev:test`), junto de `/level`, `/tp` e `/gold`.
+
+**A ordem em que as três coisas são tentadas é o conteúdo do comando**, porque
+num mesmo tile pode haver as três e apagar a errada é frustrante:
+
+1. **item no chão** — some sozinho, não vira edição gravada (é só largar outro);
+2. **nó de coleta** — também não grava: nós renascem, e gravar "não existe aqui"
+   brigaria com o respawn na próxima vez que ele acontecesse;
+3. **o TILE** — o único que vira edição gravada, porque é o único que o mundo
+   recria igual a cada boot. O substituto é `chaoBaseEm(x,y)`, não `grass` fixo:
+   grama fixa plantaria um quadrado verde na neve, que é um bug real já
+   documentado no `worldgen.ts`.
+
+⚠️ **Criatura não entra na lista, de propósito.** Bicho anda: mirar nele é mirar
+em algo que pode não estar mais lá quando o comando roda, e ele renasce em 45 s.
+
+#### 🔴 As duas decisões que valem saber
+
+**1. Isto NÃO viola a invariante do `worldgen`.** *"Terreno não trafega pela
+rede; os dois lados calculam o mesmo mundo"* continua valendo — `buildWorldMap()`
+segue determinístico e as edições são uma **lista curta carimbada por cima**, do
+mesmo jeito que a fazenda é. O mundo tem 90.000 tiles; a lista tem dezenas.
+⚠️ Se um dia ela crescer para milhares, a decisão precisa ser revista, e o lugar
+de revisá-la é o cabeçalho de `shared/src/worldedit.ts`.
+
+**2. A lista mora no BANCO (`world_edit`, migração v6), NÃO em `shared/data/`.**
+O vizinho natural seria um `edits.json` ao lado do `farm.json` — e não funciona:
+aquele diretório está sob o observador do `tsx watch` e do Vite. **Foi visto em
+tela nesta mesma sessão**, regravar o `farm.json` derrubou e subiu o servidor e
+recarregou a página. Com o arquivo lá, cada `/remove` custaria um restart e a
+queda de quem estivesse online — num comando cujo propósito é ajustar o cenário
+*enquanto se joga*.
+
+🔴 É a primeira tabela do banco que **não pende de conta nem de personagem**:
+apagar uma árvore apaga para todo mundo, porque é autoria de cenário e não
+progresso de ninguém.
+
+#### O que foi preciso mexer
+
+| arquivo | o quê |
+|---|---|
+| `shared/src/worldedit.ts` | 🆕 a tabela de edições e o carimbo, lidos pelos dois lados |
+| `shared/src/farm.ts` | `farmDesenhaCelula` devolve `false` na célula apagada |
+| `shared/src/protocol.ts` | `S2C_WorldEdit` (lista inteira no login, delta ao vivo) |
+| `server/src/store/schema.ts` · `store.ts` | v6 `world_edit` + os três métodos |
+| `server/src/index.ts` | os comandos, e o carimbo no boot ANTES de spawnar nada |
+| `client/src/main.ts` | aplica, e **remonta o pedaço** — o passo que se esquece |
+| `client/src/farmart.ts` | `apagaCelula`: fura os PNGs assados |
+
+⚠️ **Dentro da fazenda são DUAS metades e as duas são obrigatórias:** o
+`farmDesenhaCelula` manda o motor voltar a pintar o chão, e o `apagaCelula` fura
+o PNG. Só a primeira deixaria a árvore desenhada por cima do chão novo; só a
+segunda deixaria um buraco preto. Para poder furar, os dois PNGs da fazenda
+passaram a entrar como **canvas** em vez de textura de `<img>`.
+
+⚠️ **Limite conhecido:** reconectar sem recarregar a página não desfaz edição
+restaurada enquanto o cliente estava fora. F5 resolve. Está anotado no código.
+
+---
+
+### 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Ver a fazenda em tela** — a porta da casa (herói visível), o pé das
+   árvores do pomar, o moinho girando inteiro e as duas bordas das setas.
+   ⚠️ **Ctrl+Shift+R**: os PNGs são reassados e o navegador guarda os antigos.
+2. ⚠️ **Duas decisões de arte que ficaram esperando tela**, as duas anotadas em
+   `client/src/miniworld.ts`: a **Galinha (36px) está maior que o Ganso (26px)**,
+   e ganso é maior que galinha (packs de autores diferentes, e o ganso foi
+   encolhido à mão a pedido do dono em 30/08). E o **Golem tem 76px em pé**, não
+   os 142 que este handoff registrou em 29/08 — aquele número era medida inflada
+   pelo quadro de ataque.
+3. ⚠️ **Moinho e galinheiro têm porta que abre e não leva a lugar nenhum** — o
+   `farm:build` avisa. Faltam os dois interiores.
+4. Depois disso, **as 7 skills do Guerreiro**, que continua sendo o trabalho
+   escolhido — ver o bloco de 13/08 mais abaixo, que segue valendo inteiro.
+
+---
+
 # Handoff — estado do projeto em 2026-08-29
 
 ## ⏸️ ONDE PARAMOS — 29/08, o dia dos BICHOS

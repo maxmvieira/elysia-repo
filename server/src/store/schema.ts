@@ -15,7 +15,7 @@
  * Migrações: `user_version` do SQLite. Cada versão é um passo idempotente.
  */
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 9;
 
 /**
  * v2 — Profissões (`DD-PROF-023`).
@@ -95,6 +95,101 @@ CREATE INDEX IF NOT EXISTS ix_friend_account ON account_friend(account_id);
  */
 export const SCHEMA_V5 = `
 ALTER TABLE character ADD COLUMN outfit TEXT NOT NULL DEFAULT '[]';
+`;
+
+/**
+ * v6 — Edições de mundo (o `/remove`, pedido do dono em 31/08).
+ *
+ * 🔴 **Por que no banco e não num JSON em `shared/data/`**, que seria o vizinho
+ * natural do `farm.json`: aquele diretório está sob o observador do `tsx watch`
+ * e do Vite. Foi visto em tela nesta sessão — regravar o `farm.json` derrubou e
+ * subiu o servidor e recarregou a página. Com as edições lá, cada `/remove`
+ * custaria um restart e a queda de quem estivesse online, num comando cujo
+ * propósito é ajustar o cenário **enquanto se joga**.
+ *
+ * 🔴 **A tabela é do MUNDO, não da conta nem do personagem** — e é a primeira
+ * assim. Apagar uma árvore apaga para todo mundo: é autoria de cenário, não
+ * progresso de ninguém. Por isso não há `account_id` aqui, e por isso ela não
+ * some quando a conta some.
+ *
+ * `tile_antes` é o que o `/restaura` devolve. Sem ela, desfazer exigiria
+ * recalcular o `worldgen` para aquela célula — o que funciona hoje e deixaria de
+ * funcionar no instante em que a geração mudasse, transformando um "desfazer" em
+ * "trocar por outra coisa qualquer".
+ */
+export const SCHEMA_V6 = `
+CREATE TABLE IF NOT EXISTS world_edit (
+  floor      INTEGER NOT NULL,
+  x          INTEGER NOT NULL,
+  y          INTEGER NOT NULL,
+  tile       INTEGER NOT NULL,
+  tile_antes INTEGER NOT NULL,
+  edited_at  INTEGER NOT NULL,
+  edited_by  TEXT    NOT NULL,
+  PRIMARY KEY (floor, x, y)
+);
+`;
+
+/**
+ * v7 — De qual célula a arte foi copiada (o `/paste`, pedido do dono em 31/08).
+ *
+ * Duas colunas anuláveis na tabela que a v6 criou. `NULL` quer dizer "célula
+ * apagada" (o `/remove`); preenchidas, "célula que recebeu a arte daquela outra"
+ * (o `/paste`).
+ *
+ * 🔴 **É a distinção que o `farmDesenhaCelula` consulta**, e ela precisa ser
+ * PERSISTIDA e não inferida: sem estas colunas, ao reabrir o servidor toda
+ * colagem viraria uma remoção — a fazenda pararia de desenhar as células coladas
+ * e elas virariam buraco de grama. O bug só apareceria no restart seguinte, que
+ * é o pior momento para descobrir.
+ */
+export const SCHEMA_V7 = `
+ALTER TABLE world_edit ADD COLUMN arte_x INTEGER;
+ALTER TABLE world_edit ADD COLUMN arte_y INTEGER;
+`;
+
+/**
+ * v8 — Objetos posicionados pelo construtor de mapas (pedido do dono em 31/08).
+ *
+ * 🔴 **Tabela separada da `world_edit`, e a razão é a CHAVE.** Uma edição de tile
+ * é única por célula: editar duas vezes o mesmo lugar é uma linha só, porque um
+ * tile tem um tipo. Um decalque é o contrário — o valor dele é poder **empilhar**
+ * (uma pedra sobre a grama, a hélice sobre a pedra). Chave por célula mataria
+ * exatamente o que o comando existe para fazer, então aqui a chave é um id
+ * próprio e a célula é só mais uma coluna.
+ *
+ * A ordem de desenho dentro de uma mesma célula e camada é a de INSERÇÃO
+ * (`id` crescente): quem coloca depois fica por cima, que é o que a mão espera.
+ *
+ * ⚠️ `paleta` é um índice na folha `farm-paleta.png` — ver `WorldDecal`.
+ */
+export const SCHEMA_V8 = `
+CREATE TABLE IF NOT EXISTS world_decal (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  floor     INTEGER NOT NULL,
+  x         INTEGER NOT NULL,
+  y         INTEGER NOT NULL,
+  paleta    INTEGER NOT NULL,
+  rot       INTEGER NOT NULL,
+  camada    TEXT    NOT NULL,
+  placed_at INTEGER NOT NULL,
+  placed_by TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_decal_cel ON world_decal(floor, x, y);
+`;
+
+/**
+ * v9 — O que o decalque faz com o passo (pedido do dono em 31/08).
+ *
+ * Uma coluna anulável. `NULL` ou `'nada'` = enfeite; `'bloqueia'` / `'livre'` = a
+ * colocação também gravou uma `world_edit` naquela célula.
+ *
+ * 🔴 **A coluna existe para o `/undo`, não para desenhar.** Sem ela, desfazer o
+ * decalque tiraria o desenho e deixaria a parede invisível para trás — o pior
+ * resultado possível, porque nada em tela denuncia o que sobrou.
+ */
+export const SCHEMA_V9 = `
+ALTER TABLE world_decal ADD COLUMN colisao TEXT;
 `;
 
 export const SCHEMA_V1 = `

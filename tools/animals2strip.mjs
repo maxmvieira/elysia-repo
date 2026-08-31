@@ -79,8 +79,12 @@ const TIPOS = {
  *
  * A hierarquia que 2x entrega, sem ninguem escolher numero nenhum:
  *
- *   Cavalo 62 > Potro 54 > Ganso 52 > Cabra 50 > Coelho 42
- *            > Cabrito 36 = Filhote de Ganso 36 > Coelhinho 30
+ *   Cavalo 62 > Potro 54 > Cabra 50 > Cabrito 36 > Ganso 26
+ *            > Coelho 21 > Gansinho 18 > Coelhinho 15
+ *
+ * ⚠️ A hierarquia acima ja NAO e a que o 2x puro entrega: quatro bichos sao
+ * excecao (os dois coelhos em 29/08, os dois gansos em 30/08). O principio
+ * segue valendo como PADRAO — a excecao e que precisa de decisao em tela.
  *
  * 🔴 **A escala tem que ser INTEIRA, e e por isso que "do tamanho da cabra" nao
  * da para atender ao pe da letra.** Com filtragem `nearest`, escala fracionaria
@@ -92,10 +96,29 @@ const TIPOS = {
 const ESCALA = {
   horse: 2,      // 31 px de conteudo -> 62
   foal: 2,       // 27 -> 54
-  goose: 2,      // 26 -> 52
   goat: 2,       // 25 -> 50
   goatling: 2,   // 18 -> 36
-  gosling: 2,    // 18 -> 36
+  // 🔴 O GANSO E O GANSINHO SAO A SEGUNDA EXCECAO AO 2x, por decisao do dono em
+  // 30/08 vendo em tela: *"diminua um pouco o tamanho do ganso, ele ta mt
+  // grande"*. E era mesmo — a 2x ele ficava com 52 px, o TERCEIRO maior do
+  // pasto e **acima da Cabra (50)**. Ganso nao e maior que cabra.
+  //
+  // ⚠️ A causa nao e bug: o artista da CraftPix desenhou o ganso com 26 px de
+  // conteudo contra 25 da cabra (pescoco longo, ave alta). O principio de "um
+  // multiplicador unico preserva as proporcoes do pack" funciona ate o pack
+  // discordar do olho do dono — e ai quem manda e o olho do dono.
+  //
+  // 🔴 **O GANSINHO DESCE JUNTO, e nao e opcional.** Sozinho, o ganso a 1x (26)
+  // ficaria MENOR que o proprio filhote a 2x (36) — exatamente o defeito de
+  // "filhote maior que adulto" que este arquivo inteiro existe para evitar.
+  // Os coelhos ja tinham descido em par pela mesma razao.
+  //
+  // ⚠️ **Nao existe meio-termo entre 52 e 26**, pela regra da escala inteira. Se
+  // 26 ficar pequeno demais, o unico caminho e reamostrar a ARTE do ganso no
+  // conversor (a escala de tela continuaria inteira) — o que distorce o desenho
+  // e precisa de aprovacao em tela.
+  goose: 1,      // 26 -> 26
+  gosling: 1,    // 18 -> 18
   // ⚠️ OS DOIS COELHOS SAO A EXCECAO AO 2x, por decisao do dono em 29/08: ele
   // pediu o Coelho do tamanho do Coelhinho e o Coelhinho do tamanho do
   // COGUMELO (o no de coleta, desenhado por codigo em `main.ts`, que tem ~11 px

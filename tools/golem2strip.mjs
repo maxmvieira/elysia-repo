@@ -125,7 +125,34 @@ function encode(w, h, px) {
 
 mkdirSync(OUT, { recursive: true });
 
-/** Bounding box de alpha unido em TODAS as folhas — a âncora é uma só. */
+/**
+ * 🔴 **QUAIS ANIMAÇÕES DEFINEM A ÂNCORA — e por que não são todas.**
+ *
+ * A âncora é a linha do PÉ: o ponto do sprite que encosta no chão do tile. Ela
+ * só pode sair das poses de REPOUSO (andar e parado), porque só nelas o golem
+ * está de pé sobre o próprio pé.
+ *
+ * ⚠️ Medir a união de TODAS as folhas foi o bug do "golem flutuando" de 29/08.
+ * O `Attack` é um baque no chão: o corpo desce até a linha 94 da célula,
+ * enquanto andando o pé fica na 75. Unir as duas punha a âncora na 95, e como a
+ * âncora é PREGADA no chão do tile, o golem parado subia (95−77)×2 = **36 px**
+ * — mais de um tile inteiro acima da própria sombra. Daí a leitura de "a sombra
+ * ficou nos grids de baixo".
+ *
+ * O `Death` faz o mesmo em menor grau (linha 80), e o `Attack` também estica
+ * para CIMA (linha 24 contra 39), o que inflava a altura e mandava o nome para
+ * longe da cabeça.
+ *
+ * Deixar golpe e morte transbordarem do tile é o certo, não um defeito: o baque
+ * DEVE invadir o tile da frente, é o que dá peso ao golpe.
+ *
+ * ⚠️ Os packs de animais não têm este problema por acidente — eles só trazem
+ * andar e parado, então "todas" e "as de repouso" davam o mesmo número. Qualquer
+ * pack futuro com golpe precisa desta separação.
+ */
+const REPOUSO = new Set(['walk', 'idle']);
+
+/** Bounding box de alpha unido nas folhas de REPOUSO — a âncora é uma só. */
 let topo = CELL, base = -1, esq = CELL, dir = -1;
 
 for (const [origem, destino] of Object.entries(ANIMS)) {
@@ -148,14 +175,16 @@ for (const [origem, destino] of Object.entries(ANIMS)) {
 
   writeFileSync(`${OUT}/${destino}.png`, encode(w, h, px));
 
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (px[(y * w + x) * 4 + 3] <= 8) continue;
-      const ly = y % CELL, lx = x % CELL;
-      if (ly < topo) topo = ly;
-      if (ly > base) base = ly;
-      if (lx < esq) esq = lx;
-      if (lx > dir) dir = lx;
+  if (REPOUSO.has(destino)) {
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (px[(y * w + x) * 4 + 3] <= 8) continue;
+        const ly = y % CELL, lx = x % CELL;
+        if (ly < topo) topo = ly;
+        if (ly > base) base = ly;
+        if (lx < esq) esq = lx;
+        if (lx > dir) dir = lx;
+      }
     }
   }
   console.log(`✅ ${destino.padEnd(7)} ${cols} quadros x 4 direções  (linhas 2↔3 invertidas)`);
@@ -164,15 +193,22 @@ for (const [origem, destino] of Object.entries(ANIMS)) {
 const altura = base - topo + 1;
 const largura = dir - esq + 1;
 /**
- * 🔴 Escala 2x, e o numero e escolhido: o conteudo tem ~57 px, entao 2x poe o
- * chefe em ~114 px de tela — quase o dobro do heroi (60) e bem acima do Cavalo
- * (62), que era o maior bicho do mapa. Chefe tem que INTIMIDAR de longe.
+ * 🔴 Escala 2x, e o numero e escolhido.
+ *
+ * ⚠️ **O tamanho que este comentario prometia nunca existiu em tela.** Falava em
+ * ~114 px partindo de um conteudo de ~57 px, mas 57 era a medida INFLADA pelo
+ * `Attack` (bracos erguidos). O golem EM PE tem 38 px de conteudo, ou seja
+ * **76 px de tela** a 2x — acima do Cavalo (62) e do heroi (60), mas longe da
+ * "larga margem" que o handoff registrou.
+ *
+ * Fica em 2x porque subir para 3x (114 px) e decisao de arte do dono, vista em
+ * tela — nao coisa de conserto de bug.
  * ⚠️ Inteiro, pela regra de sempre: fracionario devolve o serrilhado.
  */
 const ESCALA = 2;
 
 console.log(
-  `\nconteúdo ${largura}x${altura}  ·  pé em y=${base + 1}  ·  escala ${ESCALA}x`
+  `\nrepouso ${largura}x${altura}  ·  pé em y=${base + 1}  ·  escala ${ESCALA}x`
   + ` -> ${altura * ESCALA}px na tela`,
 );
 console.log('\n--- cole em CREATURE_SHEETS (client/src/miniworld.ts) ---');

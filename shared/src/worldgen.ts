@@ -41,6 +41,7 @@ import {
   type CityDef,
 } from './regions.js';
 import { WORLD_NPCS } from './worlddata.js';
+import { carimbaFarm, carimbaInteriores, farmFloorLinks } from './farm.js';
 
 const T = {
   VOID: 0,
@@ -577,6 +578,19 @@ export function buildWorldMap(): GameMap {
    * mantê-la é zero.
    */
   const depotZone = limpaPracaSegura(ground);
+
+  /*
+   * 🔴 **A fazenda entra aqui, e a ordem não é negociável.** Ela é o primeiro
+   * mapa autoral do mundo (`shared/src/farm.ts`), e carimba colisão por cima do
+   * que o gerador desenhou. Rodar antes de `espalhaDecoracao` encheria o moinho
+   * de pinheiros; rodar antes de `limpaPracaSegura` não muda nada, porque as
+   * duas áreas não se tocam — a fazenda começa em x=163, um tile depois da borda
+   * leste da praça. Mesmo assim vai por último, junto com a praça, para que a
+   * regra "o que é feito à mão ganha do que é gerado" fique visível na ordem.
+   */
+  carimbaFarm(ground, WIDTH);
+  carimbaInteriores({ 0: ground, 1: upper }, WIDTH);
+  floorLinks.push(...farmFloorLinks());
 
   return {
     id: 'elysia',

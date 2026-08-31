@@ -570,6 +570,140 @@
         cursor: default;
       }
       /* Painel de personagem (tecla C) */
+      /* ---- Construtor de mapas (tecla E) -------------------------------
+       *
+       * Painel flutuante, ARRASTAVEL pelo titulo e REDIMENSIONAVEL pelo canto.
+       * Os dois existem pelo mesmo motivo pratico: a celula que se esta
+       * consertando costuma estar debaixo do painel, e a paleta tem 871 pecas —
+       * quem esta caçando uma cerca especifica quer a janela grande, quem esta
+       * so posicionando quer ela fora do caminho.
+       *
+       * O "resize: both" nativo pede overflow != visible; com flex em coluna e
+       * min-height:0 nos filhos, quem cresce e a GRADE, nao o cabeçalho. */
+      #editpanel {
+        position: fixed;
+        top: 60px;
+        right: 20px;
+        width: 428px;
+        height: 520px;
+        min-width: 240px;
+        min-height: 220px;
+        max-width: 96vw;
+        max-height: 92vh;
+        background: var(--panel);
+        border: 2px solid var(--border);
+        border-radius: 6px;
+        display: none;
+        z-index: 9;
+        font-size: 12px;
+        user-select: none;
+        resize: both;
+        overflow: hidden;
+      }
+      /* display:flex so quando aberto — o "none" do toggle tem de vencer. */
+      #editpanel.aberto { display: flex; flex-direction: column; }
+      #editpanel h3 {
+        margin: 0;
+        padding: 8px 10px;
+        color: #c9a86a;
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+        cursor: move;
+        border-bottom: 1px solid var(--border);
+        flex: 0 0 auto;
+      }
+      #editpanel .ebody {
+        padding: 8px 10px 10px;
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+      #ed-grupos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-bottom: 8px;
+        max-height: 78px;
+        overflow-y: auto;
+        flex: 0 0 auto;
+      }
+      #ed-grupos button {
+        background: #2a2723;
+        color: #cbbfa8;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-size: 11px;
+        cursor: pointer;
+      }
+      #ed-grupos button.on { background: #5a4a2a; color: #f0e0c0; }
+      /* A grade da paleta.
+       *
+       * "auto-fill" e o que faz o zoom e o redimensionamento conversarem: o
+       * numero de colunas sai da largura disponivel dividida pela celula, entao
+       * aumentar a peça ou estreitar a janela reflowa sozinho, sem numero fixo
+       * em lugar nenhum.
+       *
+       * "image-rendering: pixelated" e obrigatorio: sem ele o navegador
+       * interpola no zoom e a pixel art vira borrao. */
+      #ed-grade {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, var(--ed-cell, 32px));
+        gap: 1px;
+        overflow-y: auto;
+        background: #0e0d0b;
+        padding: 2px;
+        border: 1px solid var(--border);
+        flex: 1 1 auto;
+        min-height: 60px;
+        align-content: start;
+      }
+      #ed-grade div {
+        width: var(--ed-cell, 32px);
+        height: var(--ed-cell, 32px);
+        background-image: url('/assets/farm/farm-paleta.png');
+        image-rendering: pixelated;
+        cursor: pointer;
+        outline: 1px solid transparent;
+      }
+      #ed-grade div:hover { outline-color: #8a7a4a; }
+      #ed-grade div.on { outline: 2px solid #6cf06c; }
+      #ed-linha {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+        flex: 0 0 auto;
+      }
+      #ed-linha button, #ed-linha select {
+        background: #2a2723;
+        color: #cbbfa8;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 3px 8px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      #ed-zoom { color: #8a8070; min-width: 34px; text-align: center; }
+      #ed-previa {
+        width: 40px;
+        height: 40px;
+        background-image: url('/assets/farm/farm-paleta.png');
+        image-rendering: pixelated;
+        border: 1px solid var(--border);
+        flex: 0 0 auto;
+      }
+      #ed-dica {
+        color: #8a8070;
+        font-size: 11px;
+        margin-top: 6px;
+        line-height: 1.4;
+        flex: 0 0 auto;
+      }
+
       #charpanel {
         position: fixed;
         top: 20px;
@@ -2275,6 +2409,42 @@
         <span id="sp-resetinfo" class="hint"></span>
       </div>
     </div>
+    <!-- Construtor de mapas. A grade e preenchida por codigo (871 tiles). -->
+    <div id="editpanel">
+      <h3><span>🧱 Construtor de mapas</span><span id="ed-close" style="cursor:pointer">✕</span></h3>
+      <div class="ebody">
+        <div id="ed-grupos"></div>
+        <div id="ed-grade"></div>
+        <div id="ed-linha">
+          <div id="ed-previa" title="o que vai ser posto"></div>
+          <button id="ed-girar">↻ 0°</button>
+          <button id="ed-menos" title="diminuir as peças">−</button>
+          <span id="ed-zoom">1×</span>
+          <button id="ed-mais" title="aumentar as peças">+</button>
+          <select id="ed-camada">
+            <option value="baixo">camada: sob o herói</option>
+            <option value="chao">camada: sob a fazenda</option>
+            <option value="acima">camada: sobre tudo</option>
+          </select>
+          <select id="ed-colisao">
+            <option value="nada">passa por cima</option>
+            <option value="bloqueia">🧱 sólido (não passa)</option>
+            <option value="livre">🚪 abre passagem</option>
+          </select>
+          <button id="ed-por">/ok · pôr</button>
+        </div>
+        <div id="ed-dica">
+          <b>Clique num tile do jogo</b> para achar a peça dele aqui (clique de novo
+          para descer as camadas). Gire com <b>R</b>, escolha a camada e digite
+          <b>/ok</b> no chat (ou clique em <b>pôr</b>) — vai para o tile <b>de frente</b>
+          para o seu boneco. <b>/undo</b> desfaz. <b>E</b> abre e fecha.
+          <br>🧱 <b>sólido</b> faz o herói esbarrar na peça; <b>abre passagem</b> tira
+          parede invisível de onde ela sobrou.
+          <br>⚠️ Com o painel aberto o clique <b>não anda</b>: use WASD.
+        </div>
+      </div>
+    </div>
+
     <div id="charpanel">
       <h3>Personagem <span id="cp-close" style="cursor:pointer">✕</span></h3>
       <div id="cp-summary"></div>

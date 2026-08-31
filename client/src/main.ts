@@ -105,6 +105,15 @@ import {
   CREATURE_PLACEHOLDER_COLORS,
   CREATURE_FAMILY,
   ELEMENT_INFO,
+  FARM_AREA,
+  farmDesenhaCelula,
+  interiorEm,
+  dentroDaFarm,
+  registraEdicoes,
+  esqueceEdicao,
+  aplicaEdicoes,
+  type WorldEdit,
+  type WorldDecal,
   type ConditionId,
   type SkullKind,
 } from '@dominion/shared';
@@ -140,6 +149,8 @@ import {
 } from './heroes.js';
 import { loadTrees, treeTexFor, type ArvoreSprite } from './trees.js';
 import { loadCrystals, crystalNodeSprite, crystalIconImage } from './crystals.js';
+import { carregaFarmArte } from './farmart.js';
+import { criaEditor } from './editor.js';
 
 const TS = TILE_SIZE;
 const WALL_H = 18; // altura visual das paredes em pixels (efeito 2.5D)
@@ -749,6 +760,47 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   world.addChild(floorRoot);
 
   /*
+   * 🔴 **As três alturas do construtor de mapas** (`WorldDecal.camada`). Elas não
+   * são um número escolhido: são os três lugares que já existiam nesta pilha, e
+   * cada um atende um pedido diferente do dono.
+   *
+   *   floorRoot  →  decChao  →  fazenda(baixo)  →  objects  →  fazenda(acima)  →  decAcima
+   *                                                  ↑ decBaixo entra aqui
+   *
+   * - `chao`  remendo de terreno que fica SOB a arte da fazenda;
+   * - `baixo` o caso comum: objeto no chão, o herói passa na frente;
+   * - `acima` sobre tudo, inclusive o herói — *"a hélice por cima dos objetos"*.
+   */
+  const decChao = new Container();
+  decChao.eventMode = 'none';
+  world.addChild(decChao);
+
+  /*
+   * 🚜 **A FAZENDA.** Duas camadas, e a posição delas na pilha é o conteúdo da
+   * decisão: `farmBaixo` entra logo depois do piso e antes de `objects`, então
+   * o chão desenhado, as construções e as cercas ficam sob os personagens;
+   * `farmAcima` entra depois de `objects`, então a copa das árvores e o
+   * corrimão das cercas ficam sobre eles.
+   *
+   * ⚠️ Se a arte não estiver gerada, `carregaFarmArte` devolve null e o jogo
+   * segue — a fazenda aparece como o que a colisão diz que ela é: terra batida
+   * com paredes de madeira. Quem clonar o repositório sem rodar
+   * `npm run farm:build` tem que conseguir jogar.
+   */
+  const farmArte = await carregaFarmArte(FARM_AREA.x0, FARM_AREA.y0);
+  if (farmArte) {
+    world.addChild(farmArte.baixo);
+    /*
+     * ⚠️ Os interiores entram AQUI, antes de `objects`, e não depois — o quarto
+     * inteiro fica **sob** o jogador. Postos depois, a cama e o tapete eram
+     * desenhados por cima dele e o personagem sumia dentro da própria casa.
+     * Não há nada num cômodo que deva passar na frente de quem anda nele; a
+     * camada `acima` existe para folhagem e corrimão, que são coisas de fora.
+     */
+    world.addChild(farmArte.interiores);
+  }
+
+  /*
    * ⚠️ **A praça segura NÃO tem marca no chão** (o dono removeu o círculo azul
    * em 2026-08-05, no mesmo dia em que pediu para desenhá-lo).
    *
@@ -765,7 +817,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // Paredes, árvores E entidades convivem aqui, ordenados por profundidade (y).
   const objects = new Container();
   objects.sortableChildren = true;
+  const decBaixo = new Container();
+  decBaixo.eventMode = 'none';
+  world.addChild(decBaixo);
+
   world.addChild(objects);
+
+  // A metade de cima da fazenda: copa de árvore e corrimão, sobre quem passa.
+  if (farmArte) world.addChild(farmArte.acima);
+
+  const decAcima = new Container();
+  decAcima.eventMode = 'none';
+  world.addChild(decAcima);
 
   const sprites = new Map<string, EntityView>();
   /** Fitas de ícone de condição, por id de entidade (criadas sob demanda). */
@@ -1225,6 +1288,25 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const y1 = Math.min(map.height, (cy + 1) * CHUNK);
     for (let y = cy * CHUNK; y < y1; y++) {
       for (let x = cx * CHUNK; x < x1; x++) {
+        /*
+         * 🔴 **Onde a fazenda desenha, o desenho por regra é DESLIGADO.**
+         *
+         * Ali o chão, as paredes e as árvores vêm dos PNGs assados do
+         * `Farm.tmx` (`client/src/farmart.ts`), que são arte de verdade. Deixar
+         * este laço rodar junto poria blocos 2.5D marrons por CIMA do moinho e
+         * do celeiro — `objects` é desenhado acima da camada da fazenda.
+         *
+         * 🔴 **A pergunta é `farmDesenhaCelula`, e NÃO `dentroDaFarm`** — trocar
+         * uma pela outra foi o que criou a faixa preta em volta da fazenda que o
+         * dono relatou em 30/08. O retângulo da fazenda é maior que a arte dela,
+         * e ela **deixa buracos de propósito**: onde o pack só pintava grama
+         * chapada, quem desenha é este laço, com a textura de todo o resto do
+         * mundo. É o que costura a fazenda ao campo em vez de colá-la em cima.
+         *
+         * ⚠️ A colisão NÃO é afetada: ela lê os tiles, que continuam lá. Só o
+         * desenho sai de cena.
+         */
+        if (renderedFloor === 0 ? farmDesenhaCelula(x, y) : interiorEm(x, y, renderedFloor)) continue;
         const t = getTileType(layer[y * map.width + x]!);
         if (t.name === 'void') continue;
 
@@ -1319,9 +1401,122 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
   }
 
+  /**
+   * 🔴 **Aplica as edições de cenário do `/remove`** — a metade do cliente.
+   *
+   * O servidor já mudou o tile no mapa dele; aqui o mesmo tile muda no mapa
+   * daqui, e três coisas precisam acontecer **nesta ordem**:
+   *
+   * 1. registrar a edição, porque `farmDesenhaCelula` consulta a tabela e é ela
+   *    que manda o motor voltar a pintar o chão dentro da fazenda;
+   * 2. escrever o tile na camada;
+   * 3. **remontar o pedaço**, que é o passo que se esquece: `montaChunk` assou
+   *    os sprites daquele retângulo uma vez, e sem jogá-los fora a árvore
+   *    apagada continua na tela até o jogador andar 16 tiles.
+   *
+   * ⚠️ **Limite conhecido:** reconectar sem recarregar a página não desfaz
+   * edição nenhuma que tenha sido restaurada enquanto este cliente estava fora.
+   * A lista `inteira` do login soma, não substitui o mapa já pintado. Para uma
+   * ferramenta de autoria isso é aceitável — F5 resolve — e consertar de
+   * verdade exigiria guardar o terreno original de cada célula no cliente.
+   */
+  function aplicaEdicoesDoServidor(
+    edits: WorldEdit[],
+    desfeitas?: { floor: number; x: number; y: number }[],
+  ): void {
+    for (const d of desfeitas ?? []) esqueceEdicao(d.floor, d.x, d.y);
+    registraEdicoes(edits.filter((e) => !(desfeitas ?? []).some(
+      (d) => d.floor === e.floor && d.x === e.x && d.y === e.y,
+    )));
+    aplicaEdicoes(map.floors, map.width, map.height, edits);
+
+    for (const e of edits) {
+      /*
+       * A metade visual, e são dois casos opostos no mesmo laço:
+       * - com `arte` → o /paste: carimba os pixels da célula de origem;
+       * - sem `arte` → o /remove: fura o PNG e o motor volta a pintar o chão.
+       * Só o andar 0 tem fazenda desenhada.
+       */
+      if (e.floor === 0 && dentroDaFarm(e.x, e.y)) {
+        if (e.arte) farmArte?.copiaCelula(e.arte.x, e.arte.y, e.x, e.y);
+        else farmArte?.apagaCelula(e.x, e.y);
+      }
+      if (e.floor !== renderedFloor) continue;
+      const k = `${Math.floor(e.x / CHUNK)},${Math.floor(e.y / CHUNK)}`;
+      const v = chunksVivos.get(k);
+      if (v) {
+        descartaChunk(v);
+        chunksVivos.delete(k);
+      }
+    }
+    // `atualizaChunks` só trabalha quando a FAIXA muda, e ela não mudou —
+    // então o pedaço descartado precisa ser pedido de volta na marra.
+    chunkRangeAtual = '';
+    atualizaChunks();
+  }
+
+  // ---- Construtor de mapas (tecla E) --------------------------------------
+
+  const editor = await criaEditor(() => enviaOk());
+  const decalContainers = { chao: decChao, baixo: decBaixo, acima: decAcima };
+  /** Sprite de cada decalque vivo, por id — para o `/undo` saber o que tirar. */
+  const decalSprites = new Map<number, Sprite>();
+
+  /**
+   * Desenha (ou apaga) os objetos que o construtor posicionou.
+   *
+   * ⚠️ **A âncora é o CENTRO da célula**, e é o que faz o giro funcionar: com a
+   * âncora no canto, girar 90° jogaria o sprite para fora do tile em vez de
+   * rodá-lo no lugar.
+   *
+   * ⚠️ Só desenha os do andar em que se está. Andar é troca de cena inteira
+   * (`rebuildFloor`), e um decalque do térreo pendurado dentro da casa seria um
+   * fantasma.
+   */
+  function aplicaDecalques(decals: WorldDecal[], removidos?: number[], inteira?: boolean): void {
+    if (inteira) {
+      for (const s of decalSprites.values()) s.destroy();
+      decalSprites.clear();
+    }
+    for (const id of removidos ?? []) {
+      decalSprites.get(id)?.destroy();
+      decalSprites.delete(id);
+    }
+    for (const d of decals) {
+      decalSprites.get(d.id)?.destroy();
+      const tex = editor?.textura(d.paleta);
+      if (!tex) continue;
+      const sp = new Sprite(tex);
+      sp.anchor.set(0.5);
+      sp.x = d.x * TS + TS / 2;
+      sp.y = d.y * TS + TS / 2;
+      sp.angle = d.rot;
+      sp.visible = d.floor === renderedFloor;
+      (decalContainers[d.camada] ?? decBaixo).addChild(sp);
+      decalSprites.set(d.id, sp);
+      decalGuardados.set(d.id, d);
+    }
+  }
+  /** A lista crua, para reavaliar a visibilidade quando o andar muda. */
+  const decalGuardados = new Map<number, WorldDecal>();
+
+  function enviaOk(): void {
+    const sel = editor?.selecao();
+    if (!sel) {
+      logChat('Construtor: escolha um sprite na paleta antes do /ok.', 'sys');
+      return;
+    }
+    net.send({ t: 'decal', ...sel });
+  }
+
   function rebuildFloor(floor: number): void {
     limpaChunks();
     renderedFloor = floor;
+    // A fazenda é do andar 0; os interiores dela, do 1. Só um dos dois aparece.
+    farmArte?.mostraAndar(floor);
+    for (const [id, sp] of decalSprites) {
+      sp.visible = decalGuardados.get(id)?.floor === floor;
+    }
     if (!map.floors[floor]) return;
     atualizaChunks();
   }
@@ -1454,6 +1649,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           break;
         case 'denied':
           logChat(`Ação negada: ${escapeHtml(msg.reason)}`, 'sys');
+          break;
+        case 'worldedit':
+          aplicaEdicoesDoServidor(msg.edits, msg.desfeitas);
+          break;
+        case 'decals':
+          aplicaDecalques(msg.decals, msg.removidos, msg.inteira);
           break;
         case 'stats':
           myAttackRange = msg.attackRange;
@@ -3903,6 +4104,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (ev.code === 'KeyK') {
       skPanelEl.style.display = skPanelEl.style.display === 'block' ? 'none' : 'block';
     }
+    if (ev.code === 'KeyE') editor?.alterna();
+    // R gira, mas só com o painel aberto: fora dele a tecla continua livre.
+    if (ev.code === 'KeyR' && editor?.aberto()) editor.gira();
     if (ev.code === 'KeyB') {
       bestPanel.style.display = bestPanel.style.display === 'block' ? 'none' : 'block';
     }
@@ -3921,6 +4125,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   chatInputEl.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter') {
       const text = chatInputEl.value.trim();
+      /*
+       * 🔴 O `/ok` é o único comando resolvido no CLIENTE, e tem de ser: o que ele
+       * manda (sprite, giro, camada) é estado da interface, que o servidor não
+       * tem como conhecer. Todo o resto continua indo como texto.
+       */
+      if (text.toLowerCase() === '/ok') {
+        enviaOk();
+        chatInputEl.value = '';
+        chatInputEl.blur();
+        ev.stopPropagation();
+        return;
+      }
       if (text) net.send({ t: 'chat', text });
       chatInputEl.value = '';
       chatInputEl.blur();
@@ -3969,6 +4185,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (performance.now() - fimDoArrasteDeChao < 250) return;
     const t = tileDoEvento(ev);
     if (t.x < 0 || t.y < 0 || t.x >= map.width || t.y >= map.height) return;
+    /*
+     * 🔴 **Com o construtor ABERTO, o clique vira conta-gotas e não caminhada.**
+     *
+     * É modal de propósito. A alternativa seria um modificador (Shift+clique),
+     * e ela é pior aqui: quem está consertando cenário clica em tile atrás de
+     * tile procurando a peça certa, e segurar uma tecla o tempo todo cansa. Com
+     * o painel aberto você está editando; para andar, WASD continua valendo, e
+     * fechar com **E** devolve o clique-para-andar na hora.
+     */
+    if (editor?.aberto()) {
+      const n = editor.aponta(t.x - FARM_AREA.x0, t.y - FARM_AREA.y0);
+      if (n === 0) logChat(`Construtor: (${t.x}, ${t.y}) não tem arte da fazenda.`, 'sys');
+      else if (n > 1) logChat(`Construtor: ${n} peças empilhadas aqui — clique de novo para descer.`, 'sys');
+      return;
+    }
     if (tilesClicaveis.has(t.y * map.width + t.x)) return; // é interação, não caminhada
     irPara(t.x, t.y);
   });
@@ -4486,10 +4717,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   let camY = 0;
 
   // Loop de render ---------------------------------------------------------
-  app.ticker.add(() => {
+  app.ticker.add((ticker) => {
     if (myFloor !== renderedFloor) rebuildFloor(myFloor);
 
     const now = performance.now();
+
+    /*
+     * 🚜 A fazenda anda sozinha: a água corre, o peixe nada, as pás do moinho
+     * giram, e a porta abre quando o herói encosta. Uma chamada só, e ela não
+     * faz nada quando o herói está longe da fazenda — os sprites nem estão em
+     * tela, mas o relógio deles continua barato.
+     */
+    if (farmArte) {
+      farmArte.tick(now, ticker.deltaMS);
+      farmArte.heroiEm(myTileX, myTileY);
+    }
     // TECLADO MANDA: se o jogador tocou numa tecla de direção, a rota do clique
     // morre. Duas fontes de movimento disputando o mesmo personagem é a receita
     // do "meu boneco anda sozinho".

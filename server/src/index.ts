@@ -199,15 +199,49 @@ import {
   phaseStartMs,
   PHASE_LABEL,
   SAFE_ZONE_RADIUS,
+  FARM_BICHOS,
+  FARM_AREA,
   type AffixId,
   type LootRule,
   type DayPhase,
+  registraEdicoes,
+  esqueceEdicao,
+  aplicaEdicoes,
+  edicoesConhecidas,
+  chaoBaseEm,
+  camadaValida,
+  colisaoValida,
+  giroValido,
+  dentroDaFarm,
+  getTileType,
+  type WorldEdit,
 } from '@dominion/shared';
 import { openStore } from './store/store.js';
 import { fromStored, rowsToItems, toStored } from './store/serialize.js';
 
 const map = buildWorldMap();
 const store = openStore();
+
+/*
+ * 🔴 **As edições de mundo entram AQUI, logo depois do `buildWorldMap()` e antes
+ * de qualquer coisa ler o mapa** — spawn de criatura, nós de coleta, NPC.
+ *
+ * A ordem não é estética: `buildWorldMap()` é determinístico e as edições são
+ * uma lista curta carimbada por cima (ver `shared/src/worldedit.ts`). Aplicá-las
+ * depois de o spawn rodar deixaria um monstro nascido em cima de uma árvore que
+ * o dono já tinha apagado, ou pior, um nó de coleta preso dentro de uma parede
+ * que não existe mais.
+ */
+{
+  const edicoes = store.listWorldEdits();
+  registraEdicoes(edicoes);
+  const n = aplicaEdicoes(map.floors, map.width, map.height, edicoes);
+  if (n > 0) console.log(`[mundo] ${n} edições de cenário aplicadas (/remove).`);
+  const decalques = store.listDecals();
+  if (decalques.length > 0) {
+    console.log(`[mundo] ${decalques.length} objetos posicionados no construtor de mapas.`);
+  }
+}
 /**
  * Autosave. Se o servidor cair de bota (crash, kill -9, queda de luz), o
  * jogador perde no máximo este intervalo de progresso — não a sessão inteira.
@@ -269,7 +303,19 @@ const NIGHT_DMG_MULT = 1.5;
 // NIGHT_SPEED_MULT mora em `shared` porque o cliente também depende dele para
 // deslizar a criatura na velocidade certa (ver o comentário lá).
 
+/**
+ * O que o `/clone` guardou. Vive na sessão e não no banco: é área de
+ * transferência, não conteúdo do mundo — some ao sair, como o Ctrl+C.
+ */
+interface AreaDeTransferencia {
+  tile: number;
+  /** Célula da fazenda de onde copiar a arte, se a origem estava nela. */
+  arte?: { x: number; y: number };
+}
+
 interface Player {
+  /** O último /clone deste jogador. */
+  clipboard?: AreaDeTransferencia;
   id: string;
   name: string;
   socket: WebSocket;
@@ -1531,7 +1577,38 @@ function spawnInitialCreatures(): void {
     }
     spawnCreature(s.type, posto.x, posto.y);
   }
-  console.log(`[mundo] ${creatures.size} criaturas geradas${fora ? ` (${fora} sem lugar)` : ''}.`);
+
+  /*
+   * 🐄 **Os bichos do curral não vêm do `creatures.json`, e é de propósito.**
+   *
+   * Eles vêm de `FARM_BICHOS`, que sai do próprio `Farm.tmx`: o autor da fazenda
+   * desenhou onde cada porco, vaca e galinha fica, e essa é a informação certa.
+   * Copiar as nove posições para o `creatures.json` à mão criaria uma segunda
+   * verdade que envelhece — mexer no mapa no Tiled deixaria de mover os bichos.
+   *
+   * ⚠️ **Sem `tileValidoMaisProximo` aqui, e isso importa.** O encaixe de raio 4
+   * é a coisa certa para bicho de mato, cuja posição é uma intenção aproximada;
+   * para bicho de curral seria o oposto — empurraria a vaca para FORA da cerca,
+   * que é a única coisa que ela não pode fazer. O `farm:build` já garante chão
+   * andável (ele mesmo empurra para uma vizinha antes de emitir). Se ainda assim
+   * não estiver, o certo é reclamar alto, não improvisar.
+   */
+  let presos = 0;
+  for (const b of FARM_BICHOS) {
+    if (!CREATURES[b.type]) {
+      throw new Error(`farm.json: espécie "${b.type}" não existe em CREATURES (shared/src/combat.ts)`);
+    }
+    if (!isWalkable(map, b.x, b.y, map.spawn.floor)) {
+      presos++;
+      console.warn(`[fazenda] ${b.type} em (${b.x},${b.y}) caiu em tile sólido — rode npm run farm:build`);
+      continue;
+    }
+    spawnCreature(b.type, b.x, b.y);
+  }
+  console.log(
+    `[mundo] ${creatures.size} criaturas geradas${fora ? ` (${fora} sem lugar)` : ''}`
+    + ` — ${FARM_BICHOS.length - presos} delas no curral da fazenda.`,
+  );
 }
 
 /**
@@ -3038,6 +3115,9 @@ function summonMinion(boss: Creature): void {
  *   /cond <id>   aplica uma condição em você (Etapa 8)
  *   /uncond      limpa todas as condições
  *
+ * ⚠️ `/dia`, `/tarde`, `/noite` e `/ciclo` NÃO estão aqui: saíram para
+ * `handleWorldCommand`, que vale em qualquer servidor.
+ *
  * Devolve true quando consumiu o texto (não deve virar chat).
  */
 const DEV_MODE = process.env.ELYSIA_DEV === '1';
@@ -3050,9 +3130,70 @@ const DEV_MODE = process.env.ELYSIA_DEV === '1';
  * Ver o bloco comentado no `case 'auth'`.
  */
 const DEV_ACCOUNT = (process.env.ELYSIA_DEV_ACCOUNT ?? '').trim().toLowerCase();
+/**
+ * Comandos de chat que **não são trapaça** e por isso valem SEMPRE, inclusive no
+ * `npm run dev` — que é o servidor em que o mundo é olhado no dia a dia.
+ *
+ *   /dia  /tarde  /noite   põe o mundo naquela fase agora
+ *   /ciclo                 devolve o relógio ao horário natural
+ *
+ * 🔴 Ficavam atrás de `DEV_MODE` junto com `/level` e `/gold`, e era a trava
+ * errada: olhar o céu não é ganhar poder. Quem quisesse ver a noite tinha que
+ * subir o `dev:test`, que arrasta junto o auto-login sem senha.
+ *
+ * 🔴 Estes NÃO congelam o relógio: deslocam a origem do ciclo, e o mundo segue
+ * andando dali. Forçar `/noite` e esperar faz amanhecer sozinho — congelar
+ * esconderia justamente os bugs de transição, que é o que se quer ver.
+ *
+ * ⚠️ O efeito é GLOBAL: o mundo é um só, então quem está jogando junto vê a
+ * mesma coisa. Enquanto não existir conta de administrador, qualquer jogador
+ * conectado muda o céu de todos — é aqui que a checagem de GM entra no dia em
+ * que houver uma.
+ *
+ * Devolve true quando consumiu o texto (não deve virar chat).
+ */
+function handleWorldCommand(player: Player, text: string): boolean {
+  const [cmd] = text.slice(1).split(/\s+/);
+
+  switch (cmd) {
+    case 'dia':
+    case 'tarde':
+    case 'noite': {
+      const fase: DayPhase = cmd === 'dia' ? 'day' : cmd === 'tarde' ? 'dusk' : 'night';
+      // A origem passa a ser "agora menos o quanto desta fase já deveria ter
+      // corrido", ou seja: a fase começa exatamente neste instante.
+      cycleOffset = phaseStartMs(fase) - Date.now();
+      const t = worldTimeAt(Date.now() + cycleOffset);
+      for (const p of players.values()) {
+        if (!p.joined) continue;
+        send(p, {
+          t: 'chat', from: 'Mundo',
+          text: `${PHASE_LABEL[fase]} agora (${String(Math.floor(t.hour)).padStart(2, '0')}h).`,
+        });
+      }
+      return true;
+    }
+    case 'ciclo': {
+      cycleOffset = 0;
+      send(player, { t: 'chat', from: 'Mundo', text: 'Ciclo de volta ao horário natural.' });
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
 function handleDevCommand(player: Player, text: string): boolean {
   if (!DEV_MODE) return false;
-  const [cmd, arg] = text.slice(1).split(/\s+/);
+  /*
+   * ⚠️ Guarda a lista inteira, e não só os dois primeiros: `/clone` e `/paste`
+   * aceitam DOIS modificadores em qualquer ordem (`/paste aqui solido`), então
+   * quem os lê precisa enxergar além do primeiro argumento.
+   */
+  const partes = text.slice(1).split(/\s+/);
+  const [cmd, arg] = partes;
+  /** "aqui" vale em QUALQUER posição — `/paste solido aqui` tem de funcionar. */
+  const miraAqui = partes.slice(1).some((a) => a.toLowerCase() === 'aqui');
   const n = Number(arg);
   const aviso = (t: string): void => send(player, { t: 'chat', from: 'DEV', text: t });
 
@@ -3079,34 +3220,6 @@ function handleDevCommand(player: Player, text: string): boolean {
       return aviso('condições limpas.'), true;
     }
 
-    // --- Ciclo dia/noite -----------------------------------------------------
-    //
-    // 🔴 Estes NÃO congelam o relógio: deslocam a origem do ciclo, e o mundo
-    // segue andando dali. Forçar `/noite` e esperar faz amanhecer sozinho —
-    // congelar esconderia justamente os bugs de transição, que é o que se quer
-    // ver. E o efeito é GLOBAL: o mundo é um só, então quem está jogando junto
-    // vê a mesma coisa.
-    case 'dia':
-    case 'tarde':
-    case 'noite': {
-      const fase: DayPhase = cmd === 'dia' ? 'day' : cmd === 'tarde' ? 'dusk' : 'night';
-      // A origem passa a ser "agora menos o quanto desta fase já deveria ter
-      // corrido", ou seja: a fase começa exatamente neste instante.
-      cycleOffset = phaseStartMs(fase) - Date.now();
-      const t = worldTimeAt(Date.now() + cycleOffset);
-      for (const p of players.values()) {
-        if (!p.joined) continue;
-        send(p, {
-          t: 'chat', from: 'Mundo',
-          text: `${PHASE_LABEL[fase]} agora (${String(Math.floor(t.hour)).padStart(2, '0')}h).`,
-        });
-      }
-      return true;
-    }
-    case 'ciclo': {
-      cycleOffset = 0;
-      return aviso('ciclo dia/noite de volta ao horário natural.'), true;
-    }
     case 'level': {
       if (!Number.isFinite(n) || n < 1 || n > 500) return aviso('uso: /level <1..500>'), true;
       // Reconstrói a ficha do nível 1 até `n`, concedendo tudo que seria ganho.
@@ -3166,8 +3279,261 @@ function handleDevCommand(player: Player, text: string): boolean {
       aviso(`vida: ${Math.round(player.hp)}/${player.maxHp}`);
       return true;
     }
+
+    /*
+     * 🔴 **`/remove` — a ferramenta de AUTORIA de cenário** (pedido do dono em
+     * 31/08: *"remove a árvore/item/plantação/textura do grid que estiver de
+     * FRENTE para o meu boneco"*).
+     *
+     * O alvo é o tile para onde o personagem está **virado**, e não o que está
+     * sob ele: apagar o chão que se pisa é o caso raro, e mirar de frente é o
+     * que dá para fazer andando. `/remove aqui` cobre o outro caso.
+     *
+     * 🔴 **A ordem em que as três coisas são tentadas é o conteúdo do comando**,
+     * porque num mesmo tile pode haver as três, e apagar a errada é frustrante:
+     *
+     *   1. **item no chão** — o que está mais "por cima" e o mais fácil de pôr
+     *      de volta (é só largar outro). Some sozinho, não vira edição gravada.
+     *   2. **nó de coleta** — a árvore/veio/erva do sistema de coleta. Também
+     *      não vira edição: nós renascem, e gravar "não existe aqui" brigaria
+     *      com o respawn na próxima vez que ele acontecesse.
+     *   3. **o TILE** — é o único que vira edição gravada, porque é o único que
+     *      o mundo recria igual a cada boot.
+     *
+     * ⚠️ **Criatura não entra na lista, de propósito.** Bicho anda: mirar nele
+     * seria mirar em algo que não está mais lá quando o comando roda, e ele
+     * renasce em 45 s de qualquer jeito. Para tirar bicho, o caminho é matar.
+     */
+    case 'remove': {
+      const aqui = miraAqui;
+      const [ax, ay] = aqui
+        ? [player.tileX, player.tileY]
+        : tileAFrente(player);
+      const onde = `(${ax}, ${ay})`;
+
+      if (ax < 0 || ay < 0 || ax >= map.width || ay >= map.height) {
+        return aviso(`${onde} está fora do mapa.`), true;
+      }
+
+      // 1. item no chão
+      for (const [id, it] of items) {
+        if (it.floor === player.floor && it.tileX === ax && it.tileY === ay) {
+          items.delete(id);
+          return aviso(`${onde}: item removido (${getItem(it.itemKind)?.name ?? it.itemKind}).`), true;
+        }
+      }
+
+      // 2. nó de coleta
+      for (const [id, no] of nodes) {
+        if (no.floor === player.floor && no.tileX === ax && no.tileY === ay) {
+          nodes.delete(id);
+          return aviso(`${onde}: nó de coleta removido (${no.kind}).`), true;
+        }
+      }
+
+      // 3. o tile
+      const camada = map.floors[player.floor];
+      if (!camada) return aviso('andar sem terreno.'), true;
+      const idx = ay * map.width + ax;
+      const antes = camada[idx]!;
+      const base = chaoBaseEm(ax, ay);
+      if (antes === base && !dentroDaFarm(ax, ay)) {
+        return aviso(`${onde}: já é o chão do bioma, não há o que remover.`), true;
+      }
+
+      /*
+       * 🔴 O substituto é `chaoBaseEm`, que é a mesma função que o cliente usa
+       * para pintar o piso EMBAIXO de todo tile alto. Escolher `grass` fixo
+       * plantaria um quadrado de grama na neve — foi um bug real do projeto,
+       * está documentado no `worldgen.ts`.
+       *
+       * ⚠️ Dentro da fazenda isso vale igual: célula editada deixa de ser
+       * desenhada pela arte assada (o cliente checa `foiEditada`), e o motor
+       * volta a pintar ali a mesma grama do resto do mundo — que é exatamente o
+       * que as células "não cobertas" da fazenda já fazem hoje.
+       */
+      const edit: WorldEdit & { antes: number } = {
+        floor: player.floor, x: ax, y: ay, tile: base, antes,
+      };
+      camada[idx] = base;
+      store.saveWorldEdit(edit, player.name);
+      registraEdicoes([edit]);
+      broadcastEdicao([edit]);
+      aviso(`${onde}: "${getTileType(antes).name}" removido → "${getTileType(base).name}". /undo desfaz.`);
+      return true;
+    }
+
+    /**
+     * Desfaz a última remoção de TILE, do jeito que ela foi feita: devolvendo o
+     * terreno gravado em `tile_antes`, não recalculando o `worldgen`. Ver o
+     * comentário da v6 no `schema.ts`.
+     */
+    /*
+     * 🔴 **`/clone` e `/paste` — o Ctrl+C / Ctrl+V do cenário** (pedido do dono em
+     * 31/08). `/clone` guarda o tile de frente; `/paste` carimba o que está
+     * guardado no tile de frente. `/undo` desfaz.
+     *
+     * 🔴 **O que é copiado são DUAS coisas, e entender a diferença é tudo:**
+     *
+     * | | de onde vem | quem desenha |
+     * |---|---|---|
+     * | **o tile** | `map.floors` — grama, terra, árvore, parede | o motor |
+     * | **a arte** | o PNG assado da fazenda | o cliente, copiando pixels |
+     *
+     * Fora da fazenda só existe a primeira: o mundo é feito de 16 tipos de tile e
+     * o que se vê É o tipo. Dentro da fazenda existem as duas, e são
+     * independentes — a colisão vem do tile e o desenho vem do PNG.
+     *
+     * Por isso `/clone` guarda o tile SEMPRE e a origem da arte SÓ quando a
+     * célula está na fazenda. Colar arte de fazenda numa célula de fora não faz
+     * sentido (não há PNG lá para receber os pixels) e é recusado.
+     *
+     * ⚠️ **Não copia o que está VIVO**: bicho, item no chão, nó de coleta, água
+     * correndo e as pás do moinho são entidades ou sprites animados, não pixels
+     * do PNG. Clonar uma célula do lago copia o fundo do lago parado.
+     */
+    case 'clone': {
+      const [cx, cy] = miraAqui
+        ? [player.tileX, player.tileY]
+        : tileAFrente(player);
+      if (cx < 0 || cy < 0 || cx >= map.width || cy >= map.height) {
+        return aviso(`(${cx}, ${cy}) está fora do mapa.`), true;
+      }
+      const camada = map.floors[player.floor];
+      if (!camada) return aviso('andar sem terreno.'), true;
+      const tile = camada[cy * map.width + cx]!;
+      const naFarm = player.floor === 0 && dentroDaFarm(cx, cy);
+      player.clipboard = { tile, ...(naFarm ? { arte: { x: cx, y: cy } } : {}) };
+      aviso(
+        `copiado de (${cx}, ${cy}): "${getTileType(tile).name}"`
+        + (naFarm ? ' + a arte da fazenda' : ' (fora da fazenda: só o tipo de tile)')
+        + '. Use /paste.',
+      );
+      return true;
+    }
+
+    case 'paste': {
+      const area = player.clipboard;
+      if (!area) return aviso('nada copiado ainda — use /clone primeiro.'), true;
+      const [ax, ay] = miraAqui
+        ? [player.tileX, player.tileY]
+        : tileAFrente(player);
+      if (ax < 0 || ay < 0 || ax >= map.width || ay >= map.height) {
+        return aviso(`(${ax}, ${ay}) está fora do mapa.`), true;
+      }
+      const camada = map.floors[player.floor];
+      if (!camada) return aviso('andar sem terreno.'), true;
+
+      /*
+       * ⚠️ Arte da fazenda só cola DENTRO da fazenda. Fora dela não existe PNG
+       * assado para receber os pixels, e o cliente não teria onde desenhar —
+       * então o tile vai e a arte fica para trás, com aviso.
+       */
+      const destinoNaFarm = player.floor === 0 && dentroDaFarm(ax, ay);
+      const levaArte = area.arte !== undefined && destinoNaFarm;
+
+      const idx = ay * map.width + ax;
+      const antes = camada[idx]!;
+      const edit: WorldEdit & { antes: number } = {
+        floor: player.floor, x: ax, y: ay, tile: area.tile, antes,
+        ...(levaArte ? { arte: area.arte } : {}),
+      };
+      camada[idx] = area.tile;
+      store.saveWorldEdit(edit, player.name);
+      registraEdicoes([edit]);
+      broadcastEdicao([edit]);
+      aviso(
+        `colado em (${ax}, ${ay}): "${getTileType(area.tile).name}"`
+        + (levaArte ? ` + a arte de (${area.arte!.x}, ${area.arte!.y})`
+          : area.arte ? ' — a arte NÃO foi: o destino está fora da fazenda' : '')
+        + '. /undo desfaz.',
+      );
+      return true;
+    }
+
+    case 'undo':
+    case 'restaura': {
+      /*
+       * 🔴 **Duas pilhas, um só `/undo`.** O editor grava em duas tabelas — tile
+       * em `world_edit`, objeto em `world_decal` — e o dono não tem por que saber
+       * disso: ele desfez a última coisa que fez. Então o comando compara os dois
+       * carimbos de tempo e desfaz o mais recente dos dois.
+       *
+       * ⚠️ Sem isto, posicionar um objeto e apertar `/undo` desfaria a REMOÇÃO de
+       * dez minutos atrás e deixaria o objeto lá — o pior tipo de desfazer, o que
+       * mexe no que você não estava olhando.
+       */
+      const ultimoDecal = store.lastDecal();
+      const editAt = store.lastWorldEditAt();
+      if (ultimoDecal && (editAt === undefined || ultimoDecal.placedAt >= editAt)) {
+        store.deleteDecal(ultimoDecal.id);
+        for (const outro of players.values()) {
+          if (outro.joined) send(outro, { t: 'decals', decals: [], removidos: [ultimoDecal.id] });
+        }
+        /*
+         * ⚠️ **A edição GÊMEA sai junto, num `/undo` só.** Desfazer o desenho e
+         * deixar a colisão para trás é o pior resultado possível: sobra parede
+         * invisível, e nada em tela denuncia o que ficou.
+         */
+        let extra = '';
+        if (ultimoDecal.colisao && ultimoDecal.colisao !== 'nada') {
+          const gemea = store.listWorldEdits().find(
+            (e) => e.floor === ultimoDecal.floor && e.x === ultimoDecal.x && e.y === ultimoDecal.y,
+          );
+          if (gemea?.antes !== undefined) {
+            const cam = map.floors[gemea.floor];
+            if (cam) cam[gemea.y * map.width + gemea.x] = gemea.antes;
+            store.deleteWorldEdit(gemea.floor, gemea.x, gemea.y);
+            esqueceEdicao(gemea.floor, gemea.x, gemea.y);
+            broadcastEdicao(
+              [{ floor: gemea.floor, x: gemea.x, y: gemea.y, tile: gemea.antes }],
+              [{ floor: gemea.floor, x: gemea.x, y: gemea.y }],
+            );
+            extra = ' (e a colisão dele)';
+          }
+        }
+        return aviso(`objeto #${ultimoDecal.id} removido de (${ultimoDecal.x}, ${ultimoDecal.y})${extra}.`), true;
+      }
+      const ultima = store.lastWorldEdit();
+      if (!ultima) return aviso('não há nada para desfazer.'), true;
+      const camada = map.floors[ultima.floor];
+      if (camada) camada[ultima.y * map.width + ultima.x] = ultima.antes;
+      store.deleteWorldEdit(ultima.floor, ultima.x, ultima.y);
+      esqueceEdicao(ultima.floor, ultima.x, ultima.y);
+      broadcastEdicao(
+        [{ floor: ultima.floor, x: ultima.x, y: ultima.y, tile: ultima.antes }],
+        [{ floor: ultima.floor, x: ultima.x, y: ultima.y }],
+      );
+      aviso(`(${ultima.x}, ${ultima.y}) restaurado para "${getTileType(ultima.antes).name}".`);
+      return true;
+    }
+
     default:
       return false;
+  }
+}
+
+/** O tile para onde o personagem está virado. */
+function tileAFrente(player: Player): [number, number] {
+  const d = player.direction;
+  const dx = d === 'left' ? -1 : d === 'right' ? 1 : 0;
+  const dy = d === 'up' ? -1 : d === 'down' ? 1 : 0;
+  return [player.tileX + dx, player.tileY + dy];
+}
+
+/**
+ * Conta a TODO MUNDO que uma célula mudou.
+ *
+ * 🔴 Vai para todos os andares e não só para o de quem editou: um jogador no
+ * andar 1 (o interior da casa da fazenda) que desça depois precisa do mapa já
+ * certo, e o cliente aplica a edição na camada dela mesmo sem estar vendo.
+ */
+function broadcastEdicao(
+  edits: WorldEdit[],
+  desfeitas?: { floor: number; x: number; y: number }[],
+): void {
+  for (const p of players.values()) {
+    if (p.joined) send(p, { t: 'worldedit', edits, ...(desfeitas ? { desfeitas } : {}) });
   }
 }
 
@@ -3487,6 +3853,10 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       sendInventory(player);
       sendTowns(player);
       sendFriends(player);
+      // As edições de cenário do `/remove`: a lista INTEIRA, porque este
+      // cliente ainda não tem nenhuma. Ver `shared/src/worldedit.ts`.
+      send(player, { t: 'worldedit', edits: edicoesConhecidas(), inteira: true });
+      send(player, { t: 'decals', decals: store.listDecals(), inteira: true });
       // Quem tem este jogador na lista precisa ver o "online" acender agora.
       broadcastFriendPresence();
       console.log(`[join] ${player.name} — ${player.cls.name} nv.${player.level} (${player.id})`);
@@ -3885,8 +4255,75 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       if (!player.joined) return;
       const text = msg.text.trim().slice(0, 200);
       if (text.length === 0) return;
-      if (text.startsWith('/') && handleDevCommand(player, text)) return;
+      if (text.startsWith('/')
+        && (handleWorldCommand(player, text) || handleDevCommand(player, text))) return;
       broadcastFloor(player.floor, { t: 'chat', from: player.name, text });
+      break;
+    }
+    /*
+     * 🔴 **O `/ok` do construtor de mapas.** O cliente manda só a ESCOLHA — qual
+     * sprite, girado quanto, em que altura; a célula-alvo é calculada aqui, do
+     * mesmo jeito que no `/remove`: o tile para onde o personagem está virado.
+     *
+     * ⚠️ Fica atrás do `DEV_MODE` como todo o resto do editor. Sem essa trava, um
+     * cliente qualquer poderia carimbar desenho no mundo de todo mundo.
+     */
+    case 'decal': {
+      if (!player.joined || !DEV_MODE) return;
+      const paleta = Math.floor(msg.paleta);
+      if (!Number.isFinite(paleta) || paleta < 0) return;
+      if (!camadaValida(msg.camada)) return;
+      const [dx, dy] = tileAFrente(player);
+      if (dx < 0 || dy < 0 || dx >= map.width || dy >= map.height) {
+        send(player, { t: 'chat', from: 'DEV', text: `(${dx}, ${dy}) está fora do mapa.` });
+        return;
+      }
+      const colisao = msg.colisao && colisaoValida(msg.colisao) ? msg.colisao : 'nada';
+      const posto = store.addDecal({
+        floor: player.floor, x: dx, y: dy,
+        paleta, rot: giroValido(msg.rot), camada: msg.camada,
+        ...(colisao !== 'nada' ? { colisao } : {}),
+      }, player.name);
+      for (const outro of players.values()) {
+        if (outro.joined) send(outro, { t: 'decals', decals: [posto] });
+      }
+      /*
+       * 🔴 **A colisão é uma `WorldEdit` GÊMEA**, gravada junto do decalque.
+       *
+       * Decalque é desenho, e desenho não para ninguém: a colisão do mundo mora
+       * no TIPO DE TILE, em outro lugar. Então "essa parede bloqueia" vira uma
+       * edição de tile na mesma célula, e `bloqueia` vs `livre` é só qual tile.
+       *
+       * ⚠️ **Dentro da fazenda a edição leva `arte` apontando para a PRÓPRIA
+       * célula**, e sem isso a colisão apagaria o desenho: `farmDesenhaCelula`
+       * devolve `false` para célula editada **sem** arte (é o `/remove`), e a
+       * fazenda pararia de pintar ali. Apontando para si mesma, a célula continua
+       * desenhada com os pixels originais — a colagem vira um no-op visual e só a
+       * colisão muda.
+       */
+      if (colisao !== 'nada') {
+        const camadaMapa = map.floors[player.floor];
+        if (camadaMapa) {
+          const idx = dy * map.width + dx;
+          const antes = camadaMapa[idx]!;
+          const alvo = colisao === 'bloqueia' ? 6 /* WALL_WOOD */ : chaoBaseEm(dx, dy);
+          const naFarm = player.floor === 0 && dentroDaFarm(dx, dy);
+          const edit: WorldEdit & { antes: number } = {
+            floor: player.floor, x: dx, y: dy, tile: alvo, antes,
+            ...(naFarm ? { arte: { x: dx, y: dy } } : {}),
+          };
+          camadaMapa[idx] = alvo;
+          store.saveWorldEdit(edit, player.name);
+          registraEdicoes([edit]);
+          broadcastEdicao([edit]);
+        }
+      }
+      send(player, {
+        t: 'chat', from: 'DEV',
+        text: `objeto #${posto.id} posto em (${dx}, ${dy}) · ${posto.rot}° · camada "${posto.camada}"`
+          + (colisao === 'bloqueia' ? ' · SÓLIDO' : colisao === 'livre' ? ' · passagem ABERTA' : '')
+          + '. /undo desfaz.',
+      });
       break;
     }
     case 'ping': {

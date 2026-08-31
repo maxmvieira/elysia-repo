@@ -19,8 +19,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { nameKey } from '@dominion/shared';
-import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_VERSION } from './schema.js';
+import { nameKey, type WorldEdit, type WorldDecal } from '@dominion/shared';
+import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8, SCHEMA_V9, SCHEMA_VERSION } from './schema.js';
 
 // --------------------------------------------------------------- Tipos ----
 
@@ -165,6 +165,22 @@ export class Store {
     // v5 (outfit), mesmo portão: quem decide é o schema, nunca o número.
     if (!this.hasColumn('character', 'outfit')) {
       this.db.exec(SCHEMA_V5);
+    }
+    // v6 (edições de mundo): tabela nova, mesmo portão das outras.
+    if (!this.hasTable('world_edit')) {
+      this.db.exec(SCHEMA_V6);
+    }
+    // v7 (de onde a arte foi copiada): colunas novas, portão pelo schema.
+    if (!this.hasColumn('world_edit', 'arte_x')) {
+      this.db.exec(SCHEMA_V7);
+    }
+    // v8 (decalques do construtor de mapas): tabela nova, portão pelo schema.
+    if (!this.hasTable('world_decal')) {
+      this.db.exec(SCHEMA_V8);
+    }
+    // v9 (colisão do decalque): coluna nova, portão pelo schema.
+    if (!this.hasColumn('world_decal', 'colisao')) {
+      this.db.exec(SCHEMA_V9);
     }
     if (current !== SCHEMA_VERSION) {
       this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
@@ -503,6 +519,102 @@ export class Store {
     const info = this.db
       .prepare('DELETE FROM account_friend WHERE account_id = ? AND added_name = ? COLLATE NOCASE')
       .run(accountId, name);
+    return Number(info.changes) > 0;
+  }
+
+  // ----------------------------------------------------------- MUNDO -------
+  //
+  // 🔴 Os três métodos abaixo são os primeiros do banco que NÃO pendem de conta
+  // nem de personagem. Ver o comentário da v6 no `schema.ts`: apagar uma árvore
+  // apaga para todo mundo, porque é autoria de cenário e não progresso de
+  // ninguém.
+
+  /** Todas as edições de mundo, para o boot do servidor e o login do cliente. */
+  listWorldEdits(): WorldEdit[] {
+    const linhas = this.db
+      .prepare('SELECT floor, x, y, tile, tile_antes, arte_x, arte_y FROM world_edit ORDER BY edited_at')
+      .all() as Array<{
+        floor: number; x: number; y: number; tile: number; tile_antes: number;
+        arte_x: number | null; arte_y: number | null;
+      }>;
+    return linhas.map((l) => ({
+      floor: l.floor, x: l.x, y: l.y, tile: l.tile, antes: l.tile_antes,
+      ...(l.arte_x !== null && l.arte_y !== null ? { arte: { x: l.arte_x, y: l.arte_y } } : {}),
+    }));
+  }
+
+  /**
+   * Grava uma edição. `INSERT OR REPLACE` porque a chave é a célula: editar duas
+   * vezes o mesmo tile é uma linha só.
+   *
+   * ⚠️ **O `tile_antes` do primeiro registro é o que fica.** Reeditar uma célula
+   * já editada preserva o terreno ORIGINAL, senão o `/restaura` devolveria o
+   * penúltimo estado — que também é uma edição — e desfazer nunca chegaria ao
+   * mundo de verdade.
+   */
+  saveWorldEdit(e: WorldEdit & { antes: number }, porQuem: string): void {
+    const jaTem = this.db
+      .prepare('SELECT tile_antes FROM world_edit WHERE floor = ? AND x = ? AND y = ?')
+      .get(e.floor, e.x, e.y) as { tile_antes: number } | undefined;
+    this.db
+      .prepare(`INSERT OR REPLACE INTO world_edit
+                  (floor, x, y, tile, tile_antes, arte_x, arte_y, edited_at, edited_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(
+        e.floor, e.x, e.y, e.tile, jaTem?.tile_antes ?? e.antes,
+        e.arte?.x ?? null, e.arte?.y ?? null, Date.now(), porQuem,
+      );
+  }
+
+  /** A edição mais recente, que é a que o `/restaura` desfaz. */
+  lastWorldEdit(): (WorldEdit & { antes: number }) | undefined {
+    const l = this.db
+      .prepare('SELECT floor, x, y, tile, tile_antes FROM world_edit ORDER BY edited_at DESC, rowid DESC LIMIT 1')
+      .get() as { floor: number; x: number; y: number; tile: number; tile_antes: number } | undefined;
+    return l && { floor: l.floor, x: l.x, y: l.y, tile: l.tile, antes: l.tile_antes };
+  }
+
+  /** Todos os decalques, na ordem em que foram postos (quem veio depois desenha por cima). */
+  listDecals(): WorldDecal[] {
+    return this.db
+      .prepare('SELECT id, floor, x, y, paleta, rot, camada, colisao FROM world_decal ORDER BY id')
+      .all() as unknown as WorldDecal[];
+  }
+
+  /** Grava um decalque e devolve ele já com o id que o banco deu. */
+  addDecal(d: Omit<WorldDecal, 'id'>, porQuem: string): WorldDecal {
+    const info = this.db
+      .prepare(`INSERT INTO world_decal (floor, x, y, paleta, rot, camada, colisao, placed_at, placed_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(d.floor, d.x, d.y, d.paleta, d.rot, d.camada, d.colisao ?? null, Date.now(), porQuem);
+    return { ...d, id: Number(info.lastInsertRowid) };
+  }
+
+  /** O decalque mais recente — o que o `/undo` tira. */
+  lastDecal(): (WorldDecal & { placedAt: number }) | undefined {
+    const l = this.db
+      .prepare('SELECT id, floor, x, y, paleta, rot, camada, colisao, placed_at FROM world_decal ORDER BY id DESC LIMIT 1')
+      .get() as (WorldDecal & { placed_at: number }) | undefined;
+    return l && { ...l, placedAt: l.placed_at };
+  }
+
+  /** Quando a última edição de TILE aconteceu — para o `/undo` escolher entre as duas pilhas. */
+  lastWorldEditAt(): number | undefined {
+    const l = this.db
+      .prepare('SELECT edited_at FROM world_edit ORDER BY edited_at DESC, rowid DESC LIMIT 1')
+      .get() as { edited_at: number } | undefined;
+    return l?.edited_at;
+  }
+
+  deleteDecal(id: number): boolean {
+    const info = this.db.prepare('DELETE FROM world_decal WHERE id = ?').run(id);
+    return Number(info.changes) > 0;
+  }
+
+  deleteWorldEdit(floor: number, x: number, y: number): boolean {
+    const info = this.db
+      .prepare('DELETE FROM world_edit WHERE floor = ? AND x = ? AND y = ?')
+      .run(floor, x, y);
     return Number(info.changes) > 0;
   }
 }

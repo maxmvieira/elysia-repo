@@ -16,6 +16,7 @@ import type { ConditionId } from './conditions.js';
 import type { SkullKind } from './pvp.js';
 import type { LootRule } from './party.js';
 import type { DayPhase } from './daynight.js';
+import type { WorldEdit, WorldDecal } from './worldedit.js';
 import type { Rarity, WeaponType } from './weapons.js';
 import type { ProfessionId, Professions } from './crafting.js';
 import type { NpcRole } from './tiles.js';
@@ -480,6 +481,7 @@ export type ClientMessage =
   | C2S_SetRespawn
   | C2S_MoveIntent
   | C2S_Chat
+  | C2S_Decal
   | C2S_Ping
   | C2S_Attack
   | C2S_CancelAttack
@@ -542,6 +544,61 @@ export interface S2C_Chat {
   t: 'chat';
   from: string;
   text: string;
+}
+
+/**
+ * As células de mundo que foram editadas pelo `/remove` — ver
+ * `shared/src/worldedit.ts`, que explica por que isto não viola a invariante
+ * do `worldgen`.
+ *
+ * Chega **duas vezes**, e as duas são necessárias:
+ * - no login, com `inteira: true` e a lista completa;
+ * - a cada `/remove` ou `/restaura`, com a única célula que mudou.
+ *
+ * 🔴 `inteira` não é um detalhe de otimização: sem ela o cliente não sabe se
+ * deve SOMAR à tabela que já tem ou substituí-la, e uma edição desfeita no
+ * servidor ficaria viva para sempre na tela de quem estava online.
+ */
+export interface S2C_WorldEdit {
+  t: 'worldedit';
+  edits: WorldEdit[];
+  /** Verdadeiro só no login: esta lista é o estado completo, não um delta. */
+  inteira?: boolean;
+  /**
+   * Células que voltaram ao terreno original (`/restaura`). Vêm com o tile
+   * restaurado em `edits` **e** listadas aqui, para o cliente saber que tem de
+   * TIRÁ-LAS da tabela — senão a fazenda continuaria sem desenhar ali.
+   */
+  desfeitas?: { floor: number; x: number; y: number }[];
+}
+
+/**
+ * Os objetos que o construtor de mapas posicionou. Mesmo desenho do
+ * `S2C_WorldEdit`: a lista inteira no login, o delta a cada mudança.
+ */
+export interface S2C_Decals {
+  t: 'decals';
+  decals: WorldDecal[];
+  /** Verdadeiro só no login: esta lista é o estado completo. */
+  inteira?: boolean;
+  /** Ids que saíram (o `/undo`). */
+  removidos?: number[];
+}
+
+/**
+ * *"Põe o que eu selecionei na frente do meu boneco"* — o `/ok` do editor.
+ *
+ * 🔴 **A célula-alvo NÃO vem daqui**, e é de propósito: quem sabe onde o
+ * personagem está e para onde ele olha é o servidor. O cliente manda só o que é
+ * escolha de interface — qual sprite, girado quanto, em que altura.
+ */
+export interface C2S_Decal {
+  t: 'decal';
+  paleta: number;
+  rot: number;
+  camada: 'chao' | 'baixo' | 'acima';
+  /** O que a peça faz com o passo. Ver `WorldDecal.colisao`. */
+  colisao?: 'nada' | 'bloqueia' | 'livre';
 }
 
 export interface S2C_Denied {
@@ -889,7 +946,9 @@ export type ServerMessage =
   | S2C_Inventory
   | S2C_Party
   | S2C_PartyInvite
-  | S2C_Friends;
+  | S2C_Friends
+  | S2C_WorldEdit
+  | S2C_Decals;
 
 // ----------------------------------------------------------------------------
 // Helpers de serialização (um só ponto para trocar JSON por binário depois)

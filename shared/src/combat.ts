@@ -318,9 +318,13 @@ export const CREATURE_FAMILY: Record<string, CreatureFamily> = {
   horse: 'fauna',
   foal: 'fauna',
   boar: 'fauna',
-  // Aves. Os dois únicos, e a razão de a família existir.
+  // Bichos de curral (pack Farm, 30/08). Couro e carne, como o resto da fauna.
+  cow: 'fauna',
+  pig: 'fauna',
+  // Aves. A família deixou de ser só dos gansos quando a galinha entrou.
   goose: 'ave',
   gosling: 'ave',
+  chicken: 'ave',
   // Construtos. O chefe de pedra; os irmãos de terra e lava seguem no pack.
   golem: 'golem',
 };
@@ -537,6 +541,70 @@ export const CREATURES: Record<string, CreatureDef> = {
     attackCooldownMs: 9999,
     moveCooldownMs: 950,
     xpReward: 3,
+    goldMin: 0,
+    goldMax: 0,
+  },
+
+  /*
+   * 🐄 **OS TRÊS BICHOS DE CURRAL** (pack Farm, 30/08). Arte por
+   * `npm run farm:build`; posição vem do próprio `Farm.tmx`, onde o autor os
+   * desenhou.
+   *
+   * 🔴 **Eles são DOMÉSTICOS, e isso muda a ficha inteira.** A fauna de 29/08 é
+   * bicho de pasto aberto — foge, ou revida e some. Estes vivem atrás de cerca,
+   * de onde não fogem nem perseguem: o curral já resolve o movimento. Então
+   * `aggroRange` é curto e o XP é baixo de propósito. Matar a vaca do fazendeiro
+   * não pode competir com caçar de verdade.
+   *
+   * ⚠️ **Nenhum número aqui vem de doc** — o GDD não tem ficha de vaca. Todos
+   * são REFERÊNCIA, calibrados por comparação com a fauna que já existe: a Vaca
+   * fica acima da Cabra (45) por ser bem maior, o Porco entre Cabrito e Cabra, e
+   * a Galinha no degrau mais baixo do mapa junto com o Coelhinho.
+   *
+   * ⚠️ Hoje eles ficam **inalcançáveis** — o portão do curral é sólido, então o
+   * jogador olha por cima da cerca e não briga com nenhum. O comportamento
+   * abaixo só entra em jogo quando o portão abrir de verdade.
+   */
+  cow: {
+    type: 'cow',
+    name: 'Vaca',
+    // NEUTRA como a Cabra: vaca não foge, vaca empurra. E é a maior das duas.
+    behavior: 'neutral',
+    maxHp: 60,
+    strength: 6,
+    defense: 3,
+    aggroRange: 3,
+    attackCooldownMs: 1600, // lenta: é peso, não velocidade
+    moveCooldownMs: 1300,
+    xpReward: 9,
+    goldMin: 0,
+    goldMax: 2,
+  },
+  pig: {
+    type: 'pig',
+    name: 'Porco',
+    behavior: 'peaceful',
+    maxHp: 25,
+    strength: 0,
+    defense: 1,
+    aggroRange: 5,
+    attackCooldownMs: 9999,
+    moveCooldownMs: 900,
+    xpReward: 5,
+    goldMin: 0,
+    goldMax: 1,
+  },
+  chicken: {
+    type: 'chicken',
+    name: 'Galinha',
+    behavior: 'peaceful',
+    maxHp: 8,
+    strength: 0,
+    defense: 0,
+    aggroRange: 6,
+    attackCooldownMs: 9999,
+    moveCooldownMs: 700, // a mais rápida do curral, e a mais nervosa
+    xpReward: 2,
     goldMin: 0,
     goldMax: 0,
   },
