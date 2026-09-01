@@ -296,44 +296,167 @@
         font-size: 9.5px;
       }
       /* Barras de status */
+      /*
+       * A barra inclinada do pack, esticada por `border-image`.
+       *
+       * 🔴 **Por que 9-slice e não `background-size`.** O sprite tem 108 px e o
+       * emblema tem 248: esticar a imagem inteira deformaria as pontas
+       * inclinadas, que são justamente o desenho. Fatiadas as pontas, elas ficam
+       * em 1× e só a faixa lisa do meio se repete — a peça cresce até a largura
+       * que for sem inventar pixel.
+       *
+       * 🔴 **A fatia é 24, e o número foi medido — 18 dava EMENDA.** A calha não
+       * começa reta: ela sobe numa rampa de 6 px em cada ponta (no sprite, o vão
+       * interno só fica constante entre x 24 e x 83). Fatiando em 18, a rampa
+       * entrava na faixa que se repete, e cada repetição desenhava um degrau —
+       * um zigue-zague visível no meio da barra.
+       *
+       * ⚠️ As 24 px de `border-width` NÃO são decoração: é onde o `border-image`
+       * desenha as pontas. Mexer nelas sem mexer no `slice` desalinha o desenho.
+       */
       .bar {
         position: relative;
-        height: 14px;
-        background: #0a0908;
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        margin: 4px 0;
-        overflow: hidden;
+        height: 12px;
+        margin: 2px 0;
+        border-style: solid;
+        border-width: 0 24px;
+        border-image-source: url('/assets/hud/barra.png');
+        border-image-slice: 0 24 fill;
+        border-image-repeat: repeat;
+        image-rendering: pixelated;
       }
+      /*
+       * 🔴 A CALHA TEM 4 px, e o preenchimento mora nela — não na altura toda.
+       *
+       * Medido no sprite: o vão interno vai de y 4 a y 7 dos 12 px da peça. Um
+       * `height: 100%` cobriria a moldura de madeira e o filete dourado, que é
+       * o que faz a barra parecer barra.
+       *
+       * `left: 0` já cai depois da borda de 24 px: elemento posicionado se mede
+       * pela caixa de preenchimento, que exclui a borda. É por isso que a conta
+       * fecha sem somar o 24 aqui.
+       */
       .bar > i {
-        display: block;
-        height: 100%;
+        position: absolute;
+        left: 0;
+        top: 4px;
+        height: 4px;
         width: 0%;
         transition: width 0.15s ease-out;
       }
       /* Identidade: retrato à esquerda, nome/classe/nível à direita. */
-      #whoami {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 6px;
+      /*
+       * ---- O EMBLEMA ALADO ------------------------------------------------
+       *
+       * Arte: CraftPix, recortada por `tools/hud/recortar.mjs` para
+       * `/assets/hud/`. A peça tem 248×43 e o encaixe redondo do meio está
+       * VAZADO no PNG — o retrato entra por baixo e o anel dourado o emoldura.
+       *
+       * 🔴 **1×, e nada de escala fracionária.** É a mesma regra do `ZOOM` da
+       * câmera, e vale aqui pelo mesmo motivo: `pixelated` em escala quebrada
+       * faz um pixel virar 2 e o vizinho virar 3, em faixas. As asas ficam a
+       * 1×; a barra estica só pela FAIXA DO MEIO (`border-image`), que é lisa,
+       * então esticar não inventa nem perde pixel.
+       */
+      #emblema {
+        position: absolute;
+        top: 6px;
+        /*
+         * Canto SUPERIOR ESQUERDO do mundo, por decisão do dono em 31/08. Antes
+         * era centralizado; ele viu em tela e pediu no canto.
+         *
+         * ⚠️ `transform-origin: top left` anda junto com isso: com a origem no
+         * centro, aumentar a escala jogaria metade da peça para fora do
+         * `#viewport`, que tem `overflow: hidden` e a cortaria.
+         */
+        left: 6px;
+        /*
+         * 🔴 **1×, DE VOLTA — e o caminho até aqui é a lição.**
+         *
+         * O tamanho foi ajustado em cinco voltas com o dono olhando a tela: 1×
+         * pareceu pequeno, 1,5× grande, e o valor desceu 1,35 → 1,25 → 1,15. Em
+         * 01/09 ele olhou de perto e o veredito foi *"vamos ter que consertar
+         * esse serrilhado da hud"*.
+         *
+         * ⚠️ **Não havia conserto que mantivesse 1,15×.** O serrilhado não é um
+         * defeito do desenho, é o que escala quebrada FAZ com `pixelated`: um
+         * pixel vira 1 e o vizinho vira 2, em faixas. Os únicos valores sem ele
+         * são 1 e 2 — e 2× (496 px) é quase o dobro do que ele tinha aprovado.
+         *
+         * 🔴 **Então a regra volta a valer inteira: só 1, 2 ou 3.** Quem quiser
+         * um tamanho intermediário de novo vai encontrar o mesmo serrilhado, e
+         * a saída não é mexer aqui — é arte redesenhada noutro tamanho.
+         *
+         * O preço: com `image-rendering: pixelated`, 1,5 faz um pixel do
+         * desenho virar 1 e o vizinho virar 2, em faixas alternadas — o
+         * serrilhado que o `ZOOM` da câmera evita por regra, e que o HANDOFF de
+         * 10/08 registra ter custado uma sessão inteira. Nas diagonais das asas
+         * é onde ele aparece.
+         *
+         * 🔴 **Os valores LIMPOS são 1, 2 e 3** — só eles não serrilham. A 1× a
+         * peça tem 248 px de largura; a 2×, 496. Se um dia o serrilhado
+         * incomodar, trocar para 2 é um caractere e não mexe em mais nada.
+         *
+         * Para afinar o tamanho, a largura sai de 248 × escala:
+         * **1 → 248 px** · 2 → 496 px · 3 → 744 px. (Os quebrados que passaram
+         * por aqui e saíram: 1,15 → 285 · 1,25 → 310 · 1,35 → 335 · 1,5 → 372.)
+         *
+         * O `transform` não mexe na caixa de layout, e como o emblema é
+         * posicionado, aumentar a escala não empurra nada — ele só cobre mais
+         * mundo.
+         */
+        --emblema-escala: 1;
+        transform: scale(var(--emblema-escala));
+        transform-origin: top left;
+        width: 248px;
+        z-index: 5;
+        /* 🔴 Sem isto o emblema come o clique de andar no topo da tela. */
+        pointer-events: none;
+        text-align: center;
+        /* O mundo passa por baixo: tudo aqui precisa de contorno para ler. */
+        text-shadow: 0 1px 2px #000, 0 0 3px #000;
       }
+      #emblema-asas {
+        position: relative;
+        width: 248px;
+        height: 43px;
+      }
+      /* A moldura, por CIMA do retrato — ver o comentário no markup. */
+      #emblema-asas .asas-arte {
+        position: absolute;
+        inset: 0;
+        background: url('/assets/hud/asas.png') no-repeat 0 0;
+        image-rendering: pixelated;
+      }
+      /*
+       * Nome, classe e nível numa linha só, sob as asas. Antes eram três linhas
+       * empilhadas na coluna estreita do painel; aqui a largura é de 248 px, e
+       * empilhar deixaria o emblema alto demais sobre o mundo.
+       */
+      #emblema-nome {
+        display: flex;
+        justify-content: center;
+        align-items: baseline;
+        gap: 8px;
+        margin: 1px 0 3px;
+      }
+      /*
+       * O retrato agora mora DENTRO do encaixe da peça alada: 32×32, na posição
+       * medida do miolo vazado (x 108, y 6 dentro dos 248×43).
+       *
+       * ⚠️ Sem moldura e sem fundo próprios — quem emoldura é o anel dourado do
+       * PNG, que fica por cima da borda deste elemento. Uma borda aqui
+       * apareceria como um quadrado dentro do círculo.
+       */
       #portrait {
-        width: 44px;
-        height: 44px;
-        flex: 0 0 44px;
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        background: #0a0908;
+        position: absolute;
+        left: 108px;
+        top: 6px;
+        width: 32px;
+        height: 32px;
         /* 🔴 `pixelated` é obrigatório: o retrato é um recorte de pixel art
            ampliado, e a suavização do navegador o transformaria em borrão. */
         image-rendering: pixelated;
-      }
-      #whotext {
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-        min-width: 0;
       }
       #charname {
         color: #e8d9b5;
@@ -348,24 +471,37 @@
         font-size: 11px;
         color: var(--muted);
       }
+      /*
+       * As três cores saem das TIRAS DE AMOSTRA do próprio pack (`Bars.png`,
+       * y 132..135), e não de chute: assim o preenchimento pertence à mesma
+       * paleta da moldura em vez de brigar com ela.
+       */
       #hpfill {
-        background: linear-gradient(#c0473f, #8a2f2a);
+        background: linear-gradient(#d74427, #9f2a2f);
       }
       #manafill {
-        background: linear-gradient(#3f6fb0, #2a4a8a);
+        background: linear-gradient(#37a0df, #336cac);
       }
       #xpfill {
-        background: linear-gradient(#c9a86a, #9a7d3f);
+        background: linear-gradient(#44a13b, #327044);
       }
+      /*
+       * ⚠️ Sobra negativa nas laterais de propósito: a caixa de conteúdo da
+       * barra exclui as 24 px de borda de cada lado, e sem isso o número ficaria
+       * centrado só na faixa do meio — visivelmente fora do centro da peça.
+       */
       .bar > span {
         position: absolute;
-        inset: 0;
+        top: 0;
+        bottom: 0;
+        left: -24px;
+        right: -24px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 9px;
         color: #fff;
-        text-shadow: 0 1px 1px #000;
+        text-shadow: 0 1px 2px #000, 0 0 3px #000;
       }
       #topline {
         display: flex;
@@ -2139,7 +2275,40 @@
         </div>
       </aside>
       <div id="center">
-        <div id="viewport"></div>
+        <div id="viewport">
+          <!--
+            O EMBLEMA ALADO: retrato, nome e as três barras, flutuando no alto
+            do mundo. Mora dentro do `#viewport` de propósito — assim ele é
+            centrado no MUNDO, e não na janela, e o `overflow: hidden` que já
+            existe ali o corta junto com o canvas quando o chat cresce.
+
+            ⚠️ `pointer-events: none` no CSS é obrigatório: sem isso o emblema
+            engoliria o clique de andar bem no meio do topo da tela.
+          -->
+          <div id="emblema">
+            <!--
+              🔴 A ordem aqui é o desenho: o retrato PRIMEIRO, a arte DEPOIS.
+
+              A arte não pode ser o fundo desta div. No empilhamento do DOM o
+              filho pinta por cima do fundo do pai, então o retrato — que é
+              filho — cobria o anel dourado e virava um quadrado marrom no meio
+              da peça. Com a arte como camada irmã, o anel volta para cima e o
+              miolo vazado deixa o retrato aparecer por dentro dele.
+            -->
+            <div id="emblema-asas">
+              <div id="portrait"></div>
+              <i class="asas-arte"></i>
+            </div>
+            <div id="emblema-nome">
+              <b id="charname">—</b>
+              <span id="charclass">—</span>
+              <span id="charlevel">Nv <b id="level">1</b></span>
+            </div>
+            <div class="bar"><i id="hpfill"></i><span id="hptext">—</span></div>
+            <div class="bar"><i id="manafill"></i><span id="manatext">—</span></div>
+            <div class="bar"><i id="xpfill"></i><span id="xptext">—</span></div>
+          </div>
+        </div>
         <!--
           Doca do chat. No rodapé, como no Tibia: usa a largura toda da tela em
           vez de uma coluna de 190 px, e o "pegador" acima dela permite ajustar
@@ -2178,24 +2347,18 @@
           </div>
           <div class="pbody">
             <!--
-              O bloco de identidade: retrato, nome, classe e nível.
+              🔴 A IDENTIDADE E AS BARRAS SAÍRAM DAQUI, e foram para o emblema
+              alado no alto do `#viewport`. Procure por `#emblema`.
 
-              O retrato sai da MESMA tira que o herói usa no mundo (`heroIconCss`),
-              e não de um arquivo próprio — escolher a classe por uma arte e ver
-              outra no HUD é o tipo de divergência que aparece quando a arte é
-              reexportada e ninguém lembra do segundo arquivo.
+              O motivo é de MEDIDA, não de gosto: a peça alada do pack tem
+              248 px e este painel tem `--bar-w` = 190. Alargar custaria o
+              dobro, porque a mesma variável serve aos dois painéis laterais.
+              Flutuando sobre o mundo ela não cobra largura nenhuma.
+
+              ⚠️ Os ids são os MESMOS (`portrait`, `charname`, `hpfill`…), então
+              o `main.ts` não sabe que alguma coisa se mexeu — ele acha tudo por
+              `getElementById`.
             -->
-            <div id="whoami">
-              <div id="portrait"></div>
-              <div id="whotext">
-                <b id="charname">—</b>
-                <span id="charclass">—</span>
-                <span id="charlevel">Nv <b id="level">1</b></span>
-              </div>
-            </div>
-            <div class="bar"><i id="hpfill"></i><span id="hptext">—</span></div>
-            <div class="bar"><i id="manafill"></i><span id="manatext">—</span></div>
-            <div class="bar"><i id="xpfill"></i><span id="xptext">—</span></div>
             <!--
               Condições ativas do PRÓPRIO jogador, com NOME.
 

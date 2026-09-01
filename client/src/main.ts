@@ -657,8 +657,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // arte fosse reexportada e ninguém lembrasse dele. Classe sem pack HD cai no
   // ícone MiniWorld, exatamente como os cartões da tela de criação.
   hud.portrait.style.cssText += HERO_ART_CLASSES.has(charClass)
-    ? heroIconCss(charClass, 44)
-    : classIconCss(charClass, 44);
+    // 🔴 32 px, e o número vem do PNG: é o miolo vazado do encaixe da peça
+    // alada (medido em `tools/hud/recortar.mjs`). Era 44 quando o retrato
+    // morava num quadrado do painel lateral.
+    ? heroIconCss(charClass, 32)
+    : classIconCss(charClass, 32);
   hud.charname.textContent = playerName;
   hud.charname.title = playerName; // o nome é cortado por `ellipsis` se for longo
   hud.charclass.textContent = CLASSES[charClass].name;
