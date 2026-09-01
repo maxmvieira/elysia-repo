@@ -137,7 +137,7 @@ import {
   type SpriteCfg,
 } from './sprites.js';
 import {
-  classIconCss, loadClassAnims, loadNpcAnim, loadSlimeAnim, loadZombieAnim, loadZombieIdleAnim,
+  classIconCss, loadClassAnims, loadNpcAnim, loadSlimeAnim,
   CREATURE_SHEETS, loadCreatureSheets, type CreatureSheets,
   type DirAnim,
 } from './miniworld.js';
@@ -681,9 +681,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // Sprites MiniWorld: 4 direções por classe + slime. Estilo unificado do mundo.
   const classAnims = await loadClassAnims();
   const slimeAnim = await loadSlimeAnim();
-  // Zumbi: folha LPC 64px, fora do padrão MiniWorld (ver miniworld.ts).
-  const zombieAnim = await loadZombieAnim();
-  const zombieIdleAnim = await loadZombieIdleAnim();
   // Folhas de monstro no formato de SPEC-SPRITES-MONSTROS.md: 4 direções com
   // andar/parado/ataque/dano/morte. Só carrega as espécies listadas em
   // `CREATURE_SHEETS` — as outras seguem no blob placeholder e nem tentam
@@ -3909,7 +3906,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       let view = sprites.get(e.id);
       if (!view) {
         view = makeEntity(e, isSelf, isSelf ? selfTex : otherTex, anims, setTarget, {
-          classAnims, slimeAnim, slimeVariants, zombieAnim, zombieIdleAnim, creatureSheets,
+          classAnims, slimeAnim, slimeVariants, creatureSheets,
           knightArt, heroArt, equipArt, npcAnim,
           selfClass: charClass, selfGender: gender, openShop, openBank, openCraft, openCorpse,
           gatherNode, pegarItem,
@@ -5455,8 +5452,6 @@ interface MiniAssets {
   slimeAnim: Texture[] | null;
   /** Slime Azul e Vermelho: a arte do Verde recolorida, por `creatureType`. */
   slimeVariants: Record<string, AnimSet> | null;
-  zombieAnim: DirAnim | null;
-  zombieIdleAnim: DirAnim | null;
   /**
    * Folhas no formato de `SPEC-SPRITES-MONSTROS.md`, por `creatureType`. Vazio
    * enquanto a arte não chega — quem não está no mapa cai no blob placeholder.
@@ -6318,22 +6313,23 @@ function makeCreatureView(
     });
   }
 
-  // ZUMBI: folha LPC 64px. Os números abaixo saem da MEDIÇÃO do bounding box
-  // do conteúdo dentro da célula (x 17..46, y 15..62), não de chute:
-  //   anchorX = 31.5/64 -> centro real do corpo
-  //   anchorY = 62/64   -> linha dos pés
-  //   scale   = 40/48   -> ~40px de altura na tela (o conteúdo tem 48px)
-  if (e.creatureType === 'zombie' && mini.zombieAnim) {
-    return makeMiniActor({
-      e, anim: mini.zombieAnim, scale: 0.85,
-      anchorX: 31.5 / 64, anchorY: 62 / 64, labelTop: -34,
-      animSpeed: 0.09, // 8 quadros + passo de 2 s = arrastar de morto-vivo
-      // Parado ele não congela: a cabeça balança (ver loadZombieIdleAnim).
-      idleAnim: mini.zombieIdleAnim ?? undefined,
-      idleSpeed: 0.035,
-      nameColor: 0x9fbf7f, creatureTint: true, onClick: onTargetClick,
-    });
-  }
+  /*
+   * 🔴 **O ZUMBI SAIU DAQUI EM 01/09, e o caminho especial dele morreu junto.**
+   *
+   * Ele era a única criatura desenhada por um ramo próprio: uma folha LPC de
+   * 64 px com duas animações (andar e um balanço de cabeça parado), com âncora e
+   * escala escritas à mão neste arquivo. Agora ele entra pelo caminho de todo
+   * mundo, o `CREATURE_SHEETS`, com as CINCO animações do pack da CraftPix.
+   *
+   * ⚠️ Isso apagou de uma vez: um ramo especial no desenho, dois carregadores
+   * usados por uma espécie só, e a ÚNICA arte do repositório com licença
+   * *share-alike* — que o `docs/LICENCAS-DE-ARTE.md` marcava como risco por
+   * contaminar o derivado.
+   *
+   * ⚠️ `loadZombieAnim` e `loadZombieIdleAnim` continuam exportados em
+   * `miniworld.ts`, sem uso. Não apaguei junto para o diff não misturar troca de
+   * arte com faxina de módulo.
+   */
 
   // SLIME AZUL e VERMELHO: a arte do Verde com o matiz rotacionado, gerada no
   // carregamento (ver `loadSlimeVariants`). Decisão do dono: reusar o corpo do

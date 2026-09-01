@@ -290,6 +290,20 @@ const HAND_WRITTEN: Record<string, ItemDef> = {
   bear_claw: { kind: 'bear_claw', name: 'Garra de Urso', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0xe0d8c8 },
   small_scale: { kind: 'small_scale', name: 'Escama Pequena', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 5, color: 0xb08a4a },
   fine_claw: { kind: 'fine_claw', name: 'Garra Fina', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 15, color: 0xc8b898 },
+  // Os cinco packs de 01/09. Preço ancorado no resto do loot de monstro: o
+  // comum perto da Escama Pequena (5), o raro perto do Sangue de Troll (150).
+  // Segunda leva de packs, 01/09. Mesma ancoragem de preço do bloco abaixo.
+  demon_horn: { kind: 'demon_horn', name: 'Chifre de Demônio', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 120, color: 0x8a2a2a },
+  ectoplasm: { kind: 'ectoplasm', name: 'Ectoplasma', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 10, color: 0xa8d8e8 },
+  beholder_eye: { kind: 'beholder_eye', name: 'Olho de Observador', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 60, color: 0xd85a5a },
+  gnoll_pelt: { kind: 'gnoll_pelt', name: 'Pelame de Gnoll', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 14, color: 0xa88a5a },
+
+  rat_fang: { kind: 'rat_fang', name: 'Presa de Rato', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 3, color: 0xd8d0b0 },
+  spore_sac: { kind: 'spore_sac', name: 'Saco de Esporos', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 8, color: 0x8a6aa8 },
+  lizard_scale: { kind: 'lizard_scale', name: 'Escama de Lagarto', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 12, color: 0x5f8a4a },
+  living_bark: { kind: 'living_bark', name: 'Casca Viva', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 30, color: 0x6b5233 },
+  vampire_fang: { kind: 'vampire_fang', name: 'Presa de Vampiro', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 140, color: 0xe8e0e8 },
+
   troll_skin: { kind: 'troll_skin', name: 'Pele de Troll', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 50, color: 0x5a7a5a },
   troll_blood: { kind: 'troll_blood', name: 'Sangue de Troll', category: 'loot', stackable: true, buyPrice: 0, sellPrice: 150, color: 0x8a2a2a },
 

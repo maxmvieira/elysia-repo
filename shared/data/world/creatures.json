@@ -1,83 +1,484 @@
 {
   "_leia": "Onde cada criatura nasce. Carregado por shared/src/worlddata.ts, usado por spawnInitialCreatures no servidor. Criatura NAO persiste: esta lista roda inteira a cada boot, e por isso mexer aqui exige reiniciar o servidor, nao so salvar o arquivo. O 'type' tem que existir em CREATURES (shared/src/combat.ts) -- tipo desconhecido derruba o boot em vez de sumir em silencio.",
   "_origem": "Rebase mecanico do povoamento de Valoria (mapa 60x60, vila em 20,20) para Lumindale (300x300, vila em 150,158): deslocamento de +130,+138, e quem caiu dentro da palicada foi empurrado para fora. A curva de dificuldade e a mesma que o dono ja testou jogando. Distribuir as criaturas pelas regioes de regions.ts e o passo 4 do roadmap, nao este.",
-
   "_enxugado_2026_08_05": "🔴 A lista caiu de 32 spawns para 10, e de 21 especies para 4, a pedido do dono vendo em tela ('tem muuuito monstro'). Ficaram Slime Verde, Slime Azul, Zumbi e o Super Slime, este ultimo empurrado para longe (dist 44). O CREATURE_RESPAWN_MS tambem subiu de 8s para 45s no servidor -- os dois se somam, entao mexer num sem olhar o outro engana. NADA FOI PERDIDO: a lista antiga inteira esta em _removidos abaixo, e voltar e recortar de volta para spawns. ⚠️ CONSEQUENCIA REAL: 17 especies sumiram do mundo, e com elas a UNICA origem de varios materiais do Doc 4 (osso, escama, chifre, garra, presa vem de morto-vivo, lobo, urso, orc, troll). Fabricacao que dependa disso fica sem insumo ate a lista voltar ou o passo 4 (povoar por regiao) acontecer.",
-
   "_fauna_2026_08_29": "🔴 O PASTO ENTROU: 14 spawns de fauna, das 8 especies do pack CraftPix (arte por npm run animals:build). Nao sao monstros e nao contam para o 'tem muuuito monstro' de 05/08 -- Coelho, Cabrito, Filhote de Ganso, Potro e Coelhinho sao PACIFICOS (nunca atacam, sempre fogem); Cabra, Ganso e Cavalo sao NEUTROS (so revidam). Todos estao entre distancia 13 e 20 da vila (150,158), ou seja FORA da praca segura, que tem raio 12: bicho nascido dentro dela ficaria travado, porque creatureCanEnter barra a praca para toda criatura. Ficaram ao NORTE e a OESTE de proposito, do lado oposto aos zumbis (180,158 e 176,172), para dar para testar o pasto sem esbarrar em Tier III.",
-
   "_teste_2026_08_29": "⚠️ AS 8 LINHAS ABAIXO SAO ANDAIME, e da para apagar todas sem pensar. O dono estava em (231,185) quando o pasto entrou -- 81 tiles da vila, e como SNAPSHOT_RANGE e 32 o servidor nem mandava os bichos do pasto para ele. Este grupo poe UMA de cada especie ao lado dele, so para ver as oito de uma vez. O pasto de verdade e o bloco seguinte, perto da vila.",
-
   "spawns": [
-    { "type": "horse", "x": 230, "y": 181 },
-    { "type": "foal", "x": 231, "y": 182 },
-    { "type": "goat", "x": 234, "y": 183 },
-    { "type": "goatling", "x": 235, "y": 184 },
-    { "type": "goose", "x": 229, "y": 188 },
-    { "type": "gosling", "x": 228, "y": 189 },
-    { "type": "rabbit", "x": 233, "y": 187 },
-    { "type": "rabbit_cub", "x": 234, "y": 188 },
-
-    { "type": "goat", "x": 144, "y": 142 },
-    { "type": "goat", "x": 147, "y": 141 },
-    { "type": "goat", "x": 152, "y": 140 },
-    { "type": "goatling", "x": 145, "y": 143 },
-    { "type": "goatling", "x": 150, "y": 141 },
-
-    { "type": "goose", "x": 136, "y": 166 },
-    { "type": "goose", "x": 134, "y": 168 },
-    { "type": "gosling", "x": 135, "y": 167 },
-    { "type": "gosling", "x": 133, "y": 169 },
-
-    { "type": "rabbit", "x": 160, "y": 144 },
-    { "type": "rabbit", "x": 140, "y": 172 },
-    { "type": "rabbit_cub", "x": 161, "y": 145 },
-
-    { "type": "horse", "x": 156, "y": 138 },
-    { "type": "foal", "x": 157, "y": 139 },
-
-    { "type": "slime", "x": 138, "y": 154 },
-    { "type": "slime", "x": 162, "y": 154 },
-    { "type": "slime", "x": 146, "y": 146 },
-    { "type": "slime", "x": 154, "y": 170 },
-    { "type": "slime", "x": 137, "y": 162 },
-
-    { "type": "slime_blue", "x": 134, "y": 156 },
-    { "type": "slime_blue", "x": 166, "y": 160 },
-
-    { "type": "zombie", "x": 180, "y": 158 },
-    { "type": "zombie", "x": 176, "y": 172 },
-
-    { "type": "super_slime", "x": 172, "y": 202 },
-
-    { "type": "golem", "x": 128, "y": 196 }
+    {
+      "type": "horse",
+      "x": 230,
+      "y": 181
+    },
+    {
+      "type": "foal",
+      "x": 231,
+      "y": 182
+    },
+    {
+      "type": "goat",
+      "x": 234,
+      "y": 183
+    },
+    {
+      "type": "goatling",
+      "x": 235,
+      "y": 184
+    },
+    {
+      "type": "goose",
+      "x": 229,
+      "y": 188
+    },
+    {
+      "type": "gosling",
+      "x": 228,
+      "y": 189
+    },
+    {
+      "type": "rabbit",
+      "x": 233,
+      "y": 187
+    },
+    {
+      "type": "rabbit_cub",
+      "x": 234,
+      "y": 188
+    },
+    {
+      "type": "goat",
+      "x": 144,
+      "y": 142
+    },
+    {
+      "type": "goat",
+      "x": 147,
+      "y": 141
+    },
+    {
+      "type": "goat",
+      "x": 152,
+      "y": 140
+    },
+    {
+      "type": "goatling",
+      "x": 145,
+      "y": 143
+    },
+    {
+      "type": "goatling",
+      "x": 150,
+      "y": 141
+    },
+    {
+      "type": "goose",
+      "x": 136,
+      "y": 166
+    },
+    {
+      "type": "goose",
+      "x": 134,
+      "y": 168
+    },
+    {
+      "type": "gosling",
+      "x": 135,
+      "y": 167
+    },
+    {
+      "type": "gosling",
+      "x": 133,
+      "y": 169
+    },
+    {
+      "type": "rabbit",
+      "x": 160,
+      "y": 144
+    },
+    {
+      "type": "rabbit",
+      "x": 140,
+      "y": 172
+    },
+    {
+      "type": "rabbit_cub",
+      "x": 161,
+      "y": 145
+    },
+    {
+      "type": "horse",
+      "x": 156,
+      "y": 138
+    },
+    {
+      "type": "foal",
+      "x": 157,
+      "y": 139
+    },
+    {
+      "type": "slime",
+      "x": 138,
+      "y": 154
+    },
+    {
+      "type": "slime",
+      "x": 162,
+      "y": 154
+    },
+    {
+      "type": "slime",
+      "x": 146,
+      "y": 146
+    },
+    {
+      "type": "slime",
+      "x": 154,
+      "y": 170
+    },
+    {
+      "type": "slime",
+      "x": 137,
+      "y": 162
+    },
+    {
+      "type": "slime_blue",
+      "x": 134,
+      "y": 156
+    },
+    {
+      "type": "slime_blue",
+      "x": 166,
+      "y": 160
+    },
+    {
+      "type": "zombie",
+      "x": 180,
+      "y": 158
+    },
+    {
+      "type": "zombie",
+      "x": 176,
+      "y": 172
+    },
+    {
+      "type": "super_slime",
+      "x": 172,
+      "y": 202
+    },
+    {
+      "type": "golem",
+      "x": 128,
+      "y": 196
+    },
+    {
+      "type": "mushroom_brown",
+      "x": 138,
+      "y": 176
+    },
+    {
+      "type": "mushroom_red",
+      "x": 136,
+      "y": 174
+    },
+    {
+      "type": "mushroom_purple",
+      "x": 138,
+      "y": 174
+    },
+    {
+      "type": "ent_seco",
+      "x": 128,
+      "y": 140
+    },
+    {
+      "type": "ent",
+      "x": 126,
+      "y": 138
+    },
+    {
+      "type": "ent_ancestral",
+      "x": 128,
+      "y": 138
+    },
+    {
+      "type": "giant_rat",
+      "x": 174,
+      "y": 142
+    },
+    {
+      "type": "plague_rat",
+      "x": 176,
+      "y": 142
+    },
+    {
+      "type": "shadow_rat",
+      "x": 178,
+      "y": 142
+    },
+    {
+      "type": "lizardman",
+      "x": 152,
+      "y": 188
+    },
+    {
+      "type": "lizardman_soldier",
+      "x": 150,
+      "y": 186
+    },
+    {
+      "type": "lizardman_champion",
+      "x": 152,
+      "y": 186
+    },
+    {
+      "type": "vampire",
+      "x": 186,
+      "y": 176
+    },
+    {
+      "type": "vampire_noble",
+      "x": 184,
+      "y": 174
+    },
+    {
+      "type": "vampire_lord",
+      "x": 186,
+      "y": 174
+    },
+    {
+      "type": "ghost",
+      "x": 132,
+      "y": 152
+    },
+    {
+      "type": "ghost_wraith",
+      "x": 130,
+      "y": 150
+    },
+    {
+      "type": "ghost_specter",
+      "x": 132,
+      "y": 150
+    },
+    {
+      "type": "imp",
+      "x": 168,
+      "y": 178
+    },
+    {
+      "type": "imp_winged",
+      "x": 166,
+      "y": 176
+    },
+    {
+      "type": "imp_infernal",
+      "x": 168,
+      "y": 176
+    },
+    {
+      "type": "beholder",
+      "x": 120,
+      "y": 168
+    },
+    {
+      "type": "beholder_crimson",
+      "x": 118,
+      "y": 166
+    },
+    {
+      "type": "beholder_void",
+      "x": 120,
+      "y": 166
+    },
+    {
+      "type": "gnoll",
+      "x": 142,
+      "y": 190
+    },
+    {
+      "type": "gnoll_warrior",
+      "x": 140,
+      "y": 188
+    },
+    {
+      "type": "gnoll_chieftain",
+      "x": 142,
+      "y": 188
+    },
+    {
+      "type": "skeleton_warrior",
+      "x": 189,
+      "y": 157
+    },
+    {
+      "type": "skeleton_guard",
+      "x": 191,
+      "y": 158
+    },
+    {
+      "type": "skeleton_king",
+      "x": 189,
+      "y": 159
+    },
+    {
+      "type": "zombie_grave",
+      "x": 192,
+      "y": 167
+    },
+    {
+      "type": "zombie_rotten",
+      "x": 190,
+      "y": 166
+    },
+    {
+      "type": "demon",
+      "x": 196,
+      "y": 190
+    },
+    {
+      "type": "demon_crimson",
+      "x": 194,
+      "y": 188
+    },
+    {
+      "type": "demon_lord",
+      "x": 196,
+      "y": 188
+    },
+    {
+      "type": "goblin_warrior",
+      "x": 165,
+      "y": 131
+    },
+    {
+      "type": "goblin_captain",
+      "x": 167,
+      "y": 131
+    },
+    {
+      "type": "goblin_shaman",
+      "x": 165,
+      "y": 133
+    }
   ],
-
   "_removidos": [
-    { "type": "slime", "x": 163, "y": 163 },
-    { "type": "slime", "x": 142, "y": 144 },
-    { "type": "slime", "x": 158, "y": 172 },
-    { "type": "slime_red", "x": 150, "y": 176 },
-    { "type": "slime_red", "x": 168, "y": 152 },
-
-    { "type": "forest_spider", "x": 168, "y": 150 },
-    { "type": "web_spider", "x": 169, "y": 149 },
-    { "type": "soldier_ant", "x": 142, "y": 176 },
-    { "type": "spitter_ant", "x": 141, "y": 177 },
-    { "type": "goblin_warrior", "x": 168, "y": 176 },
-    { "type": "goblin_archer", "x": 169, "y": 177 },
-    { "type": "grey_wolf", "x": 172, "y": 164 },
-    { "type": "young_orc", "x": 156, "y": 180 },
-    { "type": "orc_warrior", "x": 174, "y": 168 },
-
-    { "type": "skeleton_warrior", "x": 182, "y": 152 },
-    { "type": "skeleton_archer", "x": 183, "y": 153 },
-    { "type": "minotaur", "x": 150, "y": 188 },
-    { "type": "brown_bear", "x": 144, "y": 190 },
-    { "type": "black_wolf", "x": 145, "y": 191 },
-    { "type": "giant_spider", "x": 180, "y": 188 },
-    { "type": "mystic_ant", "x": 184, "y": 182 },
-    { "type": "kobold_hunter", "x": 174, "y": 192 },
-    { "type": "troll", "x": 184, "y": 190 }
-  ]
+    {
+      "type": "slime",
+      "x": 163,
+      "y": 163
+    },
+    {
+      "type": "slime",
+      "x": 142,
+      "y": 144
+    },
+    {
+      "type": "slime",
+      "x": 158,
+      "y": 172
+    },
+    {
+      "type": "slime_red",
+      "x": 150,
+      "y": 176
+    },
+    {
+      "type": "slime_red",
+      "x": 168,
+      "y": 152
+    },
+    {
+      "type": "forest_spider",
+      "x": 168,
+      "y": 150
+    },
+    {
+      "type": "web_spider",
+      "x": 169,
+      "y": 149
+    },
+    {
+      "type": "soldier_ant",
+      "x": 142,
+      "y": 176
+    },
+    {
+      "type": "spitter_ant",
+      "x": 141,
+      "y": 177
+    },
+    {
+      "type": "goblin_warrior",
+      "x": 168,
+      "y": 176
+    },
+    {
+      "type": "goblin_archer",
+      "x": 169,
+      "y": 177
+    },
+    {
+      "type": "grey_wolf",
+      "x": 172,
+      "y": 164
+    },
+    {
+      "type": "young_orc",
+      "x": 156,
+      "y": 180
+    },
+    {
+      "type": "orc_warrior",
+      "x": 174,
+      "y": 168
+    },
+    {
+      "type": "skeleton_warrior",
+      "x": 182,
+      "y": 152
+    },
+    {
+      "type": "skeleton_archer",
+      "x": 183,
+      "y": 153
+    },
+    {
+      "type": "minotaur",
+      "x": 150,
+      "y": 188
+    },
+    {
+      "type": "brown_bear",
+      "x": 144,
+      "y": 190
+    },
+    {
+      "type": "black_wolf",
+      "x": 145,
+      "y": 191
+    },
+    {
+      "type": "giant_spider",
+      "x": 180,
+      "y": 188
+    },
+    {
+      "type": "mystic_ant",
+      "x": 184,
+      "y": 182
+    },
+    {
+      "type": "kobold_hunter",
+      "x": 174,
+      "y": 192
+    },
+    {
+      "type": "troll",
+      "x": 184,
+      "y": 190
+    }
+  ],
+  "_packs_2026_09_01": "🔴 OS CINCO PACKS DA CRAFTPIX: 15 especies novas, e SO UM SPAWN DE CADA. A contencao e deliberada -- o dono cortou esta lista de 32 para 10 em 05/08 dizendo 'tem muuuito monstro', e 15 especies novas com varios spawns cada desfariam aquilo em uma tacada. Um de cada deixa ver todos em campo e decidir a quantidade depois de jogar. As cinco zonas ficam FORA da praca segura (raio 12 de 150,158) e a dificuldade sobe com a distancia: Cogumelos (138,176) dist 18, o mais fraco; Ents (128,140) dist 22; Ratos (176,142) dist 24; Lagartos (152,188) dist 30; Vampiros (186,176) dist 36, o mais forte. Cada posicao foi conferida com isWalkable no mapa gerado -- tile de agua ou dentro da praca deixaria a criatura travada, porque creatureCanEnter barra a praca. Arte por `npm run monstros:build`.",
+  "_packs2_2026_09_01": "🔴 SEGUNDA LEVA DE PACKS: 19 especies novas mais DUAS que ja existiam sem arte (skeleton_warrior e zombie, que ate hoje nasciam como bolha colorida). Mesma contencao da primeira leva: UM spawn de cada. As zonas seguem a regra de que dificuldade sobe com distancia da vila (150,158): Fantasmas (132,152) d18; Diabretes (168,178) d20; Observadores (120,168) d30; Gnolls (142,190) d32; Esqueletos (189,157) d40; Zumbis (192,167) d42; Demonios (196,190) d46, o mais forte. Toda posicao conferida com isWalkable no mapa gerado. Arte por `npm run monstros:build`.",
+  "_goblins_2026_09_01": "🔴 ACAMPAMENTO GOBLIN em (166,132), distancia 26 da vila. O goblin_warrior ja existia na ficha desde julho e nascia como bolha colorida -- agora tem arte. Capitao e Xama sao especie nova. O goblin_archer continua SEM arte de proposito: as tres variantes do pack sao corpo a corpo, e um arqueiro sem arco e pior que bolha."
 }

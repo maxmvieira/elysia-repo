@@ -169,7 +169,12 @@ import type { Behavior } from './bestiary.js';
 export type CreatureFamily =
   | 'slime' | 'aranha' | 'formiga' | 'goblin' | 'lobo' | 'orc'
   | 'morto-vivo' | 'minotauro' | 'urso' | 'kobold' | 'troll'
-  | 'serpente' | 'fauna' | 'ave' | 'golem';
+  | 'serpente' | 'fauna' | 'ave' | 'golem'
+  // Os cinco packs da CraftPix que entraram em 01/09.
+  | 'rato' | 'cogumelo' | 'lagarto' | 'vampiro' | 'ent'
+  // A segunda leva do mesmo dia. Diabretes entram em 'demonio' de propósito:
+  // são demônios menores, e família por afinidade é o que o DD-DROP-006 quer.
+  | 'demonio' | 'espectro' | 'aberracao' | 'gnoll';
 
 /**
  * 🔴 `DD-DROP-006` — material característico por FAMÍLIA.
@@ -265,6 +270,56 @@ export const FAMILY_MATERIALS: Record<CreatureFamily, Array<{ kind: string; chan
    * e aí a regra passa a valer para o resto da família também.
    */
   golem: [{ kind: 'stone_core', chance: 0.45 }],
+
+  /*
+   * As cinco famílias de 01/09. Cada uma tem UM material próprio e reusa UM que
+   * já existia — o reuso amarra o bicho novo a uma cadeia com consumidor, em vez
+   * de abrir uma lista paralela. Ver o bloco em `materials.ts`.
+   */
+  rato: [
+    { kind: 'animal_hide', chance: 0.5 },
+    // ⚠️ 0.4 é o piso para material COMUM (há teste): abaixo disso ele deixa de
+    // ser a "renda constante" que o `DD-DROP-002` descreve.
+    { kind: 'rat_fang', chance: 0.4 },
+  ],
+  cogumelo: [
+    { kind: 'cave_mushroom', chance: 0.6 },
+    { kind: 'spore_sac', chance: 0.4 },
+  ],
+  lagarto: [
+    { kind: 'lizard_scale', chance: 0.55 },
+    { kind: 'fine_claw', chance: 0.25 },
+  ],
+  vampiro: [
+    { kind: 'bone', chance: 0.5 },
+    { kind: 'vampire_fang', chance: 0.2 },
+  ],
+  // 🔴 O Ent larga a MESMA tora que a árvore de corte: madeira é madeira, e
+  // duas fontes para o mesmo material é rota de farm, não duplicação.
+  ent: [
+    { kind: 'oak_log', chance: 0.5 },
+    { kind: 'living_bark', chance: 0.3 },
+  ],
+
+  // Segunda leva de 01/09.
+  demonio: [
+    { kind: 'ashes', chance: 0.35 },
+    { kind: 'demon_horn', chance: 0.2 },
+  ],
+  espectro: [
+    { kind: 'ectoplasm', chance: 0.55 },
+    { kind: 'spirit_fragment', chance: 0.12 },
+  ],
+  aberracao: [
+    { kind: 'beholder_eye', chance: 0.35 },
+    { kind: 'ashes', chance: 0.3 },
+  ],
+  gnoll: [
+    { kind: 'gnoll_pelt', chance: 0.5 },
+    // ⚠️ 0.4 é o piso do material COMUM (há teste). O orc larga a mesma presa
+    // a 0.5 — é a mesma cadeia, e é isso que faz a rota de farm existir.
+    { kind: 'broken_tusk', chance: 0.4 },
+  ],
 };
 
 /**
@@ -292,6 +347,8 @@ export const CREATURE_FAMILY: Record<string, CreatureFamily> = {
   // Goblins e Orcs — humanoides.
   goblin_warrior: 'goblin',
   goblin_archer: 'goblin',
+  goblin_captain: 'goblin',
+  goblin_shaman: 'goblin',
   young_orc: 'orc',
   orc_warrior: 'orc',
   // Lobos, dos dois Tiers.
@@ -324,6 +381,43 @@ export const CREATURE_FAMILY: Record<string, CreatureFamily> = {
   // Aves. A família deixou de ser só dos gansos quando a galinha entrou.
   goose: 'ave',
   gosling: 'ave',
+  // --- Os cinco packs de 01/09 (arte por `npm run monstros:build`) ---------
+  giant_rat: 'rato',
+  plague_rat: 'rato',
+  shadow_rat: 'rato',
+  mushroom_brown: 'cogumelo',
+  mushroom_red: 'cogumelo',
+  mushroom_purple: 'cogumelo',
+  lizardman: 'lagarto',
+  lizardman_soldier: 'lagarto',
+  lizardman_champion: 'lagarto',
+  vampire: 'vampiro',
+  vampire_noble: 'vampiro',
+  vampire_lord: 'vampiro',
+  ent_seco: 'ent',
+  ent: 'ent',
+  ent_ancestral: 'ent',
+  // --- Segunda leva de 01/09 ----------------------------------------------
+  demon: 'demonio',
+  demon_crimson: 'demonio',
+  demon_lord: 'demonio',
+  imp: 'demonio',
+  imp_winged: 'demonio',
+  imp_infernal: 'demonio',
+  ghost: 'espectro',
+  ghost_wraith: 'espectro',
+  ghost_specter: 'espectro',
+  beholder: 'aberracao',
+  beholder_crimson: 'aberracao',
+  beholder_void: 'aberracao',
+  gnoll: 'gnoll',
+  gnoll_warrior: 'gnoll',
+  gnoll_chieftain: 'gnoll',
+  // Os esqueletos e zumbis novos entram na família que já existia.
+  skeleton_guard: 'morto-vivo',
+  skeleton_king: 'morto-vivo',
+  zombie_grave: 'morto-vivo',
+  zombie_rotten: 'morto-vivo',
   chicken: 'ave',
   // Construtos. O chefe de pedra; os irmãos de terra e lava seguem no pack.
   golem: 'golem',
@@ -1268,6 +1362,615 @@ export const CREATURES: Record<string, CreatureDef> = {
    * ⚠️ `moveCooldownMs` tem que continuar **abaixo de 2000**: o Zumbi é o mais
    * lento do mapa por identidade de espécie, e há teste garantindo isso.
    */
+  // === Os cinco packs da CraftPix, 01/09 ==================================
+  //
+  // 🔴 **NENHUM bate mais forte que o Troll (36), e isso é uma trava, não uma
+  // escolha de sabor.** O teste `a defesa de um set completo não pode zerar o
+  // dano do bestiário` calcula o teto de dano a partir da criatura mais forte;
+  // subir esse teto faz o set de nível 100 caber dentro dele, e o teste avisa
+  // que aí `DEF_COEF` teria de subir junto. Mexer no coeficiente de defesa do
+  // jogo inteiro como efeito colateral de trazer arte nova seria trocar um
+  // sistema calibrado por um pack comprado. O poder dos novos vem de VIDA e
+  // DEFESA, não de força bruta.
+  //
+  // 🔴 **A escada foi montada para caber ENTRE o que já existia e o Golem**, e
+  // não em cima dele: o topo novo é o Senhor Vampiro com 560, contra os 900 do
+  // Golem, que continua sendo o chefe do mapa.
+  //
+  // Onde cada família entra, lendo a lista de cima:
+  //   Cogumelo  55–130   logo acima do Slime, é o primeiro monstro de verdade
+  //   Rato      65–160   divide faixa com o Lobo Cinzento
+  //   Lagarto  200–350   humanoide de Tier II, ao lado de Orc e Esqueleto
+  //   Ent      300–620   guardião de floresta, lento e duro
+  //   Vampiro  320–560   Tier III, o mais forte que não é chefe
+  //
+  // ⚠️ Os números saem da progressão que já estava na tabela, não de doc: o doc
+  // dá faixa para Tier I/II/III e nada sobre estas espécies, que são arte
+  // comprada, não conteúdo especificado. **É tudo ajustável depois de jogar.**
+
+  // --- Cogumelos: territoriais, ficam onde nasceram -----------------------
+  // ⚠️ Nome colide de perto com o NÓ DE COLETA "Cogumelos" (o recurso do mapa).
+  // São coisas diferentes: um é planta que se colhe, este anda e bate.
+  mushroom_brown: {
+    type: 'mushroom_brown',
+    name: 'Cogumelo Pardo',
+    // Territorial e não hostil: cogumelo não persegue ninguém pelo mapa.
+    behavior: 'territorial',
+    maxHp: 55,
+    strength: 6,
+    defense: 2,
+    aggroRange: 3,
+    attackCooldownMs: 1600,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 12,
+    goldMin: 0,
+    goldMax: 4,
+  },
+  mushroom_red: {
+    type: 'mushroom_red',
+    name: 'Cogumelo Escarlate',
+    behavior: 'hostile',
+    maxHp: 85,
+    strength: 10,
+    defense: 3,
+    aggroRange: 4,
+    attackCooldownMs: 1500,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 22,
+    goldMin: 2,
+    goldMax: 9,
+  },
+  mushroom_purple: {
+    type: 'mushroom_purple',
+    name: 'Cogumelo Púrpura',
+    behavior: 'hostile',
+    maxHp: 130,
+    strength: 14,
+    defense: 4,
+    magicDefense: 4,
+    aggroRange: 4,
+    attackCooldownMs: 1450,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 38,
+    goldMin: 5,
+    goldMax: 16,
+  },
+
+  // --- Ratos: rápidos e fracos de defesa ----------------------------------
+  giant_rat: {
+    type: 'giant_rat',
+    name: 'Rato Gigante',
+    behavior: 'hostile',
+    maxHp: 65,
+    strength: 8,
+    defense: 2,
+    aggroRange: 5,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 15,
+    goldMin: 0,
+    goldMax: 5,
+  },
+  plague_rat: {
+    type: 'plague_rat',
+    name: 'Rato Pestilento',
+    behavior: 'hostile',
+    maxHp: 110,
+    strength: 13,
+    defense: 3,
+    aggroRange: 5,
+    attackCooldownMs: 1050,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 30,
+    goldMin: 3,
+    goldMax: 12,
+  },
+  shadow_rat: {
+    type: 'shadow_rat',
+    name: 'Rato Sombrio',
+    // Predador, como os lobos: caça em vez de esperar.
+    behavior: 'predator',
+    maxHp: 160,
+    strength: 18,
+    defense: 4,
+    magicDefense: 3,
+    aggroRange: 7,
+    attackCooldownMs: 950,
+    moveCooldownMs: SPEED.muitoAlta,
+    xpReward: 48,
+    goldMin: 6,
+    goldMax: 20,
+  },
+
+  // --- Homens-lagarto: humanoides armados, Tier II ------------------------
+  lizardman: {
+    type: 'lizardman',
+    name: 'Homem-Lagarto',
+    behavior: 'hostile',
+    maxHp: 200,
+    strength: 20,
+    defense: 6,
+    magicDefense: 2,
+    aggroRange: 6,
+    attackCooldownMs: 1200,
+    moveCooldownMs: SPEED.media,
+    xpReward: 60,
+    goldMin: 10,
+    goldMax: 28,
+  },
+  lizardman_soldier: {
+    type: 'lizardman_soldier',
+    name: 'Lagarto Soldado',
+    behavior: 'hostile',
+    maxHp: 270,
+    strength: 26,
+    defense: 8,
+    magicDefense: 3,
+    aggroRange: 6,
+    attackCooldownMs: 1150,
+    moveCooldownMs: SPEED.media,
+    xpReward: 85,
+    goldMin: 18,
+    goldMax: 42,
+  },
+  lizardman_champion: {
+    type: 'lizardman_champion',
+    name: 'Campeão Lagarto',
+    behavior: 'hostile',
+    maxHp: 350,
+    strength: 32,
+    defense: 10,
+    magicDefense: 4,
+    aggroRange: 7,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.media,
+    xpReward: 115,
+    goldMin: 28,
+    goldMax: 65,
+  },
+
+  // --- Ents: lentos, muita vida e muita defesa ----------------------------
+  // 🔴 Territoriais de propósito: uma árvore não sai andando atrás de ninguém.
+  // Quem entra no bosque é que resolveu brigar.
+  ent_seco: {
+    type: 'ent_seco',
+    name: 'Ent Seco',
+    behavior: 'territorial',
+    maxHp: 300,
+    strength: 26,
+    defense: 9,
+    magicDefense: 4,
+    aggroRange: 4,
+    attackCooldownMs: 1700,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 95,
+    goldMin: 12,
+    goldMax: 34,
+  },
+  ent: {
+    type: 'ent',
+    name: 'Ent',
+    behavior: 'territorial',
+    maxHp: 450,
+    strength: 33,
+    defense: 12,
+    magicDefense: 6,
+    aggroRange: 4,
+    attackCooldownMs: 1700,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 150,
+    goldMin: 22,
+    goldMax: 55,
+  },
+  ent_ancestral: {
+    type: 'ent_ancestral',
+    name: 'Ent Ancestral',
+    behavior: 'territorial',
+    maxHp: 620,
+    strength: 35,
+    defense: 15,
+    magicDefense: 8,
+    aggroRange: 5,
+    attackCooldownMs: 1800,
+    // ⚠️ `baixa`, e não `muitoLenta`: há teste dizendo que só o Zumbi é mais
+    // lento que a família Slime — lentidão extrema é a identidade DELE.
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 230,
+    goldMin: 40,
+    goldMax: 95,
+  },
+
+  // --- Vampiros: o Tier III que não é chefe -------------------------------
+  vampire: {
+    type: 'vampire',
+    name: 'Vampiro',
+    behavior: 'hostile',
+    maxHp: 320,
+    strength: 30,
+    defense: 8,
+    magicDefense: 7,
+    aggroRange: 7,
+    attackCooldownMs: 1050,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 105,
+    goldMin: 25,
+    goldMax: 60,
+  },
+  vampire_noble: {
+    type: 'vampire_noble',
+    name: 'Vampiro Nobre',
+    behavior: 'hostile',
+    maxHp: 420,
+    strength: 34,
+    defense: 10,
+    magicDefense: 9,
+    aggroRange: 7,
+    attackCooldownMs: 1000,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 140,
+    goldMin: 40,
+    goldMax: 90,
+  },
+  vampire_lord: {
+    type: 'vampire_lord',
+    name: 'Senhor Vampiro',
+    // Fanático, como o Super Slime e o Golem: nunca recua.
+    behavior: 'fanatic',
+    maxHp: 560,
+    strength: 36,
+    defense: 13,
+    magicDefense: 12,
+    aggroRange: 8,
+    attackCooldownMs: 1000,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 200,
+    goldMin: 70,
+    goldMax: 150,
+  },
+
+  // === Segunda leva de packs, 01/09 =======================================
+  //
+  // 🔴 **Mesma trava de força: ninguém passa dos 36 do Troll.** O teste do teto
+  // de dano mede a criatura mais forte do bestiário — subir esse número faria o
+  // set de nível 100 caber dentro do teto e exigiria mexer no `DEF_COEF` do jogo
+  // inteiro. O topo daqui (Senhor Demônio, 680 de vida) intimida por VIDA e
+  // DEFESA, não por força bruta.
+  //
+  // ⚠️ O Golem (900) continua sendo o chefe. Nada nesta leva chega perto.
+
+  // --- Diabretes: demônios pequenos, rápidos e frágeis ---------------------
+  imp: {
+    type: 'imp',
+    name: 'Diabrete',
+    behavior: 'hostile',
+    maxHp: 100,
+    strength: 12,
+    defense: 3,
+    magicDefense: 4,
+    aggroRange: 5,
+    attackCooldownMs: 1050,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 26,
+    goldMin: 4,
+    goldMax: 14,
+  },
+  imp_winged: {
+    type: 'imp_winged',
+    name: 'Diabrete Alado',
+    behavior: 'hostile',
+    maxHp: 140,
+    strength: 16,
+    defense: 4,
+    magicDefense: 5,
+    aggroRange: 6,
+    attackCooldownMs: 1000,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 36,
+    goldMin: 8,
+    goldMax: 22,
+  },
+  imp_infernal: {
+    type: 'imp_infernal',
+    name: 'Diabrete Infernal',
+    behavior: 'hostile',
+    maxHp: 180,
+    strength: 20,
+    defense: 5,
+    magicDefense: 6,
+    aggroRange: 6,
+    attackCooldownMs: 1000,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 50,
+    goldMin: 14,
+    goldMax: 34,
+  },
+
+  // --- Fantasmas: defesa MÁGICA alta, física baixa -------------------------
+  // 🔴 É a identidade deles: aço passa reto, magia machuca. Quem só bate some.
+  ghost: {
+    type: 'ghost',
+    name: 'Fantasma',
+    behavior: 'hostile',
+    maxHp: 150,
+    strength: 15,
+    defense: 3,
+    magicDefense: 9,
+    aggroRange: 6,
+    attackCooldownMs: 1200,
+    moveCooldownMs: SPEED.media,
+    xpReward: 40,
+    goldMin: 6,
+    goldMax: 20,
+  },
+  ghost_wraith: {
+    type: 'ghost_wraith',
+    name: 'Assombração',
+    behavior: 'hostile',
+    maxHp: 200,
+    strength: 20,
+    defense: 4,
+    magicDefense: 12,
+    aggroRange: 6,
+    attackCooldownMs: 1150,
+    moveCooldownMs: SPEED.media,
+    xpReward: 58,
+    goldMin: 14,
+    goldMax: 36,
+  },
+  ghost_specter: {
+    type: 'ghost_specter',
+    name: 'Espectro',
+    behavior: 'hostile',
+    maxHp: 260,
+    strength: 25,
+    defense: 5,
+    magicDefense: 15,
+    aggroRange: 7,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.media,
+    xpReward: 80,
+    goldMin: 25,
+    goldMax: 58,
+  },
+
+  // --- Gnolls: caçam em bando, rápidos -------------------------------------
+  gnoll: {
+    type: 'gnoll',
+    name: 'Gnoll',
+    behavior: 'predator',
+    maxHp: 190,
+    strength: 19,
+    defense: 6,
+    magicDefense: 2,
+    aggroRange: 7,
+    attackCooldownMs: 1150,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 55,
+    goldMin: 12,
+    goldMax: 30,
+  },
+  gnoll_warrior: {
+    type: 'gnoll_warrior',
+    name: 'Gnoll Guerreiro',
+    behavior: 'predator',
+    maxHp: 240,
+    strength: 24,
+    defense: 8,
+    magicDefense: 3,
+    aggroRange: 7,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 75,
+    goldMin: 20,
+    goldMax: 46,
+  },
+  gnoll_chieftain: {
+    type: 'gnoll_chieftain',
+    name: 'Chefe Gnoll',
+    behavior: 'predator',
+    maxHp: 300,
+    strength: 29,
+    defense: 10,
+    magicDefense: 4,
+    aggroRange: 8,
+    attackCooldownMs: 1050,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 100,
+    goldMin: 34,
+    goldMax: 72,
+  },
+
+  // --- Mortos-vivos novos: entram ao lado dos que já existiam ---------------
+  skeleton_guard: {
+    type: 'skeleton_guard',
+    name: 'Esqueleto Guarda',
+    behavior: 'hostile',
+    maxHp: 300,
+    strength: 27,
+    defense: 10,
+    magicDefense: 4,
+    aggroRange: 6,
+    attackCooldownMs: 1150,
+    moveCooldownMs: SPEED.media,
+    xpReward: 105,
+    goldMin: 24,
+    goldMax: 52,
+  },
+  skeleton_king: {
+    type: 'skeleton_king',
+    name: 'Rei Esqueleto',
+    behavior: 'fanatic',
+    maxHp: 400,
+    strength: 33,
+    defense: 13,
+    magicDefense: 8,
+    aggroRange: 7,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.media,
+    xpReward: 165,
+    goldMin: 55,
+    goldMax: 110,
+  },
+  zombie_grave: {
+    type: 'zombie_grave',
+    name: 'Zumbi de Cova',
+    behavior: 'hostile',
+    maxHp: 380,
+    strength: 26,
+    defense: 9,
+    magicDefense: 3,
+    aggroRange: 5,
+    attackCooldownMs: 1500,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 105,
+    goldMin: 20,
+    goldMax: 48,
+  },
+  zombie_rotten: {
+    type: 'zombie_rotten',
+    name: 'Zumbi Pútrido',
+    behavior: 'hostile',
+    maxHp: 430,
+    strength: 29,
+    defense: 10,
+    magicDefense: 4,
+    aggroRange: 5,
+    attackCooldownMs: 1500,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 125,
+    goldMin: 28,
+    goldMax: 62,
+  },
+
+  // --- Observadores: lentos, defesa mágica altíssima ------------------------
+  beholder: {
+    type: 'beholder',
+    name: 'Observador',
+    behavior: 'territorial',
+    maxHp: 340,
+    strength: 24,
+    defense: 7,
+    magicDefense: 14,
+    aggroRange: 5,
+    attackCooldownMs: 1300,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 110,
+    goldMin: 30,
+    goldMax: 66,
+  },
+  beholder_crimson: {
+    type: 'beholder_crimson',
+    name: 'Observador Escarlate',
+    behavior: 'hostile',
+    maxHp: 420,
+    strength: 29,
+    defense: 9,
+    magicDefense: 16,
+    aggroRange: 6,
+    attackCooldownMs: 1250,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 145,
+    goldMin: 45,
+    goldMax: 95,
+  },
+  beholder_void: {
+    type: 'beholder_void',
+    name: 'Observador do Vazio',
+    behavior: 'fanatic',
+    maxHp: 520,
+    strength: 33,
+    defense: 11,
+    magicDefense: 20,
+    aggroRange: 7,
+    attackCooldownMs: 1200,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 195,
+    goldMin: 70,
+    goldMax: 140,
+  },
+
+  // --- Demônios: o topo desta leva -----------------------------------------
+  demon: {
+    type: 'demon',
+    name: 'Demônio',
+    behavior: 'hostile',
+    maxHp: 480,
+    strength: 31,
+    defense: 12,
+    magicDefense: 10,
+    aggroRange: 7,
+    attackCooldownMs: 1150,
+    moveCooldownMs: SPEED.media,
+    xpReward: 175,
+    goldMin: 60,
+    goldMax: 120,
+  },
+  demon_crimson: {
+    type: 'demon_crimson',
+    name: 'Demônio Carmesim',
+    behavior: 'hostile',
+    maxHp: 580,
+    strength: 34,
+    defense: 14,
+    magicDefense: 12,
+    aggroRange: 7,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.media,
+    xpReward: 215,
+    goldMin: 85,
+    goldMax: 165,
+  },
+  demon_lord: {
+    type: 'demon_lord',
+    name: 'Senhor Demônio',
+    behavior: 'fanatic',
+    maxHp: 680,
+    strength: 36,
+    defense: 16,
+    magicDefense: 14,
+    aggroRange: 8,
+    attackCooldownMs: 1050,
+    moveCooldownMs: SPEED.media,
+    xpReward: 280,
+    goldMin: 120,
+    goldMax: 240,
+  },
+
+  // --- Goblins, 01/09: duas patentes acima do Guerreiro --------------------
+  // O pack trouxe três variantes; a primeira virou arte do `goblin_warrior`,
+  // que já existia. Estas duas continuam a linha para cima.
+  goblin_captain: {
+    type: 'goblin_captain',
+    name: 'Capitão Goblin',
+    behavior: 'hostile',
+    maxHp: 230,
+    strength: 22,
+    defense: 7,
+    magicDefense: 3,
+    aggroRange: 6,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 70,
+    goldMin: 18,
+    goldMax: 44,
+  },
+  goblin_shaman: {
+    type: 'goblin_shaman',
+    name: 'Xamã Goblin',
+    // Defesa mágica alta e física baixa: é um conjurador, não um brigão.
+    behavior: 'hostile',
+    maxHp: 190,
+    strength: 18,
+    defense: 4,
+    magicDefense: 12,
+    aggroRange: 7,
+    attackCooldownMs: 1250,
+    moveCooldownMs: SPEED.media,
+    xpReward: 78,
+    goldMin: 22,
+    goldMax: 50,
+  },
+
   golem: {
     type: 'golem',
     name: 'Golem de Pedra',

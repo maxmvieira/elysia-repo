@@ -341,7 +341,12 @@ function sliceDirSheet(sheet: Texture, cell: number): { anim: DirAnim; mirrored:
 export interface CreatureSheetCfg {
   /** Lado da célula na tira, em px. */
   cell: number;
-  /** Multiplicador de desenho. **Inteiro.** */
+  /**
+   * Multiplicador de desenho. **Inteiro**, salvo exceção vista em tela.
+   *
+   * ⚠️ Hoje há uma: os três lagartos, em 1,5× — o porquê está no bloco deles em
+   * `CREATURE_SHEETS`. Escala quebrada serrilha; só entra com o dono olhando.
+   */
   scale: number;
   /** Centro horizontal do conteúdo, em fração da célula. */
   anchorX?: number;
@@ -438,6 +443,90 @@ export const CREATURE_SHEETS: Record<string, CreatureSheetCfg> = {
   // longe, o caminho é `scale: 3` (114 px) no conversor — decisão de arte,
   // vista em tela, não parte deste conserto.
   golem: { cell: 128, scale: 2, anchorX: 0.49609375, anchorY: 0.6015625, labelTop: -82 },
+
+  // --- Cinco packs da CraftPix (`npm run monstros:build`) ------------------
+  //
+  // 🔴 **Não edite estes números à mão — rode o conversor e cole a saída.** Ele
+  // mede a caixa de alpha de `walk`+`idle` e devolve âncora e `labelTop`
+  // prontos; a regra de medir só essas duas está explicada no bloco do Golem
+  // logo acima, e foi o conserto do "golem flutuando".
+  //
+  // 🔴 **As linhas 2 e 3 destes packs vêm TROCADAS**, como no Golem — quem
+  // inverte é o conversor, olhando a arte. Norte virado em leste não quebra
+  // teste nenhum, só aparece jogando.
+  //
+  // ⚠️ Escala de PACK, não de bicho (a lição do `animals2strip.mjs`): dentro de
+  // um pack o artista já acertou as proporções relativas, e um multiplicador
+  // único as preserva. O vampiro é o único a 2×, porque vem desenhado com
+  // metade do conteúdo dos outros.
+  //
+  // 🔴 **Lagartos e cogumelos são a exceção à escala inteira: 1,5×, por decisão
+  // do dono em 01/09 vendo em tela.** Os cogumelos vieram no mesmo pedido, com
+  // o mesmo FATOR (não a mesma altura), então a proporção do pack se mantém:
+  // Púrpura 57 · Escarlate 46,5 · Pardo 45. Ele viu os 37–43 px do 1× e pediu maior; os
+  // degraus inteiros eram 1× (abaixo do herói) e 2× (74–86, **acima do Golem**,
+  // que tem 76 e é o chefe). A 1,5× ficam em 56–65, encostando no herói (60).
+  // ⚠️ O preço é serrilhado nas diagonais da cauda e da lâmina. O valor limpo é
+  // 1 — e aí eles voltam a ser menores que o herói. Não há terceira opção.
+  ent_seco: { cell: 128, scale: 1, anchorX: 0.49609375, anchorY: 0.6171875, labelTop: -55 }, // 49px -> 49px
+  ent: { cell: 128, scale: 1, anchorX: 0.5, anchorY: 0.6171875, labelTop: -72 }, // 66px -> 66px
+  ent_ancestral: { cell: 128, scale: 1, anchorX: 0.49609375, anchorY: 0.6171875, labelTop: -76 }, // 70px -> 70px
+  vampire: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.6875, labelTop: -60 }, // 27px -> 54px
+  vampire_noble: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.6875, labelTop: -64 }, // 29px -> 58px
+  vampire_lord: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.6875, labelTop: -62 }, // 28px -> 56px
+  mushroom_brown: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.65625, labelTop: -49.5 }, // 29px -> 43.5px
+  mushroom_red: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.65625, labelTop: -51 }, // 30px -> 45px
+  mushroom_purple: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.65625, labelTop: -61.5 }, // 37px -> 55.5px
+  giant_rat: { cell: 128, scale: 1, anchorX: 0.51171875, anchorY: 0.5703125, labelTop: -33 }, // 27px -> 27px
+  plague_rat: { cell: 128, scale: 1, anchorX: 0.5078125, anchorY: 0.59375, labelTop: -40 }, // 34px -> 34px
+  shadow_rat: { cell: 128, scale: 1, anchorX: 0.5078125, anchorY: 0.59375, labelTop: -38 }, // 32px -> 32px
+  lizardman: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.671875, labelTop: -58.5 }, // 35px -> 52.5px
+  lizardman_soldier: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.671875, labelTop: -66 }, // 40px -> 60px
+  lizardman_champion: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.671875, labelTop: -67.5 }, // 41px -> 61.5px
+
+  // --- Segunda leva da CraftPix, 01/09 -------------------------------------
+  //
+  // ⚠️ **`skeleton_warrior` e `zombie` não são espécies novas** — estavam na
+  // ficha desde sempre e nasciam como bolha colorida. Agora têm arte.
+  //
+  // 🔴 **O zumbi trocou de arte, e não foi só estética.** Ele vinha de uma folha
+  // LPC de 64 px, carregada por um caminho só dele (`loadZombieAnim`), com duas
+  // animações. O pack da CraftPix dá as CINCO e entra pelo caminho normal — e de
+  // quebra tira do jogo a única arte com licença *share-alike* do repositório,
+  // que o `docs/LICENCAS-DE-ARTE.md` marcava como risco.
+  //
+  // ⚠️ Esqueletos e zumbis são desenhados pequenos no pack (23–27 px), daí o 2×.
+  // Fantasmas, diabretes e gnolls vão a 1,5×, como os lagartos.
+  demon: { cell: 128, scale: 1.75, anchorX: 0.49609375, anchorY: 0.6015625, labelTop: -81.25 }, // 43px -> 75.25px
+  demon_crimson: { cell: 128, scale: 2, anchorX: 0.49609375, anchorY: 0.6015625, labelTop: -92 }, // 43px -> 86px
+  demon_lord: { cell: 128, scale: 3.25, anchorX: 0.49609375, anchorY: 0.6015625, labelTop: -158.75 }, // 47px -> 152.75px
+  ghost: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.59375, labelTop: -51 }, // 30px -> 45px
+  ghost_wraith: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.59375, labelTop: -52.5 }, // 31px -> 46.5px
+  ghost_specter: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.625, labelTop: -58.5 }, // 35px -> 52.5px
+  imp: { cell: 64, scale: 1.5, anchorX: 0.4921875, anchorY: 0.671875, labelTop: -43.5 }, // 25px -> 37.5px
+  imp_winged: { cell: 64, scale: 1.5, anchorX: 0.4921875, anchorY: 0.671875, labelTop: -48 }, // 28px -> 42px
+  imp_infernal: { cell: 64, scale: 1.5, anchorX: 0.4921875, anchorY: 0.671875, labelTop: -49.5 }, // 29px -> 43.5px
+  beholder: { cell: 64, scale: 1, anchorX: 0.5078125, anchorY: 0.765625, labelTop: -50 }, // 44px -> 44px
+  beholder_crimson: { cell: 64, scale: 1, anchorX: 0.5078125, anchorY: 0.828125, labelTop: -54 }, // 48px -> 48px
+  beholder_void: { cell: 64, scale: 1, anchorX: 0.5078125, anchorY: 0.890625, labelTop: -63 }, // 57px -> 57px
+  skeleton_warrior: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.640625, labelTop: -52 }, // 23px -> 46px
+  skeleton_guard: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.640625, labelTop: -52 }, // 23px -> 46px
+  skeleton_king: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.640625, labelTop: -60 }, // 27px -> 54px
+  gnoll: { cell: 64, scale: 1.5, anchorX: 0.5078125, anchorY: 0.671875, labelTop: -55.5 }, // 33px -> 49.5px
+  gnoll_warrior: { cell: 64, scale: 1.5, anchorX: 0.5078125, anchorY: 0.671875, labelTop: -55.5 }, // 33px -> 49.5px
+  gnoll_chieftain: { cell: 64, scale: 1.5, anchorX: 0.5078125, anchorY: 0.671875, labelTop: -57 }, // 34px -> 51px
+  zombie: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.640625, labelTop: -58 }, // 26px -> 52px
+  zombie_grave: { cell: 64, scale: 2, anchorX: 0.5078125, anchorY: 0.640625, labelTop: -56 }, // 25px -> 50px
+  zombie_rotten: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.640625, labelTop: -58 }, // 26px -> 52px
+
+  // --- Goblins, 01/09 ------------------------------------------------------
+  // ⚠️ `goblin_warrior` já existia sem arte desde julho. As outras duas são
+  // espécie nova. 1,5× e não 2×: a 2× o goblin daria 62–72 px, acima do herói —
+  // e goblin é bicho pequeno, essa é a leitura que a silhueta tem de dar.
+  // 🔴 O `goblin_archer` fica sem arte: as três variantes são corpo a corpo.
+  goblin_warrior: { cell: 64, scale: 1.5, anchorX: 0.46875, anchorY: 0.625, labelTop: -42 }, // 24px -> 36px
+  goblin_captain: { cell: 64, scale: 1.5, anchorX: 0.46875, anchorY: 0.625, labelTop: -46.5 }, // 27px -> 40.5px
+  goblin_shaman: { cell: 64, scale: 1.5, anchorX: 0.46875, anchorY: 0.625, labelTop: -49.5 }, // 29px -> 43.5px
 };
 
 /**

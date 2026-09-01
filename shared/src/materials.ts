@@ -372,6 +372,98 @@ export const MATERIALS: Record<string, MaterialDef> = {
     'muito-leve', 'baixo',
     'Escama do tamanho de uma moeda. Sozinha não serve; às centenas, vira malha.',
   ),
+  // === Os cinco packs de monstro de 01/09 (DD-DROP-006) ===================
+  //
+  // 🔴 **Cada família ganha UM material próprio e reusa UM que já existia.**
+  // Não é economia de digitação: material novo demais dilui a rota de farm que
+  // o `DD-DROP-002` pede. O reuso amarra o bicho novo a uma cadeia que já tem
+  // consumidor — o Ent larga a mesma `oak_log` da árvore, então quem precisa de
+  // madeira tem duas fontes em vez de duas listas separadas.
+
+  // === Segunda leva de packs, 01/09 =======================================
+  // Mesma regra da primeira: cada família ganha UM material próprio e reusa UM
+  // que já existia. Nenhum entra em família de COLETA (`erva`, `flor`,
+  // `cogumelo`, `minerio`, `madeira`, `gema`, `cristal`), que exigiria um nó.
+
+  demon_horn: mat(
+    'demon_horn', 'chifre', 'corrompido', 'rare', 'encantamento',
+    'medio', 'alto',
+    'Chifre de demônio, quente ao toque mesmo frio há dias. Encantador que '
+    + 'trabalha com fogo paga bem e não faz perguntas sobre a procedência.',
+    { affinity: 'fire' },
+  ),
+
+  ectoplasm: mat(
+    'ectoplasm', 'essencia', 'espiritual', 'common', 'alquimia',
+    'muito-leve', 'baixo',
+    'Resto frio do que um fantasma era. Escorre entre os dedos e não molha — '
+    + 'alquimista guarda em vidro, nunca em pano.',
+  ),
+
+  beholder_eye: mat(
+    'beholder_eye', 'essencia', 'monstruoso', 'uncommon', 'encantamento',
+    'leve', 'medio',
+    'O olho, ainda inteiro, ainda seguindo quem passa. Ninguém que carrega um '
+    + 'consegue dormir com ele na mochila aberta.',
+  ),
+
+  gnoll_pelt: mat(
+    'gnoll_pelt', 'couro', 'humanoide', 'common', 'costura',
+    'medio', 'baixo',
+    'Pelame áspero de gnoll, malhado como hiena. Aquece bem e cheira mal — '
+    + 'curtidor bom tira o cheiro, curtidor ruim vende assim mesmo.',
+  ),
+
+  rat_fang: mat(
+    'rat_fang', 'presa', 'animal', 'common', 'alquimia',
+    'muito-leve', 'muito-baixo',
+    'Dente amarelo de rato de esgoto. Vale pouco e cheira pior, mas é o '
+    + 'reagente que todo alquimista aprendiz gasta antes de encostar em veneno '
+    + 'de verdade.',
+  ),
+
+  /*
+   * ⚠️ Família `essencia`, e NÃO `cogumelo`, apesar de sair de um cogumelo.
+   *
+   * 🔴 As sete famílias de COLETA (`erva`, `flor`, `cogumelo`, `minerio`,
+   * `madeira`, `gema`, `cristal`) têm um teste exigindo que cada material
+   * delas tenha um NÓ que o produza — `DD-MAT-001` proíbe material que só ocupa
+   * espaço. Isto aqui cai de monstro, não do chão, então entrar como
+   * `cogumelo` obrigaria a inventar um nó de coleta que ninguém pediu.
+   */
+  spore_sac: mat(
+    'spore_sac', 'essencia', 'vegetal', 'common', 'alquimia',
+    'leve', 'baixo',
+    'Bolsa de esporos, ainda inchada. Estoura ao menor aperto — carregue no '
+    + 'fundo da mochila, nunca junto de nada que você pretenda comer.',
+    { affinity: 'poison' },
+  ),
+
+  lizard_scale: mat(
+    'lizard_scale', 'escama', 'monstruoso', 'common', 'ferraria',
+    'medio', 'baixo',
+    'Escama larga de homem-lagarto, com a beirada esverdeada. Costurada em '
+    + 'fileira vira peitoral leve que não range ao andar.',
+  ),
+
+  vampire_fang: mat(
+    'vampire_fang', 'presa', 'corrompido', 'rare', 'encantamento',
+    'muito-leve', 'alto',
+    'Presa que continua fria depois de arrancada. Encantadores brigam por ela '
+    + 'e nenhum explica direito o porquê.',
+    { affinity: 'dark' },
+  ),
+
+  // ⚠️ `fragmento` e não `madeira`, pela mesma regra do `spore_sac` acima:
+  // `madeira` é família de coleta e exigiria um nó. A tora que o Ent larga é a
+  // `oak_log`, que já TEM nó — a casca é o pedaço que sobra dele.
+  living_bark: mat(
+    'living_bark', 'fragmento', 'vegetal', 'uncommon', 'carpintaria',
+    'pesado', 'medio',
+    'Casca de ent, arrancada ainda viva. Fecha sozinha se você deixar num '
+    + 'canto úmido, e é por isso que carpinteiro bom a trabalha no mesmo dia.',
+  ),
+
   fine_claw: mat(
     'fine_claw', 'garra', 'monstruoso', 'uncommon', 'ferraria',
     'muito-leve', 'medio',
