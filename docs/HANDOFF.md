@@ -1,3 +1,133 @@
+# Handoff — estado do projeto em 2026-09-01
+
+## ⏸️ ONDE PARAMOS — o dia dos MONSTROS e do HUD
+
+> Escrito para quem **não acompanhou** a sessão — inclusive o irmão do dono, que
+> trabalhou na `main` em paralelo. Typecheck limpo nos 3 pacotes, **493 testes**.
+
+### O que entrou
+
+| | |
+|---|---|
+| 🐉 **60 espécies com arte** | eram 27 de manhã. Treze packs CraftPix, 39 criaturas convertidas |
+| 🦅 **HUD com emblema alado** | retrato, nome e as três barras flutuando no alto do mundo |
+| 🧟 **O Zumbi trocou de arte** | e com ela saiu a última licença *share-alike* do repositório |
+
+### 🎯 A PRÓXIMA COISA
+
+1. ⏳ **Faltam 17 espécies sem arte.** `goblin_archer`, `skeleton_archer`, os dois
+   lobos, quatro aranhas, três formigas, dois orcs, minotauro, troll, urso,
+   kobold e super slime.
+
+   🔴 **Os dois arqueiros são caso à parte**: os packs de goblin e de esqueleto
+   que entraram hoje são TODOS corpo a corpo. Arqueiro sem arco é pior que a
+   bolha colorida — precisa de pack com arco, não de remendo.
+
+2. ⏳ **Licença.** Ver abaixo; é decisão do dono, não trabalho de código.
+3. ⏳ **Balancear os bichos novos.** Os números saíram da progressão que já
+   estava na tabela, não de documento. Ninguém jogou contra eles ainda.
+
+### 🔴 As quatro regras que este dia aprendeu
+
+Cada uma custou pelo menos uma volta, e nenhuma dá erro — dá arte errada em
+silêncio.
+
+**1. A linha do pé NÃO é o pixel mais baixo.** Foi o defeito que o dono viu:
+*"goblins parecem estar flutuando, ratos também, os demônios também"*. Nesta
+projeção "mais baixo no desenho" quer dizer "mais ao sul no chão" — o rabo do
+rato, os punhais do goblin e o tridente do demônio encostam no chão ATRÁS do
+bicho. Ancorando no pixel mais baixo, quem ia para o tile era a ponta do rabo, e
+o corpo subia: 18 px nos demônios, 15 nos ratos, 10,5 nos goblins. O conserto
+separa por MASSA (10 % do pico de pixels por linha), não por altura.
+
+**2. As linhas 2 e 3 dos packs CraftPix vêm TROCADAS.** Linha 2 é o bicho com a
+cabeça à esquerda, linha 3 à direita; o jogo espera `down, up, right, left`.
+Conferido olhando a arte em **todos** os treze packs, não deduzido do nome.
+
+**3. O nome do arquivo muda de pack para pack.** Três variações já apareceram:
+`Rat2_Walk_`, `Walk0_` (sem prefixo) e `Imp2_Hurt__` (underscore a mais). E o
+pack de goblin traz `Run_Attack0_` e `Walk_attack_` — golpear andando, que o jogo
+não tem. Casar "por continha" pegava `Run_Attack0` no lugar do `Attack0`. A
+âncora é o NOME INTEIRO, com prefixo de lista fechada.
+
+**4. Escala de pixel art quebrada serrilha, e não tem conserto.** O HUD passou
+por 1,5 → 1,35 → 1,25 → 1,15 até o dono ver de perto e pedir para consertar o
+serrilhado. Não havia como: os únicos valores limpos são 1, 2 e 3. Voltou para
+1×. ⚠️ **As criaturas, porém, USAM escala quebrada** (1,5× em lagartos,
+cogumelos, gnolls, fantasmas, diabretes e goblins; 1,75/2/3,25 nos demônios) —
+todas por decisão do dono vendo em tela, todas registradas no conversor.
+
+### ⚠️ Duas coisas que contrariam o que estava escrito
+
+1. **Os demônios PASSAM o Golem.** A regra era "nada passa os 76 px do chefe". O
+   dono pediu Demônio no tamanho do Golem, Carmesim um pouco maior e **Senhor
+   Demônio o dobro** — 152,8 px, quase cinco tiles, o maior desenho do jogo. A
+   silhueta e a ficha (680 de vida contra 900 do Golem) discordam de propósito.
+2. **A caixa de clique não cresce com o desenho** (é do tamanho do tile, em
+   `makeSpriteActor`). O Senhor Demônio se acerta pelo PÉ, não pelo corpo.
+
+### 🗺️ Onde os bichos novos nascem
+
+Um spawn de cada — o dono já cortou lista por *"tem muuuito monstro"* em 05/08.
+A dificuldade sobe com a distância da vila (150,158):
+
+| Distância | Zona | Quem |
+|---|---|---|
+| 18 | (138,176) · (132,152) | Cogumelos · Fantasmas |
+| 20–22 | (168,178) · (128,140) | Diabretes · Ents |
+| 24–26 | (176,142) · (166,132) | Ratos · **Acampamento goblin** |
+| 30–32 | (120,168) · (142,190) · (152,188) | Observadores · Gnolls · Lagartos |
+| 36–42 | (186,176) · (189,157) · (192,167) | Vampiros · Esqueletos · Zumbis |
+| 46 | (196,190) | **Demônios** — o Senhor Demônio está aqui |
+
+Toda posição foi conferida com `isWalkable` no mapa gerado: tile de água ou
+dentro da praça segura deixaria a criatura travada.
+
+### 🎨 Gerar/ajustar arte de monstro
+
+```bash
+npm run monstros:build
+```
+
+`tools/monstros2strip.mjs` lê `assets/monstros-craftpix/` e escreve
+`client/public/assets/monsters/<tipo>/{walk,idle,attack,hurt,death}.png`, além de
+imprimir o bloco pronto do `CREATURE_SHEETS`.
+
+🔴 **Não edite âncora e `labelTop` à mão** — rode o conversor e cole a saída. Os
+números saem de medição; foi assim que o "flutuando" foi consertado.
+
+⚠️ `animals2strip.mjs` e `golem2strip.mjs` (do irmão) continuam medindo pelo
+pixel mais baixo. A conta diz que golem, ganso e coelho ganhariam 1–2 px — não
+mexi em arte que já foi aprovada em tela.
+
+### 🔴 LICENÇA — decisão do dono, e ficou MAIOR hoje
+
+Entraram **catorze packs CraftPix** num dia (13 de monstro, 1 de HUD), todos com
+um `License.txt` de uma linha apontando para <https://craftpix.net/file-licenses/>.
+O repositório **é público** e versiona toda essa arte.
+
+✅ O único ganho do dia: a folha **LPC do Zumbi saiu do jogo** — era a única arte
+com licença *share-alike*, que contamina o derivado. Os PNGs continuam no disco
+sem uso; apagá-los fecha a questão.
+
+⚠️ Existe um levantamento pack a pack, com veredito de cada licença, feito em
+24/08 e **parado na branch `cenario-iso-2d`** como `docs/LICENCAS-DE-ARTE.md`.
+Ele não veio para a `main` porque o dono optou por seguir só com o trabalho do
+irmão. **Vale trazer** — o problema que ele descreve cresceu hoje.
+
+### 📌 O que ficou parado na `cenario-iso-2d`
+
+A branch tem **20 commits** que a `main` não tem: a casa com interior, os móveis,
+o conserto de medida de 24/08, o levantamento de licenças e
+`tools/resetar-senha.mjs`. O dono decidiu em 31/08 seguir só com a `main`.
+
+🔴 **Um merge de teste mostrou que juntar é BARATO**: dois arquivos em conflito
+(`client/src/main.ts` e `docs/HANDOFF.md`) e **um único bloco** de conflito, que
+é só comentário — os dois lados chegaram no mesmo `const ZOOM = 1.0` por
+caminhos diferentes. Se um dia a casa voltar a interessar, o custo é esse.
+
+---
+
 # Handoff — estado do projeto em 2026-08-31
 
 ## 📌 LEIA ISTO PRIMEIRO (resumo da virada de 30–31/08)
