@@ -31,6 +31,20 @@ moram lá, não no arquivo.
 | Goblins (710530) | **Goblin Guerreiro** (já existia), Capitão, Xamã |
 | HP/Mana/Scroll bar (573594) | o emblema alado do HUD |
 
+### Segunda rodada, 2026-09-02
+
+| Pack | Vira, no jogo |
+|---|---|
+| Slime mobs (788364) + Slime monsters (510319) | **Slime Verde/Azul/Vermelho e Super Slime** (já existiam, ganharam arte) + Slime Sombrio e Âmbar |
+| Lich (543463) | Lich, Lich do Gelo, Rei Lich |
+| Golem (625807) | Golem de Terra, de Cristal, Arcano |
+| Hunt animals (789196) | **Javali** (existia dormente) + Lebre, Galo-lira, Raposa, Cervo |
+| Swordsman lvl1–9 (bandidos / guardas vilarejo / guardas cidade) | Bandidos, e os seis GUARDAS — estes ainda sem comportamento |
+
+🔴 **A folha do Slime também saiu de um caminho especial**: o Azul e o Vermelho
+eram o Verde com o matiz girado, e o Super Slime não tinha arte nenhuma. Agora
+os quatro têm sprite próprio e as cinco animações.
+
 ⚠️ Fonte em `assets/monstros-craftpix/` e `assets/HUD-barras/`; o que o jogo
 carrega sai de `npm run monstros:build` e `node tools/hud/recortar.mjs`.
 

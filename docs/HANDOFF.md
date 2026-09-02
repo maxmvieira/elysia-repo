@@ -1,3 +1,170 @@
+# Handoff — estado do projeto em 2026-09-02
+
+## ⏸️ ONDE PARAMOS — bestiário fechado, GUARDAS pendentes
+
+> Escrito para o irmão do dono, que vai pegar daqui. Typecheck limpo nos 3
+> pacotes, **493 testes**. `npm run dev` → `localhost:5173`.
+
+### O que entrou hoje
+
+| | |
+|---|---|
+| 🐉 **77 espécies com arte** | eram 51 ontem. Quatro levas de pack: slimes, lich, golens, caça, bandidos e guardas |
+| ⚔️ **Bestiário reequilibrado** | o topo era plano e os lentos eram esponja sem ameaça |
+| 💪 **Atributos dobrados** | vida, força e defesa × 2 em 63 monstros, a pedido do dono |
+| 🛡️ **Guardas e bandidos** | os primeiros inimigos HUMANOS do jogo |
+
+---
+
+## 🔴 A PRÓXIMA COISA: o sistema de GUARDA
+
+**O dono pediu, a arte está pronta, e o servidor não sabe fazer.** Isto é o item
+1 da fila e é a maior mudança de servidor em muito tempo.
+
+### O que ele pediu, nas palavras dele
+
+> *"os guardas de cidade e vilarejo são para proteger os player comuns e não PK.
+> além dos NPCs que criaremos, eles devem patrulhar a região das cidades e
+> vilarejos. os mais fortes ficarão na cidade, os outros são do vilarejo, eles
+> devem aguentar matar monstros e pk's. podem morrer para ambos e dar XP para
+> eles."*
+
+### 🔴 Por que não dá para configurar: criatura não ataca criatura
+
+`creature.targetId` guarda **id de JOGADOR**, sempre. Todo o combate de criatura
+no `server/src/index.ts` é criatura → player; não existe monstro brigando com
+monstro em lugar nenhum do código. Guarda que caça monstro é **sistema novo**.
+
+⚠️ **Os seis guardas estão definidos em `CREATURES` mas SEM SPAWN, de propósito.**
+Estão marcados `territorial` como medida de segurança, não porque seja o certo.
+Um guarda solto hoje atacaria justamente o jogador que deveria proteger.
+
+### O que falta construir, em ordem
+
+1. **`targetId` de criatura pode apontar para criatura.** É a base de todo o
+   resto, e o que dá mais trabalho: mexe em mira, dano, morte e limpeza de alvo
+   (hoje há vários `if (c.targetId === player.id) c.targetId = null`).
+2. **Facção.** Guarda ataca monstro e jogador **com caveira**; ignora jogador
+   limpo. ✅ **Esta metade já existe**: o sistema de caveira está em
+   `shared/src/pvp.ts` (`SkullKind`), e o `skull` já trafega no protocolo.
+3. **Patrulha.** Andar por uma região em vez de esperar aggro parado.
+4. **Morte e XP.** Guarda morto dá XP a quem matou; monstro morto por guarda não
+   dá XP a ninguém. É o item que mais muda o "sentimento" do sistema.
+5. **Respawn de guarda** — sem ele, a cidade fica indefesa para sempre depois do
+   primeiro PK organizado.
+
+Os números dos guardas já estão dimensionados para o papel: o **Capitão da
+Cidade** (2000 de vida, força 84) aguenta os monstros de topo; o **Guarda do
+Vilarejo** (700) não aguenta. A patente decide onde ele sobrevive.
+
+---
+
+## 🔴 As regras que este dia aprendeu
+
+**1. A linha do pé não é o pixel mais baixo.** O dono viu goblins, ratos e
+demônios *flutuando*. Nesta projeção, "mais baixo no desenho" quer dizer "mais ao
+sul no chão": o rabo do rato e os punhais do goblin encostam no chão ATRÁS do
+bicho. Ancorando no pixel mais baixo, quem ia para o tile do jogador era a ponta
+do rabo — e o corpo subia 18 px nos demônios. O `monstros2strip.mjs` agora separa
+por **massa** (10 % do pico de pixels por linha), não por altura.
+
+⚠️ `animals2strip.mjs` e `golem2strip.mjs` seguem medindo pelo pixel mais baixo.
+A conta diz que ganhariam 1–2 px — não mexi em arte já aprovada em tela.
+
+**2. O nome do arquivo muda em cada pack, e casar "por continha" erra calado.**
+Já apareceram: `Rat2_Walk_`, `Walk0_` (sem prefixo), `Imp2_Hurt__` (underscore a
+mais), `Gnoll_Death_` (sem o número), `Boar_Walk` (sem sufixo), `Fox_walk`
+(minúscula) e `lvl7_attack_normal_` (apelido). O casamento é por **nome inteiro**,
+insensível a caixa, com prefixo de lista fechada — senão `Run_Attack0` entra no
+lugar de `Attack0` e o bicho ataca correndo parado.
+
+**3. As linhas 2 e 3 vêm TROCADAS em todo pack CraftPix.** Conferido olhando a
+arte em cada um dos 17 packs. Nada no typecheck ou nos testes pega isso.
+
+**4. Escala quebrada serrilha.** Vários bichos passaram por 1,5× e voltaram para
+valores inteiros quando o dono viu de perto. Hoje ainda há exceções — todas
+decididas em tela e anotadas no conversor.
+
+---
+
+## ⚠️ O que contraria documento ou decisão anterior
+
+1. **O teto de dano do bestiário foi ultrapassado de propósito.** A criatura mais
+   forte foi de 39 para 88; o set completo de Lv.100 soma 46 de defesa. O teste
+   `a defesa de um set completo não pode zerar o dano do bestiário` era um
+   termômetro e teve a **asserção invertida** — o porquê inteiro está em
+   `shared/tests/catalog.test.ts`. Resumo: com dano 39 contra armadura 46, o
+   Lv.100 levava o mínimo de todo golpe do jogo, do cogumelo ao chefe. A armadura
+   não protegia, trivializava. **Não subi o `DEF_COEF`** porque isso desfaria o
+   pedido do dono.
+
+2. **Cinco criaturas NÃO dobraram, porque o GDD fixa os números delas**: os três
+   Slimes (`DD-BAL-027`, `033/034/035`), o Super Slime (`DD-BAL-036`) e o Zumbi
+   (`DD-BAL-055`). Há teste citando cada um. ⚠️ **Isso deixa a família Slime fora
+   da curva**: o doc a chama de "âncora canônica do bestiário" e o resto dobrou em
+   volta dela. Se o dono quiser a âncora acompanhando, **muda o DOCUMENTO**, não o
+   código — e os testes `DD-BAL` mudam junto.
+
+3. **XP e ouro não dobraram.** Recompensa não é atributo, e dobrá-la quebrava a
+   curva de tiers do `DD-BAL-040`.
+
+4. **A hierarquia de tamanho não segue mais a de força.** O dono pediu o Senhor
+   Demônio com o dobro do Golem, depois o Golem igual a ele (152 px), depois os
+   chefes de gnoll/lagarto/cogumelo/observador maiores ainda. Campeão Lagarto
+   (164) e Observador do Vazio (171) são hoje os maiores desenhos do jogo.
+
+5. **O Senhor Demônio deixou de ser o mais forte** (78) — o Observador do Vazio
+   tem 88. Foi consequência de "os chefes destes monstros mais fortes".
+
+---
+
+## 🗺️ Onde tudo nasce
+
+Um spawn por espécie (o dono cortou lista por *"tem muuuito monstro"* em 05/08).
+Dificuldade sobe com a distância da vila (150,158):
+
+| Distância | Zona | Quem |
+|---|---|---|
+| 16–20 | (134,166) · (144,138) · (158,138) | **Bandidos** · Slimes · **Caça** |
+| 18–22 | (138,176) · (132,152) · (168,178) · (128,140) | Cogumelos · Fantasmas · Diabretes · Ents |
+| 24–26 | (176,142) · (166,132) | Ratos · Acampamento goblin |
+| 30–34 | (120,168) · (142,190) · (152,188) · (116,186) | Observadores · Gnolls · Lagartos · **Golens** |
+| 36–46 | (186,176) · (189,157) · (192,167) · (196,190) | Vampiros · Esqueletos · Zumbis · **Demônios** |
+| 50 | (199,149) | **Lich** — o ponto mais distante povoado |
+
+---
+
+## 🎨 Arte de monstro
+
+```bash
+npm run monstros:build
+```
+
+Lê `assets/monstros-craftpix/` e escreve
+`client/public/assets/monsters/<tipo>/{walk,idle,attack,hurt,death}.png`, e
+imprime o bloco pronto do `CREATURE_SHEETS`.
+
+🔴 **Não edite âncora e `labelTop` à mão** — rode o conversor e cole a saída.
+
+### Faltam 16 espécies sem arte
+
+Lobos (2) · Aranhas (4) · Formigas (3) · Orcs (2) · Minotauro · Troll · Urso
+Pardo · Kobold Caçador.
+
+🔴 E os dois **arqueiros** (Goblin e Esqueleto): **nenhum pack que entrou tem
+arco**. Precisa de pack com arqueiro — forçar um corpo-a-corpo neles daria um
+arqueiro sem arma, que é pior que a bolha colorida.
+
+---
+
+## 🔴 LICENÇA — cresceu de novo
+
+Entraram mais **17 packs CraftPix** hoje, num repositório **público**. O
+levantamento pack a pack de 24/08 segue parado na branch `cenario-iso-2d` como
+`docs/LICENCAS-DE-ARTE.md`. **Vale trazer** — o problema só aumenta.
+
+---
+
 # Handoff — estado do projeto em 2026-09-01
 
 ## ⏸️ ONDE PARAMOS — o dia dos MONSTROS e do HUD
