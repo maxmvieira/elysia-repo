@@ -174,7 +174,9 @@ export type CreatureFamily =
   | 'rato' | 'cogumelo' | 'lagarto' | 'vampiro' | 'ent'
   // A segunda leva do mesmo dia. Diabretes entram em 'demonio' de propósito:
   // são demônios menores, e família por afinidade é o que o DD-DROP-006 quer.
-  | 'demonio' | 'espectro' | 'aberracao' | 'gnoll';
+  | 'demonio' | 'espectro' | 'aberracao' | 'gnoll'
+  // Gente: bandido e guarda saem do MESMO pack de espadachim, em nove patentes.
+  | 'humano';
 
 /**
  * 🔴 `DD-DROP-006` — material característico por FAMÍLIA.
@@ -314,6 +316,11 @@ export const FAMILY_MATERIALS: Record<CreatureFamily, Array<{ kind: string; chan
     { kind: 'beholder_eye', chance: 0.35 },
     { kind: 'ashes', chance: 0.3 },
   ],
+  // Gente larga pano e osso — nada exótico, e os dois materiais já existiam.
+  humano: [
+    { kind: 'goblin_rag', chance: 0.5 },
+    { kind: 'bone', chance: 0.4 },
+  ],
   gnoll: [
     { kind: 'gnoll_pelt', chance: 0.5 },
     // ⚠️ 0.4 é o piso do material COMUM (há teste). O orc larga a mesma presa
@@ -418,6 +425,23 @@ export const CREATURE_FAMILY: Record<string, CreatureFamily> = {
   skeleton_king: 'morto-vivo',
   zombie_grave: 'morto-vivo',
   zombie_rotten: 'morto-vivo',
+  // --- Terceira leva, 02/09: nenhuma família nova ---------------------------
+  // Lich é morto-vivo, Golem é golem, e os dois Slimes novos são slime. Reusar
+  // a família mantém a rota de farm que o jogador já aprendeu (DD-DROP-006).
+  lich: 'morto-vivo',
+  lich_frost: 'morto-vivo',
+  lich_king: 'morto-vivo',
+  golem_earth: 'golem',
+  golem_crystal: 'golem',
+  golem_arcane: 'golem',
+  slime_amber: 'slime',
+  slime_void: 'slime',
+  // --- Quarta leva, 02/09 ---------------------------------------------------
+  deer: 'fauna', fox: 'fauna', hare: 'fauna',
+  black_grouse: 'ave',
+  bandit: 'humano', bandit_raider: 'humano', bandit_chief: 'humano',
+  village_guard: 'humano', village_sergeant: 'humano', village_captain: 'humano',
+  city_guard: 'humano', city_sergeant: 'humano', city_captain: 'humano',
   chicken: 'ave',
   // Construtos. O chefe de pedra; os irmãos de terra e lava seguem no pack.
   golem: 'golem',
@@ -758,9 +782,9 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Aranha',
     // TERRITORIAL e sempre agressiva: pedido explícito, aranha não foge.
     behavior: 'territorial',
-    maxHp: 80,
-    strength: 12,
-    defense: 2,
+    maxHp: 160,
+    strength: 24,
+    defense: 4,
     aggroRange: 6,
     attackCooldownMs: 900,
     moveCooldownMs: 1150,
@@ -860,7 +884,7 @@ export const CREATURES: Record<string, CreatureDef> = {
     // dobro de dano. Ver o aviso sobre spawn em `docs/DOC3-TRIAGEM.md` — ele nasce
     // hoje na vila inicial, ao lado de um Slime Verde de Tier I.
     maxHp: 340,
-    strength: 24, // doc: dano 20–28
+    strength: 48, // doc: dano 20–28
     defense: 8,
     magicDefense: 4,
     aggroRange: 4,
@@ -868,8 +892,8 @@ export const CREATURES: Record<string, CreatureDef> = {
     // ~2 s por passo: o mais lento do mapa. Slime anda a 1500.
     moveCooldownMs: 2000,
     xpReward: 95,
-    goldMin: 3,
-    goldMax: 12,
+    goldMin: 2,
+    goldMax: 14,
     // Primeira fraqueza elemental do jogo, e ela vem do lore, não de gosto:
     // morto-vivo é ALMA QUE NÃO CONSEGUIU VOLTAR AO HEART, e Sagrado é energia
     // vital. O roadmap fecha isso na etapa do Druid — "energia vital cura vivos
@@ -884,9 +908,9 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Rotworm',
     // Parecido com o Slime, um pouco mais fraco (menos HP e recompensa). Estilo
     // Tibia: verme marrom/avermelhado com uma bocarra de dentes que abre e fecha.
-    maxHp: 90,
-    strength: 8,
-    defense: 3,
+    maxHp: 180,
+    strength: 16,
+    defense: 6,
     aggroRange: 6,
     attackCooldownMs: 1250,
     moveCooldownMs: 1400,
@@ -899,9 +923,9 @@ export const CREATURES: Record<string, CreatureDef> = {
     // Serpente: rápida e agressiva, pouca vida. Alcança de longe (aggro alto) e
     // se move rápido, mas cai fácil. Dropa pele (usada por profissões futuras).
     name: 'Snake',
-    maxHp: 70,
-    strength: 11,
-    defense: 2,
+    maxHp: 140,
+    strength: 22,
+    defense: 4,
     aggroRange: 7,
     attackCooldownMs: 1000,
     moveCooldownMs: 1100,
@@ -928,10 +952,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'forest_spider',
     name: 'Aranha da Floresta',
     behavior: 'hostile', // doc: "Comportamento: Agressivo"
-    maxHp: 140,
-    strength: 13, // doc: 10–16
-    defense: 4,
-    magicDefense: 2,
+    maxHp: 280,
+    strength: 26, // doc: 10–16
+    defense: 8,
+    magicDefense: 4,
     aggroRange: 6,
     attackCooldownMs: 1000,
     moveCooldownMs: SPEED.media,
@@ -947,10 +971,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     // é a primeira criatura do jogo cuja identidade é aplicar condição, e a
     // única razão de existir ao lado da Aranha da Floresta. Sem a teia ela seria
     // uma Aranha da Floresta pior, que é o que `DD-BAL-049` proíbe.
-    maxHp: 130,
-    strength: 11.5, // doc: 9–14
-    defense: 3,
-    magicDefense: 3,
+    maxHp: 260,
+    strength: 23, // doc: 9–14
+    defense: 6,
+    magicDefense: 6,
     aggroRange: 6,
     attackCooldownMs: 1000,
     moveCooldownMs: SPEED.media,
@@ -970,10 +994,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Formiga Soldado',
     behavior: 'hostile',
     // "Protege outras formigas... alta resistência, pouca mobilidade ofensiva."
-    maxHp: 180,
-    strength: 15, // doc: 12–18
-    defense: 6,
-    magicDefense: 2,
+    maxHp: 360,
+    strength: 30, // doc: 12–18
+    defense: 12,
+    magicDefense: 4,
     aggroRange: 5,
     attackCooldownMs: 1200,
     moveCooldownMs: SPEED.media,
@@ -987,10 +1011,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     behavior: 'hostile',
     // "Ataque ácido à distância; prefere permanecer atrás das Soldados."
     // Ácido = Veneno (`DD-ELM-002`); é o primeiro monstro comum com dano não-físico.
-    maxHp: 120,
-    strength: 14, // doc: 11–17 (corpo a corpo, quando encurralada)
-    defense: 3,
-    magicDefense: 3,
+    maxHp: 240,
+    strength: 28, // doc: 11–17 (corpo a corpo, quando encurralada)
+    defense: 6,
+    magicDefense: 6,
     aggroRange: 6,
     attackCooldownMs: 1200,
     moveCooldownMs: SPEED.media,
@@ -1009,10 +1033,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Goblin Guerreiro',
     behavior: 'hostile',
     // "Utiliza espada e escudo; protege Goblins mais frágeis."
-    maxHp: 170,
-    strength: 16, // doc: 13–19
-    defense: 5,
-    magicDefense: 2,
+    maxHp: 340,
+    strength: 32, // doc: 13–19
+    defense: 10,
+    magicDefense: 4,
     aggroRange: 6,
     attackCooldownMs: 1100,
     moveCooldownMs: SPEED.media,
@@ -1027,10 +1051,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     // ⚠️ "Recua quando inimigos se aproximam" NÃO está implementado — não existe
     // comportamento de kite na IA. Ele mantém distância só enquanto a magia
     // estiver no alcance; encostou, briga como todo mundo.
-    maxHp: 120,
-    strength: 15, // doc: 12–18
-    defense: 3,
-    magicDefense: 2,
+    maxHp: 240,
+    strength: 30, // doc: 12–18
+    defense: 6,
+    magicDefense: 4,
     aggroRange: 7,
     attackCooldownMs: 1100,
     moveCooldownMs: SPEED.media,
@@ -1049,10 +1073,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Lobo Cinzento',
     // "Caça em alcateia; tenta cercar o alvo" — predador, não simplesmente hostil.
     behavior: 'predator',
-    maxHp: 160,
-    strength: 17, // doc: 14–20
-    defense: 4,
-    magicDefense: 2,
+    maxHp: 320,
+    strength: 34, // doc: 14–20
+    defense: 8,
+    magicDefense: 4,
     aggroRange: 8, // enxerga longe: é caçador
     attackCooldownMs: 900,
     moveCooldownMs: SPEED.alta,
@@ -1067,10 +1091,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Orc Jovem',
     behavior: 'hostile',
     // "Agressivo; pouca técnica; combate baseado em força."
-    maxHp: 180,
-    strength: 18.5, // doc: 15–22
-    defense: 5,
-    magicDefense: 2,
+    maxHp: 360,
+    strength: 37, // doc: 15–22
+    defense: 10,
+    magicDefense: 4,
     aggroRange: 6,
     attackCooldownMs: 1150,
     moveCooldownMs: SPEED.media,
@@ -1083,10 +1107,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Orc Guerreiro',
     behavior: 'hostile',
     // "Representa a elite do Tier II."
-    maxHp: 230,
-    strength: 21, // doc: 17–25
-    defense: 7,
-    magicDefense: 3,
+    maxHp: 460,
+    strength: 42, // doc: 17–25
+    defense: 14,
+    magicDefense: 6,
     aggroRange: 6,
     attackCooldownMs: 1150,
     moveCooldownMs: SPEED.media,
@@ -1113,10 +1137,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Esqueleto Guerreiro',
     behavior: 'hostile',
     // "Técnica superior ao Esqueleto comum; utiliza equipamentos."
-    maxHp: 280,
-    strength: 29, // doc: 24–34
-    defense: 8,
-    magicDefense: 5,
+    maxHp: 560,
+    strength: 58, // doc: 24–34
+    defense: 16,
+    magicDefense: 10,
     aggroRange: 6,
     attackCooldownMs: 1100,
     moveCooldownMs: SPEED.media,
@@ -1132,10 +1156,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     behavior: 'hostile',
     // "Arqueiro disciplinado; combate à distância; reposicionamento."
     // ⚠️ O reposicionamento não existe na IA, como no Goblin Arqueiro.
-    maxHp: 220,
-    strength: 29.5, // doc: 24–35
-    defense: 5,
-    magicDefense: 5,
+    maxHp: 440,
+    strength: 59, // doc: 24–35
+    defense: 10,
+    magicDefense: 10,
     aggroRange: 8,
     attackCooldownMs: 1100,
     moveCooldownMs: SPEED.media,
@@ -1156,10 +1180,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     behavior: 'hostile',
     // "Força bruta; grande alcance; alta resistência." O maior dano não-chefe do
     // Tier III — e o alcance 2 vem do "grande alcance" da ficha.
-    maxHp: 420,
-    strength: 34, // doc: 28–40
-    defense: 10,
-    magicDefense: 4,
+    maxHp: 840,
+    strength: 68, // doc: 28–40
+    defense: 20,
+    magicDefense: 8,
     aggroRange: 6,
     attackCooldownMs: 1400,
     moveCooldownMs: SPEED.media,
@@ -1176,9 +1200,9 @@ export const CREATURES: Record<string, CreatureDef> = {
     // defensável para fauna ("tanque natural", não caçador) e mantém a coerência
     // com o Javali, que já é neutro. Confirmar com o dono.
     behavior: 'territorial',
-    maxHp: 360,
-    strength: 31.5, // doc: 26–37
-    defense: 9,
+    maxHp: 720,
+    strength: 63, // doc: 26–37
+    defense: 18,
     magicDefense: 0, // a ficha do Urso não lista MDEF
     aggroRange: 5,
     attackCooldownMs: 1400,
@@ -1192,9 +1216,9 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Lobo Negro',
     behavior: 'predator',
     // "Velocidade Muito Alta" — a criatura mais rápida do jogo. Fugir não é opção.
-    maxHp: 250,
-    strength: 32.5, // doc: 27–38
-    defense: 5,
+    maxHp: 500,
+    strength: 65, // doc: 27–38
+    defense: 10,
     magicDefense: 0, // a ficha não lista MDEF
     aggroRange: 9,
     attackCooldownMs: 800,
@@ -1208,10 +1232,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Aranha Gigante',
     behavior: 'hostile',
     // "Controle; teias; maior resistência que as aranhas do Tier II."
-    maxHp: 310,
-    strength: 29.5, // doc: 24–35
-    defense: 7,
-    magicDefense: 5,
+    maxHp: 620,
+    strength: 59, // doc: 24–35
+    defense: 14,
+    magicDefense: 10,
     aggroRange: 6,
     attackCooldownMs: 1100,
     moveCooldownMs: SPEED.media,
@@ -1228,10 +1252,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     behavior: 'hostile',
     // "Suporte mágico da colônia; fortalecimento de outras formigas." O buff em
     // aliados NÃO existe — não há IA de suporte. MDEF 8 é a mais alta do Tier III.
-    maxHp: 260,
-    strength: 28, // doc: 22–34
-    defense: 5,
-    magicDefense: 8,
+    maxHp: 520,
+    strength: 56, // doc: 22–34
+    defense: 10,
+    magicDefense: 16,
     aggroRange: 6,
     attackCooldownMs: 1200,
     moveCooldownMs: SPEED.media,
@@ -1248,10 +1272,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Kobold Caçador',
     behavior: 'predator',
     // "Perseguição; armadilhas; combate móvel." As armadilhas não existem.
-    maxHp: 220,
-    strength: 28, // doc: 23–33
-    defense: 5,
-    magicDefense: 3,
+    maxHp: 440,
+    strength: 56, // doc: 23–33
+    defense: 10,
+    magicDefense: 6,
     aggroRange: 8,
     attackCooldownMs: 1000,
     moveCooldownMs: SPEED.alta,
@@ -1266,10 +1290,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Troll',
     behavior: 'hostile',
     // O mais duro do Tier III: 480 HP e dano 30–42, mas lento.
-    maxHp: 480,
-    strength: 36, // doc: 30–42
-    defense: 11,
-    magicDefense: 4,
+    maxHp: 960,
+    strength: 72, // doc: 30–42
+    defense: 22,
+    magicDefense: 8,
     aggroRange: 5,
     attackCooldownMs: 1500,
     moveCooldownMs: SPEED.baixa,
@@ -1396,9 +1420,9 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Cogumelo Pardo',
     // Territorial e não hostil: cogumelo não persegue ninguém pelo mapa.
     behavior: 'territorial',
-    maxHp: 55,
-    strength: 6,
-    defense: 2,
+    maxHp: 165,
+    strength: 14,
+    defense: 6,
     aggroRange: 3,
     attackCooldownMs: 1600,
     moveCooldownMs: SPEED.baixa,
@@ -1410,9 +1434,9 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'mushroom_red',
     name: 'Cogumelo Escarlate',
     behavior: 'hostile',
-    maxHp: 85,
-    strength: 10,
-    defense: 3,
+    maxHp: 255,
+    strength: 24,
+    defense: 9,
     aggroRange: 4,
     attackCooldownMs: 1500,
     moveCooldownMs: SPEED.baixa,
@@ -1424,10 +1448,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'mushroom_purple',
     name: 'Cogumelo Púrpura',
     behavior: 'hostile',
-    maxHp: 130,
-    strength: 14,
-    defense: 4,
-    magicDefense: 4,
+    maxHp: 700,
+    strength: 58,
+    defense: 20,
+    magicDefense: 18,
     aggroRange: 4,
     attackCooldownMs: 1450,
     moveCooldownMs: SPEED.baixa,
@@ -1441,9 +1465,9 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'giant_rat',
     name: 'Rato Gigante',
     behavior: 'hostile',
-    maxHp: 65,
-    strength: 8,
-    defense: 2,
+    maxHp: 130,
+    strength: 16,
+    defense: 4,
     aggroRange: 5,
     attackCooldownMs: 1100,
     moveCooldownMs: SPEED.alta,
@@ -1455,9 +1479,9 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'plague_rat',
     name: 'Rato Pestilento',
     behavior: 'hostile',
-    maxHp: 110,
-    strength: 13,
-    defense: 3,
+    maxHp: 220,
+    strength: 26,
+    defense: 6,
     aggroRange: 5,
     attackCooldownMs: 1050,
     moveCooldownMs: SPEED.alta,
@@ -1470,10 +1494,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Rato Sombrio',
     // Predador, como os lobos: caça em vez de esperar.
     behavior: 'predator',
-    maxHp: 160,
-    strength: 18,
-    defense: 4,
-    magicDefense: 3,
+    maxHp: 320,
+    strength: 36,
+    defense: 8,
+    magicDefense: 6,
     aggroRange: 7,
     attackCooldownMs: 950,
     moveCooldownMs: SPEED.muitoAlta,
@@ -1487,10 +1511,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'lizardman',
     name: 'Homem-Lagarto',
     behavior: 'hostile',
-    maxHp: 200,
-    strength: 20,
-    defense: 6,
-    magicDefense: 2,
+    maxHp: 600,
+    strength: 48,
+    defense: 18,
+    magicDefense: 6,
     aggroRange: 6,
     attackCooldownMs: 1200,
     moveCooldownMs: SPEED.media,
@@ -1502,10 +1526,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'lizardman_soldier',
     name: 'Lagarto Soldado',
     behavior: 'hostile',
-    maxHp: 270,
-    strength: 26,
-    defense: 8,
-    magicDefense: 3,
+    maxHp: 810,
+    strength: 62,
+    defense: 24,
+    magicDefense: 9,
     aggroRange: 6,
     attackCooldownMs: 1150,
     moveCooldownMs: SPEED.media,
@@ -1517,10 +1541,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'lizardman_champion',
     name: 'Campeão Lagarto',
     behavior: 'hostile',
-    maxHp: 350,
-    strength: 32,
-    defense: 10,
-    magicDefense: 4,
+    maxHp: 1400,
+    strength: 84,
+    defense: 38,
+    magicDefense: 16,
     aggroRange: 7,
     attackCooldownMs: 1100,
     moveCooldownMs: SPEED.media,
@@ -1536,14 +1560,14 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'ent_seco',
     name: 'Ent Seco',
     behavior: 'territorial',
-    maxHp: 300,
-    strength: 26,
-    defense: 9,
-    magicDefense: 4,
+    maxHp: 600,
+    strength: 56,
+    defense: 22,
+    magicDefense: 8,
     aggroRange: 4,
-    attackCooldownMs: 1700,
+    attackCooldownMs: 1400,
     moveCooldownMs: SPEED.baixa,
-    xpReward: 95,
+    xpReward: 100,
     goldMin: 12,
     goldMax: 34,
   },
@@ -1551,14 +1575,14 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'ent',
     name: 'Ent',
     behavior: 'territorial',
-    maxHp: 450,
-    strength: 33,
-    defense: 12,
-    magicDefense: 6,
+    maxHp: 1000,
+    strength: 70,
+    defense: 28,
+    magicDefense: 14,
     aggroRange: 4,
-    attackCooldownMs: 1700,
+    attackCooldownMs: 1500,
     moveCooldownMs: SPEED.baixa,
-    xpReward: 150,
+    xpReward: 160,
     goldMin: 22,
     goldMax: 55,
   },
@@ -1566,18 +1590,18 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'ent_ancestral',
     name: 'Ent Ancestral',
     behavior: 'territorial',
-    maxHp: 620,
-    strength: 35,
-    defense: 15,
-    magicDefense: 8,
+    maxHp: 1700,
+    strength: 76,
+    defense: 42,
+    magicDefense: 26,
     aggroRange: 5,
-    attackCooldownMs: 1800,
+    attackCooldownMs: 1500,
     // ⚠️ `baixa`, e não `muitoLenta`: há teste dizendo que só o Zumbi é mais
     // lento que a família Slime — lentidão extrema é a identidade DELE.
     moveCooldownMs: SPEED.baixa,
-    xpReward: 230,
-    goldMin: 40,
-    goldMax: 95,
+    xpReward: 300,
+    goldMin: 55,
+    goldMax: 130,
   },
 
   // --- Vampiros: o Tier III que não é chefe -------------------------------
@@ -1585,10 +1609,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'vampire',
     name: 'Vampiro',
     behavior: 'hostile',
-    maxHp: 320,
-    strength: 30,
-    defense: 8,
-    magicDefense: 7,
+    maxHp: 640,
+    strength: 60,
+    defense: 16,
+    magicDefense: 14,
     aggroRange: 7,
     attackCooldownMs: 1050,
     moveCooldownMs: SPEED.alta,
@@ -1600,14 +1624,14 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'vampire_noble',
     name: 'Vampiro Nobre',
     behavior: 'hostile',
-    maxHp: 420,
-    strength: 34,
-    defense: 10,
-    magicDefense: 9,
+    maxHp: 840,
+    strength: 68,
+    defense: 20,
+    magicDefense: 18,
     aggroRange: 7,
-    attackCooldownMs: 1000,
+    attackCooldownMs: 950,
     moveCooldownMs: SPEED.alta,
-    xpReward: 140,
+    xpReward: 150,
     goldMin: 40,
     goldMax: 90,
   },
@@ -1616,17 +1640,117 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Senhor Vampiro',
     // Fanático, como o Super Slime e o Golem: nunca recua.
     behavior: 'fanatic',
-    maxHp: 560,
-    strength: 36,
-    defense: 13,
-    magicDefense: 12,
+    maxHp: 1200,
+    strength: 74,
+    defense: 26,
+    magicDefense: 26,
     aggroRange: 8,
-    attackCooldownMs: 1000,
+    attackCooldownMs: 900,
     moveCooldownMs: SPEED.alta,
-    xpReward: 200,
-    goldMin: 70,
-    goldMax: 150,
+    xpReward: 240,
+    goldMin: 85,
+    goldMax: 180,
   },
+
+  // === QUATRO FAMÍLIAS VIRARAM PESO-PESADO EM 02/09 =======================
+  //
+  // 🔴 **Gnoll, Homem-Lagarto, Cogumelo e Observador dobraram de TAMANHO e
+  // subiram de atributo**, no mesmo pedido do dono: *"pode dobrar o tamanho dos
+  // monstros gnoll, lagarto, cogumelos, observador. além de aumentar os
+  // atributos deles"*.
+  //
+  // O desenho foi de 1,5× para 3× (gnoll, lagarto, cogumelo) e de 1× para 2×
+  // (observador) — ver `tools/monstros2strip.mjs`. Vida e defesa subiram ~50 %.
+  //
+  // ⚠️ **A FORÇA foi escrita à mão, não multiplicada**, e a razão é a ordem do
+  // bestiário: um multiplicador cego levaria o Campeão Lagarto a 76,8 e o
+  // Observador do Vazio a 84, passando o Senhor Demônio (78) — um bicho de faixa
+  // média viraria o mais forte do jogo. O teto de cada família foi posto logo
+  // abaixo do ápice:
+  //
+  //   Senhor Demônio      78   ← o ápice, intocado
+  //   Ent Ancestral       76
+  //   Observador do Vazio 74   ← o mais forte desta leva
+  //   Campeão Lagarto     72 · Chefe Gnoll 70 · Cogumelo Púrpura 34
+  //
+  // ⚠️ **O Observador do Vazio virou quase um segundo chefe**: 1680 de vida,
+  // 74 de dano/s e **72 de defesa mágica** — o dobro da do Senhor Demônio. Quem
+  // for de magia vai bater num muro. É a identidade da família, mas nunca foi
+  // testado em jogo nesse patamar.
+
+  // === ATRIBUTOS DOBRADOS EM 02/09 ========================================
+  //
+  // 🔴 **Vida, força, defesa e defesa mágica de TODO MONSTRO foram × 2**, por
+  // decisão do dono depois de jogar: *"pode dobrar os atributos dos monstros,
+  // estão muito fracos"*.
+  //
+  // ⚠️ **XP e ouro NÃO dobraram**, e isso não é esquecimento: recompensa não é
+  // atributo, e dobrá-la quebrava a curva de tiers do `DD-BAL-040` — o Tier II
+  // dobrado passava o Zumbi, que é Tier III com XP fixado pelo documento.
+  //
+  // ⚠️ **A fauna e as aves ficaram de fora** (coelho, cabra, cavalo, vaca,
+  // porco, galinha, ganso, javali): não são monstro, e dobrar um coelho de 25 de
+  // vida não significa nada.
+  //
+  // 🔴 **E CINCO NÃO PODEM DOBRAR, porque o GDD fixa os números delas:**
+  //
+  //   Slime Verde/Azul/Vermelho  `DD-BAL-027`, `DD-BAL-033/034/035`
+  //   Super Slime                `DD-BAL-036` (MVP, 500 de vida)
+  //   Zumbi                      `DD-BAL-055` (vida, defesa, mdef e XP)
+  //
+  // Há teste citando cada um. ⚠️ **Isso deixa a família Slime fora da curva de
+  // propósito**: o documento a chama de "âncora canônica do bestiário", e o
+  // resto do bestiário acabou de dobrar em volta dela. Se o dono quiser a
+  // âncora acompanhando, o que muda é o DOCUMENTO, não este arquivo — e aí os
+  // testes `DD-BAL` mudam junto. **Não mexa neles sem essa decisão.**
+  //
+  // ⚠️ O Zumbi é meio-termo: a força dele dobrou (o doc não fixa força), a vida,
+  // a defesa e o XP não. Fica um bicho de 340 de vida batendo como um de 680.
+  //
+  // 🔴 **O teto de dano do bestiário foi ULTRAPASSADO, e de propósito.** A
+  // criatura mais forte passou de 39 para 78, contra um set completo de Lv.100
+  // que soma 46 de defesa. O teste que guardava isso era um termômetro e a
+  // asserção dele foi INVERTIDA — o porquê inteiro está em
+  // `shared/tests/catalog.test.ts`. Resumo: com dano 39 contra armadura 46, o
+  // jogador de Lv.100 levava o mínimo de todo golpe do jogo, do cogumelo ao
+  // chefe. A armadura não protegia, trivializava.
+
+  // === REEQUILÍBRIO DE 02/09 ==============================================
+  //
+  // 🔴 **O topo estava PLANO, e a medida mostrou.** Somando dano por segundo
+  // (`strength / attackCooldownMs`), o `black_wolf` — 250 de vida, bicho do meio
+  // do jogo — fazia **40,6/s**, o maior do jogo inteiro, acima do Senhor Demônio
+  // (34,3) e do Senhor Vampiro (36). Uma criatura de 680 de vida não pode bater
+  // menos que um lobo.
+  //
+  // 🔴 **E os lentos eram esponja sem ameaça.** O `ent_ancestral` tinha 620 de
+  // vida e batia 19,4/s — o mesmo que um Lobo Cinzento de 160. Matar levava dois
+  // minutos e não oferecia risco nenhum: tédio, não dificuldade.
+  //
+  // ⚠️ **O conserto veio pela VELOCIDADE, não pela força.** Há um teto duro: o
+  // teste `a defesa de um set completo não pode zerar o dano do bestiário` exige
+  // que a criatura mais forte × 1,15 caiba abaixo do set completo de nível 100,
+  // que soma **46**. Isso trava a força em **39** — e o topo já está nele. Passar
+  // disso obrigaria a subir o `DEF_COEF` do jogo inteiro, que é decisão de outro
+  // tamanho. Como `dano/s = força ÷ cooldown`, encurtar o golpe entrega ameaça
+  // sem tocar no teto.
+  //
+  // A hierarquia que saiu, em dano por segundo:
+  //
+  //   Senhor Demônio  43,3  (880 vida, def 19)  — o ápice, e o maior desenho
+  //   Senhor Vampiro  41,1  (600 vida, def 13)  — rápido e frágil
+  //   Demônio Carmesim 36   · Rei Esqueleto 35 · Observador do Vazio 35 (mdef 24)
+  //   Ent Ancestral   25,3  (850 vida, def 21)  — a MURALHA: pouco dano, muito couro
+  //   Golem           16,8  (900 vida, def 18)  — inalterado, o chefe de resistência
+  //
+  // 🔴 **Golem e Senhor Demônio dividem o topo de propósito, cada um por um
+  // eixo.** O Golem continua com a maior vida do jogo e o Senhor Demônio passa a
+  // ter o maior dano — um é prova de resistência, o outro é prova de perícia.
+  // Nada do irmão foi alterado neste passe.
+  //
+  // ⚠️ **O `black_wolf` (40,6/s com 250 de vida) segue fora da curva**, agora em
+  // terceiro. Não mexi: é criatura que o dono já jogou e aprovou. Se um dia
+  // incomodar, o conserto é nele, não em subir todo o resto para alcançá-lo.
 
   // === Segunda leva de packs, 01/09 =======================================
   //
@@ -1643,10 +1767,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'imp',
     name: 'Diabrete',
     behavior: 'hostile',
-    maxHp: 100,
-    strength: 12,
-    defense: 3,
-    magicDefense: 4,
+    maxHp: 200,
+    strength: 24,
+    defense: 6,
+    magicDefense: 8,
     aggroRange: 5,
     attackCooldownMs: 1050,
     moveCooldownMs: SPEED.alta,
@@ -1658,10 +1782,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'imp_winged',
     name: 'Diabrete Alado',
     behavior: 'hostile',
-    maxHp: 140,
-    strength: 16,
-    defense: 4,
-    magicDefense: 5,
+    maxHp: 280,
+    strength: 32,
+    defense: 8,
+    magicDefense: 10,
     aggroRange: 6,
     attackCooldownMs: 1000,
     moveCooldownMs: SPEED.alta,
@@ -1673,10 +1797,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'imp_infernal',
     name: 'Diabrete Infernal',
     behavior: 'hostile',
-    maxHp: 180,
-    strength: 20,
-    defense: 5,
-    magicDefense: 6,
+    maxHp: 360,
+    strength: 40,
+    defense: 10,
+    magicDefense: 12,
     aggroRange: 6,
     attackCooldownMs: 1000,
     moveCooldownMs: SPEED.alta,
@@ -1691,10 +1815,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'ghost',
     name: 'Fantasma',
     behavior: 'hostile',
-    maxHp: 150,
-    strength: 15,
-    defense: 3,
-    magicDefense: 9,
+    maxHp: 300,
+    strength: 30,
+    defense: 6,
+    magicDefense: 18,
     aggroRange: 6,
     attackCooldownMs: 1200,
     moveCooldownMs: SPEED.media,
@@ -1706,10 +1830,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'ghost_wraith',
     name: 'Assombração',
     behavior: 'hostile',
-    maxHp: 200,
-    strength: 20,
-    defense: 4,
-    magicDefense: 12,
+    maxHp: 400,
+    strength: 40,
+    defense: 8,
+    magicDefense: 24,
     aggroRange: 6,
     attackCooldownMs: 1150,
     moveCooldownMs: SPEED.media,
@@ -1721,10 +1845,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'ghost_specter',
     name: 'Espectro',
     behavior: 'hostile',
-    maxHp: 260,
-    strength: 25,
-    defense: 5,
-    magicDefense: 15,
+    maxHp: 520,
+    strength: 50,
+    defense: 10,
+    magicDefense: 30,
     aggroRange: 7,
     attackCooldownMs: 1100,
     moveCooldownMs: SPEED.media,
@@ -1738,10 +1862,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'gnoll',
     name: 'Gnoll',
     behavior: 'predator',
-    maxHp: 190,
-    strength: 19,
-    defense: 6,
-    magicDefense: 2,
+    maxHp: 570,
+    strength: 46,
+    defense: 18,
+    magicDefense: 6,
     aggroRange: 7,
     attackCooldownMs: 1150,
     moveCooldownMs: SPEED.alta,
@@ -1753,10 +1877,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'gnoll_warrior',
     name: 'Gnoll Guerreiro',
     behavior: 'predator',
-    maxHp: 240,
-    strength: 24,
-    defense: 8,
-    magicDefense: 3,
+    maxHp: 720,
+    strength: 58,
+    defense: 24,
+    magicDefense: 9,
     aggroRange: 7,
     attackCooldownMs: 1100,
     moveCooldownMs: SPEED.alta,
@@ -1768,10 +1892,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'gnoll_chieftain',
     name: 'Chefe Gnoll',
     behavior: 'predator',
-    maxHp: 300,
-    strength: 29,
-    defense: 10,
-    magicDefense: 4,
+    maxHp: 1200,
+    strength: 80,
+    defense: 36,
+    magicDefense: 16,
     aggroRange: 8,
     attackCooldownMs: 1050,
     moveCooldownMs: SPEED.alta,
@@ -1785,10 +1909,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'skeleton_guard',
     name: 'Esqueleto Guarda',
     behavior: 'hostile',
-    maxHp: 300,
-    strength: 27,
-    defense: 10,
-    magicDefense: 4,
+    maxHp: 600,
+    strength: 54,
+    defense: 20,
+    magicDefense: 8,
     aggroRange: 6,
     attackCooldownMs: 1150,
     moveCooldownMs: SPEED.media,
@@ -1800,29 +1924,29 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'skeleton_king',
     name: 'Rei Esqueleto',
     behavior: 'fanatic',
-    maxHp: 400,
-    strength: 33,
-    defense: 13,
-    magicDefense: 8,
+    maxHp: 800,
+    strength: 70,
+    defense: 26,
+    magicDefense: 16,
     aggroRange: 7,
-    attackCooldownMs: 1100,
+    attackCooldownMs: 1000,
     moveCooldownMs: SPEED.media,
-    xpReward: 165,
-    goldMin: 55,
-    goldMax: 110,
+    xpReward: 180,
+    goldMin: 60,
+    goldMax: 120,
   },
   zombie_grave: {
     type: 'zombie_grave',
     name: 'Zumbi de Cova',
     behavior: 'hostile',
-    maxHp: 380,
-    strength: 26,
-    defense: 9,
-    magicDefense: 3,
+    maxHp: 760,
+    strength: 58,
+    defense: 22,
+    magicDefense: 6,
     aggroRange: 5,
-    attackCooldownMs: 1500,
+    attackCooldownMs: 1400,
     moveCooldownMs: SPEED.baixa,
-    xpReward: 105,
+    xpReward: 110,
     goldMin: 20,
     goldMax: 48,
   },
@@ -1830,14 +1954,14 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'zombie_rotten',
     name: 'Zumbi Pútrido',
     behavior: 'hostile',
-    maxHp: 430,
-    strength: 29,
-    defense: 10,
-    magicDefense: 4,
+    maxHp: 860,
+    strength: 64,
+    defense: 24,
+    magicDefense: 8,
     aggroRange: 5,
-    attackCooldownMs: 1500,
+    attackCooldownMs: 1400,
     moveCooldownMs: SPEED.baixa,
-    xpReward: 125,
+    xpReward: 130,
     goldMin: 28,
     goldMax: 62,
   },
@@ -1847,12 +1971,12 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'beholder',
     name: 'Observador',
     behavior: 'territorial',
-    maxHp: 340,
-    strength: 24,
-    defense: 7,
-    magicDefense: 14,
+    maxHp: 1020,
+    strength: 64,
+    defense: 21,
+    magicDefense: 42,
     aggroRange: 5,
-    attackCooldownMs: 1300,
+    attackCooldownMs: 1200,
     moveCooldownMs: SPEED.baixa,
     xpReward: 110,
     goldMin: 30,
@@ -1862,14 +1986,14 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'beholder_crimson',
     name: 'Observador Escarlate',
     behavior: 'hostile',
-    maxHp: 420,
-    strength: 29,
-    defense: 9,
-    magicDefense: 16,
+    maxHp: 1260,
+    strength: 70,
+    defense: 27,
+    magicDefense: 48,
     aggroRange: 6,
-    attackCooldownMs: 1250,
+    attackCooldownMs: 1150,
     moveCooldownMs: SPEED.baixa,
-    xpReward: 145,
+    xpReward: 150,
     goldMin: 45,
     goldMax: 95,
   },
@@ -1877,16 +2001,16 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'beholder_void',
     name: 'Observador do Vazio',
     behavior: 'fanatic',
-    maxHp: 520,
-    strength: 33,
-    defense: 11,
-    magicDefense: 20,
+    maxHp: 2000,
+    strength: 88,
+    defense: 40,
+    magicDefense: 80,
     aggroRange: 7,
-    attackCooldownMs: 1200,
+    attackCooldownMs: 1000,
     moveCooldownMs: SPEED.baixa,
-    xpReward: 195,
-    goldMin: 70,
-    goldMax: 140,
+    xpReward: 220,
+    goldMin: 80,
+    goldMax: 160,
   },
 
   // --- Demônios: o topo desta leva -----------------------------------------
@@ -1894,46 +2018,46 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'demon',
     name: 'Demônio',
     behavior: 'hostile',
-    maxHp: 480,
-    strength: 31,
-    defense: 12,
-    magicDefense: 10,
+    maxHp: 1040,
+    strength: 68,
+    defense: 26,
+    magicDefense: 22,
     aggroRange: 7,
-    attackCooldownMs: 1150,
+    attackCooldownMs: 1050,
     moveCooldownMs: SPEED.media,
-    xpReward: 175,
-    goldMin: 60,
-    goldMax: 120,
+    xpReward: 190,
+    goldMin: 65,
+    goldMax: 130,
   },
   demon_crimson: {
     type: 'demon_crimson',
     name: 'Demônio Carmesim',
     behavior: 'hostile',
-    maxHp: 580,
-    strength: 34,
-    defense: 14,
-    magicDefense: 12,
+    maxHp: 1280,
+    strength: 72,
+    defense: 30,
+    magicDefense: 26,
     aggroRange: 7,
-    attackCooldownMs: 1100,
+    attackCooldownMs: 1000,
     moveCooldownMs: SPEED.media,
-    xpReward: 215,
-    goldMin: 85,
-    goldMax: 165,
+    xpReward: 260,
+    goldMin: 100,
+    goldMax: 200,
   },
   demon_lord: {
     type: 'demon_lord',
     name: 'Senhor Demônio',
     behavior: 'fanatic',
-    maxHp: 680,
-    strength: 36,
-    defense: 16,
-    magicDefense: 14,
+    maxHp: 1760,
+    strength: 78,
+    defense: 38,
+    magicDefense: 34,
     aggroRange: 8,
-    attackCooldownMs: 1050,
+    attackCooldownMs: 900,
     moveCooldownMs: SPEED.media,
-    xpReward: 280,
-    goldMin: 120,
-    goldMax: 240,
+    xpReward: 400,
+    goldMin: 150,
+    goldMax: 320,
   },
 
   // --- Goblins, 01/09: duas patentes acima do Guerreiro --------------------
@@ -1943,10 +2067,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     type: 'goblin_captain',
     name: 'Capitão Goblin',
     behavior: 'hostile',
-    maxHp: 230,
-    strength: 22,
-    defense: 7,
-    magicDefense: 3,
+    maxHp: 460,
+    strength: 44,
+    defense: 14,
+    magicDefense: 6,
     aggroRange: 6,
     attackCooldownMs: 1100,
     moveCooldownMs: SPEED.alta,
@@ -1959,16 +2083,374 @@ export const CREATURES: Record<string, CreatureDef> = {
     name: 'Xamã Goblin',
     // Defesa mágica alta e física baixa: é um conjurador, não um brigão.
     behavior: 'hostile',
-    maxHp: 190,
-    strength: 18,
-    defense: 4,
-    magicDefense: 12,
+    maxHp: 380,
+    strength: 36,
+    defense: 8,
+    magicDefense: 24,
     aggroRange: 7,
     attackCooldownMs: 1250,
     moveCooldownMs: SPEED.media,
-    xpReward: 78,
-    goldMin: 22,
-    goldMax: 50,
+    xpReward: 60,
+    goldMin: 16,
+    goldMax: 38,
+  },
+
+  // === Terceira leva, 02/09 ===============================================
+  //
+  // ⚠️ **Só OITO espécies novas de doze convertidas**: as outras quatro são os
+  // três Slimes do `DD-BAL` e o Super Slime, que já existiam e só ganharam arte.
+  // Os números deles não se tocam.
+  //
+  // 🔴 Os dois Slimes novos ficam FORA da curva canônica de propósito: o doc
+  // fixa a progressão 50 → 70 → 100 dos três originais, e enfiar espécie nova no
+  // meio dela seria reescrever o documento. Estes entram acima, como slime de
+  // caverna adulto.
+
+  slime_void: {
+    type: 'slime_void',
+    name: 'Slime Sombrio',
+    behavior: 'hostile',
+    maxHp: 300,
+    strength: 26,
+    defense: 8,
+    magicDefense: 14,
+    aggroRange: 4,
+    attackCooldownMs: 1300,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 50,
+    goldMin: 8,
+    goldMax: 24,
+  },
+  slime_amber: {
+    type: 'slime_amber',
+    name: 'Slime Âmbar',
+    behavior: 'hostile',
+    maxHp: 400,
+    strength: 30,
+    defense: 10,
+    magicDefense: 8,
+    aggroRange: 4,
+    attackCooldownMs: 1250,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 60,
+    goldMin: 12,
+    goldMax: 32,
+  },
+
+  // --- Lich: conjuradores mortos-vivos, defesa mágica altíssima ------------
+  lich: {
+    type: 'lich',
+    name: 'Lich',
+    behavior: 'hostile',
+    maxHp: 500,
+    strength: 40,
+    defense: 14,
+    magicDefense: 30,
+    aggroRange: 7,
+    attackCooldownMs: 1200,
+    moveCooldownMs: SPEED.media,
+    xpReward: 130,
+    goldMin: 35,
+    goldMax: 80,
+  },
+  lich_frost: {
+    type: 'lich_frost',
+    name: 'Lich do Gelo',
+    behavior: 'hostile',
+    maxHp: 700,
+    strength: 52,
+    defense: 18,
+    magicDefense: 40,
+    aggroRange: 7,
+    attackCooldownMs: 1150,
+    moveCooldownMs: SPEED.media,
+    xpReward: 180,
+    goldMin: 55,
+    goldMax: 120,
+  },
+  lich_king: {
+    type: 'lich_king',
+    name: 'Rei Lich',
+    behavior: 'fanatic',
+    maxHp: 1500,
+    strength: 76,
+    defense: 30,
+    magicDefense: 60,
+    aggroRange: 8,
+    attackCooldownMs: 1050,
+    moveCooldownMs: SPEED.media,
+    xpReward: 340,
+    goldMin: 140,
+    goldMax: 280,
+  },
+
+  // --- Golens novos: a família do chefe do irmão ganha três parentes -------
+  // ⚠️ O `golem` dele NÃO muda — nem arte, nem número, nem tamanho.
+  golem_earth: {
+    type: 'golem_earth',
+    name: 'Golem de Terra',
+    behavior: 'territorial',
+    maxHp: 900,
+    strength: 50,
+    defense: 34,
+    magicDefense: 10,
+    aggroRange: 5,
+    attackCooldownMs: 1600,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 160,
+    goldMin: 30,
+    goldMax: 80,
+  },
+  golem_crystal: {
+    type: 'golem_crystal',
+    name: 'Golem de Cristal',
+    behavior: 'territorial',
+    maxHp: 1200,
+    strength: 60,
+    defense: 40,
+    magicDefense: 30,
+    aggroRange: 5,
+    attackCooldownMs: 1500,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 240,
+    goldMin: 60,
+    goldMax: 150,
+  },
+  golem_arcane: {
+    type: 'golem_arcane',
+    name: 'Golem Arcano',
+    // O maior saco de vida do jogo: 2200, acima dos 1800 do Golem de Pedra.
+    behavior: 'fanatic',
+    maxHp: 2200,
+    strength: 82,
+    defense: 46,
+    magicDefense: 40,
+    aggroRange: 7,
+    attackCooldownMs: 1300,
+    moveCooldownMs: SPEED.baixa,
+    xpReward: 460,
+    goldMin: 200,
+    goldMax: 420,
+  },
+
+  // === Quarta leva, 02/09: caça, bandidos e guardas =======================
+  //
+  // ⚠️ O Javali (`boar`) NÃO está aqui: ele já existia na ficha, dormente e sem
+  // arte desde sempre. Agora tem arte; os números dele não mudam.
+
+  // --- Caça: presas, sem animação de ataque no pack -------------------------
+  hare: {
+    type: 'hare',
+    name: 'Lebre',
+    behavior: 'peaceful',
+    maxHp: 40,
+    strength: 0,
+    defense: 0,
+    magicDefense: 0,
+    aggroRange: 3,
+    attackCooldownMs: 2000,
+    moveCooldownMs: SPEED.muitoAlta,
+    xpReward: 6,
+    goldMin: 0,
+    goldMax: 2,
+  },
+  black_grouse: {
+    type: 'black_grouse',
+    name: 'Galo-lira',
+    behavior: 'peaceful',
+    maxHp: 36,
+    strength: 0,
+    defense: 0,
+    magicDefense: 0,
+    aggroRange: 3,
+    attackCooldownMs: 2000,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 5,
+    goldMin: 0,
+    goldMax: 2,
+  },
+  fox: {
+    type: 'fox',
+    name: 'Raposa',
+    behavior: 'neutral',
+    maxHp: 90,
+    strength: 12,
+    defense: 3,
+    magicDefense: 0,
+    aggroRange: 4,
+    attackCooldownMs: 1200,
+    moveCooldownMs: SPEED.muitoAlta,
+    xpReward: 14,
+    goldMin: 0,
+    goldMax: 6,
+  },
+  deer: {
+    type: 'deer',
+    name: 'Cervo',
+    behavior: 'peaceful',
+    maxHp: 140,
+    strength: 0,
+    defense: 2,
+    magicDefense: 0,
+    aggroRange: 4,
+    attackCooldownMs: 2000,
+    moveCooldownMs: SPEED.muitoAlta,
+    xpReward: 18,
+    goldMin: 0,
+    goldMax: 5,
+  },
+
+  // --- Bandidos: os três primeiros níveis do pack de espadachim ------------
+  // 🔴 Gente hostil, e é a primeira do jogo: até aqui todo inimigo era bicho ou
+  // morto-vivo. Eles largam pano e osso, como qualquer humano.
+  bandit: {
+    type: 'bandit',
+    name: 'Bandido',
+    behavior: 'hostile',
+    maxHp: 400,
+    strength: 38,
+    defense: 12,
+    magicDefense: 4,
+    aggroRange: 6,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 90,
+    goldMin: 30,
+    goldMax: 70,
+  },
+  bandit_raider: {
+    type: 'bandit_raider',
+    name: 'Saqueador',
+    behavior: 'hostile',
+    maxHp: 520,
+    strength: 46,
+    defense: 16,
+    magicDefense: 6,
+    aggroRange: 6,
+    attackCooldownMs: 1050,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 120,
+    goldMin: 45,
+    goldMax: 100,
+  },
+  bandit_chief: {
+    type: 'bandit_chief',
+    name: 'Chefe Bandido',
+    behavior: 'hostile',
+    maxHp: 680,
+    strength: 56,
+    defense: 20,
+    magicDefense: 8,
+    aggroRange: 7,
+    attackCooldownMs: 1000,
+    moveCooldownMs: SPEED.alta,
+    xpReward: 170,
+    goldMin: 70,
+    goldMax: 150,
+  },
+
+  // --- GUARDAS: definidos, mas SEM COMPORTAMENTO DE GUARDA ainda -----------
+  //
+  // 🔴 **Eles estão marcados `territorial` como MEDIDA DE SEGURANÇA, e não
+  // porque seja o certo.** O que o dono pediu — patrulhar, proteger jogador
+  // comum, caçar monstro e PK — o servidor não sabe fazer: `creature.targetId`
+  // só guarda id de JOGADOR, e não existe criatura atacando criatura.
+  //
+  // ⚠️ **Eles não têm spawn nenhum**, e é de propósito. Um guarda solto no
+  // vilarejo hoje atacaria justamente quem ele deveria proteger.
+  //
+  // Os números já estão dimensionados para o papel: o Capitão de Cidade (2000
+  // de vida, força 84) aguenta os monstros de topo, e o Guarda de Vilarejo
+  // (700) não aguenta — a patente é que decide onde ele sobrevive.
+  village_guard: {
+    type: 'village_guard',
+    name: 'Guarda do Vilarejo',
+    behavior: 'territorial',
+    maxHp: 700,
+    strength: 50,
+    defense: 22,
+    magicDefense: 8,
+    aggroRange: 6,
+    attackCooldownMs: 1100,
+    moveCooldownMs: SPEED.media,
+    xpReward: 150,
+    goldMin: 40,
+    goldMax: 90,
+  },
+  village_sergeant: {
+    type: 'village_sergeant',
+    name: 'Sargento do Vilarejo',
+    behavior: 'territorial',
+    maxHp: 900,
+    strength: 58,
+    defense: 26,
+    magicDefense: 10,
+    aggroRange: 6,
+    attackCooldownMs: 1050,
+    moveCooldownMs: SPEED.media,
+    xpReward: 190,
+    goldMin: 60,
+    goldMax: 130,
+  },
+  village_captain: {
+    type: 'village_captain',
+    name: 'Capitão do Vilarejo',
+    behavior: 'territorial',
+    maxHp: 1100,
+    strength: 66,
+    defense: 30,
+    magicDefense: 12,
+    aggroRange: 7,
+    attackCooldownMs: 1000,
+    moveCooldownMs: SPEED.media,
+    xpReward: 240,
+    goldMin: 90,
+    goldMax: 180,
+  },
+  city_guard: {
+    type: 'city_guard',
+    name: 'Guarda da Cidade',
+    behavior: 'territorial',
+    maxHp: 1300,
+    strength: 70,
+    defense: 34,
+    magicDefense: 14,
+    aggroRange: 7,
+    attackCooldownMs: 1000,
+    moveCooldownMs: SPEED.media,
+    xpReward: 300,
+    goldMin: 120,
+    goldMax: 240,
+  },
+  city_sergeant: {
+    type: 'city_sergeant',
+    name: 'Sargento da Cidade',
+    behavior: 'territorial',
+    maxHp: 1600,
+    strength: 76,
+    defense: 38,
+    magicDefense: 16,
+    aggroRange: 7,
+    attackCooldownMs: 950,
+    moveCooldownMs: SPEED.media,
+    xpReward: 380,
+    goldMin: 160,
+    goldMax: 320,
+  },
+  city_captain: {
+    type: 'city_captain',
+    name: 'Capitão da Cidade',
+    behavior: 'territorial',
+    maxHp: 2000,
+    strength: 84,
+    defense: 44,
+    magicDefense: 20,
+    aggroRange: 8,
+    attackCooldownMs: 900,
+    moveCooldownMs: SPEED.media,
+    xpReward: 500,
+    goldMin: 220,
+    goldMax: 450,
   },
 
   golem: {
@@ -1978,10 +2460,10 @@ export const CREATURES: Record<string, CreatureDef> = {
     // da luta transformaria a briga em perseguição chata.
     behavior: 'fanatic',
     boss: true,
-    maxHp: 900,
-    strength: 32,
-    defense: 18,
-    magicDefense: 6,
+    maxHp: 1800,
+    strength: 64,
+    defense: 36,
+    magicDefense: 12,
     aggroRange: 7,
     // Golpe lento e pesado: dá tempo de ler e sair de perto entre um e outro.
     attackCooldownMs: 1900,

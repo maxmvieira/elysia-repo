@@ -359,6 +359,86 @@
       "type": "goblin_shaman",
       "x": 165,
       "y": 133
+    },
+    {
+      "type": "slime_void",
+      "x": 144,
+      "y": 138
+    },
+    {
+      "type": "slime_amber",
+      "x": 142,
+      "y": 136
+    },
+    {
+      "type": "golem_earth",
+      "x": 116,
+      "y": 186
+    },
+    {
+      "type": "golem_crystal",
+      "x": 114,
+      "y": 184
+    },
+    {
+      "type": "golem_arcane",
+      "x": 116,
+      "y": 184
+    },
+    {
+      "type": "lich",
+      "x": 199,
+      "y": 149
+    },
+    {
+      "type": "lich_frost",
+      "x": 199,
+      "y": 151
+    },
+    {
+      "type": "lich_king",
+      "x": 201,
+      "y": 151
+    },
+    {
+      "type": "hare",
+      "x": 158,
+      "y": 138
+    },
+    {
+      "type": "black_grouse",
+      "x": 156,
+      "y": 136
+    },
+    {
+      "type": "fox",
+      "x": 158,
+      "y": 136
+    },
+    {
+      "type": "deer",
+      "x": 160,
+      "y": 136
+    },
+    {
+      "type": "boar",
+      "x": 156,
+      "y": 138
+    },
+    {
+      "type": "bandit",
+      "x": 134,
+      "y": 166
+    },
+    {
+      "type": "bandit_raider",
+      "x": 132,
+      "y": 164
+    },
+    {
+      "type": "bandit_chief",
+      "x": 134,
+      "y": 164
     }
   ],
   "_removidos": [
@@ -480,5 +560,7 @@
   ],
   "_packs_2026_09_01": "🔴 OS CINCO PACKS DA CRAFTPIX: 15 especies novas, e SO UM SPAWN DE CADA. A contencao e deliberada -- o dono cortou esta lista de 32 para 10 em 05/08 dizendo 'tem muuuito monstro', e 15 especies novas com varios spawns cada desfariam aquilo em uma tacada. Um de cada deixa ver todos em campo e decidir a quantidade depois de jogar. As cinco zonas ficam FORA da praca segura (raio 12 de 150,158) e a dificuldade sobe com a distancia: Cogumelos (138,176) dist 18, o mais fraco; Ents (128,140) dist 22; Ratos (176,142) dist 24; Lagartos (152,188) dist 30; Vampiros (186,176) dist 36, o mais forte. Cada posicao foi conferida com isWalkable no mapa gerado -- tile de agua ou dentro da praca deixaria a criatura travada, porque creatureCanEnter barra a praca. Arte por `npm run monstros:build`.",
   "_packs2_2026_09_01": "🔴 SEGUNDA LEVA DE PACKS: 19 especies novas mais DUAS que ja existiam sem arte (skeleton_warrior e zombie, que ate hoje nasciam como bolha colorida). Mesma contencao da primeira leva: UM spawn de cada. As zonas seguem a regra de que dificuldade sobe com distancia da vila (150,158): Fantasmas (132,152) d18; Diabretes (168,178) d20; Observadores (120,168) d30; Gnolls (142,190) d32; Esqueletos (189,157) d40; Zumbis (192,167) d42; Demonios (196,190) d46, o mais forte. Toda posicao conferida com isWalkable no mapa gerado. Arte por `npm run monstros:build`.",
-  "_goblins_2026_09_01": "🔴 ACAMPAMENTO GOBLIN em (166,132), distancia 26 da vila. O goblin_warrior ja existia na ficha desde julho e nascia como bolha colorida -- agora tem arte. Capitao e Xama sao especie nova. O goblin_archer continua SEM arte de proposito: as tres variantes do pack sao corpo a corpo, e um arqueiro sem arco e pior que bolha."
+  "_goblins_2026_09_01": "🔴 ACAMPAMENTO GOBLIN em (166,132), distancia 26 da vila. O goblin_warrior ja existia na ficha desde julho e nascia como bolha colorida -- agora tem arte. Capitao e Xama sao especie nova. O goblin_archer continua SEM arte de proposito: as tres variantes do pack sao corpo a corpo, e um arqueiro sem arco e pior que bolha.",
+  "_packs3_2026_09_02": "🔴 TERCEIRA LEVA: 8 especies novas (2 slimes, 3 lich, 3 golens). Outras QUATRO nao aparecem aqui porque ja existiam e so ganharam arte -- os tres Slimes do DD-BAL e o Super Slime. Zonas: Slimes (144,138) d20; Golens (116,186) d34; Lich (199,149) d50, o ponto mais distante do mapa povoado. Posicoes conferidas com isWalkable.",
+  "_packs4_2026_09_02": "🔴 QUARTA LEVA: caca (158,138) d20 e acampamento de bandidos (134,166) d16 -- os primeiros inimigos HUMANOS do jogo. O Javali (boar) tambem passa a nascer: ele existia na ficha, dormente e sem arte, desde sempre. ⚠️ OS GUARDAS NAO TEM SPAWN DE PROPOSITO: o servidor ainda nao sabe criatura-ataca-criatura, entao guarda hoje atacaria o jogador que deveria proteger. Ver o bloco deles em combat.ts."
 }

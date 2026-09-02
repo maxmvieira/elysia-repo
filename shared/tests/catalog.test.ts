@@ -182,16 +182,34 @@ test('🔴 a defesa de um set completo não pode zerar o dano do bestiário', ()
     + ` de dano de ${tetoDeDano.toFixed(1)} — o jogo já nasceria com o jogador imune`,
   );
 
-  // ⚠️ E o aviso de para onde isso vai: em algum ponto do meio do jogo a curva
-  // cruza o teto, porque não existe criatura de Tier IV para bater mais forte.
+  // 🔴 **O TERMÔMETRO DISPAROU EM 02/09, e a asserção VIROU DE LADO.**
   //
-  // 🔴 Isso deixou de ser fatal em 30/07: `MIN_DAMAGE_AFTER_ARMOR` garante que a
-  // armadura sozinha nunca apare mais que três quartos do golpe, então passar do
-  // teto não zera mais o dano — só o reduz ao mínimo. Este teste continua aqui
-  // como termômetro: quando ele parar de valer, é porque o bestiário cresceu, e
-  // aí `DEF_COEF` pode subir junto.
+  // A versão anterior exigia que o set completo de Lv.100 fosse MAIOR que o teto
+  // de dano, e trazia o aviso: *"quando ele parar de valer, é porque o bestiário
+  // cresceu, e aí DEF_COEF pode subir junto"*. Foi o que aconteceu — o dono
+  // dobrou os atributos dos monstros porque estavam fracos, e a criatura mais
+  // forte passou de 39 para 78.
+  //
+  // ⚠️ **Mas subir o `DEF_COEF` seria desfazer o pedido.** Ele dobraria o valor
+  // de toda armadura do jogo e devolveria o jogador para o piso de mitigação,
+  // que é justamente o que tornava as lutas mornas: com dano 39 contra armadura
+  // 46, o Lv.100 levava o MÍNIMO de todo golpe do bestiário inteiro, do cogumelo
+  // ao chefe. A armadura não estava protegendo, estava trivializando.
+  //
+  // 🔴 Então o alvo passou a ser o inverso, e é ele que este teste guarda agora:
+  // **o topo do bestiário TEM que furar o set completo.** Se um dia a armadura
+  // voltar a cobrir o golpe mais forte do jogo, é a armadura que cresceu demais.
+  //
+  // ⚠️ O que impede o outro extremo — jogador imune — não é este teste, é o
+  // `MIN_DAMAGE_AFTER_ARMOR`: a armadura nunca apara mais que três quartos do
+  // golpe, então nem o pior caso zera o dano.
   const setNoTopo = equipDefPower(100) * somaDosShares;
-  assert.ok(setNoTopo > tetoDeDano, 'se o topo couber no teto, o bestiário já cresceu');
+  assert.ok(
+    tetoDeDano > setNoTopo,
+    `o golpe mais forte do bestiário (${tetoDeDano.toFixed(1)}) cabe dentro do set`
+    + ` completo de Lv.100 (${setNoTopo.toFixed(1)}): a armadura voltou a trivializar`
+    + ' o topo, e aí é a curva de equipamento que precisa descer',
+  );
 });
 
 test('🔴 uma Receita Comum não fabrica o topo do catálogo', () => {
