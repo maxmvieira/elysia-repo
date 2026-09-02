@@ -88,6 +88,46 @@ const OUT = 'client/public/assets/monsters';
  * cinco tiles de altura. A caixa de clique NÃO cresce junto (ela é do tamanho do
  * tile, em `makeSpriteActor`), então ele se acerta pelo pé, não pelo corpo.
  *
+ * 🔴 **E O CHEFE DE CADA UMA DAS QUATRO FAMÍLIAS SUBIU UM DEGRAU** — *"os
+ * chefes destes monstros podem ser maiores mesmo"*. Chefe Gnoll e Campeão
+ * Lagarto foram a 4×, Cogumelo Púrpura a 4× e Observador do Vazio a 3×.
+ *
+ * ⚠️ Campeão Lagarto (164 px) e Observador do Vazio (171) passam o Senhor
+ * Demônio (152,8) e o Golem (152). Eles são, agora, os maiores desenhos do
+ * jogo — foi pedido, não descuido.
+ *
+ * 🔴 **ENTS E GOBLINS CRESCERAM em 02/09.** Os Ents foram de 1× para 2× —
+ * *"os ent podem ser do tamanho dos golem"* — e ficam em 98, 132 e 140 px,
+ * com o Ancestral encostando nos 152 do Golem de Pedra. Os goblins foram de
+ * 1,5× para 2× (62, 68 e 72 px).
+ *
+ * ✅ **O goblin sai de escala quebrada e para de serrilhar**, como aconteceu
+ * com gnolls, lagartos e cogumelos: 2 é inteiro, 1,5 não era.
+ *
+ * 🔴 **A VARIANTE BASE DO GNOLL E DO LAGARTO ENCOLHEU em 02/09** — 3× → 2×, a
+ * pedido do dono: *"vamos diminuir o tamanho dos gnolls normais, homens lagarto
+ * também"*. Gnoll 66 px e Homem-Lagarto 70, contra 99–123 dos graduados.
+ *
+ * ⚠️ **Isto quebra de propósito a regra de "uma escala por PACK"** que este
+ * arquivo defende logo acima. A regra existe para não inverter proporção (o
+ * caso do filhote maior que o adulto, no `animals2strip.mjs`); aqui ela estava
+ * causando o problema oposto. O artista desenhou as três variantes de gnoll com
+ * a MESMA altura de corpo (33, 33 e 34 px), então uma escala única deixava
+ * soldado raso e chefe do mesmo tamanho — a patente não se lia na silhueta.
+ * Escala por variante é o que cria a hierarquia aqui, não o que a destrói.
+ *
+ * 🔴 **GNOLLS, LAGARTOS, COGUMELOS E OBSERVADORES DOBRARAM DE TAMANHO em
+ * 02/09**, a pedido do dono depois de jogar. Gnoll, lagarto e cogumelo foram de
+ * 1,5× para **3×**; observador, de 1× para **2×**.
+ *
+ * ✅ **E isso conserta o serrilhado deles de brinde:** 1,5× era escala quebrada
+ * (um pixel vira 1, o vizinho vira 2, em faixas); 3× e 2× são inteiras, então o
+ * desenho volta a ser nítido. Foi ganho, não custo.
+ *
+ * ⚠️ Eles passam a ser bichos GRANDES: gnoll 105 px, lagarto 105–129, cogumelo
+ * 87–111, observador 96–128 — todos acima do Golem (76) e do herói (60). Só o
+ * Senhor Demônio (152,8) segue maior.
+ *
  * 🔴 **OS LAGARTOS E OS COGUMELOS ESTÃO A 1,5×, por decisão do dono em 01/09
  * vendo em tela.** Os cogumelos vieram junto no mesmo pedido — *"mantenha o
  * mesmo do lagarto"* — e é o mesmo fator, não a mesma altura: a proporção
@@ -107,21 +147,21 @@ const OUT = 'client/public/assets/monsters';
  * arte, o que distorce o desenho de outro jeito.
  */
 const TIPOS = {
-  'ent/Ent1': { tipo: 'ent_seco', escala: 1 },
-  'ent/Ent2': { tipo: 'ent', escala: 1 },
-  'ent/Ent3': { tipo: 'ent_ancestral', escala: 1 },
+  'ent/Ent1': { tipo: 'ent_seco', escala: 2 },
+  'ent/Ent2': { tipo: 'ent', escala: 2 },
+  'ent/Ent3': { tipo: 'ent_ancestral', escala: 2 },
   'vampire/Vampires1': { tipo: 'vampire', escala: 2 },
   'vampire/Vampires2': { tipo: 'vampire_noble', escala: 2 },
   'vampire/Vampires3': { tipo: 'vampire_lord', escala: 2 },
-  'mushroom/Mushroom1': { tipo: 'mushroom_brown', escala: 1.5 },
-  'mushroom/Mushroom2': { tipo: 'mushroom_red', escala: 1.5 },
-  'mushroom/Mushroom3': { tipo: 'mushroom_purple', escala: 1.5 },
+  'mushroom/Mushroom1': { tipo: 'mushroom_brown', escala: 3 },
+  'mushroom/Mushroom2': { tipo: 'mushroom_red', escala: 3 },
+  'mushroom/Mushroom3': { tipo: 'mushroom_purple', escala: 4 },
   'rat/Rat1': { tipo: 'giant_rat', escala: 1 },
   'rat/Rat2': { tipo: 'plague_rat', escala: 1 },
   'rat/Rat3': { tipo: 'shadow_rat', escala: 1 },
-  'lizard/Lizardman1': { tipo: 'lizardman', escala: 1.5 },
-  'lizard/Lizardman2': { tipo: 'lizardman_soldier', escala: 1.5 },
-  'lizard/Lizardman3': { tipo: 'lizardman_champion', escala: 1.5 },
+  'lizard/Lizardman1': { tipo: 'lizardman', escala: 2 },
+  'lizard/Lizardman2': { tipo: 'lizardman_soldier', escala: 3 },
+  'lizard/Lizardman3': { tipo: 'lizardman_champion', escala: 4 },
 
   // --- Segunda leva, 01/09 ------------------------------------------------
   //
@@ -142,15 +182,15 @@ const TIPOS = {
   'imp/Imp1': { tipo: 'imp', escala: 1.5 },
   'imp/Imp2': { tipo: 'imp_winged', escala: 1.5 },
   'imp/Imp3': { tipo: 'imp_infernal', escala: 1.5 },
-  'beholder/Beholder1': { tipo: 'beholder', escala: 1 },
-  'beholder/Beholder2': { tipo: 'beholder_crimson', escala: 1 },
-  'beholder/Beholder3': { tipo: 'beholder_void', escala: 1 },
+  'beholder/Beholder1': { tipo: 'beholder', escala: 2 },
+  'beholder/Beholder2': { tipo: 'beholder_crimson', escala: 2 },
+  'beholder/Beholder3': { tipo: 'beholder_void', escala: 3 },
   'skeleton/Skeleton1': { tipo: 'skeleton_warrior', escala: 2 },
   'skeleton/Skeleton2': { tipo: 'skeleton_guard', escala: 2 },
   'skeleton/Skeleton3': { tipo: 'skeleton_king', escala: 2 },
-  'gnoll/Gnoll1': { tipo: 'gnoll', escala: 1.5 },
-  'gnoll/Gnoll2': { tipo: 'gnoll_warrior', escala: 1.5 },
-  'gnoll/Gnoll3': { tipo: 'gnoll_chieftain', escala: 1.5 },
+  'gnoll/Gnoll1': { tipo: 'gnoll', escala: 2 },
+  'gnoll/Gnoll2': { tipo: 'gnoll_warrior', escala: 3 },
+  'gnoll/Gnoll3': { tipo: 'gnoll_chieftain', escala: 4 },
   'zombie/Zombie1': { tipo: 'zombie', escala: 2 },
   'zombie/Zombie2': { tipo: 'zombie_grave', escala: 2 },
   'zombie/Zombie3': { tipo: 'zombie_rotten', escala: 2 },
@@ -163,9 +203,64 @@ const TIPOS = {
   // 🔴 **O `goblin_archer` NÃO entra aqui, e não é esquecimento:** as três
   // variantes do pack são corpo a corpo (dois punhais, espada, cajado). Pôr
   // qualquer uma nele daria um arqueiro sem arco, que é pior que bolha.
-  'goblin/Goblin1': { tipo: 'goblin_warrior', escala: 1.5 },
-  'goblin/Goblin2': { tipo: 'goblin_captain', escala: 1.5 },
-  'goblin/Goblin3': { tipo: 'goblin_shaman', escala: 1.5 },
+  'goblin/Goblin1': { tipo: 'goblin_warrior', escala: 2 },
+  'goblin/Goblin2': { tipo: 'goblin_captain', escala: 2 },
+  'goblin/Goblin3': { tipo: 'goblin_shaman', escala: 2 },
+
+  // --- Terceira leva, 02/09 -----------------------------------------------
+  //
+  // 🔴 **QUATRO destes preenchem espécie que já existia**: os três Slimes do
+  // `DD-BAL` e o Super Slime. Eles eram desenhados por um caminho só deles em
+  // `main.ts` — uma folha de andar e as variantes coloridas por rotação de
+  // matiz —, e o Super Slime não tinha arte nenhuma. Agora entram pelo caminho
+  // de todo mundo, com as CINCO animações.
+  //
+  // ⚠️ Isto NÃO mexe nos números deles, que o documento de design fixa: só a
+  // arte muda. Ver o bloco de âncoras em `shared/src/combat.ts`.
+  //
+  // ⚠️ Os três Golens novos NÃO substituem o `golem` do irmão — ele continua com
+  // a arte e o tamanho dele. São espécies novas da mesma família.
+  'slime1/Slime1': { tipo: 'slime', escala: 2 },
+  'slime1/Slime2': { tipo: 'slime_blue', escala: 2 },
+  'slime1/Slime3': { tipo: 'slime_amber', escala: 2 },
+  'slime2/Slime1': { tipo: 'slime_void', escala: 2 },
+  'slime2/Slime2': { tipo: 'slime_red', escala: 2 },
+  'slime2/Slime3': { tipo: 'super_slime', escala: 4 },
+  'lich/Lich1': { tipo: 'lich', escala: 2 },
+  'lich/Lich2': { tipo: 'lich_frost', escala: 2 },
+  'lich/Lich3': { tipo: 'lich_king', escala: 3 },
+  'golem2/Golem1': { tipo: 'golem_earth', escala: 2 },
+  'golem2/Golem2': { tipo: 'golem_crystal', escala: 2 },
+  'golem2/Golem3': { tipo: 'golem_arcane', escala: 3 },
+
+  // --- Quarta leva, 02/09: caça, bandidos e GUARDAS -----------------------
+  //
+  // ⚠️ **O `boar` já existia sem arte** (Javali, família fauna, dormente desde
+  // sempre). Os outros quatro bichos de caça são espécie nova.
+  //
+  // 🔴 **Os nove espadachins são o MESMO pack em nove patentes**: lvl1–3 viram
+  // bandidos, lvl4–6 guardas de vilarejo, lvl7–9 guardas de cidade. A escala
+  // sobe com a patente para a silhueta contar a hierarquia.
+  //
+  // ⚠️ **Guarda ainda NÃO tem comportamento de guarda.** O servidor só sabe
+  // criatura-ataca-JOGADOR; guarda que patrulha e caça monstro é sistema novo,
+  // não configuração. Por isso eles entram aqui como ARTE e ficam sem spawn até
+  // a IA existir — um guarda hostil no vilarejo atacaria justamente quem ele
+  // deveria proteger.
+  'caca/Boar': { tipo: 'boar', escala: 2 },
+  'caca/Deer': { tipo: 'deer', escala: 2 },
+  'caca/Fox': { tipo: 'fox', escala: 2 },
+  'caca/Hare': { tipo: 'hare', escala: 2 },
+  'caca/Black_grouse': { tipo: 'black_grouse', escala: 2 },
+  'bandido/Swordsman_lvl1': { tipo: 'bandit', escala: 2 },
+  'bandido/Swordsman_lvl2': { tipo: 'bandit_raider', escala: 2 },
+  'bandido/Swordsman_lvl3': { tipo: 'bandit_chief', escala: 2 },
+  'gvila/lvl4': { tipo: 'village_guard', escala: 2 },
+  'gvila/lvl5': { tipo: 'village_sergeant', escala: 2 },
+  'gvila/lvl6': { tipo: 'village_captain', escala: 2 },
+  'gcidade/lvl7': { tipo: 'city_guard', escala: 2 },
+  'gcidade/lvl8': { tipo: 'city_sergeant', escala: 2 },
+  'gcidade/lvl9': { tipo: 'city_captain', escala: 3 },
 };
 
 /** Animação do pack → arquivo do jogo. `Run` fica fora — ver o cabeçalho. */
@@ -338,8 +433,22 @@ for (const [chave, { tipo, escala }] of Object.entries(TIPOS)) {
     // livre (`[A-Za-z]+_`) casaria `Run_Attack0_` quando o pedido é `Attack0_`.
     const base = variante.replace(/\d+$/, '');
     const prefixo = `(?:(?:${variante}|${base})_)?`;
-    const re = new RegExp(`^${prefixo}${animPack}\\d*_+without_shadow\\.png$`);
-    const arquivo = readdirSync(dirSrc).find((f) => re.test(f));
+    /*
+     * ⚠️ O sufixo `_without_shadow` é OPCIONAL: o pack de caça exporta
+     * `Boar_Walk.png`, sem sufixo nenhum, porque a pasta já se chama
+     * `Without_shadow`. Exigir o sufixo deixava aquele pack inteiro de fora.
+     *
+     * ⚠️ E `Attack` tem APELIDO: os espadachins chamam o golpe de
+     * `attack_normal`, minúsculo. Sem o apelido, guarda e bandido entrariam
+     * sem animação de ataque — em silêncio, porque arquivo ausente só avisa.
+     */
+    const nomes = animPack === 'Attack' ? ['Attack', 'attack_normal', 'attack'] : [animPack];
+    let arquivo;
+    for (const nome of nomes) {
+      const re = new RegExp(`^${prefixo}${nome}\\d*(?:_+without_shadow)?\\.png$`, 'i');
+      arquivo = readdirSync(dirSrc).find((f) => re.test(f));
+      if (arquivo) break;
+    }
     if (!arquivo) { console.error(`⚠️  ${tipo}: sem ${animPack}`); continue; }
 
     const img = decode(`${dirSrc}/${arquivo}`);

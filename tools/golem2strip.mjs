@@ -205,7 +205,18 @@ const largura = dir - esq + 1;
  * tela — nao coisa de conserto de bug.
  * ⚠️ Inteiro, pela regra de sempre: fracionario devolve o serrilhado.
  */
-const ESCALA = 2;
+/*
+ * 🔴 **4×, e não 2×, por decisão do dono em 02/09:** *"o golem de pedra pode ser
+ * do mesmo tamanho do demonio mais forte"*. O Senhor Demônio tem 152,8 px; o
+ * corpo do Golem mede 38 px, então 4× dá 152 — os dois empatam na silhueta.
+ *
+ * ⚠️ Continua ESCALA INTEIRA, então não serrilha.
+ *
+ * ⚠️ O Golem tinha 76 px e era a régua de "nada passa o chefe". Essa régua já
+ * havia caído em 01/09, quando os demônios a ultrapassaram a pedido do dono —
+ * agora o Golem alcança o topo de volta.
+ */
+const ESCALA = 4;
 
 console.log(
   `\nrepouso ${largura}x${altura}  ·  pé em y=${base + 1}  ·  escala ${ESCALA}x`

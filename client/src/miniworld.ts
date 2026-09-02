@@ -442,7 +442,14 @@ export const CREATURE_SHEETS: Record<string, CreatureSheetCfg> = {
   // 62, herói 60), mas por pouco. Se o dono quiser um chefe que intimide de
   // longe, o caminho é `scale: 3` (114 px) no conversor — decisão de arte,
   // vista em tela, não parte deste conserto.
-  golem: { cell: 128, scale: 2, anchorX: 0.49609375, anchorY: 0.6015625, labelTop: -82 },
+  // 🔴 4× desde 02/09: o dono pediu o Golem do tamanho do Senhor Demônio (152,8
+  // px). O corpo mede 38 px, então 4× dá 152 — empatam. Sai de
+  // `npm run golem:build`; não edite à mão.
+  // ⚠️ A âncora deste veio do conversor ANTIGO, que mede pelo pixel mais baixo.
+  // Pela regra nova (massa por linha, ver `monstros2strip.mjs`) ele desceria
+  // 1 px — que a 4× vira 4 px de flutuação. Se incomodar, é o `golem2strip.mjs`
+  // que precisa da regra nova, não este número.
+  golem: { cell: 128, scale: 4, anchorX: 0.49609375, anchorY: 0.6015625, labelTop: -158 },
 
   // --- Cinco packs da CraftPix (`npm run monstros:build`) ------------------
   //
@@ -468,21 +475,21 @@ export const CREATURE_SHEETS: Record<string, CreatureSheetCfg> = {
   // que tem 76 e é o chefe). A 1,5× ficam em 56–65, encostando no herói (60).
   // ⚠️ O preço é serrilhado nas diagonais da cauda e da lâmina. O valor limpo é
   // 1 — e aí eles voltam a ser menores que o herói. Não há terceira opção.
-  ent_seco: { cell: 128, scale: 1, anchorX: 0.49609375, anchorY: 0.6171875, labelTop: -55 }, // 49px -> 49px
-  ent: { cell: 128, scale: 1, anchorX: 0.5, anchorY: 0.6171875, labelTop: -72 }, // 66px -> 66px
-  ent_ancestral: { cell: 128, scale: 1, anchorX: 0.49609375, anchorY: 0.6171875, labelTop: -76 }, // 70px -> 70px
+  ent_seco: { cell: 128, scale: 2, anchorX: 0.49609375, anchorY: 0.6171875, labelTop: -104 }, // 49px -> 98px
+  ent: { cell: 128, scale: 2, anchorX: 0.5, anchorY: 0.6171875, labelTop: -138 }, // 66px -> 132px
+  ent_ancestral: { cell: 128, scale: 2, anchorX: 0.49609375, anchorY: 0.6171875, labelTop: -146 }, // 70px -> 140px
   vampire: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.6875, labelTop: -60 }, // 27px -> 54px
   vampire_noble: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.6875, labelTop: -64 }, // 29px -> 58px
   vampire_lord: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.6875, labelTop: -62 }, // 28px -> 56px
-  mushroom_brown: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.65625, labelTop: -49.5 }, // 29px -> 43.5px
-  mushroom_red: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.65625, labelTop: -51 }, // 30px -> 45px
-  mushroom_purple: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.65625, labelTop: -61.5 }, // 37px -> 55.5px
+  mushroom_brown: { cell: 64, scale: 3, anchorX: 0.5, anchorY: 0.65625, labelTop: -93 }, // 29px -> 87px
+  mushroom_red: { cell: 64, scale: 3, anchorX: 0.5, anchorY: 0.65625, labelTop: -96 }, // 30px -> 90px
+  mushroom_purple: { cell: 64, scale: 4, anchorX: 0.5, anchorY: 0.65625, labelTop: -154 }, // 37px -> 148px
   giant_rat: { cell: 128, scale: 1, anchorX: 0.51171875, anchorY: 0.5703125, labelTop: -33 }, // 27px -> 27px
   plague_rat: { cell: 128, scale: 1, anchorX: 0.5078125, anchorY: 0.59375, labelTop: -40 }, // 34px -> 34px
   shadow_rat: { cell: 128, scale: 1, anchorX: 0.5078125, anchorY: 0.59375, labelTop: -38 }, // 32px -> 32px
-  lizardman: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.671875, labelTop: -58.5 }, // 35px -> 52.5px
-  lizardman_soldier: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.671875, labelTop: -66 }, // 40px -> 60px
-  lizardman_champion: { cell: 64, scale: 1.5, anchorX: 0.5, anchorY: 0.671875, labelTop: -67.5 }, // 41px -> 61.5px
+  lizardman: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.671875, labelTop: -76 }, // 35px -> 70px
+  lizardman_soldier: { cell: 64, scale: 3, anchorX: 0.5, anchorY: 0.671875, labelTop: -126 }, // 40px -> 120px
+  lizardman_champion: { cell: 64, scale: 4, anchorX: 0.5, anchorY: 0.671875, labelTop: -170 }, // 41px -> 164px
 
   // --- Segunda leva da CraftPix, 01/09 -------------------------------------
   //
@@ -506,15 +513,15 @@ export const CREATURE_SHEETS: Record<string, CreatureSheetCfg> = {
   imp: { cell: 64, scale: 1.5, anchorX: 0.4921875, anchorY: 0.671875, labelTop: -43.5 }, // 25px -> 37.5px
   imp_winged: { cell: 64, scale: 1.5, anchorX: 0.4921875, anchorY: 0.671875, labelTop: -48 }, // 28px -> 42px
   imp_infernal: { cell: 64, scale: 1.5, anchorX: 0.4921875, anchorY: 0.671875, labelTop: -49.5 }, // 29px -> 43.5px
-  beholder: { cell: 64, scale: 1, anchorX: 0.5078125, anchorY: 0.765625, labelTop: -50 }, // 44px -> 44px
-  beholder_crimson: { cell: 64, scale: 1, anchorX: 0.5078125, anchorY: 0.828125, labelTop: -54 }, // 48px -> 48px
-  beholder_void: { cell: 64, scale: 1, anchorX: 0.5078125, anchorY: 0.890625, labelTop: -63 }, // 57px -> 57px
+  beholder: { cell: 64, scale: 2, anchorX: 0.5078125, anchorY: 0.765625, labelTop: -94 }, // 44px -> 88px
+  beholder_crimson: { cell: 64, scale: 2, anchorX: 0.5078125, anchorY: 0.828125, labelTop: -102 }, // 48px -> 96px
+  beholder_void: { cell: 64, scale: 3, anchorX: 0.5078125, anchorY: 0.890625, labelTop: -177 }, // 57px -> 171px
   skeleton_warrior: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.640625, labelTop: -52 }, // 23px -> 46px
   skeleton_guard: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.640625, labelTop: -52 }, // 23px -> 46px
   skeleton_king: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.640625, labelTop: -60 }, // 27px -> 54px
-  gnoll: { cell: 64, scale: 1.5, anchorX: 0.5078125, anchorY: 0.671875, labelTop: -55.5 }, // 33px -> 49.5px
-  gnoll_warrior: { cell: 64, scale: 1.5, anchorX: 0.5078125, anchorY: 0.671875, labelTop: -55.5 }, // 33px -> 49.5px
-  gnoll_chieftain: { cell: 64, scale: 1.5, anchorX: 0.5078125, anchorY: 0.671875, labelTop: -57 }, // 34px -> 51px
+  gnoll: { cell: 64, scale: 2, anchorX: 0.5078125, anchorY: 0.671875, labelTop: -72 }, // 33px -> 66px
+  gnoll_warrior: { cell: 64, scale: 3, anchorX: 0.5078125, anchorY: 0.671875, labelTop: -105 }, // 33px -> 99px
+  gnoll_chieftain: { cell: 64, scale: 4, anchorX: 0.5078125, anchorY: 0.671875, labelTop: -142 }, // 34px -> 136px
   zombie: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.640625, labelTop: -58 }, // 26px -> 52px
   zombie_grave: { cell: 64, scale: 2, anchorX: 0.5078125, anchorY: 0.640625, labelTop: -56 }, // 25px -> 50px
   zombie_rotten: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.640625, labelTop: -58 }, // 26px -> 52px
@@ -524,9 +531,48 @@ export const CREATURE_SHEETS: Record<string, CreatureSheetCfg> = {
   // espécie nova. 1,5× e não 2×: a 2× o goblin daria 62–72 px, acima do herói —
   // e goblin é bicho pequeno, essa é a leitura que a silhueta tem de dar.
   // 🔴 O `goblin_archer` fica sem arte: as três variantes são corpo a corpo.
-  goblin_warrior: { cell: 64, scale: 1.5, anchorX: 0.46875, anchorY: 0.625, labelTop: -42 }, // 24px -> 36px
-  goblin_captain: { cell: 64, scale: 1.5, anchorX: 0.46875, anchorY: 0.625, labelTop: -46.5 }, // 27px -> 40.5px
-  goblin_shaman: { cell: 64, scale: 1.5, anchorX: 0.46875, anchorY: 0.625, labelTop: -49.5 }, // 29px -> 43.5px
+  goblin_warrior: { cell: 64, scale: 2, anchorX: 0.46875, anchorY: 0.625, labelTop: -54 }, // 24px -> 48px
+  goblin_captain: { cell: 64, scale: 2, anchorX: 0.46875, anchorY: 0.625, labelTop: -60 }, // 27px -> 54px
+  goblin_shaman: { cell: 64, scale: 2, anchorX: 0.46875, anchorY: 0.625, labelTop: -64 }, // 29px -> 58px
+
+  // --- Terceira leva, 02/09 ------------------------------------------------
+  // 🔴 QUATRO preenchem espécie que já existia: os três Slimes do DD-BAL e o
+  // Super Slime, que nunca teve arte. Eles eram desenhados por ramos próprios
+  // em main.ts (uma folha de andar + variantes por rotação de matiz); como
+  // este mapa tem PRECEDÊNCIA sobre tudo, aqueles ramos ficaram inertes.
+  // ⚠️ Só a arte muda — os números deles seguem fixados pelo documento.
+  slime: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.625, labelTop: -52 }, // 23px -> 46px
+  slime_blue: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.625, labelTop: -68 }, // 31px -> 62px
+  slime_amber: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.625, labelTop: -78 }, // 36px -> 72px
+  slime_void: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.625, labelTop: -58 }, // 26px -> 52px
+  slime_red: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.625, labelTop: -84 }, // 39px -> 78px
+  super_slime: { cell: 64, scale: 4, anchorX: 0.4921875, anchorY: 0.625, labelTop: -98 }, // 23px -> 92px
+  lich: { cell: 64, scale: 2, anchorX: 0.4921875, anchorY: 0.6875, labelTop: -76 }, // 35px -> 70px
+  lich_frost: { cell: 64, scale: 2, anchorX: 0.4765625, anchorY: 0.6875, labelTop: -80 }, // 37px -> 74px
+  lich_king: { cell: 64, scale: 3, anchorX: 0.4921875, anchorY: 0.6875, labelTop: -123 }, // 39px -> 117px
+  golem_earth: { cell: 128, scale: 2, anchorX: 0.49609375, anchorY: 0.59375, labelTop: -80 }, // 37px -> 74px
+  golem_crystal: { cell: 128, scale: 2, anchorX: 0.5, anchorY: 0.59375, labelTop: -94 }, // 44px -> 88px
+  golem_arcane: { cell: 128, scale: 3, anchorX: 0.5, anchorY: 0.59375, labelTop: -168 }, // 54px -> 162px
+
+  // --- Quarta leva, 02/09: caça, bandidos e guardas ------------------------
+  // ⚠️ O Javali (boar) já existia na ficha e estava DORMENTE sem arte.
+  // 🔴 Os seis GUARDAS entram só como arte: o servidor ainda não sabe
+  // criatura-ataca-criatura, então guarda de verdade é sistema, não ficha.
+  // Eles não têm spawn até a IA existir.
+  boar: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.8125, labelTop: -50 }, // 22px -> 44px
+  deer: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.875, labelTop: -62 }, // 28px -> 56px
+  fox: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.875, labelTop: -54 }, // 24px -> 48px
+  hare: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.875, labelTop: -52 }, // 23px -> 46px
+  black_grouse: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.78125, labelTop: -50 }, // 22px -> 44px
+  bandit: { cell: 64, scale: 2, anchorX: 0.4921875, anchorY: 0.6875, labelTop: -60 }, // 27px -> 54px
+  bandit_raider: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.6875, labelTop: -60 }, // 27px -> 54px
+  bandit_chief: { cell: 64, scale: 2, anchorX: 0.4921875, anchorY: 0.703125, labelTop: -62 }, // 28px -> 56px
+  village_guard: { cell: 64, scale: 2, anchorX: 0.4921875, anchorY: 0.71875, labelTop: -62 }, // 28px -> 56px
+  village_sergeant: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.71875, labelTop: -62 }, // 28px -> 56px
+  village_captain: { cell: 64, scale: 2, anchorX: 0.4921875, anchorY: 0.734375, labelTop: -66 }, // 30px -> 60px
+  city_guard: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.6875, labelTop: -64 }, // 29px -> 58px
+  city_sergeant: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.6875, labelTop: -66 }, // 30px -> 60px
+  city_captain: { cell: 64, scale: 3, anchorX: 0.5, anchorY: 0.6875, labelTop: -96 }, // 30px -> 90px
 };
 
 /**
