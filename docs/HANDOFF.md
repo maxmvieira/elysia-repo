@@ -1,3 +1,170 @@
+# Handoff — 2026-09-02, sessão da noite (o link para jogar de fora)
+
+## ⏸️ ONDE PARAMOS — a TELA PRETA do jogador remoto, ainda em aberto
+
+> Escrito para o irmão do dono. O dono publicou um link para jogar de casa, e o
+> que a sessão inteira virou foi caçar por que a tela dele fica preta. **Não
+> fechei o caso** — deixei o instrumento pronto e o próximo passo é de uma linha.
+> Typecheck limpo nos 3 pacotes, **493 testes** (465 shared + 28 server).
+
+### O que entrou
+
+| | |
+|---|---|
+| 🆕 **`/lvl`** | sozinho sobe UM nível; com número é o `/level` de sempre |
+| 🔴 **Auto-login consertado** | o link público entrava na conta do DONO |
+| 🩺 **Falha fatal vira TEXTO** | tela preta muda agora mostra o erro escrito |
+
+---
+
+## 🔴 A PRÓXIMA COISA: ler o que o painel de erro disser
+
+### O que já sabemos, medido
+
+O jogador remoto **entra**: o servidor registrou `[auth] frank (conta 9)` e
+`[join] Xddd — Arqueiro nv.1`. Login, WebSocket e join funcionam. O que não
+acontece é o **desenho**.
+
+Descartado com medição, para ninguém repetir:
+
+| hipótese | como caiu |
+|---|---|
+| banda / assets pesados | `client/public` inteiro tem **12 MB** |
+| o túnel | `GET /` dá 200 e `/ws` dá **101 Switching Protocols** |
+| login | o `[join]` dele está no log do servidor |
+| **é noite no jogo** | calculei a fase: era **dia, 11:48**. O overlay de noite chega a `nightDarkness` 0,92 e deixa a tela quase toda preta com um buraco de luz no herói — vale lembrar dele em relatos futuros de "está escuro", mas não era o caso |
+
+### 🔴 A mecânica que PRODUZ o preto (isto é o achado)
+
+Em `client/src/main.ts`, na entrada do jogo:
+
+```ts
+showScreen('none');
+void startGame(...);   // promessa solta
+```
+
+`showScreen('none')` esconde **todas** as telas e só então `startGame` dispara,
+com `void`. Se ela rejeitar, ninguém trata: as telas já sumiram, o mundo não
+montou, e o que sobra é **página preta e muda** com o erro vivendo só no console
+de quem está jogando.
+
+⚠️ **Com um jogador remoto isso é um beco sem saída**: de cá não se vê o console
+dele, e do lado de lá ninguém tem por que saber abrir o F12. É por isso que o
+conserto foi instrumentar antes de adivinhar.
+
+### O instrumento: `mostraFalhaFatal`
+
+`void` virou `.catch`, mais dois laços de segurança (`error` e
+`unhandledrejection`). Qualquer falha agora pinta um painel legível por cima da
+página. Testado disparando um erro de propósito: o painel aparece.
+
+⚠️ **O `instanceof ErrorEvent` no laço de `error` não é enfeite**: o evento
+'error' da janela também dispara para RECURSO que não carregou (um PNG 404), e
+esses chegam como `Event` puro. Sem a checagem, um sprite faltando cobriria o
+jogo inteiro com um painel de erro fatal — trocaria um bug pequeno por um grande.
+
+⚠️ **O painel reaproveita o mesmo elemento** a cada chamada, de propósito: erro
+dentro do laço de render dispara a cada quadro, e criar um painel por quadro
+travaria o navegador em cima de um problema que já é ruim.
+
+**O próximo passo é só isto:** o jogador recarrega com Ctrl+Shift+R e lê a tela.
+Se vier texto, a causa está nele. Se continuar preto de verdade, não é exceção —
+é o canvas não desenhando, e aí a suspeita passa a ser WebGL da máquina dele.
+
+---
+
+## 🔴 O auto-login entrava na conta do DONO — consertado na configuração
+
+Abrindo o link público, eu caí **logado como `maxmurtesvieira` sem digitar
+nada**. No console:
+
+```
+[DEV] auto-login ligado para "maxmurtesvieira" — tela de login pulada
+```
+
+🔴 **A trava do cliente é `import.meta.env.DEV`, que é verdadeiro em QUALQUER
+`npm run dev`** — não só no `dev:test`. A do servidor é outra e mais estreita
+(`ELYSIA_DEV` **e** `ELYSIA_DEV_ACCOUNT`), então a entrada de fato era recusada.
+O efeito visível não era invasão: era o visitante ser recebido por uma tela de
+login **já com "Usuário ou senha inválidos" em vermelho**, antes de tocar em nada.
+
+⚠️ **As duas metades do auto-login estão em travas DIFERENTES**, e é isso que
+engana: desligar o servidor não desliga o cliente. Para subir com os comandos DEV
+e sem nenhum atalho de senha:
+
+```bash
+ELYSIA_DEV_ACCOUNT= VITE_DEV_ACCOUNT= npm run dev:test
+```
+
+Os dois vazios importam: `dev.ts` usa `?? 'maxmurtesvieira'`, e string vazia
+**não** é nullish — por isso ela desliga em vez de cair no padrão. Conferido pelo
+túnel: a tela de login vem limpa, sem o aviso e sem o erro.
+
+---
+
+## 🌐 Como publicar o link (funcionou de primeira)
+
+```bash
+cloudflared tunnel --url http://localhost:5173
+```
+
+**Um túnel só resolve site + multiplayer**, e isso já estava preparado no
+repositório — não foi preciso mexer em nada:
+
+| onde | o que já fazia |
+|---|---|
+| `client/vite.config.ts` | `allowedHosts: true` e proxy de `/ws` → `ws://localhost:8080` |
+| `client/src/net.ts` | monta a URL a partir do `location.host`; em https usa `wss` sozinho |
+
+Por isso não há "mixed content" nem porta separada: o WebSocket sai pela mesma
+origem do site. Conferido de fora: `200` no site e `101 Switching Protocols` no
+`/ws`.
+
+⚠️ **O endereço é sorteado e morre com o processo.** Fechou o terminal, o link
+acabou; o próximo sai com outro nome.
+
+### 🔴 Um link público com `dev:test` entrega o EDITOR DE MUNDO
+
+Com `ELYSIA_DEV=1`, qualquer um que abrir a URL tem `/lvl`, `/gold`, `/tp` — e
+também `/remove` e o construtor da tecla **E**. O `/remove` grava no banco e
+apaga cenário **para todo mundo**, porque é autoria de mundo e não progresso de
+personagem. Enquanto for família, tudo bem; a URL não é para espalhar.
+
+---
+
+## 🆕 `/lvl`
+
+| | |
+|---|---|
+| `/lvl` | **sobe um nível** |
+| `/lvl 30` | idêntico a `/level 30` |
+
+Pedido do dono para o irmão ir subindo sem farmar. É apelido do `case 'level'`,
+não comando novo: o laço que reconstrói a ficha é o mesmo.
+
+⚠️ **Só sobe.** O `/level` nunca desceu de nível — o laço vai de baixo para cima
+— e o atalho não mudou isso. `/lvl 3` estando no 10 não rebaixa; só zera o XP,
+que é o comportamento que já existia.
+
+🔴 **Não funciona no `npm run dev`.** `handleDevCommand` devolve `false` sem
+`ELYSIA_DEV=1`, e o comando vira mensagem de chat comum. Foi o que aconteceu na
+primeira tentativa desta sessão — subi o servidor errado e o comando ficou inerte.
+
+---
+
+## ⚠️ Achado solto, NÃO consertado: criar personagem sem estar logado
+
+Abrindo o link em aba nova, o cliente mostra a tela **"NOVO PERSONAGEM"** sem ter
+autenticado. Conferido nos dois lados: o servidor registra `[conn]` e **nenhum
+`[auth]`**, e o `localStorage`/`sessionStorage` do navegador estão **vazios** —
+não é sessão restaurada.
+
+Visto duas vezes, em abas limpas. Pode ser o que fez o jogador remoto criar
+`Xdd` e depois `Xddd`: a tela pede um personagem que a conta ainda não tem como
+ter. **Fica para quem pegar** — pode inclusive ser a mesma raiz da tela preta.
+
+---
+
 # Handoff — estado do projeto em 2026-09-02
 
 ## ⏸️ ONDE PARAMOS — bestiário fechado, GUARDAS pendentes

@@ -327,11 +327,14 @@ function routeServerMessage(msg: ServerMessage): void {
         // como qualquer outra, e `setGameHandler` a drena na ordem certa. Antes,
         // o `welcome` era o ÚNICO entregue — o que vinha logo atrás dele
         // (inventário!) morria no `gameHandler?.()` com o handler ainda nulo.
-        void startGame(
+        // ⚠️ `.catch` e NÃO `.then`: o comentário acima continua valendo — o
+        // `welcome` segue caindo na fila, não é entregue aqui. Isto só evita que
+        // uma rejeição vire tela preta muda.
+        startGame(
           escolhido?.name ?? 'Herói',
           escolhido?.charClass ?? 'knight',
           escolhido?.gender ?? 'male',
-        );
+        ).catch((err: unknown) => mostraFalhaFatal('startGame', err));
       }
       break;
     default:
@@ -641,6 +644,64 @@ function shade(color: number, factor: number): number {
 
 // ---- Setup do PixiJS -------------------------------------------------------
 const app = new Application();
+
+/**
+ * Pinta uma falha fatal NA TELA, em vez de deixar o jogador com o preto.
+ *
+ * 🔴 O motivo de existir: `startGame` é disparada com `void` logo depois de
+ * `showScreen('none')`. Se ela rejeitar, as telas JÁ foram escondidas e não
+ * sobra nada para ver — a página fica preta e muda, e o erro vive só no console
+ * de quem está jogando. Com um jogador remoto isso é um beco: de cá não há como
+ * saber o que quebrou, e do lado de lá ninguém tem por que saber abrir o F12.
+ *
+ * ⚠️ Reaproveita o mesmo elemento a cada chamada de propósito: erro dentro do
+ * laço de render dispara a cada quadro, e criar um painel por quadro travaria o
+ * navegador em cima de um problema que já é ruim.
+ */
+function mostraFalhaFatal(origem: string, err: unknown): void {
+  console.error(`[Elysia] falha fatal em ${origem}`, err);
+  const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  const pilha = err instanceof Error && err.stack ? err.stack : '';
+  let painel = document.getElementById('falha-fatal');
+  if (!painel) {
+    painel = document.createElement('div');
+    painel.id = 'falha-fatal';
+    painel.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:99999',
+      'background:#140d0d', 'color:#e8d8c8',
+      'font:13px/1.6 ui-monospace,Consolas,monospace',
+      'padding:24px', 'overflow:auto', 'white-space:pre-wrap',
+    ].join(';');
+    document.body.appendChild(painel);
+  }
+  painel.textContent = [
+    'O jogo não conseguiu abrir.',
+    '',
+    `onde: ${origem}`,
+    msg,
+    '',
+    pilha,
+    '',
+    'Mande um print desta tela para quem cuida do servidor.',
+  ].join('\n');
+}
+
+/*
+ * Redes de segurança para o que escapar do `catch` do `startGame`: erro solto
+ * no laço de render e promessa rejeitada em qualquer canto.
+ *
+ * ⚠️ O `instanceof ErrorEvent` NÃO é enfeite: o evento 'error' da janela também
+ * dispara para RECURSO que não carregou (um PNG 404), e esses chegam como
+ * `Event` puro. Sem a checagem, um sprite faltando cobriria o jogo inteiro com
+ * um painel de erro fatal — trocaria um bug pequeno por um grande.
+ */
+window.addEventListener('error', (e) => {
+  if (!(e instanceof ErrorEvent)) return;
+  mostraFalhaFatal('erro não tratado', e.error ?? e.message);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  mostraFalhaFatal('promessa rejeitada', e.reason);
+});
 
 async function startGame(playerName: string, charClass: PlayerClass, gender: Gender): Promise<void> {
   await app.init({

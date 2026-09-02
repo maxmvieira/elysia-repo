@@ -3109,6 +3109,7 @@ function summonMinion(boss: Creature): void {
  * servidor normal viram mensagem de chat comum.
  *
  *   /level <n>   define o nível e concede os pontos correspondentes
+ *   /lvl [n]     o mesmo; sozinho sobe UM nível
  *   /sp <n>      dá Skill Points avulsos
  *   /gold <n>    define o ouro
  *   /heal        enche vida e mana
@@ -3220,10 +3221,22 @@ function handleDevCommand(player: Player, text: string): boolean {
       return aviso('condições limpas.'), true;
     }
 
+    /*
+     * `/lvl` é o mesmo comando com um atalho: SEM número ele sobe UM nível. É o
+     * modo de ir subindo aos poucos sem ter que lembrar em que nível se está.
+     * Com número (`/lvl 30`) é idêntico a `/level 30`.
+     *
+     * ⚠️ Só sobe. `/level` nunca desceu de nível — o laço reconstrói a ficha de
+     * baixo para cima, e o atalho não muda isso.
+     */
+    case 'lvl':
     case 'level': {
-      if (!Number.isFinite(n) || n < 1 || n > 500) return aviso('uso: /level <1..500>'), true;
-      // Reconstrói a ficha do nível 1 até `n`, concedendo tudo que seria ganho.
-      while (player.level < n) {
+      const alvo = Number.isFinite(n) ? n : cmd === 'lvl' ? player.level + 1 : NaN;
+      if (!Number.isFinite(alvo) || alvo < 1 || alvo > 500) {
+        return aviso('uso: /level <1..500> — ou /lvl sozinho para subir um nível'), true;
+      }
+      // Reconstrói a ficha do nível 1 até `alvo`, concedendo tudo que seria ganho.
+      while (player.level < alvo) {
         player.level += 1;
         player.unspentPoints += pointsForLevel(player.level);
         player.skillPoints += skillPointsAtLevel(player.cls.id, player.level);
