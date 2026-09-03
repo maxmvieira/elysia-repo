@@ -822,6 +822,198 @@
           display: none;
         }
       }
+      /* ---- TELA DE CRIAÇÃO (02/09, noite) ------------------------------- */
+      /*
+       * Vem DEPOIS do bloco compartilhado com `#login`/`#charselect`, pelo mesmo
+       * motivo que o da tela de entrada: sobrescreve o `flex-direction: column`
+       * centralizado que as três dividem.
+       */
+      #start {
+        display: none;
+        padding: 0;
+        background: #07060a;
+      }
+      #startbg {
+        position: absolute;
+        inset: 0;
+        /* A MESMA arte da tela de entrada: é o mesmo mundo, e economiza 2,5 MB
+           de download que já foram pagos. */
+        background: url('/assets/ui/login-bg.png') center / cover no-repeat,
+          radial-gradient(circle at 50% 35%, #16151f, #07060a 70%);
+        z-index: 0;
+      }
+      #startbg::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(7, 6, 10, 0.62), rgba(7, 6, 10, 0.86));
+      }
+      #startwrap {
+        position: relative;
+        z-index: 1;
+        width: min(1320px, 98vw);
+        max-height: 100vh;
+        overflow: auto;
+        display: grid;
+        /* Meio elástico: as colunas laterais têm largura fixa e o palco fica com
+           o que sobrar, que é onde o boneco vai entrar. */
+        grid-template-columns: 320px 1fr 300px;
+        gap: 20px;
+        align-items: start;
+        padding: 18px;
+      }
+      #startleft,
+      #ccattrs {
+        /* 🔴 `min-width: 0` é o que impede a coluna de crescer além da faixa que
+           o grid deu a ela — sem isso o conteúdo manda, e a página ganha barra
+           de rolagem horizontal. */
+        min-width: 0;
+        overflow: hidden;
+        background: rgba(10, 9, 14, 0.74);
+        border: 1px solid #3b3630;
+        border-radius: 6px;
+        padding: 14px;
+        backdrop-filter: blur(2px);
+      }
+      #startmark {
+        text-align: center;
+        line-height: 1;
+        margin-bottom: 12px;
+      }
+      #startmark h1 {
+        margin: 0;
+        font-size: 30px;
+        letter-spacing: 7px;
+        color: #e8cd8f;
+      }
+      #startmark span {
+        font-size: 10px;
+        letter-spacing: 6px;
+        color: #b9a173;
+      }
+      /* O rótulo numerado de cada passo. */
+      .ccpasso {
+        margin: 0 0 8px;
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: #c9a86a;
+        text-align: center;
+      }
+      #startmid {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      #startmid h2 {
+        margin: 4px 0 0;
+        font-size: 26px;
+        letter-spacing: 6px;
+      }
+      /*
+       * 🔴 O palco do personagem. Vazio até o sprite universal existir.
+       * A altura mínima segura o layout: sem ela, a coluna do meio encolheria e
+       * a tela inteira se remontaria no dia em que o boneco entrasse.
+       */
+      #ccpalco {
+        flex: 1;
+        min-height: 220px;
+        width: 100%;
+      }
+      #ccbaixo {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 20px;
+        align-items: start;
+        width: 100%;
+      }
+      .ccbloco {
+        min-width: 0;
+      }
+      #ccgender {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+      }
+      /* A grade de classes vira UMA coluna: o cartão agora é largo e descritivo. */
+      #classes {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+      .classcard {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+      }
+      .classcard .cinfo b {
+        font-size: 13px;
+        letter-spacing: 1px;
+      }
+      .classcard .cinfo p {
+        margin: 2px 0 0;
+        font-size: 10.5px;
+        line-height: 1.45;
+        color: #9a9284;
+      }
+      /*
+       * ⚠️ O Druida entra APAGADO e não clicável: ele existe no GDD (são cinco
+       * classes) e na arte de referência, mas não existe no código — está na
+       * etapa 15 do roadmap. Mostrar e avisar é mais honesto que esconder, e
+       * muito mais honesto que deixar escolher uma classe que não existe.
+       */
+      .classcard.embreve {
+        opacity: 0.42;
+        cursor: default;
+        filter: grayscale(0.7);
+      }
+      .classcard.embreve:hover {
+        border-color: var(--border);
+      }
+      .classcard .emb {
+        margin-left: auto;
+        font-size: 9px;
+        letter-spacing: 1px;
+        color: #8a8272;
+        white-space: nowrap;
+      }
+      #startmid #playbtn {
+        width: 100%;
+        max-width: 420px;
+        padding: 12px;
+        font-size: 15px;
+        letter-spacing: 3px;
+        background: linear-gradient(#2a4a7a, #1b3153);
+        border: 1px solid #4a6a9a;
+        color: #e8e2d5;
+        border-radius: 4px;
+      }
+      #startleft #backbtn {
+        width: 100%;
+        margin-top: 10px;
+        padding: 9px;
+        font-size: 12px;
+        letter-spacing: 2px;
+        background: transparent;
+        border: 1px solid #6a5a3a;
+        color: #c9a86a;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #startleft #backbtn:hover {
+        background: rgba(201, 168, 106, 0.1);
+      }
+      /* Tela estreita: uma coluna só, e a ordem dos passos se mantém. */
+      @media (max-width: 1100px) {
+        #startwrap {
+          grid-template-columns: 1fr;
+        }
+        #ccpalco {
+          min-height: 0;
+        }
+      }
       /* ---- Exclusão de personagem (02/09) ------------------------------ */
       .charrow .cnome { flex: 1; min-width: 0; }
       .charrow .cdel {
@@ -893,25 +1085,20 @@
         color: #c9a86a;
         box-shadow: 0 0 8px rgba(201, 168, 106, 0.3);
       }
-      #classes {
-        display: grid;
-        grid-template-columns: repeat(2, 260px);
-        gap: 12px;
-      }
       /* ---- Distribuição de atributos na criação (02/09) ------------------ */
-      #ccattrs {
-        width: 532px; /* casa com a grade de classes: 2 × 260 + 12 de gap */
-        background: #16130f;
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        padding: 10px 12px;
-      }
+      /*
+       * ⚠️ A grade de `#classes` em 2×260 e a largura fixa de 532 px SAÍRAM
+       * daqui na noite de 02/09, com a tela de criação nova: lá as classes viram
+       * uma coluna de cartões largos e os atributos são uma coluna de 300 px.
+       * As duas regras vinham DEPOIS das novas no arquivo e venciam por cascata,
+       * remontando a tela em duas colunas.
+       */
       #ccattrs-head {
         display: flex;
         justify-content: space-between;
         align-items: baseline;
         margin-bottom: 8px;
-        font-size: 13px;
+        font-size: 11.5px;
         color: #c9a86a;
       }
       #ccattrs-head b {
@@ -921,10 +1108,16 @@
       #ccattrs-head b.pronto {
         color: #7fbf6b;
       }
+      /*
+       * ⚠️ UMA coluna desde 02/09 (noite). Eram duas quando o painel ocupava a
+       * largura inteira da tela antiga; na coluna lateral de 300 px as duas
+       * empurravam o conteúdo para fora e criavam barra de rolagem horizontal na
+       * página inteira.
+       */
       #ccattrs-list {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 4px 16px;
+        grid-template-columns: 1fr;
+        gap: 2px;
       }
       .ccrow {
         display: flex;
@@ -935,6 +1128,12 @@
         gap: 4px 6px;
         font-size: 12px;
         margin-bottom: 2px;
+      }
+      /* O preço do próximo ponto, ao lado do valor. */
+      .ccrow .ac {
+        width: 20px;
+        font-size: 10px;
+        color: #8a8272;
       }
       .ccrow .an {
         flex: 1;
@@ -965,7 +1164,8 @@
       .ccrow .ae {
         flex: 0 0 100%;
         margin: -2px 0 4px 0;
-        font-size: 10px;
+        font-size: 9.5px;
+        line-height: 1.3;
         color: #8a8272;
       }
       #ccattrs-prev {
@@ -2966,31 +3166,77 @@
       </div>
       <p class="authhint" id="charhint"></p>
     </div>
-    <div id="start">
-      <h2>NOVO PERSONAGEM</h2>
-      <p id="starttag">O nome é definitivo. Escolha com carinho.</p>
-      <input id="namein" placeholder="Nome do aventureiro" maxlength="20" />
-      <div class="autherr" id="nameerr"></div>
-      <div id="classes"></div>
-      <!--
-        DISTRIBUIÇÃO DE ATRIBUTOS (02/09). Nasce escondido: só aparece depois de
-        a classe ser escolhida, porque a prévia de vida e mana depende dela.
+    <!--
+      ---- TELA DE CRIAÇÃO (02/09, noite) -------------------------------------
 
-        🔴 A prévia existe por um motivo concreto: vida e mana no nível 1 saem de
-        VIT e INT. Um Knight que ignora VIT nasce com 128 de vida em vez de 200 —
-        e descobrir isso depois de criar, com o nome já definitivo, seria cruel.
-      -->
-      <div id="ccattrs" style="display: none">
-        <div id="ccattrs-head">
-          <span>Distribua seus pontos</span>
-          <b id="ccattrs-left">0</b>
-        </div>
-        <div id="ccattrs-list"></div>
-        <div id="ccattrs-prev"></div>
+      Desenho vindo de uma arte que o dono trouxe: classes à esquerda, o palco do
+      personagem no meio, gênero e nome embaixo.
+
+      🔴 **O MEIO FICA VAZIO DE PROPÓSITO.** É o lugar do boneco, e o dono avisou
+      que ainda está fazendo o sprite universal. Preencher com outra coisa agora
+      só daria trabalho de tirar depois.
+
+      🔴 **A distribuição de pontos foi para a COLUNA DIREITA** — ela não existe
+      na arte de referência, mas o passo existe no jogo desde hoje de manhã.
+      Pôr à direita mantém o meio livre para o boneco e deixa a tela simétrica.
+
+      ⚠️ Os ids continuam os mesmos (`namein`, `classes`, `playbtn`, `ccattrs*`):
+      o `main.ts` acha tudo por `getElementById`, então a tela foi remontada sem
+      tocar na lógica de criação.
+    -->
+    <div id="start">
+      <div id="startbg"></div>
+      <div id="startwrap">
+        <!-- Coluna 1: marca e classes -->
+        <aside id="startleft">
+          <div id="startmark">
+            <h1>ELYSIA</h1>
+            <span>O N L I N E</span>
+          </div>
+          <h3 class="ccpasso">1. SELECIONE SUA CLASSE</h3>
+          <div id="classes"></div>
+          <button id="backbtn">← VOLTAR</button>
+        </aside>
+
+        <!-- Coluna 2: título, palco do personagem, gênero e nome -->
+        <section id="startmid">
+          <h2>CRIAR PERSONAGEM</h2>
+          <p id="starttag">Escolha sua classe. Seu destino começa agora.</p>
+          <!--
+            O palco. Vazio até o sprite universal existir — ver o comentário do
+            topo. Não é esquecimento nem espaço morto: é lugar reservado.
+          -->
+          <div id="ccpalco"></div>
+          <div id="ccbaixo">
+            <div class="ccbloco">
+              <h3 class="ccpasso">2. SELECIONE O GÊNERO</h3>
+              <div id="ccgender"></div>
+            </div>
+            <div class="ccbloco">
+              <h3 class="ccpasso">3. NOME DO PERSONAGEM</h3>
+              <input id="namein" placeholder="Digite o nome do personagem…" maxlength="20" />
+              <div class="autherr" id="nameerr"></div>
+            </div>
+          </div>
+          <button id="playbtn" disabled>Escolha uma classe</button>
+        </section>
+
+        <!--
+          Coluna 3: os pontos. Nasce escondida porque a prévia de vida e mana
+          depende da classe escolhida.
+        -->
+        <aside id="ccattrs" style="display: none">
+          <h3 class="ccpasso">4. DISTRIBUA SEUS PONTOS</h3>
+          <div id="ccattrs-head">
+            <span>Pontos restantes</span>
+            <b id="ccattrs-left">0</b>
+          </div>
+          <div id="ccattrs-list"></div>
+          <div id="ccattrs-prev"></div>
+        </aside>
       </div>
-      <button id="playbtn" disabled>Escolha uma classe</button>
-      <button id="backbtn">Voltar</button>
     </div>
+
     <div id="skillpanel">
       <h3>
         <span>Habilidades · <b id="sp-points">0</b> SP</span>

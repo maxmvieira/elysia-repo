@@ -24,6 +24,7 @@ import {
   CREATURES,
   ATTRIBUTE_KEYS,
   attributeCost,
+  creationCost,
   CREATION_POINTS,
   startingAttributes,
   checkAttributes,
@@ -446,8 +447,30 @@ function routeServerMessage(msg: ServerMessage): void {
  * Travas: `import.meta.env.DEV` (some no build de produção) e a conta precisar
  * estar nomeada aqui. Para desligar, ponha `VITE_DEV_ACCOUNT=` vazio.
  */
+/**
+ * Conta que o cliente tenta logar sozinho. **Vazio = desligado**, e vazio é o
+ * padrão.
+ *
+ * 🔴 **O `?? 'maxmurtesvieira'` que estava aqui era o bug.** Ele ligava o
+ * auto-login em QUALQUER `npm run dev`, enquanto o servidor só aceita entrada
+ * sem senha com `ELYSIA_DEV_ACCOUNT` preenchida — que ninguém preenche. As duas
+ * metades discordavam, e a discordância produzia os dois defeitos que o dono
+ * relatou em 02/09:
+ *
+ * 1. **"ao logar ele já vai direto pro último personagem"** — com este valor
+ *    truthy, o bloco de auto-entrada em `renderCharList` disparava depois de
+ *    QUALQUER login, inclusive o digitado à mão, e entrava no primeiro da lista.
+ * 2. **"trocar personagem volta pra tela de login"** — a recarga disparava um
+ *    `auth` automático com senha vazia, o servidor recusava (porque a metade
+ *    dele estava desligada), e sobrava a tela de senha com "Usuário ou senha
+ *    inválidos" antes de o jogador tocar em nada.
+ *
+ * ⚠️ Agora é **adesão explícita**: quem quiser o atalho põe `VITE_DEV_ACCOUNT`
+ * no cliente E `ELYSIA_DEV_ACCOUNT` no servidor. Uma sem a outra não faz nada —
+ * que é bem melhor que meia coisa funcionando.
+ */
 const DEV_AUTOLOGIN: string = import.meta.env.DEV
-  ? (import.meta.env.VITE_DEV_ACCOUNT ?? 'maxmurtesvieira')
+  ? (import.meta.env.VITE_DEV_ACCOUNT ?? '')
   : '';
 /** Já disparou o auto-login? Evita repetir a cada `charlist` que chegar. */
 let autoLoginFeito = false;
@@ -701,9 +724,12 @@ function setupStartScreen(): void {
     };
     genderBar.appendChild(btn);
   });
-  classesEl.before(genderBar);
+  // O gênero é o passo 2 e tem lugar próprio na tela desde 02/09 — antes era
+  // enfiado logo acima da grade de classes.
+  (document.getElementById('ccgender') ?? classesEl).appendChild(genderBar);
 
-  const order: PlayerClass[] = ['knight', 'sorcerer', 'archer', 'assassin'];
+  // A ordem da arte de referência que o dono trouxe.
+  const order: PlayerClass[] = ['knight', 'sorcerer', 'assassin', 'archer'];
   const cards = new Map<PlayerClass, HTMLElement>();
   let knightIcon!: HTMLElement;
   for (const id of order) {
@@ -716,7 +742,7 @@ function setupStartScreen(): void {
     const iconStyle = HERO_ART_CLASSES.has(id) ? heroIconCss(id, 48) : classIconCss(id, 48);
     card.innerHTML =
       `<div class="cicon" style="${iconStyle}"></div>` +
-      `<div class="cinfo"><b>${def.name}</b><p>${def.blurb}</p></div>`;
+      `<div class="cinfo"><b>${def.name.toUpperCase()}</b><p>${def.blurb}</p></div>`;
     if (id === 'knight' && !HERO_ART_CLASSES.has(id)) knightIcon = card.querySelector('.cicon')!;
     card.onclick = () => {
       chosen = id;
@@ -728,6 +754,27 @@ function setupStartScreen(): void {
     classesEl.appendChild(card);
     cards.set(id, card);
   }
+  /*
+   * 🔴 O DRUIDA aparece, mas APAGADO e sem clique.
+   *
+   * Ele existe no GDD — que fala em cinco classes — e na arte de referência, mas
+   * NÃO existe no código: está na etapa 15 do roadmap, e `CLASSES` tem quatro.
+   *
+   * ⚠️ Esconder faria a tela discordar do documento e da arte; deixar clicável
+   * daria um personagem de uma classe que o servidor não conhece. Mostrar
+   * apagado, com o motivo escrito, é o único jeito que não mente.
+   */
+  const druida = document.createElement('div');
+  druida.className = 'classcard embreve';
+  druida.title = 'O Druida entra na etapa 15 do roadmap';
+  druida.innerHTML =
+    '<div class="cicon"></div>'
+    + '<div class="cinfo"><b>DRUIDA</b>'
+    + '<p>Guardião da natureza que controla as forças da vida, cura aliados e '
+    + 'transforma-se em poderosas feras.</p></div>'
+    + '<span class="emb">EM BREVE</span>';
+  classesEl.appendChild(druida);
+
   if (chosen && cards.has(chosen)) cards.get(chosen)!.classList.add('sel');
   genderBtns[gender].classList.add('sel');
 
@@ -749,7 +796,9 @@ function setupStartScreen(): void {
   const attrLeft = el('ccattrs-left');
   const attrList = el('ccattrs-list');
   const attrPrev = el('ccattrs-prev');
-  const linhas = new Map<string, { val: HTMLElement; mais: HTMLButtonElement; menos: HTMLButtonElement }>();
+  const linhas = new Map<string, {
+    val: HTMLElement; custo: HTMLElement; mais: HTMLButtonElement; menos: HTMLButtonElement;
+  }>();
 
   for (const key of ATTRIBUTE_KEYS) {
     const row = document.createElement('div');
@@ -758,22 +807,26 @@ function setupStartScreen(): void {
       `<button class="menos" title="-1">−</button>`
       + `<span class="av"></span>`
       + `<button class="mais" title="+1">+</button>`
+      + `<span class="ac"></span>`
       + `<span class="an">${ATTRIBUTE_INFO[key].name}</span>`
       + `<span class="ae">${ATTRIBUTE_INFO[key].effects}</span>`;
     const mais = row.querySelector<HTMLButtonElement>('.mais')!;
     const menos = row.querySelector<HTMLButtonElement>('.menos')!;
-    mais.onclick = () => { if (sobrando() > 0) { atributos[key]++; pintaAtributos(); } };
+    // 🔴 O clique custa o preço do DEGRAU atual, não 1. Ver `creationCost`.
+    mais.onclick = () => {
+      if (sobrando() >= attributeCost(atributos[key])) { atributos[key]++; pintaAtributos(); }
+    };
     // ⚠️ O piso é 1, o mesmo que o `checkAttributes` exige — não 0.
     menos.onclick = () => { if (atributos[key] > 1) { atributos[key]--; pintaAtributos(); } };
     attrList.appendChild(row);
-    linhas.set(key, { val: row.querySelector('.av')!, mais, menos });
+    linhas.set(key, {
+      val: row.querySelector('.av')!, custo: row.querySelector('.ac')!, mais, menos,
+    });
   }
 
-  /** Quantos dos 38 ainda não foram gastos. */
+  /** Quanto do orçamento ainda não foi gasto, pela tabela de custo. */
   function sobrando(): number {
-    let gasto = 0;
-    for (const k of ATTRIBUTE_KEYS) gasto += atributos[k] - 1;
-    return CREATION_POINTS - gasto;
+    return CREATION_POINTS - creationCost(atributos as Attributes);
   }
 
   function pintaAtributos(): void {
@@ -782,8 +835,16 @@ function setupStartScreen(): void {
     attrLeft.classList.toggle('pronto', resta === 0);
     for (const key of ATTRIBUTE_KEYS) {
       const l = linhas.get(key)!;
+      const custo = attributeCost(atributos[key]);
       l.val.textContent = String(atributos[key]);
-      l.mais.disabled = resta <= 0;
+      /*
+       * ⚠️ O preço do próximo ponto fica VISÍVEL, e não só no tooltip. Sem ele,
+       * o botão desligado vira mistério: o jogador tem 2 pontos sobrando, vê o
+       * "+" apagado num atributo caro e não tem como saber por quê.
+       */
+      l.custo.textContent = '−' + custo;
+      l.mais.disabled = resta < custo;
+      l.mais.title = `+1 custa ${custo} ponto(s)`;
       l.menos.disabled = atributos[key] <= 1;
     }
     /*
