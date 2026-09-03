@@ -808,20 +808,6 @@
       .srvstatus.off {
         color: #d98a7a;
       }
-      #loginsom {
-        position: absolute;
-        top: 14px;
-        right: 16px;
-        width: 34px;
-        height: 34px;
-        font-size: 15px;
-        background: rgba(10, 9, 14, 0.72);
-        border: 1px solid #3b3630;
-        border-radius: 4px;
-        color: #c9a86a;
-        cursor: pointer;
-      }
-      #loginsom:hover { background: rgba(201, 168, 106, 0.14); }
       #loginfoot {
         font-size: 11px;
         color: #6a6458;
@@ -3210,22 +3196,33 @@
         qualquer forma, porque é OBRIGATÓRIO para o `autoplay`: navegador
         nenhum toca vídeo com som sozinho.
 
-        ⚠️ **A remoção foi por CÓPIA de fluxo, não reencode.** O vídeo saiu
-        bit a bit idêntico — mesmo h264 High, mesmo 3840×2160, mesmo bitrate de
-        47 Mbps. Se algum dia for preciso mexer nele de novo, use `-c:v copy`
-        pelo mesmo motivo: reencodar 4K perde qualidade a cada passagem.
+        🔁 **O LOOP É VAI-E-VOLTA, e isso foi necessário.** O vídeo original é
+        um **zoom contínuo de câmera**: começa aberto e termina perto. Ao voltar
+        para o quadro 0 dava um salto seco — a diferença média entre o último e
+        o primeiro quadro media **16,3** numa escala de 0–255 (um loop perfeito
+        fica perto de zero).
 
-        ⚠️ **27 MB continua sendo MUITO para uma tela de login** (o anterior
-        tinha 8,8), e tirar o áudio só cortou 80 KB — o peso é o vídeo: 4,8 s em
-        4K a 47 Mbps. Numa conexão de 10 Mbps o jogador vê só o poster por
-        ~22 s. O dono pediu **qualidade máxima** sabendo disso; quem quiser
-        reverter, o caminho é 1080p (`-vf scale=1920:-2`), não mexer no áudio.
+        A solução foi concatenar o vídeo com ele mesmo invertido: a câmera entra
+        e sai, o que num zoom lê como respiração e não como rebobinar. Depois
+        disso a emenda mede **0,37** — e a virada mede 1,20, que é o movimento
+        normal entre dois quadros vizinhos (nenhum quadro repetido).
 
-        `+faststart` foi aplicado junto: o índice do MP4 passou para o começo do
-        arquivo, então o navegador começa a tocar antes de baixar os 27 MB
-        inteiros. Não custa qualidade nenhuma.
+        ⚠️ **A metade de IDA continua bit a bit idêntica ao original.** Só a de
+        volta foi codificada, no mesmo bitrate da fonte (47 Mbps), e as duas
+        foram unidas com `-c copy`. Metade do vídeo nunca passou por um
+        encoder — que era o jeito de honrar "qualidade máxima" sem abrir mão do
+        loop.
 
-        `loop` faz o vídeo recomeçar sozinho — são 4,8 s em ciclo.
+        ⚠️ **55,8 MB, e o número é alto de propósito.** Dobrar a duração dobra os
+        bytes; não há mágica. Numa conexão de 10 Mbps o jogador vê só o poster
+        por ~45 s. Quem um dia quiser aliviar, o caminho é **1080p**
+        (`-vf scale=1920:-2`), que corta ~75 % — nunca reencodar em 4K de novo,
+        porque cada passagem perde qualidade.
+
+        `+faststart` põe o índice do MP4 no começo do arquivo, então o navegador
+        começa a tocar antes de baixar tudo. Não custa qualidade nenhuma.
+
+        `loop` faz o vídeo recomeçar sozinho — são 9,66 s por ciclo.
         `playsinline` impede o iOS de abrir em tela cheia por conta própria.
       -->
       <div id="loginbg">
@@ -3297,10 +3294,6 @@
           </aside>
         </div>
 
-        <!-- Alto-falante: a ÚNICA forma de a música começar.
-             🔴 O som NÃO se liga sozinho (decisão do dono em 02/09, depois de
-             ouvir). O vídeo toca mudo; quem quiser música clica aqui. -->
-        <button id="loginsom" title="Ligar a música">🔇</button>
         <div id="loginfoot">
           <!-- ⚠️ Sem número de build inventado: a arte de referência trazia
                "Versão 1.0.0 – Build #1000", que não existe em lugar nenhum. -->

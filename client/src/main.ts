@@ -268,60 +268,38 @@ const screens = {
  *    console — e nesta tela, um erro solto é exatamente o que produzia a página
  *    preta e muda que o irmão do dono caçou hoje.
  */
-/** Onde fica gravado se o jogador quer a música. Padrão: NÃO. */
-const CHAVE_SOM = 'elysia_login_som';
+/**
+ * 🔇 **O botão de alto-falante saiu em 2026-09-04.**
+ *
+ * Ele existia porque o vídeo de fundo tinha faixa de áudio e o dono queria que
+ * a música só começasse por clique (decisão de 02/09, depois de ouvir). Em
+ * 04/09 a faixa foi REMOVIDA do arquivo com `ffmpeg -an`, então o botão passou
+ * a ligar o som de um vídeo que não tem som — um controle que não controla
+ * nada é pior do que nenhum.
+ *
+ * ⚠️ Se um dia voltar a existir música na tela de entrada, ela não deve voltar
+ * por aqui: o certo é um `<audio>` próprio, separado do vídeo de fundo. Assim
+ * trocar o vídeo não mexe na trilha, que foi o acoplamento que derrubou este
+ * botão.
+ */
 
-function querSom(): boolean {
-  try {
-    return localStorage.getItem(CHAVE_SOM) === '1';
-  } catch {
-    // Aba anônima ou armazenamento bloqueado: cai no padrão, que é silêncio.
-    return false;
-  }
-}
-
+/**
+ * Dá o play no vídeo de fundo do login.
+ *
+ * ⚠️ **Continua existindo mesmo sem o botão de som**, e é preciso: `autoplay`
+ * não pega em elemento escondido, e a tela de login nasce com `display: none`
+ * até `showScreen('login')`. Sem esta chamada, o jogador veria só o poster.
+ *
+ * O `.catch` não é decoração: `play()` devolve promessa que REJEITA quando a
+ * aba está em segundo plano ou a mídia está bloqueada por política, e um erro
+ * solto aqui era o que produzia a página preta e muda descrita acima.
+ */
 function tocaFundoDoLogin(): void {
   const v = document.getElementById('loginvid') as HTMLVideoElement | null;
   if (!v) return;
   v.play().catch(() => {
     // Bloqueado: o poster continua no lugar e a tela segue utilizável.
   });
-}
-
-/** O botão de alto-falante. É a ÚNICA forma de a música começar. */
-function ligaBotaoSom(): void {
-  const b = document.getElementById('loginsom');
-  const v = document.getElementById('loginvid') as HTMLVideoElement | null;
-  if (!b || !v) return;
-  // Se o jogador já pediu som antes, o clique dele naquela sessão vale como
-  // gesto? Não vale — a política de mídia é por carregamento de página. Por
-  // isso o vídeo continua mudo aqui, e só o clique DESTE botão liga.
-  v.muted = true;
-  b.onclick = () => {
-    v.muted = !v.muted;
-    if (!v.muted) {
-      v.volume = 0.35; // música de fundo entra baixa: ninguém pediu um susto
-      v.play().catch(() => {});
-    }
-    try {
-      localStorage.setItem(CHAVE_SOM, v.muted ? '0' : '1');
-    } catch { /* sem armazenamento: a escolha vale só nesta sessão */ }
-    atualizaBotaoSom();
-  };
-  // ⚠️ A preferência gravada muda só o RÓTULO, não liga o som: sem um gesto
-  // nesta página, `play()` com áudio seria recusado pelo navegador.
-  if (querSom()) b.title = 'Ligar a música (clique — o navegador exige)';
-  atualizaBotaoSom();
-}
-
-function atualizaBotaoSom(): void {
-  const b = document.getElementById('loginsom');
-  const v = document.getElementById('loginvid') as HTMLVideoElement | null;
-  if (!b || !v) return;
-  b.textContent = v.muted ? '🔇' : '🔊';
-  if (!querSom() || !v.muted) {
-    b.title = v.muted ? 'Ligar a música' : 'Desligar a música';
-  }
 }
 
 function showScreen(which: keyof typeof screens | 'none'): void {
@@ -8104,10 +8082,6 @@ function escapeHtml(s: string): string {
 // ---- Bootstrap -------------------------------------------------------------
 // A conexão é criada ANTES de qualquer tela: o login já precisa dela.
 let autoAuthEnviado = false;
-// 🔴 O som NÃO se liga sozinho — decisão do dono em 02/09, depois de ouvir.
-// A música começa muda e só toca se o jogador clicar no alto-falante.
-ligaBotaoSom();
-
 net = new NetClient(routeServerMessage, (connected) => {
   statusEl.innerHTML = connected
     ? 'Servidor: <span class="on">conectado</span>'

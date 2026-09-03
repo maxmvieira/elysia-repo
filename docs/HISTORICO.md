@@ -9,6 +9,80 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-05 — O loop vira vai-e-volta, e o botão de som morre
+
+**Onde mora:** `client/public/assets/ui/login-bg.mp4` · o `<video>` e o CSS em
+`client/index.html` · `tocaFundoDoLogin` em `client/src/main.ts`.
+
+### 🔇 O botão de alto-falante saiu
+
+Ele existia porque o vídeo de fundo tinha faixa de áudio, e o dono decidiu em
+02/09 que a música só começaria por clique. Em 04/09 a faixa foi removida do
+arquivo — então o botão passou a ligar o som de um vídeo que **não tem som**.
+
+Um controle que não controla nada é pior do que nenhum. Saíram o botão, o CSS,
+`ligaBotaoSom`, `atualizaBotaoSom`, `querSom` e a chave `elysia_login_som`.
+
+⚠️ **`tocaFundoDoLogin` FICOU**, e quase foi junto por engano — o typecheck
+pegou. Ela não tem nada a ver com som: `autoplay` não pega em elemento
+escondido, e a tela de login nasce com `display: none`. Sem ela o jogador veria
+só o poster.
+
+⚠️ **Se um dia voltar música**, ela não deve voltar por aqui: o certo é um
+`<audio>` próprio, separado do vídeo. Foi justamente esse acoplamento — trilha
+dentro do vídeo de fundo — que derrubou o botão.
+
+### 🔁 O loop não era imperfeito por acaso
+
+O dono relatou que o loop "não está perfeito". A medição explicou por quê: o
+vídeo é um **zoom contínuo de câmera**, começa aberto e termina perto, então
+voltar ao quadro 0 é um salto de escala.
+
+**Diferença média entre o último e o primeiro quadro: 16,3** numa escala de
+0–255 (`blend=difference` + `signalstats`). Um loop perfeito fica perto de zero.
+
+🔴 **Nenhum conserto era possível sem reencodar** — e o dono tinha pedido
+qualidade máxima no dia anterior. O conflito foi posto na mesa antes de mexer,
+e ele escolheu o vai-e-volta.
+
+### A solução, e por que ela custou três tentativas
+
+Concatenar o vídeo com ele mesmo invertido. Num zoom isso lê como **respiração**
+(a câmera entra e sai), não como rebobinar — é o que torna a técnica adequada
+aqui e inadequada em vídeo com movimento direcional.
+
+| Tentativa | Resultado |
+|---|---|
+| `concat` com reencode CRF 15 | **80,3 MB** — reencodar 4K já comprimido infla |
+| Só a volta, CRF 16 | 43,4 MB **só a metade** — mesmo problema |
+| Só a volta, **no bitrate da fonte** (47 Mbps) | 28,6 MB ✅ |
+
+🔴 **A lição:** CRF num vídeo já comprimido tenta preservar até o ruído de
+compressão, e infla. Mirar o **bitrate da fonte** dá qualidade equivalente por
+quadro pelo tamanho esperado.
+
+Assim a **metade de IDA ficou bit a bit idêntica ao original** — só a de volta
+passou por encoder, e as duas foram unidas com `-c copy`.
+
+### ⚠️ E uma armadilha do `concat` que quase passou
+
+A primeira união deu **232 quadros com duração de 4,75 s** — os tempos do
+segundo trecho não foram deslocados. O culpado é o `time_base=1/24017802` da
+fonte, que não casa com o timebase padrão do trecho codificado.
+
+A correção foi normalizar o contêiner das duas partes
+(`-c copy -video_track_timescale 12288`) antes de concatenar. **`-c copy` não
+toca nos bytes de vídeo** — só reescreve o índice —, então a metade de ida
+continua intacta.
+
+Resultado: **9,66 s, 232 quadros, 55,8 MB**. Emenda do loop **0,37** (era 16,3)
+e virada **1,20**, que é o movimento normal entre quadros vizinhos.
+
+⚠️ **55,8 MB é alto de propósito:** dobrar a duração dobra os bytes. Quem quiser
+aliviar deve ir para **1080p**, nunca reencodar em 4K de novo.
+
+---
+
 ## 2026-09-04 (noite) — O áudio sai do vídeo sem tocar num pixel
 
 **Onde mora:** `client/public/assets/ui/login-bg.mp4` e o comentário do

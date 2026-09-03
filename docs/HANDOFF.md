@@ -1,3 +1,72 @@
+# Handoff — estado do projeto em 2026-09-05
+
+## ⏸️ ONDE PARAMOS — tela de login fechada
+
+> Typecheck limpo nos 3 pacotes, **629 testes**. `npm run dev:test` →
+> `localhost:5173`.
+>
+> ⚠️ **Cinco sessões sem passada humana.** A lista completa está nos blocos
+> abaixo; o acumulado de habilidades é o que mais precisa.
+
+### 🔇 O botão de som saiu
+
+O vídeo perdeu a faixa de áudio em 04/09, então o botão ligava o som de um vídeo
+mudo. Saíram o botão, o CSS e as quatro funções (`ligaBotaoSom`,
+`atualizaBotaoSom`, `querSom`, `CHAVE_SOM`).
+
+⚠️ **`tocaFundoDoLogin` FICOU** e quase foi junto por engano — o typecheck pegou.
+Ela não tem nada a ver com som: `autoplay` não pega em elemento escondido, e a
+tela de login nasce com `display: none`.
+
+⚠️ **Se um dia voltar música**, ela NÃO deve voltar por aqui — o certo é um
+`<audio>` próprio. Foi o acoplamento trilha-dentro-do-vídeo que derrubou o botão.
+
+### 🔁 O loop virou VAI-E-VOLTA
+
+O dono relatou que o loop não estava bom. A medição explicou: o vídeo é um
+**zoom contínuo de câmera**, e voltar ao quadro 0 era um salto de escala.
+Diferença entre o último e o primeiro quadro: **16,3** (escala 0–255).
+
+🔴 **Nenhum conserto era possível sem reencodar**, o que conflitava com a
+"qualidade máxima" pedida no dia anterior. O conflito foi posto na mesa e o dono
+escolheu o vai-e-volta.
+
+| | Antes | Depois |
+|---|---|---|
+| Duração | 4,83 s | **9,66 s** |
+| Emenda do loop | 16,3 | **0,37** |
+| Tamanho | 27,2 MB | **55,8 MB** |
+
+🔴 **A metade de IDA continua bit a bit idêntica ao original** — só a de volta
+passou por encoder (no bitrate da fonte, 47 Mbps), e as duas foram unidas com
+`-c copy`.
+
+⚠️ **Duas armadilhas registradas no HISTORICO**, e as duas custariam tempo a
+quem repetir:
+1. **CRF em vídeo já comprimido INFLA** — CRF 15 deu 80 MB. Mirar o bitrate da
+   fonte deu 28,6 MB com a mesma qualidade por quadro.
+2. **O `concat` produziu 232 quadros em 4,75 s** por causa do
+   `time_base=1/24017802` da fonte. A correção é normalizar o contêiner
+   (`-c copy -video_track_timescale`) antes de unir.
+
+⚠️ **55,8 MB é alto de propósito.** Numa conexão de 10 Mbps o jogador vê só o
+poster por ~45 s. Quem quiser aliviar deve ir para **1080p**
+(`-vf scale=1920:-2`, corta ~75 %) — **nunca** reencodar em 4K de novo.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Jogar.** Cinco sessões acumuladas sem passada humana.
+2. ⏳ **Munição** (shuriken, azagaia) — as habilidades de arremesso do Assassino
+   custam mana provisoriamente.
+3. ⏳ **Slot de segunda arma** — destrava a build de duas adagas.
+4. ⏳ **Esquiva no bestiário** — faria a precisão valer em PvE.
+5. ⏳ **"Cura como arma"** · sprite do palco · sprites base M/F · token de sessão
+   · sistema de GUARDA.
+
+---
+
 # Handoff — estado do projeto em 2026-09-04 (tarde)
 
 ## ⏸️ ONDE PARAMOS — AGI voltou a ter dois usos
