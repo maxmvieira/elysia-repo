@@ -1,3 +1,81 @@
+# Handoff — estado do projeto em 2026-09-03
+
+## ⏸️ ONDE PARAMOS — as cinco classes existem
+
+> Typecheck limpo nos 3 pacotes, **499 testes**. `npm run dev` → `localhost:5173`.
+>
+> ⚠️ **Nada do que entrou ontem à noite e hoje foi jogado por uma pessoa.** Eu
+> não entro com senha, então validei por unidade e no navegador com a tela
+> forçada. Ver a lista do que precisa de passada humana, no fim deste bloco.
+
+### 🌿 O DRUIDA ENTROU — o bestiário de classes fechou
+
+🔴 **Todos os números vieram do GDD, não de arbítrio.** E vale saber ONDE, porque
+o lugar óbvio engana: a tabela de atributos-base (65.20) marca o Druid como
+**`DD-BAL-029` PENDENTE**, o que faz parecer que os números não existem. Eles
+existem, no **cap. 71** — a "Ficha V1 do Druid":
+
+> HP **140** · MP **150** · STR 4 · VIT 7 · AGI 5 · DEX 5 · INT 9 · **WIS 11** · LUK 4
+
+Ela soma exatamente os **45 pontos-base**, como as outras quatro. E o teste
+confirma que é internamente consistente: `computeStats` com esses atributos
+devolve **exatamente** 140 de vida e 150 de mana no nível 1. Número arbitrado não
+fecharia assim.
+
+**As três decisões que o documento ditou:**
+
+| | |
+|---|---|
+| `attackType: 'melee'`, alcance 1, mana 0 | `DD-PROG-028`: *"ataque básico com cajado é FÍSICO (Sorcerer e Druid)"*. O cajado bate, não conjura |
+| `skill: 'magic'` mesmo assim | o doc mapeia **cajado → Magic Level**. O que ele TREINA é magia; o que o bastão faz no golpe é dano físico |
+| WIS 11 contra INT 9 | `DD-PROG-024/025`: **WIS é o principal, não INT**, e é WIS que escala cura |
+
+Mais **2,0 SP/nível** (`DD-PROG-008/009`), entre as físicas (1,5–1,7) e o
+Feiticeiro (2,5).
+
+⚠️ **Ele não tem NENHUMA habilidade.** O doc descreve **23**, em quatro ramos
+(cura 5 · buff 6 · debuff 6 · natureza 6). A classe é jogável pelo golpe básico, e
+a árvore é provavelmente o maior trabalho que sobrou no projeto.
+
+⚠️ **A arte é placeholder** — o mago VERDE do MiniWorld. O roxo já é do
+Feiticeiro; verde separa os dois de relance.
+
+🔴 **Uma divergência anterior que NÃO consertei junto**, para a mudança não virar
+duas: o **Feiticeiro está com `attackType: 'magic'`** e um firebolt de 6 de mana,
+o que contraria o mesmo `DD-PROG-028` que o Druida agora segue. As duas classes
+de cajado estão em modelos diferentes. Está anotado no código.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. ⏳ **As 23 habilidades do Druida**, e as magias das outras classes. O dono
+   pediu as magias junto com a tela de criação e ficou para depois.
+2. ⏳ **O sprite universal** do palco da tela de criação — o dono está fazendo.
+   O lugar já está reservado e dimensionado; é só preencher `#ccpalco`.
+3. ⏳ **Sprites base masculina e feminina** (CraftPix 419402 e 555940). Os packs
+   estão em `~/Downloads`, **fora do repo**.
+4. ⏳ **Token de sessão** — fecha o "trocar personagem volta pro login". Ver o
+   bloco de 02/09.
+5. ⏳ **O sistema de GUARDA**, parado desde 02/09 de manhã esperando o servidor
+   saber criatura-ataca-criatura.
+
+## ⚠️ O QUE PRECISA DE UMA PASSADA HUMANA
+
+Nada disto foi jogado de verdade — a lista é curta e vale meia hora:
+
+- **Criar personagem** com o Druida e com outra classe, e conferir na ficha se os
+  atributos distribuídos chegaram certos.
+- **Distribuir os 76 pontos**: o custo é escalonado, então concentrar num só
+  atributo rende bem menos (45 espalhado × 32 concentrado).
+- **Excluir personagem**: senha errada recusa, a linha fica riscada com a
+  contagem, o cancelar volta, e excluir o personagem em que se está logado é
+  recusado.
+- **As telas** em janelas de tamanhos diferentes — abaixo de 1100 px a criação
+  vira uma coluna, e abaixo de 900 px a de entrada também.
+
+---
+
 # Handoff — estado do projeto em 2026-09-02 (noite)
 
 ## ⏸️ ONDE PARAMOS — três coisas novas na porta de entrada

@@ -338,7 +338,10 @@ Warrior ficou explicitamente **PENDENTE** (65.32) — o doc se recusa a fixá-la
   | Archer | 5 | 6 | 9 | 11 | 4 | 5 | 5 |
   | Assassin | 7 | 6 | 11 | 7 | 3 | 4 | 7 |
   | Sorcerer | 3 | 5 | 5 | 6 | 12 | 10 | 4 |
-  ⚠️ Druid ainda **sem tabela** (`DD-BAL-029`, PENDENTE).
+  ⚠️ Druid ainda **sem tabela AQUI** (`DD-BAL-029`, PENDENTE) — mas a ficha dele
+  existe no **cap. 71** ("Ficha V1 do Druid"), e é de lá que o código tirou os
+  números em 03/09: STR 4 · VIT 7 · AGI 5 · DEX 5 · INT 9 · WIS 11 · LUK 4,
+  somando os mesmos 45. Procure lá antes de concluir que falta.
 - **Crítico**: base **2 %**; **10 LUK ≈ +1 %**; dano crítico base **150 %**.
   (50 LUK → 7 % · 100 LUK → 12 % · 200 LUK → 22 %)
 - **DEX**: +1 de dano físico ranged por ponto, antes dos multiplicadores.
