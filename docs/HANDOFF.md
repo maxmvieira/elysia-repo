@@ -1,3 +1,94 @@
+# Handoff — estado do projeto em 2026-09-04 (tarde)
+
+## ⏸️ ONDE PARAMOS — AGI voltou a ter dois usos
+
+> Typecheck limpo nos 3 pacotes, **629 testes**. `npm run dev:test` →
+> `localhost:5173`.
+>
+> ⚠️ **Continua sem passada humana** — agora são quatro sessões acumuladas.
+
+### 🔴 O pedido do dono era CORREÇÃO, não override
+
+Ele pediu que AGI deixasse de dar velocidade de movimento. Fui ao doc antes de
+mexer: **`DD-BAL-012` diz "AGI = velocidade de ataque + esquiva"**, e a tabela
+de conferência do destilado marcava a linha como "✅ igual" — enquanto o código
+dava **quatro** usos.
+
+| Uso | Antes | Agora |
+|---|---|---|
+| Velocidade de ataque | AGI | ✅ AGI |
+| Esquiva | AGI (linear, teto 50 %) | ✅ AGI (curva, teto 35 %) |
+| Movimento | AGI | ❌ → **NÍVEL** |
+| Defesa | AGI +0,2/ponto | ❌ → VIT (peso dobrado, 0,15 → 0,3) |
+
+**Movimento agora:** 480 ms no nível 1, −0,35 ms/nível, piso 380 ms. ~21 % ao
+longo de 300 níveis, contra os ~110 % que a AGI dava. Há teste travando a faixa
+("bem pouco" é medido: entre 10 % e 25 %).
+
+### 🔴 DUAS fórmulas de esquiva conviviam há meses
+
+`computeDodgeChance` existe em `defense.ts` desde a Etapa 8 — teto de 35 %,
+curva assintótica, comentário citando `DD-DEF-005`. **E `computeStats` nunca a
+chamou:** a ficha usava a linear da Etapa 1 com teto de 50 %.
+
+Um Assassino com AGI 100 esquivava **metade** dos golpes; a curva dá 16 %.
+Agora há uma fórmula só.
+
+⚠️ **Consequência de balanceamento real:** quem já tinha AGI alta ficou bem mais
+fácil de acertar. É o que o doc pede (*"meta de 30–35 % máximo vindo de AGI.
+Nunca 80 %"*), mas é uma mudança grande para personagens existentes.
+
+### ⚠️ O conserto quebrou a precisão, e ela também foi consertada
+
+A precisão entrou ontem LINEAR porque a esquiva era linear. Com a esquiva
+virando curva, a precisão passou a esmagá-la — DEX 100 dava **40 %** contra
+15,9 % de AGI 100. Ganhou a mesma curva, com teto de 30 %.
+
+🔴 **A lição, e vale além deste caso:** duas estatísticas que se cancelam
+precisam ter a MESMA FORMA, senão a comparação entre elas troca de sinal no
+meio da progressão.
+
+### 🎬 Vídeo novo na tela de login
+
+Trocado a pedido do dono, sem som. O `<video>` já era `muted` (obrigatório para
+o `autoplay`), então som nunca tocou.
+
+⚠️ **A faixa de áudio continua dentro do arquivo** — removê-la de verdade exige
+ffmpeg, que não está instalado nesta máquina.
+
+⚠️ **27 MB** (o anterior tinha 8,8): 4 s em 4K a 45 Mbps. Numa conexão de
+10 Mbps o jogador vê só o poster por ~22 s. **Vale reencodar para 1080p.**
+
+O logo `#loginmark` foi escondido (não apagado): o vídeo traz o título e os dois
+ficavam sobrepostos.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Jogar.** Quatro sessões sem passada humana.
+2. ⏳ **Reencodar o vídeo** para 1080p e sem faixa de áudio (`winget install
+   Gyan.FFmpeg`, depois `ffmpeg -i login-bg.mp4 -an -vf scale=1920:-2 -crf 28`).
+3. ⏳ **Munição** — shuriken e azagaia consumíveis.
+4. ⏳ **Slot de segunda arma** — destrava a build de duas adagas.
+5. ⏳ **Esquiva no bestiário** — faria a precisão valer em PvE.
+6. ⏳ **"Cura como arma"** · sprite do palco · sprites base M/F · token de sessão
+   · sistema de GUARDA.
+
+## ⚠️ O QUE PRECISA DE UMA PASSADA HUMANA
+
+Novo desta sessão:
+- **Andar com dois personagens de níveis bem diferentes** (`/lvl 1` e `/lvl 200`)
+  e sentir se a diferença de velocidade ficou boa. É o número que o dono pediu
+  para ser "bem pouco", e é o único que só se avalia jogando.
+- **A tela de login** com o vídeo novo: um título só, e o poster aparecendo
+  enquanto os 27 MB carregam.
+
+O acumulado das sessões anteriores continua no bloco de 2026-09-04 (manhã),
+abaixo.
+
+---
+
 # Handoff — estado do projeto em 2026-09-04
 
 ## ⏸️ ONDE PARAMOS — as cinco classes têm árvore

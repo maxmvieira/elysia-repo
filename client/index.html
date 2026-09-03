@@ -660,7 +660,20 @@
         gap: 18px;
         padding: 24px 0;
       }
+      /*
+       * 🔴 **ESCONDIDO desde 2026-09-04 — o título agora vem do VÍDEO.**
+       *
+       * O vídeo de fundo novo traz "ELYSIA ONLINE" desenhado nele, e a marca
+       * daqui ficava sobreposta em cima: dois títulos, um por baixo do outro.
+       *
+       * ⚠️ **Não foi apagado, e o motivo importa:** o `poster` é o que aparece
+       * enquanto os 27 MB carregam e é o que fica se o vídeo falhar. Se um dia
+       * o vídeo mudar para um sem título — ou se o poster for trocado por uma
+       * arte sem o nome —, a tela de login fica anônima, e a volta é tirar este
+       * `display: none`.
+       */
       #loginmark {
+        display: none;
         text-align: center;
         line-height: 1;
       }
@@ -3187,13 +3200,22 @@
     <div id="login">
       <!--
         🔴 O `poster` é a MESMA imagem que era o fundo antes, e não decoração:
-        ele aparece enquanto os 8 MB do vídeo carregam, e continua no lugar se o
-        vídeo falhar (formato não suportado, arquivo faltando, navegador com
-        mídia bloqueada). A tela nunca fica preta.
+        ele aparece enquanto os **27 MB** do vídeo carregam, e continua no lugar
+        se o vídeo falhar (formato não suportado, arquivo faltando, navegador
+        com mídia bloqueada). A tela nunca fica preta.
 
-        ⚠️ `muted` é OBRIGATÓRIO para o `autoplay` funcionar — navegador nenhum
-        toca vídeo com som sozinho. `playsinline` impede o iOS de abrir em tela
-        cheia por conta própria.
+        ⚠️ **27 MB é MUITO para uma tela de login** (o vídeo anterior tinha 8,8).
+        São 4 s em 4K a 45 Mbps. Numa conexão de 10 Mbps o jogador vê só o
+        poster por ~22 s. Vale reencodar para 1080p quando houver ffmpeg à mão —
+        está anotado no HANDOFF.
+
+        🔴 **SEM SOM, em duas camadas.** `muted` é o que o navegador obedece — e
+        é OBRIGATÓRIO para o `autoplay` funcionar, porque navegador nenhum toca
+        vídeo com som sozinho. A segunda camada seria remover a faixa de áudio
+        do arquivo; ela ainda está lá, ocupando bytes, e voltaria a tocar se
+        alguém tirasse o `muted` daqui.
+
+        `playsinline` impede o iOS de abrir em tela cheia por conta própria.
       -->
       <div id="loginbg">
         <video

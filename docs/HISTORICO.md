@@ -9,6 +9,95 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-04 (tarde) — AGI volta a ter dois usos, e duas fórmulas viviam em paralelo
+
+**Onde mora:** `computeStats`, `moveIntervalAt` e `ATTRIBUTE_INFO` em
+`shared/src/stats.ts` · `computeAccuracy` em `defense.ts` · o vídeo e o logo em
+`client/index.html`.
+
+**629 testes** (eram 627).
+
+### 🔴 O pedido do dono era uma CORREÇÃO, não um override
+
+Ele pediu: *"o atributo agilidade não influenciará mais na velocidade de
+movimento do personagem. apenas na velocidade de ataque e chance de esquiva"*.
+
+Antes de mexer, fui ao documento — e `DD-BAL-012` diz exatamente isso:
+**"AGI = velocidade de ataque + esquiva"**.
+
+⚠️ **E a tabela de conferência do próprio destilado marcava essa linha como
+"✅ igual".** O código dava QUATRO usos a AGI (movimento, ataque, esquiva e
+defesa) e a conferência não pegou, porque conferia *quais* stats vêm de AGI e
+não a lista completa.
+
+Então saíram dois:
+- **Movimento** → passou para o NÍVEL.
+- **Defesa** (`+0,2/ponto`) → o cap. 31 fecha *"DEF Física = VIT + armadura"*.
+  O peso da VIT dobrou (0,15 → 0,3) para o tanque não perder na troca: quem tem
+  VIT alta fica igual, quem tinha AGI alta perde a defesa que não devia ter.
+
+### 🏃 Movimento pelo nível, e "pouco" medido
+
+`480 ms` no nível 1, −0,35 ms por nível, piso em `380 ms`. São **~21 % ao longo
+de 300 níveis**, contra os ~110 % que a AGI dava sozinha (`480 − AGI×5`, piso
+150 — um Assassino andava ao DOBRO da velocidade de um Feiticeiro).
+
+A filosofia do arquivo continua de pé — *"o NÍVEL sozinho quase não fortalece"*
+— e a diferença de velocidade passa a vir de equipamento, buff (Bênção da
+Agilidade, Concentração) e debuff (Maldição da Lentidão), que é onde ela custa
+uma decisão em vez de sair de graça na criação.
+
+### 🔴 A descoberta do dia: DUAS fórmulas de esquiva conviviam
+
+`computeDodgeChance` está em `defense.ts` **desde a Etapa 8**, com o teto de
+35 %, a curva assintótica e o comentário citando `DD-DEF-005` (*"retorno
+decrescente e teto — nada de Assassin com 90 %"*). Tudo certo, tudo pronto.
+
+⚠️ **E `computeStats` nunca a chamou.** A ficha ficou com a linear da Etapa 1 —
+`AGI × 0,005` com `clamp` em 50 % — e as duas conviveram por meses: a curva
+usada em teste, a linear usada no jogo. Um Assassino com AGI 100 esquivava
+**metade** dos golpes, contra os 16 % que a curva dá.
+
+Agora há uma fórmula só, e é a documentada.
+
+### ⚠️ E o conserto quebrou outra coisa, que também foi consertada
+
+A **precisão** entrou ontem LINEAR (`DEX × 0,004`), porque a esquiva também era
+linear na época. Com a esquiva virando curva, a precisão passou a esmagá-la:
+
+| AGI/DEX | esquiva (nova) | precisão (linear) |
+|---|---|---|
+| 20 | 5,0 % | 8,0 % |
+| 100 | 15,9 % | **40,0 %** |
+| 200 | 21,9 % | 50,0 % |
+
+O desvio virava zero e ainda sobrava bônus — bem na hora em que AGI acabava de
+perder movimento e defesa. `computeAccuracy` ganhou a **mesma curva**, com teto
+de 30 % (abaixo dos 35 % da esquiva), então com investimento igual quem esquiva
+continua esquivando alguma coisa.
+
+🔴 **A lição:** duas estatísticas que se cancelam **precisam ter a mesma
+forma**, senão a comparação entre elas troca de sinal no meio da progressão.
+
+### 🎬 Vídeo novo na tela de login
+
+Trocado a pedido do dono, **sem som**. O `<video>` já era `muted` (obrigatório
+para o `autoplay`), então som nunca tocaria.
+
+⚠️ **A faixa de áudio continua DENTRO do arquivo**, ocupando bytes, e voltaria a
+tocar se alguém tirasse o `muted`. Removê-la de verdade exige ffmpeg, que não
+está instalado.
+
+⚠️ **27 MB para uma tela de login** (o anterior tinha 8,8): são 4 s em 4K a
+45 Mbps. Numa conexão de 10 Mbps o jogador vê só o poster por ~22 s. Vale
+reencodar para 1080p.
+
+O logo `#loginmark` foi **escondido**, não apagado: o vídeo novo traz o título
+desenhado nele e os dois ficavam sobrepostos. Se um dia o vídeo mudar para um
+sem título, a volta é tirar o `display: none`.
+
+---
+
 ## 2026-09-04 — O Arqueiro fecha o ciclo: as cinco classes têm árvore
 
 **Onde mora:** as 12 fichas em `shared/src/skills.ts` · `accuracy` em

@@ -9,6 +9,9 @@ import {
   totalPointsUpToLevel,
   skillThreshold,
   totalAttributes,
+  MOVE_BASE_MS,
+  MOVE_FLOOR_MS,
+  DODGE_CAP,
   type SkillState,
 } from '../src/index.js';
 
@@ -31,12 +34,64 @@ test('Vitality aumenta a vida máxima; Intelligence aumenta a mana', () => {
   assert.equal(dInt.maxMana > d0.maxMana, true);
 });
 
-test('Agility deixa o ataque e o movimento mais rápidos', () => {
+/**
+ * 🔴 `DD-BAL-012` — **AGI = velocidade de ataque + esquiva. Só isso.**
+ *
+ * Este teste era "Agility deixa o ataque e o MOVIMENTO mais rápidos" até
+ * 2026-09-04. O movimento nunca esteve no documento: a tabela de conferência do
+ * destilado marcava a linha do `DD-BAL-012` como "✅ igual" e o código dava um
+ * terceiro uso (e um quarto, defesa) que ninguém notou.
+ */
+test('AGI acelera o ataque e aumenta a esquiva — e nada mais', () => {
   const base = { str: 10, dex: 10, vit: 10, int: 10, wis: 10, agi: 10, luk: 10 };
-  const lento = computeStats(CLASSES.archer, base, 1, skill('distance'));
-  const rapido = computeStats(CLASSES.archer, { ...base, agi: 30 }, 1, skill('distance'));
-  assert.equal(rapido.moveIntervalMs < lento.moveIntervalMs, true);
-  assert.equal(rapido.attackCooldownMs < lento.attackCooldownMs, true);
+  const pouco = computeStats(CLASSES.archer, base, 1, skill('distance'));
+  const muito = computeStats(CLASSES.archer, { ...base, agi: 30 }, 1, skill('distance'));
+
+  assert.ok(muito.attackCooldownMs < pouco.attackCooldownMs, 'ataca mais rápido');
+  assert.ok(muito.dodgeChance > pouco.dodgeChance, 'esquiva mais');
+
+  // E os dois que SAÍRAM:
+  assert.equal(muito.moveIntervalMs, pouco.moveIntervalMs, 'AGI não anda mais rápido');
+  assert.equal(muito.defense, pouco.defense, 'AGI não dá defesa (DEF Física = VIT + armadura)');
+});
+
+test('a velocidade de movimento vem do NÍVEL, e sobe pouco', () => {
+  const base = { str: 10, dex: 10, vit: 10, int: 10, wis: 10, agi: 10, luk: 10 };
+  const nv = (n: number): number =>
+    computeStats(CLASSES.archer, base, n, skill('distance')).moveIntervalMs;
+
+  assert.equal(nv(1), MOVE_BASE_MS, 'no nível 1 é a base');
+  assert.ok(nv(100) < nv(1), 'o nível 100 anda melhor que o 1');
+  assert.ok(nv(300) < nv(100));
+  assert.equal(nv(300), MOVE_FLOOR_MS, 'e existe piso');
+
+  // 🔴 "Bem pouco" é medido: o ganho de 1 → 300 fica abaixo de 25 %, contra os
+  // ~110 % que a AGI dava sozinha. A filosofia do arquivo ("o NÍVEL sozinho
+  // quase não fortalece") continua de pé.
+  const ganho = 1 - nv(300) / nv(1);
+  assert.ok(ganho < 0.25, `ganho de ${(ganho * 100).toFixed(0)} % é demais para "bem pouco"`);
+  assert.ok(ganho > 0.10, 'mas tem de dar para sentir');
+});
+
+test('DD-DEF-005: a esquiva tem retorno decrescente e nunca chega ao teto', () => {
+  /**
+   * 🔴 O doc pede *"retorno decrescente e teto"* e a meta de **30–35 % máximo
+   * vindo de AGI** (65.55). O código estava LINEAR com `clamp` em 50 % desde a
+   * Etapa 1 — um Assassino com AGI 100 esquivava metade dos golpes.
+   *
+   * ⚠️ E a curva certa já existia em `defense.ts` desde a Etapa 8; `computeStats`
+   * é que nunca a chamou. Duas fórmulas conviveram por meses.
+   */
+  const comAgi = (agi: number): number =>
+    computeStats(CLASSES.assassin,
+      { str: 10, dex: 10, vit: 10, int: 10, wis: 10, agi, luk: 10 },
+      1, skill('melee')).dodgeChance;
+
+  assert.ok(comAgi(200) < DODGE_CAP, 'nunca alcança o teto');
+  assert.ok(comAgi(1000) < DODGE_CAP, 'nem com AGI absurda');
+  // Retorno DECRESCENTE: dobrar AGI nunca dobra a esquiva.
+  assert.ok(comAgi(100) < comAgi(50) * 2, 'dobrar AGI não dobra a esquiva');
+  assert.ok(comAgi(200) < comAgi(100) * 2);
 });
 
 /**

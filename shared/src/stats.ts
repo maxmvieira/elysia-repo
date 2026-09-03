@@ -10,6 +10,8 @@
  * atributos e usa isso no combate. O cliente só exibe.
  */
 
+import { computeAccuracy, computeDodgeChance } from './defense.js';
+
 export type PlayerClass = 'knight' | 'sorcerer' | 'archer' | 'assassin' | 'druid';
 export type AttributeKey = 'str' | 'dex' | 'vit' | 'int' | 'wis' | 'agi' | 'luk';
 export type AttackType = 'melee' | 'ranged' | 'magic';
@@ -34,7 +36,9 @@ export const ATTRIBUTE_KEYS: AttributeKey[] = ['str', 'vit', 'agi', 'dex', 'int'
 export const ATTRIBUTE_INFO: Record<AttributeKey, { name: string; effects: string }> = {
   str: { name: 'Strength', effects: 'Dano físico corpo a corpo · capacidade de carga' },
   vit: { name: 'Vitality', effects: 'Vida máxima · regeneração de vida · resistência física' },
-  agi: { name: 'Agility', effects: 'Velocidade de ataque · esquiva · movimento' },
+  // 🔴 Dois usos, e só dois — `DD-BAL-012`. Movimento saiu em 2026-09-04 (agora
+  // vem do NÍVEL) e a defesa também (é VIT + armadura, cap. 31).
+  agi: { name: 'Agility', effects: 'Velocidade de ataque · esquiva' },
   dex: { name: 'Dexterity', effects: 'Dano de arco/besta · precisão' },
   int: { name: 'Intelligence', effects: 'Dano mágico · mana máxima' },
   wis: { name: 'Wisdom', effects: 'Regeneração de mana · resistência mágica' },
@@ -440,6 +444,58 @@ export interface DerivedStats {
 
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
 
+// ---------------------------------------------------------------------------
+// 🏃 Velocidade de MOVIMENTO — do NÍVEL, não da AGI (decisão de 2026-09-04)
+// ---------------------------------------------------------------------------
+
+/**
+ * 🔴 **AGI deixou de acelerar o passo.** `DD-BAL-012` fecha o atributo em dois
+ * usos: *"AGI = velocidade de ataque + esquiva"*. Movimento nunca esteve lá — e
+ * a própria tabela de conferência do destilado marcava essa linha como
+ * "✅ igual", sem que ninguém percebesse que o código dava um terceiro.
+ *
+ * ⚠️ **Isso mexe em quem já jogava.** Antes, `480 − AGI×5` com piso de 150 ms:
+ * um Assassino com AGI 66 andava ao DOBRO da velocidade de um Feiticeiro. Agora
+ * todo mundo anda igual no mesmo nível, e a diferença vem de equipamento, buff
+ * (Bênção da Agilidade, Concentração) e debuff (Maldição da Lentidão) — que é
+ * onde ela dá decisão em vez de sair de graça na criação do personagem.
+ *
+ * 🔴 **O nível dá um pouco, e "pouco" é medido:** ~21 % ao longo de 300 níveis,
+ * contra os ~110 % que a AGI dava sozinha. O jogo continua obedecendo a
+ * filosofia do arquivo — *"o NÍVEL sozinho quase não fortalece"* —, mas o
+ * personagem de 200 sente que anda melhor que o de 10, que é o que o dono
+ * pediu.
+ */
+export const MOVE_BASE_MS = 480;
+/** Quanto cada nível encurta o intervalo entre passos. */
+export const MOVE_MS_PER_LEVEL = 0.35;
+/** Piso: ninguém anda mais rápido que isto só por ter nível. */
+export const MOVE_FLOOR_MS = 380;
+
+/** Intervalo entre passos no nível informado, antes de equipamento e buffs. */
+export function moveIntervalAt(level: number): number {
+  return Math.max(MOVE_FLOOR_MS, MOVE_BASE_MS - Math.max(0, level - 1) * MOVE_MS_PER_LEVEL);
+}
+
+// ---------------------------------------------------------------------------
+// 💨 Esquiva — a curva já existia, e ninguém a estava usando
+// ---------------------------------------------------------------------------
+//
+// 🔴 **`computeDodgeChance` mora em `defense.ts` desde a Etapa 8**, com o teto
+// de 35 %, a curva assintótica e o comentário citando `DD-DEF-005`
+// (*"retorno decrescente e teto — nada de Assassin com 90 %"*). Estava tudo
+// certo e pronto.
+//
+// ⚠️ **E `computeStats` nunca a chamou.** A ficha ficou com a versão linear da
+// Etapa 1 — `AGI × 0,005` com `clamp` em 50 % — e as duas conviveram por
+// meses: a de `defense.ts` usada em teste, a linear usada no jogo. Um Assassino
+// com AGI 100 esquivava metade dos golpes, contra os 16 % que a curva dá.
+//
+// A tabela de conferência do destilado não pegou porque conferia QUAIS stats
+// vêm de AGI, não a forma da curva.
+//
+// Corrigido em 2026-09-04: agora há UMA fórmula, e é a documentada.
+
 export function computeStats(
   cls: ClassDef,
   a: Attributes,
@@ -468,19 +524,22 @@ export function computeStats(
     // Crítico é LUK — é a função principal do atributo Sorte.
     critChance: clamp(0.03 + a.luk * 0.006, 0, 0.6),
     critMult: 1.5 + a.luk * 0.008,
-    defense: 1 + Math.floor(a.agi * 0.2) + Math.floor(a.vit * 0.15),
+    // 🔴 **DEF Física = VIT + armadura** (cap. 31). AGI saiu daqui em 2026-09-04:
+    // ela dava +0,2 por ponto, o que fazia o Assassino ganhar armadura por ser
+    // rápido. O peso da VIT dobrou (0,15 → 0,3) para o tanque não sair perdendo
+    // na troca — quem tem VIT alta fica igual, quem tinha AGI alta perde a
+    // defesa que não devia ter.
+    defense: 1 + Math.floor(a.vit * 0.3),
     magicResist: clamp(a.wis * 0.01, 0, 0.6),
-    dodgeChance: clamp(a.agi * 0.005, 0, 0.5),
-    // DEX dá precisão, como `ATTRIBUTE_INFO` sempre prometeu. O peso é menor
-    // que o da esquiva (0,004 contra 0,005): quem investe em AGI para desviar
-    // deve levar vantagem sobre quem investe em DEX só para acertar — senão a
-    // esquiva vira estatística morta em qualquer duelo.
-    accuracy: clamp(a.dex * 0.004, 0, 0.5),
+    dodgeChance: computeDodgeChance(a.agi),
+    // DEX dá precisão, como `ATTRIBUTE_INFO` sempre prometeu — e com a MESMA
+    // curva da esquiva, senão as duas se cruzam no meio da progressão (ver
+    // `computeAccuracy`).
+    accuracy: computeAccuracy(a.dex),
     // Velocidade de ATAQUE vem de AGI (GDD §4: "AGI = velocidade de ataque").
     // O nível não acelera nada sozinho — ele dá pontos, e você escolhe.
     attackCooldownMs: Math.max(300, 1100 - a.agi * 12),
-    // Velocidade de MOVIMENTO idem: sobe conforme você gasta pontos em AGI.
-    moveIntervalMs: Math.max(150, 480 - a.agi * 5),
+    moveIntervalMs: moveIntervalAt(level),
     manaCost: Math.max(2, Math.round(cls.spellCost * (1 - a.wis * 0.01))),
     attackType: cls.attackType,
     attackRange: cls.attackRange,
