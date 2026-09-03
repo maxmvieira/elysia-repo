@@ -470,7 +470,7 @@ derivada de quem está conectado. Detalhes e o porquê de cada escolha em `SCHEM
    Besta Pesada · **Azagaia**+escudo). **Sem dash, sem backstep, sem teleporte.**
    Munição elemental é **item**, não skill. **Distance reduz a perda da azagaia.**
 
-### Etapa 14 — Sorcerer completo 🔮
+### Etapa 14 — Sorcerer completo 🔮 ✅ *(feita em 2026-09-03)*
 
 18 habilidades em 4 escolas: 🔥 Fogo (destrói) · ❄️ Gelo (controla) · ⚡ Raio (reage e
 explode) · ✨ Arcano (faz o Sorcerer funcionar).
@@ -478,7 +478,7 @@ explode) · ✨ Arcano (faz o Sorcerer funcionar).
 imunidade a dano FÍSICO** (magia passa normal), 4 s no Lv.10, CD 45 s.
 🔴 **Ataque básico com cajado é FÍSICO** — magia exige habilidade e mana.
 
-### Etapa 15 — Druid 🌿 *(a 5ª classe)*
+### Etapa 15 — Druid 🌿 *(a 5ª classe)* ✅ *(feita em 2026-09-03 — falta "cura como arma", ver HANDOFF)*
 
 23 habilidades em 4 ramos: 💚 Cura (5) · 🌟 Buff (6) · ☠️ Debuff (6) · 🌿 Natureza (6).
 🔴 **WIS é o atributo principal, não INT** — e **WIS escala o poder de cura**.

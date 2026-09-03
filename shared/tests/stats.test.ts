@@ -39,11 +39,21 @@ test('Agility deixa o ataque e o movimento mais rápidos', () => {
   assert.equal(rapido.attackCooldownMs < lento.attackCooldownMs, true);
 });
 
-test('magos têm alcance à distância e projétil; knight é corpo a corpo', () => {
+/**
+ * 🔴 `DD-PROG-028` — **o ataque básico com cajado é FÍSICO.** Este teste era o
+ * inverso até 03/09 ("magos têm alcance à distância e projétil"), e mudou junto
+ * com a correção: *"dano mágico à distância exige gastar uma habilidade e
+ * mana"*. O Arqueiro continua atirando de graça — é ele quem tem projétil.
+ */
+test('cajado bate de perto e sem projétil; só o Arqueiro atira de graça', () => {
   assert.equal(CLASSES.knight.attackRange, 1);
-  assert.equal(CLASSES.sorcerer.attackRange > 1, true);
-  assert.equal(CLASSES.sorcerer.projectile, 'firebolt');
+  for (const cls of [CLASSES.sorcerer, CLASSES.druid]) {
+    assert.equal(cls.attackRange, 1, `${cls.id} bate de perto com o cajado`);
+    assert.equal(cls.projectile, undefined, `${cls.id} não atira no golpe básico`);
+    assert.equal(cls.spellCost, 0, `${cls.id} não gasta mana no golpe básico`);
+  }
   assert.equal(CLASSES.archer.projectile, 'arrow');
+  assert.equal(CLASSES.archer.attackRange > 1, true);
 });
 
 test('skill maior aumenta o dano (físico ou mágico conforme a classe)', () => {

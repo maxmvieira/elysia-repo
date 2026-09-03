@@ -1,3 +1,117 @@
+# Handoff — estado do projeto em 2026-09-03 (noite)
+
+## ⏸️ ONDE PARAMOS — o Druida e o Feiticeiro têm magia
+
+> Typecheck limpo nos 3 pacotes, **579 testes** (eram 499). `npm run dev` →
+> `localhost:5173`.
+>
+> ⚠️ **NADA disto foi jogado por uma pessoa** — e desta vez a lista é grande.
+> Eu não entro com senha; validei por unidade, por typecheck e conferindo os 49
+> ícones no navegador. Ver o bloco final.
+
+### 🌿🔮 AS 41 MAGIAS ENTRARAM — e o motor que faltava embaixo delas
+
+**Etapas 14 e 15 do roadmap, juntas.** 23 habilidades do Druida em 4 ramos, 18
+do Feiticeiro em 4 escolas.
+
+🔴 **A parte grande não foram as habilidades, foi o que faltava embaixo.**
+`castSpell` sabia fazer uma coisa só: dano físico em criatura no alcance. Curar
+aliado, buffar party, derrubar o ATK de um inimigo, plantar área que dura —
+nada disso tinha caminho no código. Sete sistemas novos:
+
+| Entrou | Onde |
+|---|---|
+| Dano mágico em habilidade | `executeSpell`, campo `magic` da ficha |
+| Mirar em JOGADOR (aliado/party) | `lancaEmAliados` |
+| Buff/debuff com modificador de ficha | `shared/src/effects.ts` **(novo)** |
+| Tempo de conjuração, interrompível | `castSpell` + `tickCasting` |
+| Área persistente no chão | `shared/src/areas.ts` **(novo)** |
+| Cura ao longo do tempo | `ActiveHot` + `tickHots` |
+| Barra de atalhos por classe | `SKILL_BARS` / `skillBarFor` |
+
+✅ **`conditions.ts` estava pronto e parado** — Congelamento, Petrificação,
+Silêncio, Raiz, Veneno, Queimadura e Knockback já existiam com DR, anti-cadeia e
+imunidade. Foi ligar fio, não construir.
+
+### ✅ O FEITICEIRO PAROU DE ATIRAR DE GRAÇA
+
+A divergência anotada em 02/09 morreu. Ele estava com `attackType: 'magic'` e um
+firebolt de 6 de mana no golpe COMUM, contra `DD-PROG-028`. Agora: **cajado bate
+físico, corpo a corpo, alcance 1**, e magia exige habilidade e mana.
+
+⚠️ **A segunda metade quase passou batido:** o próprio CAJADO
+(`WEAPON_IDENTITY.staff`) tinha `range: 4` e `magic: true`, e `recompute` lê isso
+para decidir o ataque básico — equipar um cajado devolveria o firebolt. Entrou
+`basicPhysical`, que separa *"de onde sai o poder"* (magia) de *"como é o golpe
+comum"* (bastonada).
+
+⚠️ Com STR 3 o golpe dele é quase simbólico. É a intenção.
+
+### 🔴 As decisões que não são minhas — onde procurar se discordar
+
+- **`effects.ts` não é `conditions.ts`**, de propósito: juntá-los faria a Pele
+  de Carvalho entrar na fila de diminishing returns do Congelamento, e o quarto
+  buff seguido duraria metade.
+- **A área sobrevive à morte do dono.** O Druida cai e a Ira da Natureza
+  continua — a magia já saiu.
+- **Não entrou um oitavo elemento.** O doc fala em "dano de natureza", mas
+  `DD-ELM-002` fecha a lista em sete. "Natureza" virou o RAMO: estaca e lâmina
+  ferem `physical`, esporo fere `poison`, e a passiva soma sobre o ramo.
+
+### ⚠️ O QUE É `REFERÊNCIA` E NÃO CITAÇÃO
+
+Quase todo número das 41 veio do doc **e tem teste conferindo** (`druid.test.ts`
+29 · `sorcerer.test.ts` 27). O que **não** veio, e está marcado no código:
+
+1. **As três últimas curas** — Cura em Área, Santuário e a 5ª de emergência. O
+   cap. 71 avisa que os detalhes não foram recuperados. Entrou a estrutura, com
+   números por proporção da Cura individual. **O nome "Sopro Vital" é invenção
+   nossa** e é o primeiro a mudar quando o texto aparecer.
+2. **Lv.7** como o "níveis altos" em que as Raízes passam a petrificar.
+3. **O elemento de cada habilidade de Natureza** (ver acima).
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Jogar isto.** É o item 1 e não é formalidade — ver a lista abaixo.
+2. ⏳ **`DD-DRU-032` merece uma passada**: "cura como arma" (energia vital fere
+   morto-vivo, vampiro e demônio) está na Etapa 15 do roadmap e **não entrou** —
+   exige uma etiqueta de família em `CreatureDef`, que hoje não existe. São 77
+   espécies para classificar.
+3. ⏳ **Archer (12 skills) e Assassin** — Etapa 13. A fundação agora está pronta;
+   o trabalho é ficha e munição, não motor. ⚠️ As skills de Shuriken/Kunai e
+   Espada Curta são `PROPOSTA` no Doc 1 e ficaram de fora de propósito.
+4. ⏳ **O sprite universal** do palco da criação — o dono está fazendo.
+5. ⏳ **Sprites base masculina e feminina** (CraftPix 419402 e 555940), em
+   `~/Downloads`, fora do repo.
+6. ⏳ **Token de sessão** — fecha o "trocar personagem volta pro login".
+7. ⏳ **O sistema de GUARDA**, parado desde 02/09 esperando o servidor saber
+   criatura-ataca-criatura.
+
+## ⚠️ O QUE PRECISA DE UMA PASSADA HUMANA
+
+Isto é grande e nada foi jogado. Em ordem de risco:
+
+- **Criar um Druida e um Feiticeiro** e subir habilidade na janela nova — ela
+  agora lista a árvore inteira agrupada por ramo, e rola.
+- **Curar alguém.** É o caminho mais novo de todos (`lancaEmAliados`): sem alvo
+  aliado escolhido, a Cura cai em você mesmo, de propósito.
+- **Conjurar algo com cast** (Cura, 1 s · Meteoro, 1,8 s · Chuva, 3 s) e
+  **andar no meio** — tem de cancelar, com aviso no chat.
+- **Plantar uma Muralha de Gelo e tentar atravessar.** É a única magia do jogo
+  que vira colisão, e vale para monstro e jogador.
+- **Esporos Venenosos num monstro:** conferir que o veneno TIRA VIDA. Foi
+  exatamente aqui que apareceu um bug silencioso (ver `HISTORICO.md`).
+- **Um debuff num monstro** — Enfraquecer/Vulnerabilidade — e ver se o dano dele
+  cai e o seu sobe. Os chips com o tempo restante aparecem acima da barra.
+- **O golpe básico do Feiticeiro com cajado:** tem de ser corpo a corpo, sem
+  gastar mana, e fraco.
+- **A barra de atalhos ao trocar de personagem entre classes** — ela é remontada
+  do zero, e o pegador de arrastar (`#spellgrip`) tinha de sobreviver a isso.
+
+---
+
 # Handoff — estado do projeto em 2026-09-03
 
 ## ⏸️ ONDE PARAMOS — as cinco classes existem

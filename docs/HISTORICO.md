@@ -9,6 +9,151 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-03 — As 41 magias entraram, e o motor que faltava embaixo delas
+
+**Onde mora:** `shared/src/skills.ts` (as 49 fichas) · `shared/src/effects.ts` e
+`shared/src/areas.ts` (**novos**) · `castSpell`/`executeSpell` e os quatro
+`tick*` em `server/src/index.ts` · barra por classe, barra de conjuração,
+chips de buff e os 41 ícones no cliente.
+
+**Etapas 14 e 15 do roadmap, juntas.** 579 testes (eram 499), typecheck limpo
+nos três pacotes.
+
+### O que o levantamento achou antes de escrever uma linha
+
+`castSpell` sabia fazer **uma** coisa: dano físico em criatura dentro do
+alcance. Tudo que o Druida é — curar aliado, buffar party, derrubar o ATK de um
+inimigo, plantar uma área que dura — não tinha caminho nenhum no código. Sete
+buracos, e nenhum deles era "mais uma habilidade":
+
+| Falta | Quem dependia |
+|---|---|
+| Dano mágico em skill (usava sempre `physAtk`) | o ramo Natureza e o Feiticeiro inteiro |
+| Mirar em JOGADOR (só varria `creatures`) | Cura, todos os buffs, Santuário |
+| Modificador temporário genérico | os 6 debuffs e os 6 buffs |
+| Tempo de conjuração | Cura, Meteoro, Chuva de Meteoros |
+| Área persistente no chão | 7 habilidades das duas classes |
+| Cura ao longo do tempo | Regeneração, Santuário |
+| Barra de atalhos por classe | 49 habilidades não cabem em 8 slots globais |
+
+🔴 **E uma boa notícia grande: `conditions.ts` estava pronto e parado.**
+Congelamento, Petrificação, Silêncio, Raiz, Veneno, Sangramento, Queimadura,
+Lentidão e Knockback já existiam com diminishing returns, anti-cadeia e
+imunidade — inclusive a regra que separa as duas classes (*dano quebra
+Congelamento, dano **não** quebra Petrificação*). Nenhuma habilidade aplicava
+nenhuma delas. Foi ligar fio, não construir sistema.
+
+### 🔴 Por que `effects.ts` não virou parte de `conditions.ts`
+
+Foi a decisão de arquitetura do dia, e a tentação era grande — os dois são
+"coisa temporária em cima de alguém".
+
+O GDD cap. 32 trata de CONDIÇÃO: estados que *impedem* ou *machucam*, com
+contramedidas próprias. O que o Druida faz na maior parte do tempo é outra
+coisa: *"não precisa causar dano se faz o inimigo causar menos e os aliados
+causarem mais"* (cap. 71) — **número na ficha por um tempo**.
+
+Juntá-los economizaria um arquivo e custaria a regra: a Pele de Carvalho
+entraria na fila de DR do Congelamento, e **o quarto buff seguido duraria
+metade**. Resistir a Congelamento passaria a proteger de −15 % de ataque.
+
+As duas regras de acúmulo ficaram travadas por teste:
+1. **Mesma habilidade renova, não soma** — vence a mais forte; empatou, a mais
+   longa. É o *"dois círculos não acumulam"* de `70.47`, generalizado.
+2. **Habilidades diferentes somam.** Enfraquecer + Praga = −25 % de ataque.
+
+E há piso (20 %) e teto (3×): sem o piso, três debuffs de −40 % dariam dano
+negativo e o "golpe" **curaria**.
+
+### 🔴 Por que área persistente virou sistema (`areas.ts`)
+
+Uma frase do doc decidiu: a Ira da Natureza *"ataca a região em ciclos
+**enquanto o Druida continua curando e debuffando**"*. Se fosse um laço dentro
+do lançamento, o Druida ficaria parado esperando — o contrário exato do texto.
+A área tinha de viver FORA do turno de quem lançou.
+
+⚠️ **Consequência deliberada:** a área sobrevive à morte do dono. O Druida cai e
+a Ira continua até o tempo acabar — a magia já saiu. É o que dá ao grupo a
+chance de terminar a luta que o healer não viu acabar.
+
+Sete habilidades usam: Muralha de Fogo, Muralha de Gelo, Nevasca, Círculo
+Arcano, Esporos, Santuário e a Ira. A Muralha de Gelo é a única que vira colisão
+de verdade (`blocks`), e o limite de 1→3 paredes do doc caiu na mesma peça — ao
+erguer a 4ª, a mais antiga cai.
+
+### 🔴 O Feiticeiro parou de atirar de graça (`DD-PROG-028`)
+
+A divergência anotada em 02/09 morreu aqui. Ele estava com `attackType: 'magic'`,
+alcance 5 e um `firebolt` de 6 de mana no golpe COMUM, contra
+*"ataque básico com cajado é FÍSICO (Sorcerer e Druid); dano mágico à distância
+exige gastar uma habilidade e mana"*.
+
+⚠️ **Este era o único momento em que a correção cabia**: antes de hoje, tirar o
+firebolt teria deixado a classe sem NADA. Agora ela tem 18 magias.
+
+A correção tem duas metades, e a segunda é a que quase passou batido: o **cajado**
+(`WEAPON_IDENTITY.staff`) tinha `range: 4` e `magic: true`, e `recompute` lê isso
+para decidir o tipo do ataque básico. Equipar um cajado devolveria o firebolt de
+graça. Entrou `basicPhysical` para separar as duas perguntas que até hoje tinham
+a mesma resposta: **"de onde sai o poder?"** (magia, `magicAtk`) e **"como é o
+golpe comum?"** (bastonada, físico, alcance 1).
+
+⚠️ Com STR 3, o golpe de cajado é quase simbólico. É a intenção: para causar
+dano, o mago gasta mana.
+
+### O que veio do documento e o que foi decidido aqui
+
+🔴 **Quase todo número das 41 é CITAÇÃO**, e há teste conferindo linha por
+linha — `shared/tests/druid.test.ts` (29 testes) e `sorcerer.test.ts` (27). A
+tabela inteira de debuffs do cap. 71, os 8–12 % de congelamento da Nevasca
+(`DD-SOR-012`), os 2→4 s do Círculo Arcano, as quatro resistências da Harmonia
+Natural, o pré-requisito triplo da Chuva de Meteoros.
+
+Dois travados por RELAÇÃO, não por valor:
+- **Regeneração é mais eficiente em mana que a Cura** — o doc promete, e agora
+  está medido nos três níveis.
+- **`DD-DRU-021`: a Ira (6,52 de poder por alvo) fica abaixo da Chuva de
+  Meteoros (10,4).** Mexeu num dos dois, o teste avisa.
+
+⚠️ **O que NÃO veio do doc, e está marcado `⚠️ REFERÊNCIA` no código:**
+- **As três últimas curas** (Cura em Área, Santuário e a 5ª de emergência). O
+  cap. 71 avisa: *"não têm detalhes recuperados — nomes e números não
+  confirmados"*. Entrou a ESTRUTURA, com números por proporção da Cura
+  individual. O nome "Sopro Vital" é escolha nossa e é o primeiro a mudar.
+- **Lv.7 como o "níveis altos"** em que as Raízes passam a petrificar. O doc diz
+  "níveis altos" sem número.
+- **O elemento das habilidades de Natureza.** O doc fala em "dano de natureza",
+  mas `DD-ELM-002` fecha a lista em SETE elementos e natureza não é um deles.
+  Tratamos "natureza" como o RAMO: estaca e lâmina ferem `physical`, esporo fere
+  `poison`, e a passiva soma sobre o ramo. **Nenhum oitavo elemento entrou.**
+
+### A regra que este dia aprendeu
+
+🔴 **Condição de DoT sem `power` é a pior classe de bug que existe aqui: parece
+funcionar.** Os Esporos Venenosos aplicavam "Veneno" no monstro — ícone certo,
+duração certa — e tiravam **zero** de vida, porque `tickConditions` só causa
+dano quando a parcela vem preenchida, e a área persistente passava `undefined`.
+
+Achado antes de o código ser jogado, e por sorte: nada na assinatura obrigava a
+copiar o campo. Virou teste (`skills.test.ts`) para a metade que é ficha, e
+aviso no campo `condition` de `areas.ts` para a metade que é servidor — que é
+onde o bug realmente estava.
+
+### O que a UI ganhou, e por quê
+
+- **Barra de atalhos POR CLASSE.** Era um array global de oito, de quando só o
+  Knight tinha habilidades. Com 23 e 18, deixa de fechar por aritmética.
+- **Janela de habilidades com a árvore inteira**, agrupada por ramo — varrer a
+  barra esconderia 15 das 23 do Druida. O rodapé com "Resetar skills" passou a
+  ficar parado: com 23 linhas ele subia para fora da vista.
+- **Barra de conjuração** e **chips de buff com o tempo restante**. O tempo é o
+  ponto: a Bênção da Natureza dura 90 s com 30 s de recarga, e sem ver quanto
+  falta não há como decidir se dá para entrar no MVP com ela.
+- **41 ícones**, por construtor de glifos (cor = ramo, silhueta = função) em vez
+  de 41 desenhos à mão. As 8 do Knight continuam desenhadas uma a uma.
+
+---
+
 ## 2026-08-13 (tarde) — O 3D foi explorado a fundo e ESTACIONADO
 
 **Onde mora:** quatro páginas descartáveis em `client/espeto-*.html` +

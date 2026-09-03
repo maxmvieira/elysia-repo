@@ -2144,20 +2144,49 @@
         text-align: center;
       }
       /* Painel de habilidades (tecla K): árvore + gasto de Skill Points */
+      /*
+       * 🔴 Rola a LISTA, não o painel inteiro.
+       *
+       * Com as 8 do Knight o painel cabia na tela e rolar tudo junto não fazia
+       * diferença. Com as 23 do Druida faz: o rodapé com "Resetar skills" subia
+       * para fora da vista, e o botão só reaparecia rolando até o fim de uma
+       * lista de 23 itens. Cabeçalho e rodapé ficam parados; o meio corre.
+       */
       #skillpanel {
         position: fixed;
         top: 20px;
         left: 340px;
         width: 340px;
         max-height: 80vh;
-        overflow-y: auto;
+        display: none;
+        flex-direction: column;
         background: var(--panel);
         border: 2px solid var(--border);
         border-radius: 6px;
         padding: 12px;
-        display: none;
         z-index: 8;
         font-size: 12px;
+      }
+      #sp-list {
+        overflow-y: auto;
+        min-height: 0;
+        flex: 1;
+      }
+      /* Cabeçalho de ramo: 💚 Cura, ☠️ Debuff… Sem isto, 23 linhas iguais. */
+      .skbranch {
+        margin: 10px 0 5px;
+        color: #c9a86a;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border-bottom: 1px solid #2a241c;
+        padding-bottom: 3px;
+        position: sticky;
+        top: 0;
+        background: var(--panel);
+      }
+      .skbranch:first-child {
+        margin-top: 0;
       }
       #skillpanel h3 {
         margin: 0 0 8px;
@@ -2301,6 +2330,85 @@
       }
       #spellbar.dragging {
         outline: 1px solid #c9a86a;
+      }
+      /*
+       * Buffs e debuffs ativos, com o tempo restante.
+       *
+       * 🔴 O tempo é o ponto, não o ícone. A Bênção da Natureza dura 90 s e tem
+       * 30 s de recarga: sem ver quanto falta, não há como decidir se dá para
+       * entrar no MVP com ela — e essa decisão é a habilidade inteira.
+       */
+      #buffbar {
+        position: fixed;
+        left: 50%;
+        bottom: 118px;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 4px;
+        z-index: 10;
+        pointer-events: none;
+      }
+      .buffchip {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 6px;
+        font-size: 11px;
+        border-radius: 4px;
+        border: 1px solid #000;
+        background: #14110c;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+        white-space: nowrap;
+      }
+      /* Verde é bom, vermelho é ruim — a leitura tem de ser pela cor. */
+      .buffchip.good {
+        color: #a8e8b8;
+        border-color: #2a5a38;
+      }
+      .buffchip.bad {
+        color: #f0a8a8;
+        border-color: #5a2a2a;
+      }
+      .buffchip .t {
+        opacity: 0.75;
+        font-variant-numeric: tabular-nums;
+      }
+      /*
+       * Barra de CONJURAÇÃO. Fica logo acima da barra de magias porque é ali
+       * que o olho já está quando se aperta a tecla — e porque o que ela mede
+       * é justamente o tempo entre apertar e acontecer.
+       */
+      #castbar {
+        position: fixed;
+        left: 50%;
+        bottom: 96px;
+        transform: translateX(-50%);
+        display: none;
+        width: 220px;
+        height: 16px;
+        background: #14110c;
+        border: 1px solid #000;
+        border-radius: 4px;
+        box-shadow: inset 0 1px 0 rgba(201, 168, 106, 0.16);
+        z-index: 10;
+        overflow: hidden;
+      }
+      #castfill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(#a87ce8, #6a3fb0);
+        transition: width 60ms linear;
+      }
+      #casttext {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        color: #f0e6ff;
+        text-shadow: 0 1px 2px #000;
+        pointer-events: none;
       }
       .sslot {
         position: relative;
@@ -2935,6 +3043,8 @@
         </div>
       </aside>
     </div>
+    <div id="buffbar"></div>
+    <div id="castbar"><div id="castfill"></div><div id="casttext"></div></div>
     <div id="spellbar"><div id="spellgrip" title="Arraste para mover a barra"></div></div>
     <!--
       Menu de contexto do botão direito em outro jogador. Os botões são criados

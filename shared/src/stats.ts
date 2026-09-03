@@ -275,18 +275,37 @@ export const CLASSES: Record<PlayerClass, ClassDef> = {
     manaAt1: 60,
     blurb: 'Especialista em combate corpo a corpo. Espadas, machados, maças, escudos e armaduras pesadas.',
   },
+  /**
+   * 🔮 O FEITICEIRO — e a correção de 2026-09-03.
+   *
+   * 🔴 **O ataque básico dele deixou de ser magia.** Até aqui a classe tinha
+   * `attackType: 'magic'`, alcance 5 e um `firebolt` de 6 de mana no golpe
+   * comum. Isso contrariava `DD-PROG-028` de frente: *"ataque básico com cajado
+   * é FÍSICO (Sorcerer e Druid); dano mágico à distância exige gastar uma
+   * habilidade e mana"*. A Etapa 14 do roadmap manda a correção em letras
+   * garrafais — *"ataque básico com cajado é FÍSICO — magia exige habilidade e
+   * mana"* — e este é o passo em que ela cabe, porque agora as 18 habilidades
+   * existem: antes de hoje, tirar o firebolt teria deixado a classe sem NADA.
+   *
+   * ⚠️ **A consequência é dura e é a intenção.** Com STR 3, o golpe de cajado
+   * do Feiticeiro é quase simbólico. Ele não é mais uma classe que atira de
+   * longe de graça: para causar dano, gasta mana. Quem quiser bater sem mana
+   * escolhe outra classe — que é exatamente o que separa o mago do arqueiro.
+   *
+   * ⚠️ `skill: 'magic'` continua: o que ele TREINA é magia. O cajado é a
+   * ferramenta, o Magic Level é a proficiência.
+   */
   sorcerer: {
     id: 'sorcerer',
     name: 'Feiticeiro',
-    attackType: 'magic',
+    attackType: 'melee',
     skill: 'magic',
     base: { str: 3, vit: 5, agi: 5, dex: 6, int: 12, wis: 10, luk: 4 },
-    attackRange: 5,
-    projectile: 'firebolt',
-    spellCost: 6,
+    attackRange: 1,
+    spellCost: 0,
     hpAt1: 100,
     manaAt1: 180,
-    blurb: 'Controla o Éter. Magias ofensivas à distância, suporte, controle e invocações.',
+    blurb: 'Controla o Éter. Magias ofensivas à distância, controle e barreiras — o cajado só empurra.',
   },
   archer: {
     id: 'archer',
@@ -331,10 +350,9 @@ export const CLASSES: Record<PlayerClass, ClassDef> = {
    * básico com cajado é FÍSICO (Sorcerer e Druid); dano mágico à distância exige
    * gastar uma habilidade e mana"*. O cajado bate, não conjura.
    *
-   * ⚠️ **Isto o deixa DIFERENTE do Feiticeiro deste arquivo**, que está com
-   * `attackType: 'magic'` e um `firebolt` de 6 de mana. Aquilo contraria o mesmo
-   * `DD-PROG-028` e é divergência anterior a esta classe — não a "consertei"
-   * junto para a mudança não virar duas.
+   * ✅ **A divergência com o Feiticeiro acabou em 2026-09-03.** Ele estava com
+   * `attackType: 'magic'` e um `firebolt` de 6 de mana no golpe comum, contra o
+   * mesmo `DD-PROG-028`. As duas classes de cajado seguem hoje o mesmo modelo.
    *
    * 🔴 **`skill: 'magic'` apesar do golpe físico**, e não é contradição: o doc
    * mapeia **cajado → Magic Level** na lista de proficiências. O que a classe
@@ -344,9 +362,8 @@ export const CLASSES: Record<PlayerClass, ClassDef> = {
    * escala a cura. É por isso que a ficha dá 11 de WIS contra 9 de INT — o
    * contrário do Feiticeiro.
    *
-   * ⚠️ **Ele ainda não tem NENHUMA habilidade.** O doc descreve 23, em quatro
-   * ramos (cura, buff, debuff, natureza), e nenhuma existe no código. A classe é
-   * jogável pelo golpe básico, e a árvore é trabalho à parte.
+   * ✅ **As 23 habilidades entraram em 2026-09-03**, nos quatro ramos que o doc
+   * descreve (cura 5 · buff 6 · debuff 6 · natureza 6). Ver `skills.ts`.
    */
   druid: {
     id: 'druid',
@@ -381,6 +398,19 @@ export interface DerivedStats {
   manaRegen: number;
   physAtk: number;
   magicAtk: number;
+  /**
+   * Poder de CURA — a base de tudo que o Druida cura.
+   *
+   * 🔴 Existe separado de `magicAtk` por causa de `DD-PROG-024/025`: *"Druid tem
+   * WIS como atributo principal, não INT — e **WIS escala cura**"*. Se a cura
+   * saísse do poder mágico, o caminho para curar melhor seria subir INT, e o
+   * Druida viraria um Feiticeiro de cajado verde. Sai de WIS, e a ficha do
+   * cap. 71 (WIS 11 contra INT 9) passa a fazer sentido mecânico.
+   *
+   * ⚠️ `DD-DRU-026`: a passiva ofensiva do Druida **não** entra aqui — quem
+   * investe em Natureza não cura melhor por isso.
+   */
+  healPower: number;
   critChance: number;
   critMult: number;
   defense: number;
@@ -416,6 +446,10 @@ export function computeStats(
     // Dano físico: STR no corpo a corpo, DEX no arco/besta.
     physAtk: 3 + (cls.attackType === 'ranged' ? a.dex : a.str) * 1.0 + skillPhys * 1.5,
     magicAtk: 3 + a.int * 1.0 + skillMagic * 2,
+    // WIS pesa mais na cura (1,2) do que INT pesa no dano mágico (1,0): é o que
+    // dá ao Druida um eixo próprio de crescimento em vez de uma cópia do
+    // Feiticeiro. O Magic Level entra nos dois — o cajado treina magia.
+    healPower: 3 + a.wis * 1.2 + skillMagic * 2,
     // Crítico é LUK — é a função principal do atributo Sorte.
     critChance: clamp(0.03 + a.luk * 0.006, 0, 0.6),
     critMult: 1.5 + a.luk * 0.008,

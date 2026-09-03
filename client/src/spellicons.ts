@@ -4,7 +4,7 @@
  * gerado uma vez e guardado em cache.
  */
 
-import type { SkillId } from '@dominion/shared';
+import { SKILLS, type SkillId } from '@dominion/shared';
 
 /** Resolução do ícone. A barra exibe menor, então fica nítido em telas HiDPI. */
 const S = 48;
@@ -278,6 +278,316 @@ function drawFury(g: CanvasRenderingContext2D): void {
   g.fill();
 }
 
+// ---------------------------------------------------------------------------
+// 🌿🔮 Os 41 ícones do Druida e do Feiticeiro
+//
+// ⚠️ **Estes NÃO são desenhados um a um, e é decisão, não preguiça.** As oito do
+// Knight acima têm ~30 linhas cada porque são oito; repetir isso 41 vezes daria
+// 1.200 linhas de canvas para um resultado pior — quarenta e um desenhos à mão
+// ficam inconsistentes entre si, e o que o jogador precisa da barra é
+// RECONHECER o slot em 200 ms, não admirar a ilustração.
+//
+// O que ele usa para reconhecer são duas coisas: a COR (que diz o ramo) e a
+// SILHUETA (que diz a função). Então é isso que o construtor abaixo controla,
+// e a arte definitiva pode substituí-lo sem tocar em mais nada.
+// ---------------------------------------------------------------------------
+
+/** Paleta de cada ramo: [interno, externo, símbolo, brilho]. */
+type Paleta = [string, string, string, string];
+
+const PALETAS: Record<string, Paleta> = {
+  cura: ['#3fbf6a', '#0a2e18', '#d8ffe6', '#9fffc4'],
+  buff: ['#4a9be0', '#08203a', '#dbeeff', '#a8d8ff'],
+  debuff: ['#7a3fa0', '#1d0a2c', '#eddaff', '#c9a4ff'],
+  natureza: ['#5aa02a', '#132a08', '#e6ffcf', '#b6f08a'],
+  fogo: ['#e0561a', '#3a0c00', '#ffe0c0', '#ffb066'],
+  gelo: ['#3aa8d8', '#04222f', '#dcf6ff', '#9fe4ff'],
+  raio: ['#d8c02a', '#2f2600', '#fffbe0', '#ffe96a'],
+  arcano: ['#8a5ad8', '#180a30', '#efe6ff', '#c4a8ff'],
+};
+
+/** As silhuetas. Cada uma diz uma FUNÇÃO, não uma magia específica. */
+type Glifo =
+  | 'cruz' | 'gota' | 'folha' | 'escudo' | 'seta' | 'caveira' | 'corrente'
+  | 'espinho' | 'raio' | 'floco' | 'chama' | 'muralha' | 'estrela'
+  | 'circulo' | 'olho' | 'nuvem';
+
+/** Desenha o glifo centrado, na cor do símbolo. */
+function glifo(g: CanvasRenderingContext2D, tipo: Glifo, cor: string, brilho: string): void {
+  const cx = S / 2;
+  const cy = S / 2;
+  g.fillStyle = cor;
+  g.strokeStyle = cor;
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+
+  switch (tipo) {
+    case 'cruz': // cura direta
+      g.fillRect(cx - 4, cy - 14, 8, 28);
+      g.fillRect(cx - 14, cy - 4, 28, 8);
+      break;
+    case 'gota': // cura ao longo do tempo
+      g.beginPath();
+      g.moveTo(cx, cy - 15);
+      g.bezierCurveTo(cx + 12, cy - 2, cx + 9, cy + 13, cx, cy + 13);
+      g.bezierCurveTo(cx - 9, cy + 13, cx - 12, cy - 2, cx, cy - 15);
+      g.closePath();
+      g.fill();
+      break;
+    case 'folha':
+      g.beginPath();
+      g.moveTo(cx - 12, cy + 12);
+      g.quadraticCurveTo(cx - 12, cy - 14, cx + 12, cy - 12);
+      g.quadraticCurveTo(cx + 12, cy + 12, cx - 12, cy + 12);
+      g.closePath();
+      g.fill();
+      g.strokeStyle = brilho;
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(cx - 10, cy + 10);
+      g.lineTo(cx + 9, cy - 9);
+      g.stroke();
+      break;
+    case 'escudo':
+      g.beginPath();
+      g.moveTo(cx, cy - 15);
+      g.lineTo(cx + 12, cy - 9);
+      g.lineTo(cx + 12, cy + 3);
+      g.quadraticCurveTo(cx + 12, cy + 12, cx, cy + 16);
+      g.quadraticCurveTo(cx - 12, cy + 12, cx - 12, cy + 3);
+      g.lineTo(cx - 12, cy - 9);
+      g.closePath();
+      g.fill();
+      break;
+    case 'seta': // buff ofensivo: para cima
+      g.beginPath();
+      g.moveTo(cx, cy - 15);
+      g.lineTo(cx + 11, cy - 1);
+      g.lineTo(cx + 4.5, cy - 1);
+      g.lineTo(cx + 4.5, cy + 15);
+      g.lineTo(cx - 4.5, cy + 15);
+      g.lineTo(cx - 4.5, cy - 1);
+      g.lineTo(cx - 11, cy - 1);
+      g.closePath();
+      g.fill();
+      break;
+    case 'caveira': // debuff
+      g.beginPath();
+      g.arc(cx, cy - 3, 11, Math.PI, 0);
+      g.lineTo(cx + 11, cy + 4);
+      g.lineTo(cx - 11, cy + 4);
+      g.closePath();
+      g.fill();
+      g.fillRect(cx - 8, cy + 5, 16, 7);
+      g.fillStyle = brilho;
+      g.beginPath();
+      g.arc(cx - 4.5, cy - 3, 2.6, 0, Math.PI * 2);
+      g.arc(cx + 4.5, cy - 3, 2.6, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case 'corrente': // lentidão / aprisionamento
+      g.lineWidth = 3.4;
+      for (const dx of [-7, 7]) {
+        g.beginPath();
+        g.ellipse(cx + dx, cy, 5, 9, 0, 0, Math.PI * 2);
+        g.stroke();
+      }
+      break;
+    case 'espinho':
+      g.beginPath();
+      g.moveTo(cx, cy - 16);
+      g.lineTo(cx + 7, cy + 14);
+      g.lineTo(cx, cy + 9);
+      g.lineTo(cx - 7, cy + 14);
+      g.closePath();
+      g.fill();
+      break;
+    case 'raio':
+      g.beginPath();
+      g.moveTo(cx + 4, cy - 16);
+      g.lineTo(cx - 10, cy + 2);
+      g.lineTo(cx - 1, cy + 2);
+      g.lineTo(cx - 5, cy + 16);
+      g.lineTo(cx + 10, cy - 3);
+      g.lineTo(cx + 1, cy - 3);
+      g.closePath();
+      g.fill();
+      break;
+    case 'floco':
+      g.lineWidth = 3;
+      for (let i = 0; i < 6; i++) {
+        const ang = (i * Math.PI) / 3;
+        g.beginPath();
+        g.moveTo(cx, cy);
+        g.lineTo(cx + Math.cos(ang) * 15, cy + Math.sin(ang) * 15);
+        g.stroke();
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(cx + Math.cos(ang) * 9, cy + Math.sin(ang) * 9);
+        g.lineTo(cx + Math.cos(ang + 0.6) * 13, cy + Math.sin(ang + 0.6) * 13);
+        g.moveTo(cx + Math.cos(ang) * 9, cy + Math.sin(ang) * 9);
+        g.lineTo(cx + Math.cos(ang - 0.6) * 13, cy + Math.sin(ang - 0.6) * 13);
+        g.stroke();
+        g.lineWidth = 3;
+      }
+      break;
+    case 'chama':
+      g.beginPath();
+      g.moveTo(cx, cy + 15);
+      g.quadraticCurveTo(cx - 13, cy + 2, cx - 4, cy - 16);
+      g.quadraticCurveTo(cx - 1, cy - 6, cx + 4, cy - 12);
+      g.quadraticCurveTo(cx + 13, cy + 1, cx, cy + 15);
+      g.closePath();
+      g.fill();
+      g.fillStyle = brilho;
+      g.beginPath();
+      g.moveTo(cx, cy + 13);
+      g.quadraticCurveTo(cx - 5, cy + 3, cx, cy - 6);
+      g.quadraticCurveTo(cx + 5, cy + 3, cx, cy + 13);
+      g.closePath();
+      g.fill();
+      break;
+    case 'muralha':
+      for (let linha = 0; linha < 3; linha++) {
+        const y = cy - 12 + linha * 9;
+        const off = linha % 2 === 0 ? 0 : 6;
+        for (let bx = -14 + off; bx < 14; bx += 12) {
+          g.fillRect(cx + bx, y, 10, 7);
+        }
+      }
+      break;
+    case 'estrela':
+      g.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const ang = (i * Math.PI) / 4 - Math.PI / 2;
+        const r = i % 2 === 0 ? 16 : 6;
+        const px = cx + Math.cos(ang) * r;
+        const py = cy + Math.sin(ang) * r;
+        if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.closePath();
+      g.fill();
+      break;
+    case 'circulo':
+      g.lineWidth = 3.4;
+      g.beginPath();
+      g.arc(cx, cy, 14, 0, Math.PI * 2);
+      g.stroke();
+      g.beginPath();
+      g.arc(cx, cy, 7, 0, Math.PI * 2);
+      g.stroke();
+      break;
+    case 'olho':
+      g.beginPath();
+      g.moveTo(cx - 16, cy);
+      g.quadraticCurveTo(cx, cy - 13, cx + 16, cy);
+      g.quadraticCurveTo(cx, cy + 13, cx - 16, cy);
+      g.closePath();
+      g.fill();
+      g.fillStyle = brilho;
+      g.beginPath();
+      g.arc(cx, cy, 5, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case 'nuvem': // área persistente (esporos, nevasca, praga)
+      g.beginPath();
+      g.arc(cx - 8, cy + 1, 8, 0, Math.PI * 2);
+      g.arc(cx + 8, cy + 1, 8, 0, Math.PI * 2);
+      g.arc(cx, cy - 6, 10, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = brilho;
+      for (const [dx, dy] of [[-9, 12], [0, 14], [9, 12]] as const) {
+        g.beginPath();
+        g.arc(cx + dx, cy + dy, 2.4, 0, Math.PI * 2);
+        g.fill();
+      }
+      break;
+  }
+}
+
+/**
+ * Ficha visual das 41: ramo (define a cor) e glifo (define a silhueta).
+ *
+ * Duas magias do mesmo ramo podem repetir o glifo quando fazem a mesma coisa —
+ * as quatro bênçãos individuais, por exemplo, são o mesmo gesto com alvos
+ * diferentes. O que nunca repete é o PAR dentro de um ramo.
+ */
+const GLIFOS: Record<string, Glifo> = {
+  // 🌿 Druida — cura
+  heal: 'cruz',
+  regeneration: 'gota',
+  area_heal: 'estrela',
+  sanctuary: 'circulo',
+  emergency_heal: 'chama',
+  // 🌿 Druida — buff
+  blessing_agility: 'seta',
+  oak_skin: 'escudo',
+  spirit_blessing: 'estrela',
+  nature_strength: 'espinho',
+  nature_blessing: 'folha',
+  natural_harmony: 'circulo',
+  // 🌿 Druida — debuff
+  weaken: 'caveira',
+  vulnerability: 'escudo',
+  curse_slowness: 'corrente',
+  curse_weakness: 'gota',
+  silence: 'olho',
+  nature_plague: 'nuvem',
+  // 🌿 Druida — natureza
+  earth_spike: 'espinho',
+  binding_roots: 'corrente',
+  wind_blades: 'seta',
+  poison_spores: 'nuvem',
+  nature_wrath: 'folha',
+  nature_affinity: 'circulo',
+  // 🔮 Feiticeiro — fogo
+  fire_bolt: 'chama',
+  fire_wall: 'muralha',
+  meteor: 'espinho',
+  meteor_storm: 'nuvem',
+  // 🔮 Feiticeiro — gelo
+  cold_bolt: 'espinho',
+  ice_wall: 'muralha',
+  glacial_burst: 'estrela',
+  blizzard: 'floco',
+  // 🔮 Feiticeiro — raio
+  lightning_ball: 'circulo',
+  electric_discharge: 'estrela',
+  thor_wrath: 'raio',
+  // 🔮 Feiticeiro — arcano
+  magic_enhance: 'seta',
+  magic_amplify: 'estrela',
+  cast_mastery: 'raio',
+  mana_regen: 'gota',
+  magic_protection: 'escudo',
+  revealing_flame: 'olho',
+  arcane_circle: 'circulo',
+};
+
+/** Ícone genérico: moldura na cor do ramo + a silhueta da função. */
+function drawGenerico(g: CanvasRenderingContext2D, id: SkillId): void {
+  const ramo = SKILLS[id].branch ?? 'arcano';
+  const [interno, externo, simbolo, brilho] = PALETAS[ramo] ?? PALETAS.arcano!;
+  frame(g, interno, externo);
+  // Sombra por baixo do glifo: sem ela a silhueta some no fundo claro do topo
+  // da moldura, que é justamente onde o gradiente é mais forte.
+  g.save();
+  g.translate(0, 1.5);
+  g.globalAlpha = 0.45;
+  glifo(g, GLIFOS[id] ?? 'estrela', '#000000', '#000000');
+  g.restore();
+  glifo(g, GLIFOS[id] ?? 'estrela', simbolo, brilho);
+  // Passiva ganha um anel: ela não se aperta, e o jogador precisa ver isso
+  // ANTES de arrastar para a barra.
+  if (SKILLS[id].kind === 'passive') {
+    g.strokeStyle = 'rgba(255,255,255,0.75)';
+    g.lineWidth = 2;
+    g.setLineDash([3, 3]);
+    g.strokeRect(3, 3, S - 6, S - 6);
+    g.setLineDash([]);
+  }
+}
+
 const cache = new Map<string, string>();
 
 export function spellIconUrl(id: SkillId): string {
@@ -287,7 +597,9 @@ export function spellIconUrl(id: SkillId): string {
   cv.width = S;
   cv.height = S;
   const g = cv.getContext('2d')!;
-  const desenhos: Record<SkillId, (g: CanvasRenderingContext2D) => void> = {
+  // As oito do Knight são desenhadas à mão; as 41 das classes mágicas saem do
+  // construtor de glifos. Ver o comentário grande acima do `PALETAS`.
+  const desenhos: Partial<Record<SkillId, (g: CanvasRenderingContext2D) => void>> = {
     power_strike: drawPowerStrike,
     bash: drawBash,
     charge: drawCharge,
@@ -297,7 +609,9 @@ export function spellIconUrl(id: SkillId): string {
     defensive_stance: drawStance,
     battle_fury: drawFury,
   };
-  desenhos[id](g);
+  const mao = desenhos[id];
+  if (mao) mao(g);
+  else drawGenerico(g, id);
   const url = cv.toDataURL();
   cache.set(id, url);
   return url;

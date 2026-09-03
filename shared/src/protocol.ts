@@ -736,6 +736,20 @@ export interface S2C_Stats {
   furyActive: boolean;
   /** Postura Defensiva ligada. */
   stanceActive: boolean;
+  /** ✨ Proteção Mágica ligada (Feiticeiro). */
+  magicProtectionActive: boolean;
+  /** Poder de cura — o que WIS constrói e o que a Cura multiplica. */
+  healPower: number;
+  /**
+   * Buffs e debuffs ativos, para a barra de estado do cliente.
+   *
+   * A duração restante vai junto, ao contrário das condições do snapshot: buff
+   * é decisão de jogo ("dá tempo de entrar no MVP com a bênção?"), e para essa
+   * decisão o jogador precisa do número, não só do ícone.
+   */
+  effects: { id: string; name: string; good: boolean; remainingMs: number }[];
+  /** Conjuração em andamento: id da magia e quanto falta. `null` = nenhuma. */
+  casting: { spell: string; remainingMs: number } | null;
   /** Maestria por tipo de arma (sobe com o uso, sem teto). */
   proficiencies: Record<string, { level: number; progress: number }>;
   /** O que o jogador já descobriu de cada criatura. */
@@ -799,6 +813,52 @@ export interface S2C_Effect {
   floor: number;
   /** Raio em tiles, quando o efeito é de área. */
   radius?: number;
+}
+
+/**
+ * Alguém foi CURADO. Separada de `hit` de propósito: o cliente pinta em verde,
+ * não em vermelho, e não conta como agressão para nada.
+ */
+export interface S2C_Heal {
+  t: 'heal';
+  targetId: string;
+  /** Quem curou — é como o alvo sabe a quem agradecer. */
+  sourceId: string;
+  amount: number;
+  hp: number;
+  maxHp: number;
+}
+
+/**
+ * Conjuração começou ou parou (vai só para quem conjura).
+ *
+ * `spell: null` significa "acabou ou foi interrompida" — o cliente esconde a
+ * barra sem precisar saber por quê.
+ */
+export interface S2C_Casting {
+  t: 'casting';
+  spell: string | null;
+  ms: number;
+}
+
+/** Uma área persistente nasceu no chão (muralha, nevasca, santuário…). */
+export interface S2C_AreaSpawn {
+  t: 'area';
+  id: string;
+  skill: string;
+  kind: string;
+  x: number;
+  y: number;
+  floor: number;
+  radius: number;
+  durationMs: number;
+  fx: string;
+}
+
+/** Uma área persistente acabou (ou foi substituída). */
+export interface S2C_AreaGone {
+  t: 'areagone';
+  id: string;
 }
 
 /** O próprio jogador morreu. */
@@ -983,6 +1043,10 @@ export type ServerMessage =
   | S2C_Projectile
   | S2C_Cast
   | S2C_Effect
+  | S2C_Heal
+  | S2C_Casting
+  | S2C_AreaSpawn
+  | S2C_AreaGone
   | S2C_CorpseContents
   | S2C_Gathered
   | S2C_Died

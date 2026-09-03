@@ -41,7 +41,19 @@ import {
   sellPriceOf,
   SERVER_TICK_MS,
   SKILLS,
-  SKILL_BAR,
+  skillBarFor,
+  skillsOfClass,
+  skillDuration,
+  skillConditionChance,
+  skillConditionDuration,
+  skillGroundDuration,
+  skillGroundMax,
+  skillHits,
+  skillModifiers,
+  hotTickMs,
+  MODIFIER_KEYS,
+  MODIFIER_LABEL,
+  type SkillDef,
   TILE_SIZE,
   VENDOR_STOCK,
   buildWorldMap,
@@ -1414,6 +1426,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * Efeito visual de uma magia, centrado num tile. O servidor manda o `kind`
    * junto com o ponto — o cliente só desenha.
    */
+  /**
+   * Famílias de efeito visual. Agrupadas por SENSAÇÃO, não por habilidade: o
+   * jogador não precisa distinguir Pele de Carvalho de Bênção Espiritual pelo
+   * brilho — precisa saber, de relance, se aquilo foi bom ou ruim para ele.
+   */
+  const FX_CURA = new Set(['heal', 'regeneration', 'area_heal', 'emergency_heal']);
+  const FX_BUFF = new Set([
+    'buff_agility', 'buff_oak', 'buff_spirit', 'buff_strength', 'buff_nature',
+    'buff_amplify', 'reveal', 'magic_protection',
+  ]);
+  const FX_DEBUFF = new Set([
+    'debuff_weaken', 'debuff_vulnerability', 'debuff_slow', 'debuff_curse',
+    'silence', 'plague',
+  ]);
+
   function spawnSpellFx(kind: string, tileX: number, tileY: number, radius: number): void {
     const node = new Container();
     node.x = tileX * TS + TS / 2;
@@ -1467,6 +1494,86 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       const dome = new Graphics();
       dome.circle(0, 0, TS * 0.8).stroke({ width: 3, color: 0x9fb6cc, alpha: 0.9 });
       node.addChild(dome);
+    } else if (FX_CURA.has(kind)) {
+      // 💚 Cura: partículas SUBINDO. O sentido do movimento é o que separa
+      // cura de dano à primeira vista — dano cai, cura sobe.
+      const halo = new Graphics();
+      halo.circle(0, 0, TS * 0.55).stroke({ width: 3, color: 0x8fffb0, alpha: 0.85 });
+      node.addChild(halo);
+      for (let i = 0; i < 7; i++) {
+        const p = new Graphics();
+        p.circle(0, 0, 3).fill({ color: i % 2 ? 0xd8ffe6 : 0x5fe08a, alpha: 0.95 });
+        p.x = (Math.random() - 0.5) * TS * 1.1;
+        p.y = TS * 0.4 - Math.random() * TS * 0.9;
+        node.addChild(p);
+      }
+    } else if (FX_BUFF.has(kind)) {
+      // 🌟 Buff: anel duplo pulsando, em azul. Deliberadamente discreto — ele
+      // acontece o tempo todo e não pode competir com o combate.
+      for (const [r, cor] of [[TS * 0.7, 0xa8d8ff], [TS * 0.45, 0xdbeeff]] as const) {
+        const anel = new Graphics();
+        anel.circle(0, 0, r).stroke({ width: 2.5, color: cor, alpha: 0.85 });
+        node.addChild(anel);
+      }
+    } else if (FX_DEBUFF.has(kind)) {
+      // ☠️ Debuff: setas para BAIXO, roxas. O oposto visual do buff.
+      for (let i = 0; i < 5; i++) {
+        const seta = new Graphics();
+        seta.poly([0, 0, -4, -9, 4, -9]).fill({ color: 0xc9a4ff, alpha: 0.9 });
+        seta.x = (i - 2) * 10;
+        seta.y = -6 + (i % 2) * 8;
+        node.addChild(seta);
+      }
+    } else if (kind === 'earth_spike' || kind === 'roots') {
+      // 🌿 Estacas saindo do chão, marrom-esverdeadas.
+      for (let i = 0; i < 5; i++) {
+        const e = new Graphics();
+        e.poly([0, 8, -4, -14, 4, -12]).fill({ color: i % 2 ? 0x7a5a2a : 0x5aa02a, alpha: 0.95 });
+        e.x = (i - 2) * 9;
+        node.addChild(e);
+      }
+    } else if (kind === 'wind_blades') {
+      // Lâminas em arco, cobrindo o raio real.
+      const R = (radius + 0.5) * TS;
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        const l = new Graphics();
+        l.poly([0, -3, 16, 0, 0, 3]).fill({ color: 0xd6f0b0, alpha: 0.85 });
+        l.x = Math.cos(a) * R * 0.75;
+        l.y = Math.sin(a) * R * 0.75;
+        l.rotation = a;
+        node.addChild(l);
+      }
+    } else if (kind === 'fire_bolt' || kind === 'meteor' || kind === 'meteor_storm') {
+      // 🔥 Estouro laranja, com o raio da área quando há.
+      const R = kind === 'fire_bolt' ? TS * 0.5 : (radius + 0.5) * TS;
+      const bola = new Graphics();
+      bola.circle(0, 0, R).fill({ color: 0xff6a1a, alpha: 0.35 });
+      bola.circle(0, 0, R * 0.55).fill({ color: 0xffc74a, alpha: 0.6 });
+      bola.circle(0, 0, R * 0.25).fill({ color: 0xfff3c8, alpha: 0.9 });
+      node.addChild(bola);
+    } else if (kind === 'cold_bolt' || kind === 'glacial_burst') {
+      // ❄️ Cristais irradiando.
+      const R = kind === 'cold_bolt' ? TS * 0.5 : (radius + 0.5) * TS;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const c = new Graphics();
+        c.poly([0, -3, R * 0.9, 0, 0, 3]).fill({ color: i % 2 ? 0x9fe4ff : 0xdcf6ff, alpha: 0.9 });
+        c.rotation = a;
+        node.addChild(c);
+      }
+    } else if (kind === 'lightning_ball' || kind === 'discharge' || kind === 'thor_wrath') {
+      // ⚡ Ziguezagues amarelos saindo do centro.
+      const R = kind === 'lightning_ball' ? TS * 0.6 : (radius + 0.5) * TS;
+      const raios = new Graphics();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        raios.moveTo(0, 0);
+        raios.lineTo(Math.cos(a) * R * 0.45 + 6, Math.sin(a) * R * 0.45 - 5);
+        raios.lineTo(Math.cos(a) * R, Math.sin(a) * R);
+      }
+      raios.stroke({ width: 2.5, color: 0xffe96a, alpha: 0.95 });
+      node.addChild(raios);
     } else {
       // Golpe Poderoso / Investida / Execução: talho de espada.
       const cor = kind === 'execution' ? 0xff5a5a : 0xffd24a;
@@ -1485,6 +1592,67 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // porque cobre um espaço que precisa ser LIDO antes de reagir.
     const dur = kind === 'bash' || kind === 'fury' ? 800 : 520;
     spellFx.push({ node, t: 0, dur, kind });
+  }
+
+  // -------------------------------------------------------------------------
+  // 🌿 Áreas persistentes no chão
+  //
+  // ⚠️ Elas NÃO são `spellFx`: efeito visual some sozinho em meio segundo, e
+  // estas ficam até o servidor mandar apagar. Um jogador que não vê onde a
+  // nevasca está não tem como sair dela — e a magia vira punição arbitrária.
+  // -------------------------------------------------------------------------
+
+  const groundAreaNodes = new Map<string, Container>();
+
+  /** Cor de cada área, pela habilidade que a criou. */
+  const CORES_AREA: Record<string, [number, number]> = {
+    fire_wall: [0xff6a1a, 0xffc74a],
+    ice_wall: [0x6fd0ff, 0xdcf6ff],
+    blizzard: [0x3aa8d8, 0xdcf6ff],
+    arcane_circle: [0x8a5ad8, 0xefe6ff],
+    spores: [0x6aa02a, 0xd6f0b0],
+    sanctuary: [0x3fbf6a, 0xd8ffe6],
+    nature_wrath: [0x5aa02a, 0xe6ffcf],
+  };
+
+  function addGroundArea(
+    id: string, fx: string, tileX: number, tileY: number, radius: number, durationMs: number,
+  ): void {
+    removeGroundArea(id); // substituição (a 4ª muralha) reusa o mesmo caminho
+    const [corte, brilho] = CORES_AREA[fx] ?? [0x8a5ad8, 0xefe6ff];
+    const node = new Container();
+    node.x = tileX * TS + TS / 2;
+    node.y = tileY * TS + TS / 2;
+    // Abaixo das entidades: a área é CHÃO, e cobrir o monstro que está dentro
+    // dela seria esconder justamente o que o jogador precisa mirar.
+    node.zIndex = 100;
+
+    const lado = (radius * 2 + 1) * TS;
+    const g = new Graphics();
+    g.rect(-lado / 2, -lado / 2, lado, lado).fill({ color: corte, alpha: 0.22 });
+    g.rect(-lado / 2, -lado / 2, lado, lado).stroke({ width: 2, color: brilho, alpha: 0.65 });
+    node.addChild(g);
+    // Marcas nos cantos: com opacidade baixa, a borda sozinha some no chão
+    // claro da cidade.
+    for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+      const c = new Graphics();
+      c.circle(0, 0, 3).fill({ color: brilho, alpha: 0.9 });
+      c.x = (sx * lado) / 2;
+      c.y = (sy * lado) / 2;
+      node.addChild(c);
+    }
+    fxLayer.addChild(node);
+    groundAreaNodes.set(id, node);
+    // Rede de segurança: se o `areagone` se perder, a área some sozinha um
+    // pouco depois do previsto em vez de ficar pintada para sempre.
+    setTimeout(() => removeGroundArea(id), durationMs + 1500);
+  }
+
+  function removeGroundArea(id: string): void {
+    const node = groundAreaNodes.get(id);
+    if (!node) return;
+    groundAreaNodes.delete(id);
+    node.destroy({ children: true });
   }
 
   function spawnProjectile(fromWX: number, fromWY: number, toTileX: number, toTileY: number, kind: string): void {
@@ -1997,6 +2165,26 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           break;
         case 'fx':
           if (msg.floor === myFloor) spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1);
+          break;
+        case 'heal': {
+          // Cura é número VERDE e para cima, nunca vermelho: o jogador tem de
+          // distinguir "levei 40" de "recebi 40" com o olho, não com a leitura.
+          const view = sprites.get(msg.targetId);
+          if (view) {
+            spawnFloater(view.container.x, view.container.y - 12, `+${msg.amount}`, 0x6ee06e, false);
+          }
+          break;
+        }
+        case 'casting':
+          mostraBarraDeConjuracao(msg.spell as SkillId | null, msg.ms);
+          break;
+        case 'area':
+          if (msg.floor === myFloor) {
+            addGroundArea(msg.id, msg.fx, msg.x, msg.y, msg.radius, msg.durationMs);
+          }
+          break;
+        case 'areagone':
+          removeGroundArea(msg.id);
           break;
         case 'hit': {
           // Quem bateu toca a animação de ataque; quem levou (e não esquivou)
@@ -3659,6 +3847,79 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // A barra flutua sobre o mundo e pode ser arrastada pelo "pegador" da esquerda
   // (a posição fica salva no navegador).
   const spellBarEl = el('spellbar');
+  const buffBarEl = el('buffbar');
+  /** Efeitos ativos, com o instante em que cada um vence (relógio do cliente). */
+  let meusEfeitos: { id: string; nome: string; bom: boolean; fim: number }[] = [];
+
+  /**
+   * Recebe a lista de efeitos do servidor e converte "quanto falta" em "quando
+   * acaba".
+   *
+   * ⚠️ A conversão é o ponto: o servidor manda `remainingMs` a cada tique, e
+   * redesenhar só nesses instantes daria uma contagem aos solavancos. Guardando
+   * o INSTANTE final, a contagem escorre suave entre um tique e outro, e o
+   * próximo pacote a corrige se houver deriva.
+   */
+  function atualizaEfeitos(lista: S2C_Stats['effects']): void {
+    const agora = performance.now();
+    meusEfeitos = lista.map((e) => ({
+      id: e.id, nome: e.name, bom: e.good, fim: agora + e.remainingMs,
+    }));
+    desenhaEfeitos(agora);
+  }
+
+  function desenhaEfeitos(agora: number): void {
+    buffBarEl.textContent = '';
+    for (const e of meusEfeitos) {
+      const falta = Math.max(0, e.fim - agora);
+      if (falta <= 0) continue;
+      const chip = document.createElement('div');
+      chip.className = `buffchip ${e.bom ? 'good' : 'bad'}`;
+      const nome = document.createElement('span');
+      nome.textContent = e.nome;
+      const tempo = document.createElement('span');
+      tempo.className = 't';
+      tempo.textContent = falta >= 10000
+        ? `${Math.ceil(falta / 1000)}s`
+        : `${(falta / 1000).toFixed(1)}s`;
+      chip.append(nome, tempo);
+      buffBarEl.appendChild(chip);
+    }
+  }
+
+  const castBarEl = el('castbar');
+  const castFillEl = el('castfill');
+  const castTextEl = el('casttext');
+  /** Conjuração em curso, para a barra andar sozinha entre os tiques do servidor. */
+  let castando: { nome: string; inicio: number; dur: number } | null = null;
+
+  /**
+   * Liga ou desliga a barra de conjuração.
+   *
+   * 🔴 O servidor manda `spell: null` tanto quando a magia SAI quanto quando é
+   * interrompida — e é o certo: o cliente não precisa saber por quê, precisa
+   * parar de desenhar. O motivo chega separado, como mensagem no chat.
+   */
+  function mostraBarraDeConjuracao(spell: SkillId | null, ms: number): void {
+    if (!spell || ms <= 0) {
+      castando = null;
+      castBarEl.style.display = 'none';
+      return;
+    }
+    castando = { nome: SKILLS[spell].name, inicio: performance.now(), dur: ms };
+    castTextEl.textContent = SKILLS[spell].name;
+    castFillEl.style.width = '0%';
+    castBarEl.style.display = 'block';
+  }
+
+  /** Anima a barra de conjuração. Chamada pelo laço de render. */
+  function tickCastBar(now: number): void {
+    if (!castando) return;
+    const t = Math.min(1, (now - castando.inicio) / castando.dur);
+    castFillEl.style.width = `${(t * 100).toFixed(1)}%`;
+    // Não escondemos ao chegar em 100 %: quem esconde é o servidor, quando a
+    // magia realmente sai. Sumir antes disso mentiria sobre o estado do jogo.
+  }
   const spellGripEl = el('spellgrip');
   interface SpellSlot {
     id: SkillId;
@@ -3676,37 +3937,57 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   /** Maestrias de arma, para o tooltip do item mostrar a sua. */
   let myProficiencies: Record<string, { level: number; progress: number }> = {};
 
-  SKILL_BAR.forEach((id, i) => {
-    const key = `F${i + 1}`;
-    const cell = document.createElement('div');
-    cell.className = id ? 'sslot' : 'sslot free';
-    const label = document.createElement('span');
-    label.className = 'sk';
-    label.textContent = key;
-    cell.appendChild(label);
-    if (id) {
-      const def = SKILLS[id];
-      const img = document.createElement('img');
-      img.src = spellIconUrl(id);
-      img.alt = def.name;
-      const lock = document.createElement('span');
-      lock.className = 'lock';
-      lock.textContent = '🔒';
-      const cd = document.createElement('span');
-      cd.className = 'cd';
-      const cdText = document.createElement('span');
-      cdText.className = 'cdt';
-      // Nível da habilidade no canto — é o dado que mais muda com a build.
-      const lvl = document.createElement('span');
-      lvl.className = 'lv';
-      const tip = document.createElement('span');
-      tip.className = 'tip';
-      cell.append(img, lock, cd, cdText, lvl, tip);
-      cell.onclick = () => castSpellId(id);
-      spellSlots.set(id, { id, cell, cd, cdText, lvl, tip });
-    }
-    spellBarEl.appendChild(cell);
-  });
+  /**
+   * Monta a barra de atalhos da CLASSE do personagem.
+   *
+   * 🔴 Passou a ser por classe em 03/09. Antes era um array global de oito,
+   * montado uma vez no arranque, de quando só o Knight tinha habilidades — o
+   * cliente filtrava por classe em cima dele. Com 23 do Druida e 18 do
+   * Feiticeiro isso deixa de fechar por aritmética, e o Druida ficaria com a
+   * barra do Knight quase toda vazia.
+   */
+  let barraAtual: (SkillId | null)[] = [];
+  /** Classe cuja barra está montada agora. `null` = ainda não montou nenhuma. */
+  let classeDaBarra: S2C_Stats['charClass'] | null = null;
+  function buildSpellBar(cls: S2C_Stats['charClass']): void {
+    barraAtual = skillBarFor(cls);
+    // ⚠️ Só os SLOTS saem. `spellBarEl.textContent = ''` levaria junto o
+    // `#spellgrip`, que é o pegador de arrastar — e a barra ficaria presa no
+    // meio da tela para sempre, sem nenhuma mensagem de erro.
+    for (const velho of Array.from(spellBarEl.querySelectorAll('.sslot'))) velho.remove();
+    spellSlots.clear();
+    barraAtual.forEach((id, i) => {
+      const key = `F${i + 1}`;
+      const cell = document.createElement('div');
+      cell.className = id ? 'sslot' : 'sslot free';
+      const label = document.createElement('span');
+      label.className = 'sk';
+      label.textContent = key;
+      cell.appendChild(label);
+      if (id) {
+        const def = SKILLS[id];
+        const img = document.createElement('img');
+        img.src = spellIconUrl(id);
+        img.alt = def.name;
+        const lock = document.createElement('span');
+        lock.className = 'lock';
+        lock.textContent = '🔒';
+        const cd = document.createElement('span');
+        cd.className = 'cd';
+        const cdText = document.createElement('span');
+        cdText.className = 'cdt';
+        // Nível da habilidade no canto — é o dado que mais muda com a build.
+        const lvl = document.createElement('span');
+        lvl.className = 'lv';
+        const tip = document.createElement('span');
+        tip.className = 'tip';
+        cell.append(img, lock, cd, cdText, lvl, tip);
+        cell.onclick = () => castSpellId(id);
+        spellSlots.set(id, { id, cell, cd, cdText, lvl, tip });
+      }
+      spellBarEl.appendChild(cell);
+    });
+  }
 
   /** Texto do tooltip com os números REAIS do nível atual da habilidade. */
   function skillTipHtml(id: SkillId, nivel: number, tecla: string): string {
@@ -3716,7 +3997,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       ? 'Em você mesmo'
       : def.shape === 'area'
         ? `Área · raio ${skillRange(def, efetivo)}`
-        : `Alvo único · alcance ${skillRange(def, efetivo)}`;
+        : def.shape === 'ally'
+          ? `Um aliado · alcance ${skillRange(def, efetivo)}`
+          : def.shape === 'party'
+            ? `Você e os aliados · raio ${skillRange(def, efetivo)}`
+            : def.shape === 'ground'
+              ? `No chão sob você · raio ${skillRange(def, efetivo)}`
+              : `Alvo único · alcance ${skillRange(def, efetivo)}`;
     const req: string[] = [];
     if (def.reqLevel > 1) req.push(`nível ${def.reqLevel}`);
     for (const r of def.requires ?? []) req.push(`${SKILLS[r.skill].name} Lv.${r.level}`);
@@ -3750,17 +4037,86 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       efeito =
         `Dano ${(skillPower(def, efetivo) * 100).toFixed(0)}% · ` +
         `até ×${executionMultiplier(efetivo, 0).toFixed(1)} contra alvo quase morto`;
+    } else if (def.kind === 'heal') {
+      // Cura mostra POTÊNCIA relativa, não valor absoluto: o número real depende
+      // do WIS de quem lança, e prometer "cura 240" seria mentira na ficha alheia.
+      efeito = `Cura ${(skillPower(def, efetivo) * 100).toFixed(0)}% do seu poder de cura`;
+    } else if (def.kind === 'hot') {
+      const pulsos = Math.round(skillDuration(def, efetivo) / hotTickMs(def, efetivo));
+      efeito =
+        `Cura ${(skillPower(def, efetivo) * 100).toFixed(0)}% por pulso · ${pulsos} pulsos<br>` +
+        `Total ${(skillPower(def, efetivo) * pulsos * 100).toFixed(0)}% em ` +
+        `${(skillDuration(def, efetivo) / 1000).toFixed(0)}s`;
+    } else if (def.kind === 'buff' || def.kind === 'debuff' || def.kind === 'passive') {
+      efeito = modsHtml(def, efetivo);
+      if (def.kind !== 'passive') {
+        efeito += `<br>Dura ${(skillDuration(def, efetivo) / 1000).toFixed(0)}s`;
+      }
+    } else if (def.kind === 'condition' && def.applies) {
+      const chance = skillConditionChance(def, efetivo);
+      efeito =
+        `${CONDITIONS[def.applies.id].name} · ` +
+        `${(chance * 100).toFixed(0)}% de chance · ` +
+        `${(skillConditionDuration(def, efetivo) / 1000).toFixed(1)}s`;
+    } else if (def.kind === 'ground') {
+      const dur = skillGroundDuration(def, efetivo);
+      const pulsos = Math.round(dur / (def.ground?.tickMs ?? 1000));
+      efeito = def.ground?.kind === 'wall'
+        ? `Bloqueia a passagem por ${(dur / 1000).toFixed(0)}s · ` +
+          `até ${skillGroundMax(def, efetivo)} simultânea(s)`
+        : def.ground?.kind === 'ward'
+          ? `Anula TODO o dano físico de quem estiver dentro por ${(dur / 1000).toFixed(1)}s`
+          : `${def.ground?.kind === 'heal' ? 'Cura' : 'Dano'} ` +
+            `${(skillPower(def, efetivo) * 100).toFixed(0)}% a cada ` +
+            `${((def.ground?.tickMs ?? 1000) / 1000).toFixed(1)}s · ` +
+            `${pulsos} pulsos em ${(dur / 1000).toFixed(0)}s`;
+    } else if (def.kind === 'multihit') {
+      const golpes = skillHits(def, efetivo);
+      efeito =
+        `${golpes} impactos de ${(skillPower(def, efetivo) * 100).toFixed(0)}%<br>` +
+        `Total ${(skillPower(def, efetivo) * golpes * 100).toFixed(0)}%`;
     } else {
       efeito = `Dano ${(skillPower(def, efetivo) * 100).toFixed(0)}%`;
     }
+
+    // A condição que vem DE BRINDE com um golpe (queimadura do Fire Bolt, raiz
+    // das Raízes) entra numa linha própria — misturá-la com o dano esconderia
+    // a metade da habilidade que muitas vezes é a mais importante.
+    if (def.applies && def.kind !== 'condition') {
+      efeito +=
+        `<br><span class="req">${(skillConditionChance(def, efetivo) * 100).toFixed(0)}% de ` +
+        `${CONDITIONS[def.applies.id].name} (${(skillConditionDuration(def, efetivo) / 1000).toFixed(1)}s)</span>`;
+    }
+    const cast = def.castMs ? `Conjuração ${(def.castMs / 1000).toFixed(1)}s · ` : '';
 
     const custo = skillManaCost(def, efetivo);
     return (
       `${cabecalho}<br>${escapeHtml(def.desc)}<br>` +
       `${alvo}<br>${efeito}<br>` +
-      `${custo > 0 ? `Mana ${custo} · ` : ''}Recarga ${(def.cooldownMs / 1000).toFixed(1)}s<br>` +
+      `${cast}${custo > 0 ? `Mana ${custo} · ` : ''}` +
+      (def.kind === 'passive'
+        ? '<span class="req">Passiva — sempre ativa</span>'
+        : `Recarga ${(def.cooldownMs / 1000).toFixed(1)}s`) +
+      '<br>' +
       (req.length ? `<span class="req">Requer ${req.join(' · ')}</span>` : '')
     );
+  }
+
+  /** Lista legível dos modificadores de um buff/debuff/passiva. */
+  function modsHtml(def: SkillDef, nivel: number): string {
+    const mods = skillModifiers(def, nivel);
+    const linhas: string[] = [];
+    for (const k of MODIFIER_KEYS) {
+      const v = mods[k];
+      if (v === undefined || Math.abs(v) < 0.0005) continue;
+      const pct = (v * 100).toFixed(0);
+      // Debuff em vermelho-apagado (a classe `req`), buff em texto normal — é a
+      // mesma convenção que a Postura já usa para a penalidade dela.
+      linhas.push(v < 0
+        ? `<span class="req">${MODIFIER_LABEL[k]} ${pct}%</span>`
+        : `${MODIFIER_LABEL[k]} +${pct}%`);
+    }
+    return linhas.length ? linhas.join('<br>') : 'Sem efeito de ficha';
   }
 
   // Posição arrastável, lembrada entre sessões.
@@ -3818,8 +4174,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // Se a bancada está aberta, o nível novo aparece na hora — fabricar sobe
     // profissão, e ver o número mudar é metade da recompensa.
     if (craftEl.style.display !== 'none') renderCraft();
-    // A barra só existe para quem tem alguma habilidade na classe.
-    const usable = SKILL_BAR.some((id) => id && SKILLS[id].classes.includes(s.charClass));
+    // A barra é remontada quando a classe muda — trocar de personagem troca as
+    // oito teclas inteiras, não só os ícones.
+    if (s.charClass !== classeDaBarra) {
+      classeDaBarra = s.charClass;
+      buildSpellBar(s.charClass);
+    }
+    // A barra só existe para quem tem alguma habilidade na classe (o Arqueiro e
+    // o Assassino ainda não têm árvore — Etapa 13).
+    atualizaEfeitos(s.effects);
+    const usable = barraAtual.some((id) => id !== null);
     spellBarEl.style.display = usable ? 'flex' : 'none';
     for (const [id, slot] of spellSlots) {
       const nivel = skillLevels[id] ?? 0;
@@ -3834,7 +4198,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       const ligada =
         (id === 'battle_fury' && s.furyActive) || (id === 'defensive_stance' && s.stanceActive);
       slot.cell.classList.toggle('active', ligada);
-      const tecla = `F${SKILL_BAR.indexOf(id) + 1}`;
+      const tecla = `F${barraAtual.indexOf(id) + 1}`;
       slot.tip.innerHTML = skillTipHtml(id, nivel, tecla);
     }
   }
@@ -3869,6 +4233,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // ---- Painel de habilidades (tecla K) ------------------------------------
   // A árvore: cada habilidade mostra o nível atual, o custo do próximo ponto e,
   // quando travada, POR QUE está travada (nível, pré-requisito ou pontos).
+  /** Emoji de cada ramo da árvore — o mesmo dos documentos e do `skills.ts`. */
+  const RAMO_ICONE: Record<string, string> = {
+    cura: '💚', buff: '🌟', debuff: '☠️', natureza: '🌿',
+    fogo: '🔥', gelo: '❄️', raio: '⚡', arcano: '✨',
+  };
+
   const skPanelEl = el('skillpanel');
   const skListEl = el('sp-list');
   const skPointsEl = el('sp-points');
@@ -3889,10 +4259,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   function buildSkillPanel(cls: S2C_Stats['charClass']): void {
     skListEl.textContent = '';
     skillRows.clear();
-    for (const id of SKILL_BAR) {
-      if (!id) continue;
-      const def = SKILLS[id];
-      if (!def.classes.includes(cls)) continue;
+    // 🔴 A janela lista a árvore INTEIRA da classe, não só os oito atalhos.
+    // Enquanto o Knight tinha 8 habilidades e 8 slots as duas listas eram a
+    // mesma; do Druida em diante, varrer a barra esconderia 15 das 23.
+    let ramoAtual: string | null = null;
+    for (const def of skillsOfClass(cls)) {
+      const id = def.id;
+      // Cabeçalho a cada troca de ramo. 23 linhas seguidas sem separação são
+      // uma lista; separadas em 💚/🌟/☠️/🌿 são uma ÁRVORE, que é o que o
+      // jogador precisa enxergar para escolher um arquétipo.
+      const ramo = def.branch ?? null;
+      if (ramo && ramo !== ramoAtual) {
+        ramoAtual = ramo;
+        const h = document.createElement('div');
+        h.className = 'skbranch';
+        h.textContent = `${RAMO_ICONE[ramo] ?? ''} ${ramo}`.trim();
+        skListEl.appendChild(h);
+      }
       const row = document.createElement('div');
       row.className = 'skrow';
 
@@ -4415,7 +4798,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (ev.key === 'Escape') clearTarget();
     if (ev.code === 'KeyC') cpEl.style.display = cpEl.style.display === 'block' ? 'none' : 'block';
     if (ev.code === 'KeyK') {
-      skPanelEl.style.display = skPanelEl.style.display === 'block' ? 'none' : 'block';
+      // `flex`, não `block`: o painel virou coluna flex para o rodapé ficar
+      // parado enquanto a lista de 23 habilidades rola.
+      skPanelEl.style.display = skPanelEl.style.display === 'flex' ? 'none' : 'flex';
     }
     if (ev.code === 'KeyE') editor?.alterna();
     // R gira, mas só com o painel aberto: fora dele a tecla continua livre.
@@ -4423,10 +4808,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (ev.code === 'KeyB') {
       bestPanel.style.display = bestPanel.style.display === 'block' ? 'none' : 'block';
     }
-    // Atalhos da barra de habilidades: F1..F6 conforme SKILL_BAR.
+    // Atalhos da barra de habilidades: F1..F8 conforme a barra DA CLASSE.
     const fn = /^F([1-9])$/.exec(ev.code);
     if (fn) {
-      const id = SKILL_BAR[Number(fn[1]) - 1];
+      const id = barraAtual[Number(fn[1]) - 1];
       if (id) {
         castSpellId(id);
         ev.preventDefault(); // F1 abriria a ajuda do navegador
@@ -5209,6 +5594,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
     // Cooldown dos atalhos de magia (setor escuro + contagem regressiva).
     tickSpellCooldowns(now);
+    tickCastBar(now);
+    // Redesenha os chips de buff a cada quadro: a contagem escorre em vez de
+    // pular de segundo em segundo quando o pacote do servidor chega.
+    if (meusEfeitos.length > 0) desenhaEfeitos(now);
 
     // Projéteis (flechas/feitiços) voando até o alvo.
     for (let i = projectiles.length - 1; i >= 0; i--) {

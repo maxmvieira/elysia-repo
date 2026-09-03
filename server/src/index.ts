@@ -96,11 +96,49 @@ import {
   breakOnDamage,
   emptyConditionDefense,
   restrictionsOf,
+  interruptsCast,
   tickConditions,
   tryApplyCondition,
   type ActiveCondition,
   type ConditionId,
   type DamageType,
+  // --- Etapas 14 e 15: efeitos de ficha, áreas persistentes e as 41 magias
+  type ActiveEffect,
+  type Modifiers,
+  type GroundArea,
+  applyEffect,
+  modifierFactor,
+  modifierOf,
+  removeEffect,
+  sumModifiers,
+  tickEffects,
+  MODIFIER_FLOOR,
+  MODIFIER_CEIL,
+  areaBlocks,
+  areaCovers,
+  countAreasOf,
+  dropOldestOf,
+  expireAreas,
+  MAX_GROUND_AREAS,
+  benefitsFromNatureAffinity,
+  castMasteryReduction,
+  hotTickMs,
+  magicProtectionShare,
+  manaRegenBonus,
+  natureAffinityBonus,
+  rootsPetrifyChance,
+  skillBarFor,
+  skillCastMs,
+  skillConditionChance,
+  skillConditionDuration,
+  skillDuration,
+  skillGroundDuration,
+  skillGroundMax,
+  skillHits,
+  skillModifiers,
+  skillsOfClass,
+  HOT_PULSES,
+  MAGIC_PROTECTION_MANA_PER_HP,
   type DefenseProfile,
   type ResistanceProfile,
   decodeClientMessage,
@@ -315,6 +353,42 @@ interface AreaDeTransferencia {
   arte?: { x: number; y: number };
 }
 
+/**
+ * Uma cura ao longo do tempo em andamento (Regeneração, e o que vier depois).
+ *
+ * Guarda o valor JÁ RESOLVIDO por pulso em vez do nível da habilidade: o
+ * Druida pode morrer, deslogar ou trocar de equipamento no meio dos 20 s, e o
+ * HoT que ele plantou não deve mudar de tamanho por causa disso. O que saiu,
+ * saiu.
+ */
+interface ActiveHot {
+  skillId: SkillId;
+  /** Quem lançou — para o crédito e para a mensagem. */
+  sourceId: string;
+  /** Cura de cada pulso, já com poder de cura e modificadores aplicados. */
+  perPulse: number;
+  nextTickAt: number;
+  tickMs: number;
+  expiresAt: number;
+}
+
+/**
+ * Conjuração em andamento.
+ *
+ * 🔴 O alvo é guardado AQUI, não relido no fim: se o jogador trocar de alvo
+ * durante os 3 s da Chuva de Meteoros, a magia sai onde ele mandou sair. O
+ * contrário faria a conjuração longa virar uma loteria.
+ */
+interface Casting {
+  skillId: SkillId;
+  endsAt: number;
+  /** Alvo escolhido no início (criatura ou jogador). */
+  targetId: string | null;
+  /** Onde o personagem estava — sair do tile cancela. */
+  fromX: number;
+  fromY: number;
+}
+
 interface Player {
   /** O último /clone deste jogador. */
   clipboard?: AreaDeTransferencia;
@@ -377,6 +451,26 @@ interface Player {
    * faria sentido carregar diminishing returns entre sessões.
    */
   cc: CcState;
+  /**
+   * Buffs e debuffs com modificador de ficha (`effects.ts`).
+   *
+   * Separado de `conditions` de propósito: Pele de Carvalho não pode entrar na
+   * fila de diminishing returns do Congelamento. Não persiste, pelo mesmo
+   * motivo das condições — sair buffado e voltar buffado seria mana de graça.
+   */
+  effects: ActiveEffect[];
+  /**
+   * Curas ao longo do tempo em andamento (Regeneração). Uma por habilidade:
+   * relançar renova em vez de empilhar dois HoTs da mesma fonte.
+   */
+  hots: ActiveHot[];
+  /**
+   * Conjuração em andamento. Andar cancela; Stun, Congelamento e Petrificação
+   * derrubam. É o contrajogo das magias grandes.
+   */
+  casting: Casting | null;
+  /** ✨ Proteção Mágica ligada (alternável, como a Postura do Knight). */
+  magicProtection: boolean;
   /** Cooldown das habilidades: id -> timestamp em que fica pronta de novo. */
   spellReadyAt: Record<string, number>;
   /** Skill Points não gastos e nível de cada habilidade aprendida. */
@@ -482,6 +576,14 @@ interface Creature {
    * faria sentido carregar diminishing returns entre sessões.
    */
   cc: CcState;
+  /**
+   * Debuffs de ficha em cima da criatura (Enfraquecer, Vulnerabilidade, Praga).
+   *
+   * ⚠️ `71.23`: **MVP não precisa ser imune a debuff** — basta reduzir a
+   * eficiência. Por isso não há lista de imunidade aqui: até o chefe apanha de
+   * Vulnerabilidade, e é o que mantém o Druida útil em boss fight.
+   */
+  effects: ActiveEffect[];
   /** Chefes: última magia e última invocação (controle de cooldown). */
   lastSpellAt: number;
   lastSummonAt: number;
@@ -609,6 +711,16 @@ interface ResourceNode {
 
 const players = new Map<string, Player>();
 const creatures = new Map<string, Creature>();
+/**
+ * Áreas persistentes no chão: Muralha de Fogo, Muralha de Gelo, Nevasca,
+ * Círculo Arcano, Esporos, Santuário e Ira da Natureza.
+ *
+ * 🔴 Elas vivem FORA de quem as lançou. É o que a identidade do Druida exige
+ * (*"ataca a região em ciclos enquanto o Druida continua curando"*), e a
+ * consequência é que a área sobrevive à morte do dono — a magia já saiu.
+ */
+let groundAreas: GroundArea[] = [];
+let proximaAreaId = 1;
 const items = new Map<string, GroundItem>();
 const corpses = new Map<string, Corpse>();
 const nodes = new Map<string, ResourceNode>();
@@ -1260,6 +1372,18 @@ function sendStats(player: Player): void {
     skillResets: player.skillResets,
     furyActive: player.fury !== null,
     stanceActive: player.stance,
+    magicProtectionActive: player.magicProtection,
+    healPower: Math.round(player.derived.healPower),
+    effects: player.effects.map((e) => ({
+      id: e.id, name: e.name, good: e.good,
+      remainingMs: Math.max(0, e.expiresAt - Date.now()),
+    })),
+    casting: player.casting
+      ? {
+        spell: player.casting.skillId,
+        remainingMs: Math.max(0, player.casting.endsAt - Date.now()),
+      }
+      : null,
     proficiencies: player.proficiencies as Record<string, { level: number; progress: number }>,
     professions: player.professions,
     bestiary: player.bestiary as Record<string, { encountered: boolean; kills: number; variants: string[] }>,
@@ -1384,7 +1508,10 @@ function recompute(player: Player, healGain = false): void {
       player.derived.attackCooldownMs * arma.identity.speedMult,
     );
     player.derived.attackRange = arma.identity.range;
-    player.derived.attackType = arma.identity.magic
+    // 🔴 `basicPhysical` (o cajado) canaliza magia sem conjurar no golpe comum:
+    // `DD-PROG-028`. Sem esta porta, equipar um cajado devolveria ao Feiticeiro
+    // o firebolt de graça que a correção de 03/09 tirou.
+    player.derived.attackType = arma.identity.magic && !arma.identity.basicPhysical
       ? 'magic'
       : arma.identity.range > 1 ? 'ranged' : 'melee';
   } else {
@@ -1404,6 +1531,37 @@ function recompute(player: Player, healGain = false): void {
     120,
     player.derived.moveIntervalMs * (1 - Math.min(0.4, bonus.moveSpeed)),
   );
+
+  // 🌟 Buffs, debuffs e passivas entram POR ÚLTIMO, sobre a ficha já pronta.
+  // A ordem importa: a Bênção da Agilidade dá +15 % sobre a velocidade que o
+  // jogador realmente tem, equipamento incluído — não sobre a nua.
+  const mods = allModifiers(player);
+  const fator = (k: keyof Modifiers): number => {
+    const v = mods[k] ?? 0;
+    return Math.max(MODIFIER_FLOOR, Math.min(MODIFIER_CEIL, 1 + v));
+  };
+  player.derived.physAtk *= fator('physAtk');
+  player.derived.magicAtk *= fator('magicAtk');
+  player.derived.healPower *= fator('healPower');
+  player.derived.defense *= fator('defense');
+  player.derived.maxHp = Math.round(player.derived.maxHp * fator('maxHp'));
+  // Resistências e chances SOMAM em vez de multiplicar: são frações 0..1, e
+  // "+15 % de resistência mágica" sobre 0,11 daria +0,016 — nada. O doc trata
+  // esses números como pontos percentuais, e é assim que eles se comportam.
+  player.derived.magicResist = Math.min(0.9, player.derived.magicResist + (mods.magicResist ?? 0));
+  player.derived.critChance = Math.min(0.95, player.derived.critChance + (mods.critChance ?? 0));
+  player.derived.dodgeChance = Math.min(0.8, player.derived.dodgeChance + (mods.dodgeChance ?? 0));
+  // Velocidade é INTERVALO: mais rápido = intervalo menor, então o buff divide.
+  player.derived.attackCooldownMs = Math.max(
+    250, player.derived.attackCooldownMs / fator('attackSpeed'),
+  );
+  player.derived.moveIntervalMs = Math.max(
+    120, player.derived.moveIntervalMs / fator('moveSpeed'),
+  );
+  // ✨ Regeneração de Mana é passiva do Feiticeiro e mexe direto no regen.
+  const regenMana = skillLevelOf(player.skillLevels, 'mana_regen');
+  if (regenMana > 0) player.derived.manaRegen *= 1 + manaRegenBonus(regenMana);
+
   player.maxHp = player.derived.maxHp;
   player.maxMana = player.derived.maxMana;
   // Em Fúria o teto de vida está multiplicado: recalcular os stats não pode
@@ -1490,7 +1648,7 @@ function spawnCreature(
     tileX: pos.x, tileY: pos.y, floor: 0, direction: 'down',
     homeX: pos.x, homeY: pos.y, hp: maxHp, maxHp,
     alive: true, respawnAt: 0, targetId: null, lastAttackAt: 0, lastMoveAt: 0,
-    conditions: [], cc: emptyCcState(),
+    conditions: [], cc: emptyCcState(), effects: [],
     lastSpellAt: 0, lastSummonAt: 0, lastSlamAt: 0,
     enrageUntil: 0, enrageUsed: false,
     summonedBy: opts.summonedBy,
@@ -1669,7 +1827,21 @@ function creatureCanEnter(
   if (floor === 0 && inDepotZone(map, x, y)) return false; // monstros não entram no DP
   if (floor === 0 && inCenterSafeZone(x, y)) return false; // ninguém invade a praça
   if (!isWalkable(map, x, y, floor)) return false;
+  // ❄️ Muralha de Gelo: "barreira física destruível" — a única magia do jogo que
+  // vira colisão. Vale para monstro e para jogador (ver `podeAndarPara`).
+  if (areaBlocks(groundAreas, x, y, floor)) return false;
   return !tileOccupied(x, y, floor, selfId);
+}
+
+/**
+ * O jogador pode pisar aqui? Igual ao mapa, mais as muralhas de gelo.
+ *
+ * ⚠️ Existe separado de `creatureCanEnter` porque jogador entra no depósito e
+ * na praça central, e monstro não.
+ */
+function podeAndarPara(x: number, y: number, floor: number): boolean {
+  if (!isWalkable(map, x, y, floor)) return false;
+  return !areaBlocks(groundAreas, x, y, floor);
 }
 
 function stepToward(
@@ -2116,6 +2288,15 @@ function killPlayer(player: Player, byName: string, byPlayer = false): void {
     player.spellReadyAt['battle_fury'] = Date.now() + SKILLS.battle_fury.cooldownMs;
   }
   player.stance = false;
+  // Morrer também limpa buffs, debuffs, HoT e a conjuração em andamento.
+  //
+  // ⚠️ O que NÃO morre é a área que ele já plantou: a Ira da Natureza continua
+  // atacando depois que o Druida cai. A magia saiu — e é o que dá ao grupo a
+  // chance de terminar a luta que o healer não viu acabar.
+  player.effects = [];
+  player.hots = [];
+  player.casting = null;
+  player.magicProtection = false;
   player.hp = 0;
   player.targetId = null;
   player.deadUntil = Date.now() + PLAYER_RESPAWN_MS;
@@ -2215,7 +2396,8 @@ function creatureDefense(c: Creature, now: number, player?: Player): number {
   let base = c.def.defense;
   if (now < c.defBreakUntil) base *= 1 - c.defBreakPct;
   if (player) base *= 1 - Math.min(0.8, equipBonus(player).armorPen);
-  return base;
+  // ☠️ Vulnerabilidade e Praga: "faz os aliados causarem mais" sem causar dano.
+  return base * creatureMod(c, 'defense');
 }
 
 /**
@@ -2275,7 +2457,9 @@ function creatureDefenseProfile(
     fullBlockChance: 0,
     shieldMitigation: 0,
     defense: isMagic ? 0 : creatureDefense(creature, now, player),
-    magicDefense: creature.def.magicDefense ?? 0,
+    // A Vulnerabilidade derruba DEF **e MDEF** — o doc dá os dois no mesmo
+    // número. Sem isto, ela seria metade da habilidade contra um Feiticeiro.
+    magicDefense: (creature.def.magicDefense ?? 0) * creatureMod(creature, 'magicResist'),
     resistances: creature.def.resistances ?? {},
   };
 }
@@ -2745,6 +2929,12 @@ function castSpell(player: Player, def: SkillDef, now: number): void {
     send(player, { t: 'denied', reason: `Você ainda não aprendeu ${def.name}.` });
     return;
   }
+  // Passiva não se conjura: ela já está agindo. Sem esta porta, apertar a tecla
+  // gastaria mana e cooldown para não fazer nada.
+  if (def.kind === 'passive') {
+    send(player, { t: 'denied', reason: `${def.name} é passiva — já está ativa.` });
+    return;
+  }
   // Etapa 8: Silêncio bloqueia SÓ magia (o silenciado anda e bate normal);
   // Congelamento, Petrificação e Stun bloqueiam tudo.
   const restr = restrictionsOf(player.conditions);
@@ -2752,55 +2942,164 @@ function castSpell(player: Player, def: SkillDef, now: number): void {
     send(player, { t: 'denied', reason: 'Você não consegue conjurar agora.' });
     return;
   }
+  if (player.casting) {
+    send(player, { t: 'denied', reason: 'Você já está conjurando.' });
+    return;
+  }
   const readyAt = player.spellReadyAt[def.id] ?? 0;
   if (now < readyAt) {
     send(player, { t: 'denied', reason: `${def.name} recarregando (${((readyAt - now) / 1000).toFixed(1)}s).` });
     return;
   }
+  if (player.mana < skillManaCost(def, nivel)) {
+    send(player, { t: 'denied', reason: `Mana insuficiente para ${def.name} (${skillManaCost(def, nivel)}).` });
+    return;
+  }
+
+  /**
+   * 🔴 CONJURAÇÃO: as magias grandes não saem na hora.
+   *
+   * Andar cancela, e Stun/Congelamento/Petrificação derrubam (ver
+   * `cancelCasting`). É o único contrajogo da Chuva de Meteoros — sem ele, a
+   * maior magia do jogo seria um botão sem risco, e `70.49` deixa claro que o
+   * Feiticeiro tem de correr perigo real quando o kit está em cooldown.
+   *
+   * ⚠️ A mana só é debitada no FIM. Cancelar uma conjuração não custa nada além
+   * do tempo perdido — cobrar por uma magia que não saiu seria punir duas vezes.
+   */
+  const castMs = skillCastMs(def, nivel, skillLevelOf(player.skillLevels, 'cast_mastery'));
+  if (castMs > 0) {
+    player.casting = {
+      skillId: def.id, endsAt: now + castMs, targetId: player.targetId,
+      fromX: player.tileX, fromY: player.tileY,
+    };
+    send(player, { t: 'casting', spell: def.id, ms: castMs });
+    return;
+  }
+  executeSpell(player, def, now, player.targetId);
+}
+
+/**
+ * Interrompe a conjuração em andamento, se houver. Chamado por movimento e
+ * pelas condições que `interruptsCast` marca.
+ */
+function cancelCasting(player: Player, motivo: string): void {
+  if (!player.casting) return;
+  const def = SKILLS[player.casting.skillId];
+  player.casting = null;
+  send(player, { t: 'casting', spell: null, ms: 0 });
+  send(player, { t: 'chat', from: 'Sistema', text: `${def.name} interrompida: ${motivo}.` });
+}
+
+/** Fecha as conjurações que chegaram ao fim, e derruba as interrompidas. */
+function tickCasting(now: number): void {
+  for (const p of players.values()) {
+    if (!p.casting) continue;
+    if (!p.alive) {
+      p.casting = null;
+      continue;
+    }
+    // Sair do tile em que começou cancela — é como o jogador desiste.
+    if (p.tileX !== p.casting.fromX || p.tileY !== p.casting.fromY) {
+      cancelCasting(p, 'você se moveu');
+      continue;
+    }
+    if (interruptsCast(p.conditions)) {
+      cancelCasting(p, 'você foi atingido por controle');
+      continue;
+    }
+    if (now < p.casting.endsAt) continue;
+    const { skillId, targetId } = p.casting;
+    p.casting = null;
+    send(p, { t: 'casting', spell: null, ms: 0 });
+    executeSpell(p, SKILLS[skillId], now, targetId);
+  }
+}
+
+/**
+ * Executa a habilidade de verdade — depois da conjuração, se houver uma.
+ *
+ * Dano, custo de mana e raio saem do NÍVEL da habilidade (Lv.1–10). O cooldown
+ * é fixo de propósito: subir o nível deixa a skill mais forte, não mais rápida.
+ *
+ * O despacho é por `kind`, e a ordem das portas importa: as que agem sobre o
+ * próprio personagem saem primeiro (não miram ninguém), depois as que miram
+ * aliado, depois o chão, e por último as ofensivas — que são as únicas que
+ * precisam juntar criaturas.
+ */
+function executeSpell(player: Player, def: SkillDef, now: number, targetId: string | null): void {
+  const nivel = skillLevelOf(player.skillLevels, def.id);
   const custoMana = skillManaCost(def, nivel);
+  // A mana é reconferida aqui: durante uma conjuração de 3 s ela pode ter sido
+  // gasta em outra coisa, ou drenada.
   if (player.mana < custoMana) {
     send(player, { t: 'denied', reason: `Mana insuficiente para ${def.name} (${custoMana}).` });
     return;
   }
   const alcance = skillRange(def, nivel);
 
-  // Habilidades que agem sobre o próprio Knight saem por aqui: não miram
-  // ninguém e têm regras próprias de duração.
-  if (def.shape === 'self') {
-    if (def.kind === 'stance') {
-      player.stance = !player.stance;
-      player.spellReadyAt[def.id] = now + def.cooldownMs;
-      recompute(player);
-      send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
-      send(player, {
-        t: 'chat', from: 'Sistema',
-        text: player.stance ? 'Postura Defensiva ATIVADA.' : 'Postura Defensiva desativada.',
-      });
-      sendStats(player);
+  // --- Habilidades que agem sobre o próprio personagem -----------------------
+  if (def.kind === 'stance') {
+    player.stance = !player.stance;
+    player.spellReadyAt[def.id] = now + def.cooldownMs;
+    recompute(player);
+    send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
+    send(player, {
+      t: 'chat', from: 'Sistema',
+      text: player.stance ? 'Postura Defensiva ATIVADA.' : 'Postura Defensiva desativada.',
+    });
+    sendStats(player);
+    return;
+  }
+  if (def.kind === 'toggle') {
+    // ✨ Proteção Mágica: liga e desliga, sem duração. Quem a desliga é o
+    // jogador ou a falta de mana (ver `absorveComProtecaoMagica`).
+    player.magicProtection = !player.magicProtection;
+    player.spellReadyAt[def.id] = now + def.cooldownMs;
+    send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
+    send(player, {
+      t: 'chat', from: 'Sistema',
+      text: player.magicProtection ? `${def.name} ATIVADA.` : `${def.name} desativada.`,
+    });
+    sendStats(player);
+    return;
+  }
+  if (def.kind === 'fury') {
+    if (player.fury) {
+      send(player, { t: 'denied', reason: 'A Fúria já está ativa — ela não pode ser cancelada.' });
       return;
     }
-    if (def.kind === 'fury') {
-      if (player.fury) {
-        send(player, { t: 'denied', reason: 'A Fúria já está ativa — ela não pode ser cancelada.' });
-        return;
-      }
-      player.mana -= custoMana;
-      startFury(player, nivel);
-      // O cooldown só é armado quando a Fúria TERMINA (ver tickFury).
-      send(player, { t: 'cast', spell: def.id, cooldownMs: 0 });
-      broadcastFloor(player.floor, {
-        t: 'fx', kind: def.fx, x: player.tileX, y: player.tileY, floor: player.floor,
-      });
-      sendStats(player);
-      return;
-    }
+    player.mana -= custoMana;
+    startFury(player, nivel);
+    // O cooldown só é armado quando a Fúria TERMINA (ver tickFury).
+    send(player, { t: 'cast', spell: def.id, cooldownMs: 0 });
+    broadcastFloor(player.floor, {
+      t: 'fx', kind: def.fx, x: player.tileX, y: player.tileY, floor: player.floor,
+    });
+    sendStats(player);
+    return;
   }
 
-  // Junta os alvos ANTES de gastar mana: sem alvo válido, a habilidade não sai
-  // (e o jogador não perde mana nem cooldown por um clique no vazio).
+  // --- Cura, HoT e buff: miram ALIADO ---------------------------------------
+  if (def.kind === 'heal' || def.kind === 'hot'
+    || (def.kind === 'buff' && def.shape !== 'area')) {
+    lancaEmAliados(player, def, nivel, now, targetId, alcance, custoMana);
+    return;
+  }
+
+  // --- Área persistente no chão --------------------------------------------
+  if (def.shape === 'ground') {
+    plantaArea(player, def, nivel, now, custoMana);
+    return;
+  }
+
+  // --- Daqui para baixo é ofensivo: junta os alvos --------------------------
+  //
+  // Os alvos são reunidos ANTES de gastar mana: sem alvo válido, a habilidade
+  // não sai (e o jogador não perde mana nem cooldown por um clique no vazio).
   const targets: Creature[] = [];
   if (def.shape === 'target') {
-    const target = player.targetId ? creatures.get(player.targetId) : undefined;
+    const target = targetId ? creatures.get(targetId) : undefined;
     if (!target || !target.alive || target.floor !== player.floor) {
       send(player, { t: 'denied', reason: 'Escolha um alvo primeiro.' });
       return;
@@ -2838,6 +3137,37 @@ function castSpell(player: Player, def: SkillDef, now: number): void {
     return;
   }
 
+  // Debuff puro (Enfraquecer, Vulnerabilidade, Praga): nenhum dano, só ficha.
+  if (def.kind === 'debuff') {
+    const mods = skillModifiers(def, nivel);
+    const duracao = skillDuration(def, nivel);
+    for (const c of targets) {
+      applyEffectTo(c, def.id, def.name, false, mods, duracao, now, player.id);
+      // Debuffar é ato hostil: a criatura passa a te caçar. Sem isso, o Druida
+      // enfraqueceria o chefe inteiro sem nunca entrar na briga.
+      if (!c.targetId) c.targetId = player.id;
+    }
+    broadcastFloor(player.floor, {
+      t: 'fx', kind: def.fx,
+      x: def.shape === 'area' ? player.tileX : targets[0]!.tileX,
+      y: def.shape === 'area' ? player.tileY : targets[0]!.tileY,
+      floor: player.floor,
+      ...(def.shape === 'area' ? { radius: alcance } : {}),
+    });
+    sendStats(player);
+    return;
+  }
+
+  // Condição pura (Silêncio, Raízes Prensoras): controle sem dano.
+  if (def.kind === 'condition') {
+    aplicaCondicaoDaSkill(player, def, nivel, targets, now);
+    broadcastFloor(player.floor, {
+      t: 'fx', kind: def.fx, x: targets[0]!.tileX, y: targets[0]!.tileY, floor: player.floor,
+    });
+    sendStats(player);
+    return;
+  }
+
   // Investida: o valor é CHEGAR no alvo. Puxa o Knight para um tile livre
   // colado nele antes de golpear.
   if (def.kind === 'charge') {
@@ -2861,30 +3191,557 @@ function castSpell(player: Player, def: SkillDef, now: number): void {
   // Bash muda de personalidade conforme a arma: machado bate mais forte, maça
   // controla melhor, espada fica no meio. Uma habilidade, três sensações.
   const arma = equippedWeapon(player);
-  const sabor = def.kind === 'damage' && def.shape === 'area' && arma
+  const sabor = def.kind === 'damage' && def.shape === 'area' && arma && !def.magic
     ? WEAPON_IDENTITY[arma.identity.type].damageMult
     : 1;
-  const poderBase = d.physAtk * skillPower(def, nivel) * offenseMult(player)
-    * (1 + equipBonus(player).physDamage) * sabor;
-  for (const c of targets) {
-    // Execução escala com o quanto o alvo já está ferido.
-    const poder = def.kind === 'execution'
-      ? poderBase * executionMultiplier(nivel, c.hp / c.maxHp)
-      : poderBase;
-    const { amount, crit } = computeHit(poder, d.critChance, d.critMult);
-    // A Ruptura abre a defesa ANTES do próprio golpe entrar.
-    if (def.kind === 'rupture') {
-      c.defBreakUntil = now + def.durationMs;
-      c.defBreakPct = ruptureDefReduction(nivel);
+  /**
+   * 🔴 **De onde sai o dano: `magic` decide.** A habilidade mágica escala com
+   * `magicAtk` e ignora o bônus de dano físico do equipamento — senão o
+   * Feiticeiro de espada grande conjuraria melhor que o de cajado.
+   *
+   * ⚠️ E `magic` é diferente de `damageType`: o Espinho da Terra sai do poder
+   * mágico e fere como FÍSICO. É o 32.2 (*elemento ≠ condição ≠ origem*) na
+   * prática.
+   */
+  const ataque = def.magic ? d.magicAtk : d.physAtk;
+  const bonusEquip = def.magic ? 1 : 1 + equipBonus(player).physDamage;
+  // 🌿 Afinidade com a Natureza: +15 % no ramo Natureza e no veneno (Lv.10).
+  const afinidade = benefitsFromNatureAffinity(def)
+    ? 1 + natureAffinityBonus(skillLevelOf(player.skillLevels, 'nature_affinity'))
+    : 1;
+  const poderBase = ataque * skillPower(def, nivel) * offenseMult(player)
+    * bonusEquip * sabor * afinidade;
+
+  /**
+   * 🔴 `DD-SOR-010` **os meteoros caem em posições parcialmente aleatórias**:
+   * um alvo pequeno leva poucos impactos, um MVP enorme leva vários.
+   *
+   * Como o jogo é por tile e o "tamanho físico" ainda não existe no bestiário,
+   * o sorteio é por impacto: cada um dos 10 meteoros escolhe um alvo da área.
+   * Com um alvo só, ele leva todos — que é o comportamento correto do alvo
+   * "grande" e o único que a informação atual permite. Fica anotado para quando
+   * criatura tiver tamanho.
+   */
+  const golpes = skillHits(def, nivel);
+  const sorteiaAlvo = def.kind === 'multihit' && def.shape === 'area';
+
+  for (let i = 0; i < golpes; i++) {
+    const lista = sorteiaAlvo
+      ? [targets[Math.floor(Math.random() * targets.length)]!]
+      : targets;
+    for (const c of lista) {
+      if (!c.alive) continue;
+      // Execução escala com o quanto o alvo já está ferido.
+      const poder = def.kind === 'execution'
+        ? poderBase * executionMultiplier(nivel, c.hp / c.maxHp)
+        : poderBase;
+      const { amount, crit } = computeHit(poder, d.critChance, d.critMult);
+      // A Ruptura abre a defesa ANTES do próprio golpe entrar.
+      if (def.kind === 'rupture') {
+        c.defBreakUntil = now + def.durationMs;
+        c.defBreakPct = ruptureDefReduction(nivel);
+      }
+      const dano = def.magic
+        ? Math.max(1, Math.round(resolveDamage(
+          amount, def.damageType ?? 'physical',
+          creatureDefenseProfile(c, now, player, (def.damageType ?? 'physical') !== 'physical'),
+        ).amount))
+        : Math.max(1, Math.round(amount - creatureDefense(c, now, player)));
+      applyLifeSteal(player, dano);
+      damageCreature(player, c, dano, crit, now);
     }
-    const dano = Math.max(1, Math.round(amount - creatureDefense(c, now, player)));
-    applyLifeSteal(player, dano);
-    damageCreature(player, c, dano, crit, now);
   }
+  // A condição vem DEPOIS do dano, e num sorteio só por lançamento: dez
+  // meteoros não podem dar dez chances de queimar. `DD-SOR-018` (a Descarga não
+  // controla) é respeitado por ausência de `applies` na ficha dela.
+  if (def.applies) aplicaCondicaoDaSkill(player, def, nivel, targets, now);
+
   // Usar a habilidade treina a maestria de arma como um golpe normal
   // (uma vez só, mesmo quando o Bash acerta cinco monstros).
   gainSkill(player);
   sendStats(player);
+}
+
+/**
+ * Aplica a condição da ficha nos alvos, com a regra especial das Raízes.
+ *
+ * 🪨 **Raízes Prensoras nos níveis altos PETRIFICA** em vez de só prender — é
+ * daí que sai o status característico do Druida. `DD-DRU-031`: imunidade a
+ * Congelamento **não** protege da Petrificação, e como a imunidade é lista de
+ * ids exatos em `conditions.ts`, isso já vale sem regra extra.
+ */
+function aplicaCondicaoDaSkill(
+  player: Player,
+  def: SkillDef,
+  nivel: number,
+  targets: Creature[],
+  now: number,
+): void {
+  if (!def.applies) return;
+  const chance = skillConditionChance(def, nivel);
+  const duracao = skillConditionDuration(def, nivel);
+  const petrifica = def.id === 'binding_roots' ? rootsPetrifyChance(nivel) : 0;
+  for (const c of targets) {
+    if (!c.alive) continue;
+    if (petrifica > 0 && Math.random() < petrifica) {
+      applyConditionTo(c, 'petrify', 1, CONDITIONS.petrify.referenceDurationMs, now, undefined, player.id);
+      continue;
+    }
+    applyConditionTo(c, def.applies.id, chance, duracao, now, def.applies.power, player.id);
+    // Empurrão move de verdade: a condição só marca a janela sem ação.
+    if (def.applies.id === 'knockback') empurra(player, c);
+  }
+}
+
+/** Empurra a criatura um tile para longe de quem bateu, se houver para onde. */
+function empurra(player: Player, c: Creature): void {
+  const dx = Math.sign(c.tileX - player.tileX);
+  const dy = Math.sign(c.tileY - player.tileY);
+  if (dx === 0 && dy === 0) return;
+  const nx = c.tileX + dx;
+  const ny = c.tileY + dy;
+  if (!isWalkable(map, nx, ny, c.floor) || tileOccupied(nx, ny, c.floor, c.id)) return;
+  c.tileX = nx;
+  c.tileY = ny;
+}
+
+/**
+ * 💚🌟 Cura, HoT e buff — as habilidades que miram ALIADO.
+ *
+ * ⚠️ **Sem alvo aliado escolhido, cai no próprio conjurador.** É deliberado: o
+ * Druida sob ataque não pode ser obrigado a trocar de alvo para se curar, e
+ * trocar de alvo no meio da fuga é exatamente o que faz o healer morrer.
+ */
+function lancaEmAliados(
+  player: Player,
+  def: SkillDef,
+  nivel: number,
+  now: number,
+  targetId: string | null,
+  alcance: number,
+  custoMana: number,
+): void {
+  const alvos: Player[] = [];
+  if (def.shape === 'party' || def.shape === 'area') {
+    for (const p of players.values()) {
+      if (!p.joined || !p.alive || p.floor !== player.floor) continue;
+      if (!ehAliado(player, p)) continue;
+      if (chebyshev(player.tileX, player.tileY, p.tileX, p.tileY) <= alcance) alvos.push(p);
+    }
+  } else {
+    // `shape: 'self'` (Chama de Revelação, Amplificação) nunca mira outro.
+    const escolhido = def.shape === 'self' ? undefined : (targetId ? players.get(targetId) : undefined);
+    const alvo = escolhido && escolhido.alive && escolhido.floor === player.floor
+      && chebyshev(player.tileX, player.tileY, escolhido.tileX, escolhido.tileY) <= alcance
+      ? escolhido
+      : player;
+    alvos.push(alvo);
+  }
+  if (alvos.length === 0) alvos.push(player);
+
+  player.mana -= custoMana;
+  player.spellReadyAt[def.id] = now + def.cooldownMs;
+  send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
+
+  if (def.kind === 'heal') {
+    // 🔴 A cura sai de `healPower` (WIS), nunca de ataque — `DD-PROG-024/025`.
+    const bruto = player.derived.healPower * skillPower(def, nivel);
+    for (const alvo of alvos) healPlayer(alvo, bruto, player, now);
+  } else if (def.kind === 'hot') {
+    const porPulso = player.derived.healPower * skillPower(def, nivel);
+    const duracao = skillDuration(def, nivel);
+    const tick = hotTickMs(def, nivel);
+    for (const alvo of alvos) {
+      // Uma por habilidade: relançar RENOVA em vez de empilhar dois HoTs iguais.
+      alvo.hots = alvo.hots.filter((h) => h.skillId !== def.id);
+      alvo.hots.push({
+        skillId: def.id, sourceId: player.id, perPulse: porPulso,
+        nextTickAt: now + tick, tickMs: tick, expiresAt: now + duracao,
+      });
+    }
+  } else {
+    const mods = skillModifiers(def, nivel);
+    const duracao = skillDuration(def, nivel);
+    for (const alvo of alvos) {
+      applyEffectTo(alvo, def.id, def.name, true, mods, duracao, now, player.id);
+      if (alvo.id !== player.id) {
+        send(alvo, { t: 'chat', from: 'Sistema', text: `${player.name} lançou ${def.name} em você.` });
+      }
+    }
+  }
+
+  const fxAt = alvos.length === 1 ? alvos[0]! : player;
+  broadcastFloor(player.floor, {
+    t: 'fx', kind: def.fx, x: fxAt.tileX, y: fxAt.tileY, floor: player.floor,
+    ...(def.shape === 'party' ? { radius: alcance } : {}),
+  });
+  sendStats(player);
+}
+
+/**
+ * 🌿 Larga uma área persistente no chão.
+ *
+ * A área nasce onde o CONJURADOR está. Mirar com o mouse exigiria posição no
+ * protocolo de `usespell`, e o jogo é de clique-para-andar — ficar de pé no
+ * lugar certo é a decisão tática que a mecânica já oferece.
+ */
+function plantaArea(
+  player: Player,
+  def: SkillDef,
+  nivel: number,
+  now: number,
+  custoMana: number,
+): void {
+  const g = def.ground;
+  if (!g) return;
+  if (groundAreas.length >= MAX_GROUND_AREAS) {
+    send(player, { t: 'denied', reason: 'Magia demais no chão. Espere um instante.' });
+    return;
+  }
+  // 🔴 Ice Wall: 1 parede no Lv.1, 3 no Lv.10. Ao erguer a 4ª, a mais antiga
+  // cai — recusar em silêncio seria pior do que substituir.
+  const teto = skillGroundMax(def, nivel);
+  if (countAreasOf(groundAreas, player.id, def.id) >= teto) {
+    const velha = dropOldestOf(groundAreas, player.id, def.id);
+    if (velha) {
+      groundAreas = groundAreas.filter((a) => a.id !== velha.id);
+      broadcastFloor(velha.floor, { t: 'areagone', id: velha.id });
+    }
+  }
+
+  player.mana -= custoMana;
+  player.spellReadyAt[def.id] = now + def.cooldownMs;
+  send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
+
+  const duracao = skillGroundDuration(def, nivel);
+  const raio = skillRange(def, nivel);
+  // Cura sai de `healPower`; dano sai do poder mágico. A mesma bifurcação do
+  // resto do arquivo, aqui já resolvida em número absoluto por pulso.
+  const afinidade = benefitsFromNatureAffinity(def)
+    ? 1 + natureAffinityBonus(skillLevelOf(player.skillLevels, 'nature_affinity'))
+    : 1;
+  const poder = g.kind === 'heal'
+    ? player.derived.healPower * skillPower(def, nivel)
+    : player.derived.magicAtk * skillPower(def, nivel) * offenseMult(player) * afinidade;
+
+  const area: GroundArea = {
+    id: `a${proximaAreaId++}`,
+    skillId: def.id,
+    ownerId: player.id,
+    kind: g.kind,
+    x: player.tileX,
+    y: player.tileY,
+    floor: player.floor,
+    radius: raio,
+    expiresAt: now + duracao,
+    nextTickAt: now + g.tickMs,
+    tickMs: g.tickMs,
+    power: poder,
+    damageType: def.damageType,
+    hitsPlayers: g.hitsPlayers,
+    hitsCreatures: g.hitsCreatures,
+    blocks: g.blocks ?? false,
+    fx: def.fx,
+    ...(def.applies
+      ? {
+        condition: {
+          id: def.applies.id,
+          chance: skillConditionChance(def, nivel),
+          durationMs: skillConditionDuration(def, nivel),
+          power: def.applies.power,
+        },
+      }
+      : {}),
+  };
+  groundAreas.push(area);
+  broadcastFloor(player.floor, {
+    t: 'area', id: area.id, skill: def.id, kind: area.kind,
+    x: area.x, y: area.y, floor: area.floor, radius: area.radius,
+    durationMs: duracao, fx: def.fx,
+  });
+  gainSkill(player);
+  sendStats(player);
+}
+
+// ---------------------------------------------------------------------------
+// 🌟 Efeitos de ficha: passivas, buffs e debuffs
+// ---------------------------------------------------------------------------
+
+/**
+ * Modificadores vindos das PASSIVAS aprendidas.
+ *
+ * Passiva não é buff: não expira, não pode ser dissipada e não ocupa slot na
+ * lista de efeitos. Somá-la aqui, na hora do `recompute`, evita o pior dos dois
+ * mundos — uma entrada eterna em `effects` que teria de ser recriada a cada
+ * login e removida a cada reset de skill.
+ */
+function passiveModifiers(player: Player): Modifiers {
+  const total: Modifiers = {};
+  for (const def of skillsOfClass(player.cls.id)) {
+    if (def.kind !== 'passive' || !def.mods) continue;
+    const nivel = skillLevelOf(player.skillLevels, def.id);
+    if (nivel <= 0) continue;
+    for (const [k, v] of Object.entries(skillModifiers(def, nivel))) {
+      const key = k as keyof Modifiers;
+      total[key] = (total[key] ?? 0) + (v ?? 0);
+    }
+  }
+  return total;
+}
+
+/** Tudo somado: passivas + buffs/debuffs ativos. */
+function allModifiers(player: Player): Modifiers {
+  const total = passiveModifiers(player);
+  for (const [k, v] of Object.entries(sumModifiers(player.effects))) {
+    const key = k as keyof Modifiers;
+    total[key] = (total[key] ?? 0) + (v ?? 0);
+  }
+  return total;
+}
+
+/**
+ * Aplica um efeito de ficha num jogador ou criatura, já contando a
+ * **resistência a debuff** do alvo.
+ *
+ * 🔴 `DD-DRU-013`: a Harmonia Natural dá *resistência*, não imunidade — então
+ * ela ENCURTA o debuff em vez de recusá-lo. Bloquear por completo daria à
+ * passiva o poder de uma carta, que é justamente o que o doc proíbe.
+ */
+function applyEffectTo(
+  alvo: Player | Creature,
+  id: string,
+  nome: string,
+  bom: boolean,
+  mods: Modifiers,
+  duracaoMs: number,
+  now: number,
+  origemId?: string,
+): void {
+  let duracao = duracaoMs;
+  if (!bom) {
+    const resist = 'skillLevels' in alvo ? (allModifiers(alvo).debuffResist ?? 0) : 0;
+    duracao = Math.round(duracao * Math.max(0.4, 1 - resist));
+  }
+  alvo.effects = applyEffect(alvo.effects, {
+    id, name: nome, good: bom, mods,
+    expiresAt: now + duracao,
+    sourceId: origemId,
+  });
+  if ('skillLevels' in alvo) recompute(alvo);
+}
+
+/** Fator de um modificador em cima de uma CRIATURA (que não tem `recompute`). */
+function creatureMod(c: Creature, key: keyof Modifiers): number {
+  if (c.effects.length === 0) return 1;
+  return modifierFactor(c.effects, key as never);
+}
+
+/**
+ * Derruba os efeitos vencidos de todo mundo, e recalcula a ficha de quem
+ * perdeu algum.
+ *
+ * ⚠️ O `recompute` só roda para quem REALMENTE perdeu um efeito. Rodar em todos
+ * a cada tique custaria uma ficha inteira por jogador por 100 ms, e o resultado
+ * seria idêntico em 99 % dos tiques.
+ */
+function tickEffectsAll(now: number): void {
+  for (const p of players.values()) {
+    if (!p.joined || p.effects.length === 0) continue;
+    const r = tickEffects(p.effects, now);
+    if (r.expired.length === 0) continue;
+    p.effects = r.list;
+    recompute(p);
+    for (const e of r.expired) {
+      send(p, { t: 'chat', from: 'Sistema', text: `${e.name} acabou.` });
+    }
+  }
+  for (const c of creatures.values()) {
+    if (c.effects.length === 0) continue;
+    c.effects = tickEffects(c.effects, now).list;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 💚 Cura
+// ---------------------------------------------------------------------------
+
+/**
+ * Cura um jogador, respeitando a Maldição da Fraqueza e a Harmonia Natural.
+ *
+ * 🔴 `healReceived` é do ALVO, não de quem cura — é o que faz a Maldição da
+ * Fraqueza (−40 %) ser uma habilidade anti-healer de verdade: ela ataca o
+ * paciente, não o médico.
+ *
+ * Devolve quanto foi curado de fato (0 se já estava cheio), porque quem chama
+ * usa isso para decidir se mostra número na tela.
+ */
+function healPlayer(alvo: Player, bruto: number, origem: Player, now: number): number {
+  if (!alvo.alive || bruto <= 0) return 0;
+  const recebido = Math.max(MODIFIER_FLOOR, 1 + (allModifiers(alvo).healReceived ?? 0));
+  const valor = Math.max(1, Math.round(bruto * recebido));
+  const antes = alvo.hp;
+  alvo.hp = Math.min(alvo.maxHp, alvo.hp + valor);
+  const curado = Math.round(alvo.hp - antes);
+  if (curado > 0) {
+    broadcastFloor(alvo.floor, {
+      t: 'heal', targetId: alvo.id, sourceId: origem.id, amount: curado,
+      hp: Math.round(alvo.hp), maxHp: alvo.maxHp,
+    });
+  }
+  if (alvo.id !== origem.id) sendStats(alvo);
+  void now;
+  return curado;
+}
+
+/** Pulsos de HoT vencidos. Roda antes do regen, como as condições. */
+function tickHots(now: number): void {
+  for (const p of players.values()) {
+    if (!p.joined || p.hots.length === 0) continue;
+    const vivos: ActiveHot[] = [];
+    for (const h of p.hots) {
+      if (h.expiresAt <= now) continue;
+      if (now >= h.nextTickAt) {
+        h.nextTickAt = now + h.tickMs;
+        const dono = players.get(h.sourceId);
+        if (p.alive && dono) healPlayer(p, h.perPulse, dono, now);
+      }
+      vivos.push(h);
+    }
+    p.hots = vivos;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 🌿 Áreas persistentes no chão
+// ---------------------------------------------------------------------------
+
+/**
+ * Um tique de todas as áreas: dano, cura e condição em quem estiver dentro.
+ *
+ * ⚠️ A área NÃO acerta o dono nem a party dele quando é ofensiva. Sem isso, a
+ * Nevasca do Feiticeiro congelaria o Knight que segura o chefe — e o jogador
+ * aprenderia a nunca mais usar a suprema da própria classe.
+ */
+function tickGroundAreas(now: number): void {
+  const r = expireAreas(groundAreas, now);
+  if (r.expired.length > 0) {
+    groundAreas = r.areas;
+    for (const a of r.expired) {
+      broadcastFloor(a.floor, { t: 'areagone', id: a.id });
+    }
+  }
+  for (const a of groundAreas) {
+    if (a.kind === 'wall' || a.kind === 'ward') continue;
+    if (now < a.nextTickAt) continue;
+    a.nextTickAt = now + a.tickMs;
+    const dono = players.get(a.ownerId);
+
+    if (a.hitsCreatures && a.kind === 'damage' && dono) {
+      for (const c of creatures.values()) {
+        if (!c.alive || !areaCovers(a, c.tileX, c.tileY, c.floor)) continue;
+        golpeDeArea(dono, a, c, now);
+        if (!c.alive) continue;
+      }
+    }
+    if (a.hitsPlayers) {
+      for (const p of players.values()) {
+        if (!p.joined || !p.alive || !areaCovers(a, p.tileX, p.tileY, p.floor)) continue;
+        if (a.kind === 'heal') {
+          if (dono && ehAliado(dono, p)) healPlayer(p, a.power, dono, now);
+          continue;
+        }
+        // Dano em jogador: só quem NÃO é aliado do dono.
+        if (!dono || ehAliado(dono, p)) continue;
+        danoDeAreaEmJogador(dono, a, p, now);
+      }
+    }
+  }
+}
+
+/** Um pulso de área ofensiva numa criatura. */
+function golpeDeArea(dono: Player, a: GroundArea, c: Creature, now: number): void {
+  const perfil = creatureDefenseProfile(c, now, dono, a.damageType !== 'physical');
+  const bruto = resolveDamage(a.power, a.damageType ?? 'physical', perfil).amount;
+  const dano = Math.max(1, Math.round(bruto));
+  damageCreature(dono, c, dano, false, now);
+  if (a.condition) {
+    applyConditionTo(c, a.condition.id, a.condition.chance, a.condition.durationMs, now, a.condition.power, dono.id);
+  }
+}
+
+/** Um pulso de área ofensiva num jogador (PvP). */
+function danoDeAreaEmJogador(dono: Player, a: GroundArea, p: Player, now: number): void {
+  const bruto = resolveDamage(
+    a.power, a.damageType ?? 'physical', playerDefenseProfile(p, a.damageType !== 'physical'),
+  ).amount;
+  const dano = Math.max(1, Math.round(bruto));
+  p.hp = Math.max(0, p.hp - dano);
+  broadcastFloor(p.floor, {
+    t: 'hit', attackerId: dono.id, targetId: p.id, amount: dano,
+    crit: false, dodged: false, element: a.damageType ?? 'physical', dot: true,
+    hp: Math.round(p.hp), maxHp: p.maxHp, fatal: p.hp <= 0,
+  });
+  if (a.condition) {
+    applyConditionTo(p, a.condition.id, a.condition.chance, a.condition.durationMs, now, a.condition.power, dono.id);
+  }
+  if (p.hp <= 0) killPlayer(p, SKILLS[a.skillId as SkillId].name);
+  else sendStats(p);
+}
+
+/**
+ * O jogador está dentro de um Círculo Arcano seu ou de um aliado?
+ *
+ * 🔴 `DD-SOR-023/024`: dentro dele o dano FÍSICO é anulado por completo, e a
+ * magia passa normal. *"Só vale enquanto está dentro; saiu, acabou"* — por isso
+ * a checagem é por posição na hora do golpe, e não um buff com duração.
+ */
+function dentroDeCirculoArcano(p: Player): boolean {
+  for (const a of groundAreas) {
+    if (a.kind !== 'ward') continue;
+    if (!areaCovers(a, p.tileX, p.tileY, p.floor)) continue;
+    const dono = players.get(a.ownerId);
+    if (dono && ehAliado(dono, p)) return true;
+  }
+  return false;
+}
+
+/**
+ * As duas defesas do Feiticeiro, aplicadas ao dano JÁ mitigado pela ficha.
+ *
+ * Devolve quanto realmente chega na vida. A ordem entre as duas importa: o
+ * Círculo Arcano é absoluto e vem primeiro — anulado o golpe, não há nada para
+ * a Proteção Mágica converter, e converter mana à toa seria o pior dos mundos.
+ */
+function mitigaDanoNoJogador(player: Player, dano: number, tipo: DamageType): number {
+  if (dano <= 0) return dano;
+
+  // 🔴 `DD-SOR-023/024`: dentro do Círculo, 100 % de imunidade ao FÍSICO — e
+  // magia continua acertando normal. Sem exceção e sem meio-termo.
+  if (tipo === 'physical' && dentroDeCirculoArcano(player)) return 0;
+
+  // ✨ Proteção Mágica: parte do dano sai da mana em vez da vida. Quando a mana
+  // acaba, a habilidade se desliga sozinha — descobrir isso apanhando seria
+  // pior do que o aviso.
+  if (!player.magicProtection) return dano;
+  const nivel = skillLevelOf(player.skillLevels, 'magic_protection');
+  if (nivel <= 0) return dano;
+  const fatia = Math.round(dano * magicProtectionShare(nivel));
+  if (fatia <= 0) return dano;
+  const custo = fatia * MAGIC_PROTECTION_MANA_PER_HP;
+  const paga = Math.min(fatia, Math.floor(player.mana / MAGIC_PROTECTION_MANA_PER_HP));
+  if (paga <= 0) {
+    player.magicProtection = false;
+    send(player, { t: 'chat', from: 'Sistema', text: 'Proteção Mágica desligou: mana esgotada.' });
+    return dano;
+  }
+  player.mana = Math.max(0, player.mana - Math.min(custo, paga * MAGIC_PROTECTION_MANA_PER_HP));
+  return dano - paga;
+}
+
+/** São do mesmo lado? (o próprio, ou membro da mesma party) */
+function ehAliado(a: Player, b: Player): boolean {
+  if (a.id === b.id) return true;
+  return a.partyId !== null && a.partyId === b.partyId;
 }
 
 /** Quanto tempo a criatura fica presa no Knight depois de Provocar. */
@@ -2937,13 +3794,16 @@ function creatureAttack(creature: Creature, player: Player, now: number): void {
   const str = creature.def.strength
     * (isNight ? NIGHT_DMG_MULT : 1)
     * VARIANTS[creature.variant].damageMult
-    * (1 + creature.triumphs * BOSS_TRIUMPH_POWER);
+    * (1 + creature.triumphs * BOSS_TRIUMPH_POWER)
+    // ☠️ Enfraquecer e Praga da Natureza mordem aqui: é o "faz o inimigo causar
+    // menos" que o cap. 71 usa para definir o ramo de debuff do Druida.
+    * creatureMod(creature, 'physAtk');
   const { amount, crit } = computeHit(str, 0.05, 1.5);
   // Etapa 8: o golpe passa pelas camadas do cap. 31 em vez de subtrair a defesa
   // na mão. Ataque de criatura corpo a corpo é dano FÍSICO.
   const res = resolveDamage(amount, 'physical', playerDefenseProfile(player, true));
   const dodged = res.outcome === 'dodged';
-  const dmg = res.amount;
+  const dmg = mitigaDanoNoJogador(player, res.amount, 'physical');
   player.hp = Math.max(0, player.hp - dmg);
   if (dmg > 0) onDamaged(player);
   // Golpe que conectou pode aplicar a condição da espécie. Depois de
@@ -3996,7 +4856,7 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       if (now - player.lastMoveAt < interval) return;
       const nx = player.tileX + dx;
       const ny = player.tileY + dy;
-      if (!isWalkable(map, nx, ny, player.floor)) return;
+      if (!podeAndarPara(nx, ny, player.floor)) return;
       // Monstro é obstáculo, como parede (pedido do dono). Antes o jogador
       // atravessava criatura, e o sprite passava por cima dela.
       if (tileOccupied(nx, ny, player.floor, player.id)) return;
@@ -4830,8 +5690,11 @@ function updateCreatures(now: number): void {
     const behavior = c.def.behavior ?? 'hostile';
     // À noite os monstros se movem e atacam mais rápido (cooldowns menores).
     const spd = isNight ? NIGHT_SPEED_MULT : 1;
-    const moveCd = c.def.moveCooldownMs * spd;
-    const atkCd = c.def.attackCooldownMs * spd;
+    // ☠️ Maldição da Lentidão. Velocidade é INTERVALO aqui, então o debuff
+    // (moveSpeed negativo) tem de DIVIDIR: −25 % de movimento vira 1/0,75, ou
+    // seja, 33 % mais tempo entre os passos.
+    const moveCd = (c.def.moveCooldownMs * spd) / creatureMod(c, 'moveSpeed');
+    const atkCd = (c.def.attackCooldownMs * spd) / creatureMod(c, 'attackSpeed');
 
     // NEUTRO esfria: passado um tempo sem apanhar, larga o alvo e volta à
     // rotina. É o que faz o javali parecer bicho, e não monstro de dungeon.
@@ -5353,6 +6216,14 @@ function gameTick(): void {
   // Antes do regen: uma parcela de veneno que mata não deve ser desfeita pela
   // regeneração do mesmo tique.
   tickConditionsAll(now);
+  // A ordem daqui é deliberada: as condições já rodaram (é o que interrompe uma
+  // conjuração), então `tickCasting` decide com a informação do tique atual. Os
+  // efeitos vencem antes das áreas e do HoT porque um buff de cura que acabou
+  // não pode inflar o pulso deste mesmo tique.
+  tickCasting(now);
+  tickEffectsAll(now);
+  tickGroundAreas(now);
+  tickHots(now);
   regen(now);
   // Autosave: se o servidor cair de bota, perde-se no máximo AUTOSAVE_MS de
   // progresso — não a sessão inteira.
@@ -5418,7 +6289,8 @@ wss.on('connection', (socket) => {
     hp: 100, maxHp: 100, mana: 30, maxMana: 30, gold: 0, bankGold: 0,
     backpack: emptySlots(BACKPACK_SIZE), equipment: {}, depot: emptySlots(DEPOT_SIZE),
     alive: true, deadUntil: 0, targetId: null, lastAttackAt: 0, lastMoveAt: 0, lastAckSeq: 0, joined: false,
-    conditions: [], cc: emptyCcState(),
+    conditions: [], cc: emptyCcState(), effects: [], hots: [],
+    casting: null, magicProtection: false,
     spellReadyAt: {}, skillPoints: 0, skillLevels: {}, skillResets: 0,
     fury: null, stance: false, proficiencies: {}, professions: {}, bestiary: {},
     lastGatherAt: 0,
