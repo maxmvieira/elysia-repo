@@ -2,7 +2,7 @@
 
 ## ⏸️ ONDE PARAMOS — barra configurável e o Assassino
 
-> Typecheck limpo nos 3 pacotes, **601 testes** (eram 579). `npm run dev:test` →
+> Typecheck limpo nos 3 pacotes, **604 testes** (eram 579). `npm run dev:test` →
 > `localhost:5173` (o `dev:test` liga `/level`, `/sp`, `/gold`, `/heal`).
 >
 > ⚠️ **Continua sem passada humana.** Confirmei o layout da barra medindo o DOM

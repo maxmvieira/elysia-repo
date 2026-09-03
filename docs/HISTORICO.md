@@ -15,7 +15,7 @@ decisões de design ficaram travadas por teste.
 arrastar-e-soltar em `buildSpellBar`/`ligaArrastarNoSlot` no cliente · o Ataque
 Duplo e a furtividade em `server/src/index.ts`.
 
-**601 testes** (eram 579), typecheck limpo nos três pacotes.
+**604 testes** (eram 579), typecheck limpo nos três pacotes.
 
 ### ⌨️ A barra: de 8 para 24 slots, e configurável
 
