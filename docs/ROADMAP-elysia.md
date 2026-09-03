@@ -466,7 +466,7 @@ derivada de quem está conectado. Detalhes e o porquê de cada escolha em `SCHEM
 4. ✅ **Assassin (feito em 2026-09-03 — 14 habilidades):** Ataque Duplo (35 % → **80 %** do Lv.1 ao 10) — **1 adaga = golpe extra
    integral (200 %)** · **2 adagas = golpe extra a 50 %** · **Katar sem Ataque Duplo**
    (crítico + Sonic Blow) · **anti-cascata**: Ataque Duplo não gera outro.
-5. 🔴 **Archer:** 5 configurações (Arco Curto+escudo · Arco Longo · Besta Leve+escudo ·
+5. ✅ **Archer (feito em 2026-09-04 — as 12 skills da V1):** 5 configurações (Arco Curto+escudo · Arco Longo · Besta Leve+escudo ·
    Besta Pesada · **Azagaia**+escudo). **Sem dash, sem backstep, sem teleporte.**
    Munição elemental é **item**, não skill. **Distance reduz a perda da azagaia.**
 

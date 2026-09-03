@@ -309,6 +309,12 @@ const PALETAS: Record<string, Paleta> = {
   laminas: ['#5f6a78', '#101418', '#e8eef5', '#b8c6d6'],
   espada: ['#8a3a3a', '#240c0c', '#ffd8d8', '#ff9f9f'],
   arremesso: ['#4a7a52', '#0e1c11', '#dcf5e0', '#a0e0ac'],
+  // 🏹 Arqueiro. Verde-mata nas maestrias, âmbar na mira (o olho que enxerga
+  // longe), e um marrom de terra batida nas armadilhas — que ficam no chão.
+  maestria: ['#3f6a3a', '#0c1a0b', '#dff0da', '#a8d8a0'],
+  disparo: ['#6a8a3a', '#161f0a', '#eef7d8', '#c8e08a'],
+  mira: ['#c08a2a', '#3a2606', '#fff0d0', '#ffd48a'],
+  armadilha: ['#7a5a3a', '#1e1409', '#f0e0cc', '#d8b88a'],
 };
 
 /** As silhuetas. Cada uma diz uma FUNÇÃO, não uma magia específica. */
@@ -584,6 +590,19 @@ const GLIFOS: Record<string, Glifo> = {
   poison_kunai: 'nuvem',
   phantom_throw: 'olho',
   hidden_strike: 'raio',
+  // 🏹 Arqueiro
+  bow_mastery: 'seta',
+  crossbow_mastery: 'espinho',
+  hunter_instinct: 'folha',
+  double_shot: 'corrente', // dois elos = dois projéteis
+  precise_shot: 'olho',
+  piercing_shot: 'espinho',
+  arrow_rain: 'nuvem',
+  volley: 'estrela', // rajada que se abre; o floco lia como gelo
+  eagle_eye: 'olho',
+  concentration: 'estrela',
+  hunting_trap: 'corrente',
+  explosive_trap: 'chama',
 };
 
 /** Ícone genérico: moldura na cor do ramo + a silhueta da função. */

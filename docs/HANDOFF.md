@@ -1,3 +1,132 @@
+# Handoff — estado do projeto em 2026-09-04
+
+## ⏸️ ONDE PARAMOS — as cinco classes têm árvore
+
+> Typecheck limpo nos 3 pacotes, **627 testes** (eram 604).
+> `npm run dev:test` → `localhost:5173` (liga `/level`, `/sp`, `/gold`, `/heal`).
+>
+> ⚠️ **Nada das três sessões foi jogado por uma pessoa.** Validei por unidade,
+> por typecheck e conferindo ícones e layout no navegador; não entro com senha.
+
+### 🏹 O ARQUEIRO FECHOU O CICLO — 12 habilidades
+
+Com ele, **as cinco classes têm árvore**: Knight 8 · Druida 23 · Feiticeiro 18 ·
+Assassino 14 · Arqueiro 12 = **75 habilidades**.
+
+✅ **É a classe mais bem especificada das cinco.** Ao contrário do Assassino,
+quase toda skill vem com número no doc — e por isso `archer.test.ts` é
+majoritariamente CITAÇÃO, não balanceamento nosso:
+
+| Habilidade | O que o doc dá |
+|---|---|
+| Disparo Duplo | só arco · CD 1,5 s · 2 projéteis · 60 % → 90 % |
+| Tiro Preciso | só besta · 0,7 s de preparação |
+| Disparo Perfurante | CD 6 s · DEF −5 % → −15 % · sangramento 10 % → 30 % |
+| Chuva de Flechas | até **10 alvos** |
+| Saraivada | 5 a 8 disparos |
+| Olho de Águia | +15 % precisão · **+20 % alcance** · zero dano |
+| Concentração | +15 % precisão · +10 % ASPD · +10 % movimento |
+| Armadilha de Caça | 1 → 3 traps · a 4ª apaga a mais antiga · ocultas ao inimigo |
+| Armadilha Explosiva | queimadura 10 % → 30 % |
+| Instinto do Caçador | esquiva +2 % → +10 % |
+
+### 🔴 As quatro PROIBIÇÕES que definem a classe (todas com teste)
+
+Cada uma é algo que alguém adicionaria de boa-fé achando que melhora:
+
+1. `DD-ARC-015` **sem dash, sem backstep, sem teleporte** — a sobrevivência é
+   alcance → armadilha → Concentração → correr.
+2. `DD-ARC-013` **estar mais longe não aumenta o dano.**
+3. `DD-ARC-019` **munição elemental é ITEM, não skill** — nada de "Flecha de
+   Fogo" na árvore. A única com elemento é a Armadilha Explosiva, e o fogo é da
+   trapa.
+4. `DD-ARC-009` **o Disparo Perfurante NÃO atravessa inimigos** — o nome sugere
+   fila e o doc corrige.
+
+⚠️ E o doc avisa: **Flecha Explosiva ≠ Armadilha Explosiva, não fundir.** A que
+existe é a armadilha. Há teste guardando isso e a ausência das quatro propostas
+não fechadas (Disparo Pesado, Flecha Explosiva, Arremesso Preciso, Arremesso
+Rápido).
+
+### 🆕 Três coisas novas no motor
+
+**1. `accuracy` — precisão entrou na ficha.** `ATTRIBUTE_INFO.dex` prometia
+*"Dano de arco/besta · **precisão**"* desde o primeiro dia e precisão não
+existia; o Olho de Águia e a Concentração dão "+15 %" e não tinham onde pousar.
+Agora DEX dá precisão, que **desconta da esquiva do alvo**.
+
+⚠️ **Só morde em PvP hoje:** `creatureDefenseProfile` devolve `dodgeChance: 0` —
+monstro não desvia. É coerente com o doc (que vende o Olho de Águia pelo
+ALCANCE), e no dia em que o bestiário ganhar esquiva ela passa a valer em PvE
+sem tocar em nada.
+
+⚠️ A esquiva pesa mais por ponto que a precisão (0,005 contra 0,004), senão quem
+investe em AGI perde para quem investe em DEX só para acertar.
+
+**2. 🪤 Armadilhas.** Novo `AreaKind: 'trap'` — fica ARMADA, não pulsa, dispara
+uma vez e some. 🔴 **É oculta ao inimigo e visível à party, e o filtro é do
+SERVIDOR**: mandar para todos e esconder no cliente deixaria a posição de cada
+trapa trafegando na rede. Não dispara com o dono nem com a party em cima.
+
+**3. `requiresWeapon` e `maxTargets`.** Primeira vez que uma habilidade depende
+do que está na mão (só arco / só besta), e primeiro teto de alvos numa AoE. A
+Chuva de Flechas ordena por DISTÂNCIA antes de cortar em 10 — cortar na ordem
+do mapa acertaria monstros do outro lado.
+
+⚠️ **A Azagaia não virou habilidade, e não devia:** o doc a trata como
+configuração de ARMA (lança curta de arremesso que usa escudo, consumível), e
+`DD-ARC-029` amarra a perda dela ao Distance. É item e munição — os dois ainda
+não existem.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Jogar.** Três sessões acumuladas sem passada humana.
+2. ⏳ **Munição** — shuriken (~40) e azagaia (~10) consumíveis, com a
+   proficiência reduzindo a perda. Hoje as habilidades de arremesso do Assassino
+   custam **mana**, que é substituição provisória.
+3. ⏳ **Slot de segunda arma** — destrava a build de duas adagas e metade do
+   Ataque Duplo (`DD-ASS-004/005`), hoje implementada e inalcançável.
+4. ⏳ **Esquiva no bestiário** — faria a precisão valer em PvE.
+5. ⏳ **"Cura como arma"** (Etapa 15): energia vital fere morto-vivo, vampiro e
+   demônio. Exige etiqueta de família em `CreatureDef` — 77 espécies.
+6. ⏳ Sprite do palco · sprites base M/F · token de sessão · sistema de GUARDA.
+
+## ⚠️ O QUE PRECISA DE UMA PASSADA HUMANA
+
+Acumulado das três sessões, em ordem de risco:
+
+**Arqueiro**
+- **Disparo Duplo sem arco na mão** tem que RECUSAR, nomeando a arma. Idem Tiro
+  Preciso sem besta.
+- **Armadilha de Caça:** armar, sair de perto, esperar um monstro pisar — ele
+  tem que ficar preso. E a trapa **não pode aparecer** para quem não é da party.
+- **Olho de Águia:** o alcance do ataque básico tem que crescer de verdade
+  (5 → 6 tiles).
+- **Armar a 4ª armadilha** faz a mais antiga sumir.
+
+**Barra**
+- Arrastar da janela para slot ocupado (substitui), slot→slot (troca), botão
+  direito (esvazia), e conferir que **volta igual depois de recarregar**.
+- **Shift+F1..F12** dispara a segunda fileira; **F11 não pode** pôr em tela cheia.
+
+**Assassino**
+- **Ataque Duplo:** `/lvl 30`, subir a passiva, equipar **adaga e escudo**, bater.
+- **Ocultar** perto de um monstro que ainda não te viu; atacar quebra.
+
+**Druida / Feiticeiro**
+- **Curar** (F1 sem alvo cura você mesmo, 1 s de conjuração); **andar no meio
+  cancela**.
+- **Esporos Venenosos:** confirmar que o veneno TIRA VIDA.
+- **Muralha de Gelo** bloqueia passagem.
+- **Cajado do Feiticeiro:** corpo a corpo, sem mana, fraco.
+
+⚠️ **Precisa de duas janelas:** curar/buffar outro jogador, Chama de Revelação
+achando um Assassino oculto, e a armadilha invisível para o inimigo.
+
+---
+
 # Handoff — estado do projeto em 2026-09-03 (madrugada)
 
 ## ⏸️ ONDE PARAMOS — barra configurável e o Assassino

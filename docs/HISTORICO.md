@@ -9,6 +9,98 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-04 — O Arqueiro fecha o ciclo: as cinco classes têm árvore
+
+**Onde mora:** as 12 fichas em `shared/src/skills.ts` · `accuracy` em
+`stats.ts`/`effects.ts` · `AreaKind: 'trap'` em `areas.ts` · `disparaArmadilha`
+e o filtro de visibilidade em `server/src/index.ts`.
+
+**627 testes** (eram 604). Knight 8 · Druida 23 · Feiticeiro 18 · Assassino 14 ·
+Arqueiro 12 = **75 habilidades**.
+
+### ✅ A classe mais bem especificada das cinco
+
+Ao contrário do cap. 68 (Assassino), o cap. 69 dá número para quase tudo:
+cooldowns, percentuais por nível, teto de alvos, contagem de armadilhas. Por
+isso `archer.test.ts` é majoritariamente **citação**, não balanceamento nosso —
+quando um teste cair, a pergunta é "o doc mudou?", não "ajusto o teste?".
+
+### 🔴 As quatro proibições, e por que cada uma virou teste
+
+O cap. 69 define o Arqueiro mais pelo que ele NÃO tem do que pelo que tem, e
+cada proibição é algo que alguém adicionaria de boa-fé:
+
+| | O que alguém faria de errado |
+|---|---|
+| `DD-ARC-015` sem dash/backstep/teleporte | dar mobilidade a uma classe que "parece precisar" |
+| `DD-ARC-013` distância não aumenta dano | premiar o sniper por ficar longe |
+| `DD-ARC-019` munição elemental é ITEM | criar "Flecha de Fogo" na árvore |
+| `DD-ARC-009` o Perfurante não atravessa | ler o NOME e implementar uma linha |
+
+⚠️ E o doc avisa: **Flecha Explosiva ≠ Armadilha Explosiva — não fundir.**
+
+### ⚠️ Um teste que nasceu errado, e o que ele ensinou
+
+A primeira versão do teste do `DD-ARC-015` varria `name + desc` atrás de
+"dash|backstep|teleporte". Caiu na hora: a descrição da Concentração diz *"é a
+fuga do Arqueiro, que não tem dash"* — o regex não distingue a habilidade da
+frase que a explica.
+
+🔴 **Testar prosa pega o próprio comentário; testar `kind` pega o teleporte.** A
+versão final olha a mecânica (`kind !== 'charge'`, o único tipo que reposiciona
+o personagem) e confirma que a Concentração dá VELOCIDADE, que é a resposta
+certa do doc.
+
+### 🆕 `accuracy` — uma promessa de três meses cumprida
+
+`ATTRIBUTE_INFO.dex` diz *"Dano de arco/besta · **precisão**"* desde o primeiro
+dia, e precisão **não existia em `DerivedStats`**. Ninguém tinha notado porque
+nenhuma habilidade a concedia — até o Olho de Águia e a Concentração, que dão
+"+15 %" cada.
+
+Agora DEX dá precisão, e ela **desconta da esquiva do alvo** (nunca vira bônus
+de dano: o piso é zero).
+
+⚠️ **Só morde em PvP hoje** — `creatureDefenseProfile` devolve `dodgeChance: 0`,
+monstro não desvia. É coerente com o doc, que vende o Olho de Águia pelo
+ALCANCE e a precisão como vantagem de duelo. No dia em que o bestiário ganhar
+esquiva, ela passa a valer em PvE sem tocar em nada.
+
+⚠️ A esquiva pesa mais por ponto (0,005 contra 0,004): quem investe em AGI para
+desviar tem de vencer quem investe em DEX só para acertar, senão a esquiva vira
+estatística morta no duelo.
+
+### 🪤 Armadilhas: o quarto tipo de área
+
+`AreaKind: 'trap'` — fica ARMADA, não pulsa, dispara uma vez e some (marca
+`expiresAt = now` em vez de se remover no meio do laço que itera a lista).
+
+🔴 **Oculta ao inimigo, visível à party — e o filtro é do SERVIDOR.** Mandar a
+área para todos e esconder no cliente deixaria a posição de cada trapa
+trafegando na rede, e qualquer cliente modificado a leria. Isso é o mesmo que a
+armadilha não existir.
+
+O descarte da 4ª reusa o `dropOldestOf` que a Muralha de Gelo já usava — o doc
+pede a mesma cortesia nas duas.
+
+### Dois campos novos na ficha
+
+**`requiresWeapon`** — primeira vez que uma habilidade depende do que está na
+mão. O Bash do Knight muda de SABOR conforme a arma; o Disparo Duplo é recusado
+sem arco, e a mensagem nomeia a arma aceita.
+
+**`maxTargets`** — a Chuva de Flechas pega "até 10". Ordena por DISTÂNCIA antes
+de cortar: cortar na ordem em que o mapa devolve as criaturas escolheria alvos
+pela ordem de spawn, e o jogador veria dez monstros no raio e a flecha
+acertando os do outro lado.
+
+⚠️ **A Azagaia não virou habilidade**, e não devia: o doc a trata como
+configuração de ARMA (lança curta de arremesso que usa escudo, consumível), com
+`DD-ARC-029` amarrando a perda ao Distance. É item e munição, e os dois ainda
+não existem.
+
+---
+
 ## 2026-09-03 (madrugada) — A barra virou 24 slots, e o Assassino ganhou árvore
 
 **Onde mora:** `SKILL_BARS`/`SKILL_BAR_COLS` em `shared/src/skills.ts` · o

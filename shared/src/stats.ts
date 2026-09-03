@@ -416,6 +416,21 @@ export interface DerivedStats {
   defense: number;
   magicResist: number;
   dodgeChance: number;
+  /**
+   * Precisão — o contrário da esquiva. Desconta da chance do ALVO de desviar.
+   *
+   * 🔴 Entrou com o Arqueiro (2026-09-03) e fechou uma promessa antiga:
+   * `ATTRIBUTE_INFO.dex` diz *"Dano de arco/besta · **precisão**"* desde o
+   * primeiro dia, e precisão não existia. O Olho de Águia e a Concentração dão
+   * "+15 % de precisão" e não tinham onde pousar.
+   *
+   * ⚠️ **Hoje ela só morde em PvP.** `creatureDefenseProfile` devolve
+   * `dodgeChance: 0` — monstro não desvia —, então precisão contra criatura
+   * desconta de zero. Isso é coerente com o doc, que vende o Olho de Águia
+   * pelo ALCANCE e a precisão como vantagem de duelo; e no dia em que o
+   * bestiário ganhar esquiva, ela passa a valer em PvE sem tocar em nada.
+   */
+  accuracy: number;
   attackCooldownMs: number;
   moveIntervalMs: number;
   manaCost: number;
@@ -456,6 +471,11 @@ export function computeStats(
     defense: 1 + Math.floor(a.agi * 0.2) + Math.floor(a.vit * 0.15),
     magicResist: clamp(a.wis * 0.01, 0, 0.6),
     dodgeChance: clamp(a.agi * 0.005, 0, 0.5),
+    // DEX dá precisão, como `ATTRIBUTE_INFO` sempre prometeu. O peso é menor
+    // que o da esquiva (0,004 contra 0,005): quem investe em AGI para desviar
+    // deve levar vantagem sobre quem investe em DEX só para acertar — senão a
+    // esquiva vira estatística morta em qualquer duelo.
+    accuracy: clamp(a.dex * 0.004, 0, 0.5),
     // Velocidade de ATAQUE vem de AGI (GDD §4: "AGI = velocidade de ataque").
     // O nível não acelera nada sozinho — ele dá pontos, e você escolhe.
     attackCooldownMs: Math.max(300, 1100 - a.agi * 12),

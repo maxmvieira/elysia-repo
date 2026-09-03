@@ -55,6 +55,17 @@ export type ModifierKey =
   | 'critChance'
   /** Chance de esquiva. */
   | 'dodgeChance'
+  /**
+   * Precisão: o contrário da esquiva. Desconta da chance do alvo de desviar.
+   *
+   * 🔴 Entrou com o Arqueiro, e fechou uma promessa antiga: `ATTRIBUTE_INFO.dex`
+   * já dizia *"Dano de arco/besta · **precisão**"* desde o começo, e precisão
+   * não existia em lugar nenhum da ficha. Duas das doze skills dele (Olho de
+   * Águia e Concentração) dão "+15 % de precisão", e não havia onde pôr.
+   */
+  | 'accuracy'
+  /** Alcance do ataque básico, em fração (Olho de Águia dá +20 %). */
+  | 'attackRange'
   /** Resistência a CONDIÇÃO (reduz a chance de aplicar). */
   | 'statusResist'
   /** Resistência a dano elemental. */
@@ -65,6 +76,7 @@ export type ModifierKey =
 export const MODIFIER_KEYS: readonly ModifierKey[] = [
   'physAtk', 'magicAtk', 'defense', 'magicResist', 'attackSpeed', 'moveSpeed',
   'maxHp', 'healReceived', 'healPower', 'critChance', 'dodgeChance',
+  'accuracy', 'attackRange',
   'statusResist', 'elementalResist', 'debuffResist',
 ] as const;
 
@@ -80,6 +92,8 @@ export const MODIFIER_LABEL: Record<ModifierKey, string> = {
   healPower: 'Poder de cura',
   critChance: 'Crítico',
   dodgeChance: 'Esquiva',
+  accuracy: 'Precisão',
+  attackRange: 'Alcance',
   statusResist: 'Resistência a status',
   elementalResist: 'Resistência elemental',
   debuffResist: 'Resistência a debuff',

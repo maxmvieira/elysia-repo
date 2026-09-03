@@ -33,7 +33,15 @@ export type AreaKind =
   /** Só existe para bloquear passagem. Ice Wall. */
   | 'wall'
   /** Protege quem está dentro (o efeito real mora nos modificadores). */
-  | 'ward';
+  | 'ward'
+  /**
+   * 🪤 Armadilha do Arqueiro: fica ARMADA e só age quando alguém pisa nela.
+   *
+   * 🔴 Diferente de `damage` em duas coisas que o doc exige: não pulsa (dispara
+   * **uma vez** e some), e é **oculta ao inimigo, visível à party** — por isso
+   * o servidor filtra por destinatário na hora de mandar a área para o cliente.
+   */
+  | 'trap';
 
 export interface GroundArea {
   /** Id único desta instância no mundo. */
@@ -70,6 +78,14 @@ export interface GroundArea {
   hitsCreatures: boolean;
   /** Impede quem tentar entrar. Só a Ice Wall. */
   blocks: boolean;
+  /**
+   * 🪤 Já disparou? Só as armadilhas usam.
+   *
+   * Existe em vez de simplesmente remover a área na hora porque o tique que
+   * dispara também precisa avisar o cliente, e um objeto marcado é mais fácil
+   * de varrer do que uma remoção no meio de um laço sobre a mesma lista.
+   */
+  triggered?: boolean;
   /** Nome do efeito visual no cliente. */
   fx: string;
 }
@@ -129,6 +145,26 @@ export function countAreasOf(areas: Iterable<GroundArea>, ownerId: string, skill
  * a mais antiga"*), e a mesma cortesia serve à Ice Wall: recusar em silêncio é
  * pior do que substituir.
  */
+/**
+ * 🪤 Quem pode VER esta área.
+ *
+ * `DD-ARC-016`: as armadilhas do Arqueiro são *"**ocultas** ao inimigo,
+ * visíveis à party"*. Todo o resto é visível para todo mundo — uma muralha de
+ * fogo secreta não faria sentido nem seria justa.
+ *
+ * ⚠️ O filtro é do SERVIDOR, e tem de ser. Mandar a armadilha para todos e
+ * esconder no cliente deixaria a posição no tráfego, e qualquer cliente
+ * modificado a leria.
+ */
+export function areaVisibleTo(
+  a: GroundArea,
+  espectadorId: string,
+  mesmaParty: boolean,
+): boolean {
+  if (a.kind !== 'trap') return true;
+  return a.ownerId === espectadorId || mesmaParty;
+}
+
 export function dropOldestOf(
   areas: GroundArea[],
   ownerId: string,

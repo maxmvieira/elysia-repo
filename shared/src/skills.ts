@@ -101,7 +101,20 @@ export type SkillId =
   | 'shuriken_storm'
   | 'poison_kunai'
   | 'phantom_throw'
-  | 'hidden_strike';
+  | 'hidden_strike'
+  // 🏹 Arqueiro
+  | 'bow_mastery'
+  | 'crossbow_mastery'
+  | 'hunter_instinct'
+  | 'double_shot'
+  | 'precise_shot'
+  | 'piercing_shot'
+  | 'arrow_rain'
+  | 'volley'
+  | 'eagle_eye'
+  | 'concentration'
+  | 'hunting_trap'
+  | 'explosive_trap';
 
 /** Como a habilidade escolhe seus alvos. */
 export type SkillShape =
@@ -363,6 +376,22 @@ export interface SkillDef {
    * duração é fixa em `durationMs`.
    */
   durationAtLv10?: number;
+  /**
+   * Famílias de arma que a habilidade EXIGE. Ausente = serve com qualquer uma.
+   *
+   * 🔴 Entrou com o Arqueiro, e é exigência do doc: o Disparo Duplo é *"só
+   * arco"* e o Tiro Preciso é *"só besta"*. É a primeira vez que uma habilidade
+   * depende do que está na mão — o Bash do Knight muda de SABOR conforme a
+   * arma, mas nunca é recusado.
+   */
+  requiresWeapon?: WeaponType[];
+  /**
+   * Teto de alvos numa habilidade de área. Ausente = sem teto.
+   *
+   * 🔴 A Chuva de Flechas é *"AoE, **até 10 alvos**"* — o doc dá o número, e
+   * sem ele uma horda de trinta viraria dano irreal.
+   */
+  maxTargets?: number;
 }
 
 export const SKILLS: Record<SkillId, SkillDef> = {
@@ -2441,6 +2470,436 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     fx: 'hidden_strike',
     desc: 'Muito mais forte se lançado de dentro da furtividade. ⚠️ PROPOSTA no doc.',
   },
+
+  // ==========================================================================
+  // 🏹 ARQUEIRO — as 12 habilidades da V1 (Doc 1, cap. 69)
+  //
+  // ✅ **É a classe mais bem especificada das cinco.** Ao contrário do
+  // Assassino, quase toda skill daqui vem com número no documento: cooldowns,
+  // percentuais por nível, teto de alvos, contagem de armadilhas. Onde há
+  // `⚠️ REFERÊNCIA` abaixo, é exceção — não a regra.
+  //
+  // 🔴 **As quatro regras que definem a classe, e todas são proibições:**
+  //
+  // | | |
+  // |---|---|
+  // | `DD-ARC-015` | **Sem dash, sem backstep, sem teleporte.** A sobrevivência é alcance → armadilha → Concentração → correr |
+  // | `DD-ARC-013` | **Estar mais longe NÃO aumenta o dano.** A vantagem de estar longe é estar longe |
+  // | `DD-ARC-019` | **Munição elemental é ITEM, não skill.** Nada de "Flecha de Fogo" nesta árvore |
+  // | `DD-ARC-009` | O Disparo Perfurante **não atravessa inimigos** |
+  //
+  // ⚠️ **Propostas NÃO fechadas, e por isso ausentes:** Disparo Pesado, Flecha
+  // Explosiva, Arremesso Preciso, Arremesso Rápido. E o doc avisa: **Flecha
+  // Explosiva ≠ Armadilha Explosiva — não fundir.** A que está aqui é a
+  // ARMADILHA.
+  //
+  // ⚠️ **A Azagaia não virou habilidade**, e não devia: o doc a trata como
+  // configuração de ARMA (lança curta de arremesso que usa escudo, consumível),
+  // e `DD-ARC-029` amarra a perda dela ao Distance. É item e munição — os dois
+  // ainda não existem.
+  // ==========================================================================
+
+  // ------------------------- 🏹 Maestrias e passivas ------------------------
+  bow_mastery: {
+    id: 'bow_mastery',
+    name: 'Maestria com Arco',
+    kind: 'passive',
+    branch: 'maestria',
+    classes: ['archer'],
+    reqLevel: 1,
+    manaCost: 0,
+    manaPerLevel: 0,
+    cooldownMs: 0,
+    power: 0,
+    powerPerLevel: 0,
+    shape: 'self',
+    range: 0,
+    rangeEvery: 0,
+    durationMs: 0,
+    // ⚠️ REFERÊNCIA no valor: o doc nomeia as duas maestrias e não dá número.
+    // A estrutura é o que importa — elas são o que separa a build de arco da
+    // build de besta, e o Arqueiro não tem pontos para maximizar as duas.
+    mods: [{ key: 'physAtk', atLv1: 0.03, atLv10: 0.18 }],
+    fx: 'passive',
+    desc: 'Passiva: mais dano com ARCO. ⚠️ Valor provisório.',
+  },
+  crossbow_mastery: {
+    id: 'crossbow_mastery',
+    name: 'Maestria com Besta',
+    kind: 'passive',
+    branch: 'maestria',
+    classes: ['archer'],
+    reqLevel: 1,
+    manaCost: 0,
+    manaPerLevel: 0,
+    cooldownMs: 0,
+    power: 0,
+    powerPerLevel: 0,
+    shape: 'self',
+    range: 0,
+    rangeEvery: 0,
+    durationMs: 0,
+    // Espelha a de arco de propósito: a escolha entre as duas é de BUILD, não
+    // de poder. Dar vantagem numérica a uma delas resolveria a decisão que o
+    // doc quer que o jogador tome.
+    mods: [{ key: 'physAtk', atLv1: 0.03, atLv10: 0.18 }],
+    fx: 'passive',
+    desc: 'Passiva: mais dano com BESTA. ⚠️ Valor provisório.',
+  },
+  /**
+   * 🔴 "Esquiva **+2/+6/+10 %**, deliberadamente **mais fraca que a Evasão do
+   * Assassin**" — citação, e as duas metades importam.
+   *
+   * Os três degraus do doc (+2 no Lv.1, +6 no meio, +10 no Lv.10) saem da
+   * interpolação: `porNivel(1)` dá 2 %, `porNivel(10)` dá 10 %, e o meio cai em
+   * ~6 %. Não precisou de tabela.
+   *
+   * ⚠️ **O "mais fraca que a Evasão" tem teste**, e o teste mora no arquivo do
+   * ASSASSINO — é lá que a comparação pode quebrar quando alguém rebalancear a
+   * classe dele sem olhar esta.
+   */
+  hunter_instinct: {
+    id: 'hunter_instinct',
+    name: 'Instinto do Caçador',
+    kind: 'passive',
+    branch: 'maestria',
+    classes: ['archer'],
+    reqLevel: 10,
+    manaCost: 0,
+    manaPerLevel: 0,
+    cooldownMs: 0,
+    power: 0,
+    powerPerLevel: 0,
+    shape: 'self',
+    range: 0,
+    rangeEvery: 0,
+    durationMs: 0,
+    mods: [{ key: 'dodgeChance', atLv1: 0.02, atLv10: 0.10 }],
+    fx: 'passive',
+    desc: 'Passiva: esquiva +2 % a +10 %. Mais modesta que a do Assassino, de propósito.',
+  },
+
+  // ----------------------------- 🎯 Disparos (5) ----------------------------
+  /**
+   * 🔴 Tudo citação: **só arco**, **CD 1,5 s**, **2 projéteis independentes**,
+   * **2 × 60 % → 2 × 90 %**.
+   *
+   * "Independentes" é o detalhe que muda a sensação: são dois golpes separados,
+   * cada um com o próprio sorteio de crítico — não um golpe de 120 %. Como
+   * `multihit` já resolve golpe a golpe, sai de graça.
+   */
+  double_shot: {
+    id: 'double_shot',
+    name: 'Disparo Duplo',
+    kind: 'multihit',
+    branch: 'disparo',
+    classes: ['archer'],
+    reqLevel: 3,
+    manaCost: 8,
+    manaPerLevel: 1,
+    cooldownMs: 1500,
+    // 60 % → 90 % por projétil.
+    power: 0.6,
+    powerPerLevel: 0.0333,
+    shape: 'target',
+    range: 5,
+    rangeEvery: 0,
+    durationMs: 0,
+    hits: 2,
+    requiresWeapon: ['bow'],
+    fx: 'double_shot',
+    desc: 'Dois projéteis independentes. Só com ARCO.',
+  },
+  /**
+   * 🔴 "Só besta, **~0,7 s de preparação**" — citação. A preparação É a
+   * habilidade: a besta troca cadência por impacto, e o `castMs` é o que faz
+   * isso ser sentido em vez de lido no tooltip.
+   *
+   * ⚠️ REFERÊNCIA no dano. O doc dá a arma e o tempo, não a potência.
+   */
+  precise_shot: {
+    id: 'precise_shot',
+    name: 'Tiro Preciso',
+    kind: 'damage',
+    branch: 'disparo',
+    classes: ['archer'],
+    reqLevel: 3,
+    manaCost: 10,
+    manaPerLevel: 2,
+    cooldownMs: 2500,
+    power: 1.8,
+    powerPerLevel: 0.18,
+    shape: 'target',
+    range: 6,
+    rangeEvery: 0,
+    durationMs: 0,
+    castMs: 700,
+    requiresWeapon: ['crossbow'],
+    fx: 'precise_shot',
+    desc: 'Mira e dispara forte. Só com BESTA — 0,7 s de preparação.',
+  },
+  /**
+   * 🔴 Citação em três números: **CD 6 s**, reduz DEF **−5/−10/−15 %**, e
+   * **10/20/30 % de sangramento**.
+   *
+   * 🔴 `DD-ARC-009` **NÃO atravessa inimigos**, e a decisão está no `shape`:
+   * `'target'`, não uma linha. O nome sugere perfuração em fila e o doc corrige
+   * explicitamente — é o tipo de coisa que alguém "conserta" de boa-fé daqui a
+   * seis meses, então está dito aqui e tem teste.
+   */
+  piercing_shot: {
+    id: 'piercing_shot',
+    name: 'Disparo Perfurante',
+    kind: 'debuff',
+    branch: 'disparo',
+    classes: ['archer'],
+    reqLevel: 12,
+    manaCost: 14,
+    manaPerLevel: 2,
+    cooldownMs: 6000,
+    // ⚠️ REFERÊNCIA no dano — o doc dá o debuff e o sangramento, não a potência.
+    power: 1.3,
+    powerPerLevel: 0.12,
+    shape: 'target',
+    range: 5,
+    rangeEvery: 0,
+    durationMs: 8000,
+    mods: [{ key: 'defense', atLv1: -0.05, atLv10: -0.15 }],
+    applies: {
+      id: 'bleed',
+      chanceAtLv1: 0.10,
+      chanceAtLv10: 0.30,
+      durationAtLv1: 6000,
+      durationAtLv10: 8000,
+      power: 4,
+    },
+    fx: 'piercing_shot',
+    desc: 'Fura a defesa do alvo e pode fazer sangrar. NÃO atravessa inimigos.',
+  },
+  /**
+   * 🔴 "AoE, **até 10 alvos**" — o teto é citação, e mora em `maxTargets`.
+   *
+   * ⚠️ REFERÊNCIA no dano e no raio.
+   */
+  arrow_rain: {
+    id: 'arrow_rain',
+    name: 'Chuva de Flechas',
+    kind: 'damage',
+    branch: 'disparo',
+    classes: ['archer'],
+    reqLevel: 16,
+    requires: [{ skill: 'double_shot', level: 3 }],
+    manaCost: 26,
+    manaPerLevel: 4,
+    cooldownMs: 7000,
+    power: 0.75,
+    powerPerLevel: 0.07,
+    shape: 'area',
+    range: 3,
+    rangeEvery: 5,
+    durationMs: 0,
+    castMs: 800,
+    maxTargets: 10,
+    fx: 'arrow_rain',
+    desc: 'Chove flechas na área. Até 10 alvos.',
+  },
+  /**
+   * 🔴 "**5–8 disparos**" — citação, e vira `hits: 5 → hitsAtLv10: 8`.
+   *
+   * ⚠️ REFERÊNCIA no dano por disparo. É o burst de alvo único da classe: mais
+   * total que o Disparo Duplo, e com cooldown para não virar a rotação.
+   */
+  volley: {
+    id: 'volley',
+    name: 'Saraivada',
+    kind: 'multihit',
+    branch: 'disparo',
+    classes: ['archer'],
+    reqLevel: 24,
+    requires: [{ skill: 'double_shot', level: 5 }],
+    manaCost: 30,
+    manaPerLevel: 4,
+    cooldownMs: 9000,
+    power: 0.45,
+    powerPerLevel: 0.04,
+    shape: 'target',
+    range: 5,
+    rangeEvery: 0,
+    durationMs: 0,
+    hits: 5,
+    hitsAtLv10: 8,
+    fx: 'volley',
+    desc: 'Cinco a oito disparos no mesmo alvo.',
+  },
+
+  // ------------------------- 👁️ Posturas de mira (2) ------------------------
+  /**
+   * 🔴 "+15 % precisão, **+20 % alcance**; **não dá dano**" — citação inteira,
+   * inclusive a última parte, que é o ponto da habilidade.
+   *
+   * 🔴 **O +20 % de alcance é a única coisa no jogo que estica o alcance do
+   * ataque básico.** E é a resposta do Arqueiro ao `DD-ARC-015` (sem dash, sem
+   * backstep): ele não foge para longe, ele passa a alcançar de onde já está.
+   */
+  eagle_eye: {
+    id: 'eagle_eye',
+    name: 'Olho de Águia',
+    kind: 'buff',
+    branch: 'mira',
+    classes: ['archer'],
+    reqLevel: 8,
+    manaCost: 16,
+    manaPerLevel: 2,
+    cooldownMs: 20000,
+    power: 0,
+    powerPerLevel: 0,
+    shape: 'self',
+    range: 0,
+    rangeEvery: 0,
+    // ⚠️ REFERÊNCIA na duração; os dois percentuais são do doc.
+    durationMs: 20000,
+    durationAtLv10: 45000,
+    mods: [
+      { key: 'accuracy', atLv1: 0.04, atLv10: 0.15 },
+      { key: 'attackRange', atLv1: 0.05, atLv10: 0.20 },
+    ],
+    fx: 'eagle_eye',
+    desc: 'Enxerga mais longe: +15 % de precisão e +20 % de alcance. Não causa dano.',
+  },
+  /**
+   * 🔴 "+15 % precisão, +10 % ASPD, **+10 % movimento**" — citação.
+   *
+   * O movimento é o que a põe na lista de sobrevivência do `DD-ARC-015`
+   * (*"alcance → armadilha → **Concentração** → corrida"*): sem dash, correr
+   * mais rápido é o reposicionamento que ele tem.
+   */
+  concentration: {
+    id: 'concentration',
+    name: 'Concentração',
+    kind: 'buff',
+    branch: 'mira',
+    classes: ['archer'],
+    reqLevel: 14,
+    requires: [{ skill: 'eagle_eye', level: 3 }],
+    manaCost: 22,
+    manaPerLevel: 3,
+    cooldownMs: 25000,
+    power: 0,
+    powerPerLevel: 0,
+    shape: 'self',
+    range: 0,
+    rangeEvery: 0,
+    durationMs: 15000,
+    durationAtLv10: 35000,
+    mods: [
+      { key: 'accuracy', atLv1: 0.04, atLv10: 0.15 },
+      { key: 'attackSpeed', atLv1: 0.03, atLv10: 0.10 },
+      { key: 'moveSpeed', atLv1: 0.03, atLv10: 0.10 },
+    ],
+    fx: 'concentration',
+    desc: 'Precisão, cadência e movimento. É a fuga do Arqueiro, que não tem dash.',
+  },
+
+  // --------------------------- 🪤 Armadilhas (2) ----------------------------
+  //
+  // 🔴 **As armadilhas são o sistema novo desta classe.** Ficam ARMADAS no
+  // chão, não pulsam, e disparam quando um inimigo pisa. E são **ocultas ao
+  // inimigo, visíveis à party** — o filtro é do servidor, porque esconder no
+  // cliente deixaria a posição trafegando na rede.
+
+  /**
+   * 🔴 "**1→2→3 traps**; a 4ª apaga a mais antiga; **ocultas** ao inimigo,
+   * visíveis à party" — citação inteira. O descarte da mais antiga reusa o
+   * mesmo `dropOldestOf` que a Muralha de Gelo já usava.
+   *
+   * ⚠️ REFERÊNCIA no efeito: o doc não diz o que a Armadilha de Caça FAZ além
+   * de existir. Prender é a leitura do nome — armadilha de caça segura a presa
+   * —, e dá à classe o controle que `DD-ARC-015` lhe nega em mobilidade.
+   */
+  hunting_trap: {
+    id: 'hunting_trap',
+    name: 'Armadilha de Caça',
+    kind: 'ground',
+    branch: 'armadilha',
+    classes: ['archer'],
+    reqLevel: 6,
+    manaCost: 18,
+    manaPerLevel: 2,
+    cooldownMs: 8000,
+    power: 0,
+    powerPerLevel: 0,
+    shape: 'ground',
+    range: 0,
+    rangeEvery: 0,
+    durationMs: 60000,
+    ground: {
+      kind: 'trap',
+      // Armadilha não pulsa; o tique é só a cadência com que o servidor
+      // pergunta "alguém pisou?".
+      tickMs: 200,
+      durationAtLv1: 60000,
+      durationAtLv10: 120000,
+      hitsPlayers: true,
+      hitsCreatures: true,
+      maxAtLv1: 1,
+      maxAtLv10: 3,
+    },
+    applies: {
+      id: 'root',
+      chanceAtLv1: 1,
+      chanceAtLv10: 1,
+      durationAtLv1: 3000,
+      durationAtLv10: 8000,
+    },
+    fx: 'hunting_trap',
+    desc: 'Arma uma trapa que PRENDE quem pisar. Até 3 no Lv.10, ocultas ao inimigo.',
+  },
+  /**
+   * 🔴 "Dano em raio + **10/20/30 % de Queimadura**" — citação. E
+   * `DD-ARC-017` **SEM SLOW**: a explosão queima e não atrasa. Está aqui pela
+   * ausência de um segundo `applies`, e tem teste — "explosão que também
+   * atrasa" é a adição óbvia que o doc proíbe.
+   */
+  explosive_trap: {
+    id: 'explosive_trap',
+    name: 'Armadilha Explosiva',
+    kind: 'ground',
+    branch: 'armadilha',
+    classes: ['archer'],
+    reqLevel: 20,
+    requires: [{ skill: 'hunting_trap', level: 5 }],
+    manaCost: 28,
+    manaPerLevel: 4,
+    cooldownMs: 12000,
+    // ⚠️ REFERÊNCIA no dano; a queimadura é do doc.
+    power: 1.6,
+    powerPerLevel: 0.16,
+    shape: 'ground',
+    range: 1,
+    rangeEvery: 6,
+    durationMs: 45000,
+    damageType: 'fire',
+    ground: {
+      kind: 'trap',
+      tickMs: 200,
+      durationAtLv1: 45000,
+      durationAtLv10: 90000,
+      hitsPlayers: true,
+      hitsCreatures: true,
+      maxAtLv1: 1,
+      maxAtLv10: 3,
+    },
+    applies: {
+      id: 'burn',
+      chanceAtLv1: 0.10,
+      chanceAtLv10: 0.30,
+      durationAtLv1: 5000,
+      durationAtLv10: 6000,
+      power: 5,
+    },
+    fx: 'explosive_trap',
+    desc: 'Trapa que explode em raio e queima. NÃO deixa lento (DD-ARC-017).',
+  },
 };
 
 export const SKILL_IDS: SkillId[] = [
@@ -2466,6 +2925,11 @@ export const SKILL_IDS: SkillId[] = [
   'cross_slash', 'deep_cut', 'blade_dance', 'counter_attack',
   'quick_throw', 'shuriken_storm', 'poison_kunai', 'phantom_throw',
   'hidden_strike',
+  // 🏹 Arqueiro (12)
+  'bow_mastery', 'crossbow_mastery', 'hunter_instinct',
+  'double_shot', 'precise_shot', 'piercing_shot', 'arrow_rain', 'volley',
+  'eagle_eye', 'concentration',
+  'hunting_trap', 'explosive_trap',
 ];
 
 /** Quantos slots a barra de atalhos tem: F1..F8. */
@@ -2532,9 +2996,12 @@ export const SKILL_BARS: Record<PlayerClass, (SkillId | null)[]> = {
     // Segunda fileira: as utilitárias arcanas.
     'magic_amplify', 'magic_protection', 'revealing_flame',
   ]),
-  // Sem árvore própria ainda (Etapa 13). A barra existe e nasce vazia em vez de
-  // herdar a do Knight — ver `skillBarFor`.
-  archer: barra([]),
+  // 🏹 As nove conjuráveis do Arqueiro (as três passivas ficam na árvore).
+  archer: barra([
+    'double_shot', 'precise_shot', 'piercing_shot', 'volley',
+    'arrow_rain', 'eagle_eye', 'concentration', 'hunting_trap',
+    'explosive_trap',
+  ]),
   assassin: barra([
     'sonic_blow', 'cross_slash', 'deep_cut', 'blade_dance',
     'counter_attack', 'envenom', 'hide', 'hidden_strike',

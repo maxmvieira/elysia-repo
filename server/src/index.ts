@@ -116,6 +116,7 @@ import {
   MODIFIER_CEIL,
   areaBlocks,
   areaCovers,
+  areaVisibleTo,
   countAreasOf,
   dropOldestOf,
   expireAreas,
@@ -1561,6 +1562,13 @@ function recompute(player: Player, healGain = false): void {
   player.derived.magicResist = Math.min(0.9, player.derived.magicResist + (mods.magicResist ?? 0));
   player.derived.critChance = Math.min(0.95, player.derived.critChance + (mods.critChance ?? 0));
   player.derived.dodgeChance = Math.min(0.8, player.derived.dodgeChance + (mods.dodgeChance ?? 0));
+  player.derived.accuracy = Math.min(0.9, player.derived.accuracy + (mods.accuracy ?? 0));
+  // 🏹 Olho de Águia é a única coisa no jogo que estica o alcance do ataque
+  // básico. Arredonda para CIMA: +20 % sobre 5 tiles dá 6, e um "+20 %" que não
+  // muda tile nenhum seria um buff que o jogador não consegue ver acontecer.
+  if (mods.attackRange) {
+    player.derived.attackRange = Math.ceil(player.derived.attackRange * (1 + mods.attackRange));
+  }
   // Velocidade é INTERVALO: mais rápido = intervalo menor, então o buff divide.
   player.derived.attackCooldownMs = Math.max(
     250, player.derived.attackCooldownMs / fator('attackSpeed'),
@@ -2379,14 +2387,29 @@ function defenseMult(player: Player): number {
  * equipamento e carta — que são a Etapa 11 e a Etapa 10. Até lá o pipeline roda
  * com essas camadas neutras.
  */
-function playerDefenseProfile(player: Player, dodgeable: boolean): DefenseProfile {
+/**
+ * @param atacante Quem está batendo, quando há. A PRECISÃO dele desconta da
+ *   esquiva deste perfil — é o que faz o Olho de Águia e a Concentração
+ *   valerem alguma coisa (`ATTRIBUTE_INFO.dex`: *"Dano de arco/besta ·
+ *   precisão"*).
+ *
+ *   ⚠️ A esquiva nunca fica negativa: precisão em excesso **anula** o desvio,
+ *   não vira bônus de dano. Sem o piso, um Arqueiro com muito DEX passaria a
+ *   ganhar dano ao mirar em alguém sem esquiva nenhuma.
+ */
+function playerDefenseProfile(
+  player: Player, dodgeable: boolean, atacante?: Player,
+): DefenseProfile {
   const resistances: ResistanceProfile = {};
   for (const t of DAMAGE_TYPES) {
     if (t !== 'physical') resistances[t] = player.derived.magicResist;
   }
+  const esquiva = Math.max(
+    0, player.derived.dodgeChance - (atacante?.derived.accuracy ?? 0),
+  );
   return {
     // Magia não é esquivável hoje (o servidor já mandava `dodged: false`).
-    dodgeChance: dodgeable ? player.derived.dodgeChance : 0,
+    dodgeChance: dodgeable ? esquiva : 0,
     fullBlockChance: 0,
     shieldMitigation: 0,
     defense: player.derived.defense,
@@ -2998,7 +3021,9 @@ function playerAttackPlayer(player: Player, alvo: Player, now: number): void {
   // Mesma pilha de defesa em camadas que o jogador usa contra monstro — é o
   // ponto do cap. 31: uma ordem só de resolução, não uma para PvE e outra para
   // PvP. Esquivável porque é golpe corpo a corpo/à distância de alguém visível.
-  const res = resolveDamage(amount, tipo, playerDefenseProfile(alvo, true));
+  // 🏹 A precisão de quem atira entra aqui: é o único lugar do jogo em que ela
+  // morde hoje, porque criatura não desvia (ver o comentário em DerivedStats).
+  const res = resolveDamage(amount, tipo, playerDefenseProfile(alvo, true, player));
   const dmg = res.amount;
   const dodged = res.outcome === 'dodged';
   applyLifeSteal(player, dmg);
@@ -3071,6 +3096,23 @@ function castSpell(player: Player, def: SkillDef, now: number): void {
   if (player.mana < skillManaCost(def, nivel)) {
     send(player, { t: 'denied', reason: `Mana insuficiente para ${def.name} (${skillManaCost(def, nivel)}).` });
     return;
+  }
+  /**
+   * 🏹 Habilidade que EXIGE uma família de arma. O Disparo Duplo é *"só arco"*
+   * e o Tiro Preciso é *"só besta"* — as duas primeiras do jogo a depender do
+   * que está na mão.
+   *
+   * ⚠️ A mensagem nomeia as armas aceitas. "Você não pode usar isso" mandaria o
+   * jogador procurar a resposta no tooltip de uma habilidade que ele acabou de
+   * apertar.
+   */
+  if (def.requiresWeapon) {
+    const arma = equippedWeapon(player)?.identity.type;
+    if (!arma || !def.requiresWeapon.includes(arma)) {
+      const nomes = def.requiresWeapon.map((w) => WEAPON_IDENTITY[w].name).join(' ou ');
+      send(player, { t: 'denied', reason: `${def.name} exige ${nomes}.` });
+      return;
+    }
   }
 
   /**
@@ -3264,6 +3306,19 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
     if (targets.length === 0) {
       send(player, { t: 'denied', reason: 'Nenhum inimigo ao alcance.' });
       return;
+    }
+    /**
+     * 🏹 Teto de alvos: a Chuva de Flechas pega *"até 10"*.
+     *
+     * Ordena por DISTÂNCIA antes de cortar, e não é detalhe: cortar na ordem em
+     * que o mapa devolve as criaturas escolheria alvos pela ordem de spawn, e o
+     * jogador veria dez monstros no raio e a flecha acertando os do outro lado.
+     */
+    if (def.maxTargets && targets.length > def.maxTargets) {
+      targets.sort((a, b) =>
+        chebyshev(player.tileX, player.tileY, a.tileX, a.tileY)
+        - chebyshev(player.tileX, player.tileY, b.tileX, b.tileY));
+      targets.length = def.maxTargets;
     }
   }
 
@@ -3626,11 +3681,24 @@ function plantaArea(
       : {}),
   };
   groundAreas.push(area);
-  broadcastFloor(player.floor, {
-    t: 'area', id: area.id, skill: def.id, kind: area.kind,
+  /**
+   * 🪤 **A armadilha vai só para quem pode vê-la** — `DD-ARC-016`: *"ocultas ao
+   * inimigo, visíveis à party"*.
+   *
+   * 🔴 O filtro é do SERVIDOR, e tem de ser. Mandar para todos e esconder no
+   * cliente deixaria a posição de cada trapa trafegando na rede, e qualquer
+   * cliente modificado a leria — que é o mesmo que a armadilha não existir.
+   */
+  const msg = {
+    t: 'area' as const, id: area.id, skill: def.id, kind: area.kind,
     x: area.x, y: area.y, floor: area.floor, radius: area.radius,
     durationMs: duracao, fx: def.fx,
-  });
+  };
+  for (const p of players.values()) {
+    if (!p.joined || p.floor !== player.floor) continue;
+    if (!areaVisibleTo(area, p.id, ehAliado(player, p))) continue;
+    send(p, msg);
+  }
   gainSkill(player);
   sendStats(player);
 }
@@ -3808,6 +3876,12 @@ function tickGroundAreas(now: number): void {
     a.nextTickAt = now + a.tickMs;
     const dono = players.get(a.ownerId);
 
+    // 🪤 Armadilha: não pulsa, ESPERA. Dispara uma vez e some.
+    if (a.kind === 'trap') {
+      disparaArmadilha(a, dono, now);
+      continue;
+    }
+
     if (a.hitsCreatures && a.kind === 'damage' && dono) {
       for (const c of creatures.values()) {
         if (!c.alive || !areaCovers(a, c.tileX, c.tileY, c.floor)) continue;
@@ -3826,6 +3900,54 @@ function tickGroundAreas(now: number): void {
         if (!dono || ehAliado(dono, p)) continue;
         danoDeAreaEmJogador(dono, a, p, now);
       }
+    }
+  }
+}
+
+/**
+ * 🪤 Alguém pisou na armadilha?
+ *
+ * ⚠️ **Ela some depois de disparar** — `expiresAt = now` faz o `expireAreas` do
+ * próximo tique limpá-la e avisar o cliente, sem precisar remover no meio do
+ * laço que está iterando a lista.
+ *
+ * ⚠️ **Não dispara com o próprio dono nem com a party dele em cima.** Armadilha
+ * que pega o Knight do grupo seria uma habilidade que se aprende a não usar.
+ */
+function disparaArmadilha(a: GroundArea, dono: Player | undefined, now: number): void {
+  if (a.triggered || !dono) return;
+
+  const vitimas: Array<Player | Creature> = [];
+  if (a.hitsCreatures) {
+    for (const c of creatures.values()) {
+      if (c.alive && areaCovers(a, c.tileX, c.tileY, c.floor)) vitimas.push(c);
+    }
+  }
+  if (a.hitsPlayers) {
+    for (const p of players.values()) {
+      if (!p.joined || !p.alive || ehAliado(dono, p)) continue;
+      if (areaCovers(a, p.tileX, p.tileY, p.floor)) vitimas.push(p);
+    }
+  }
+  if (vitimas.length === 0) return;
+
+  a.triggered = true;
+  a.expiresAt = now;
+  broadcastFloor(a.floor, {
+    t: 'fx', kind: a.fx, x: a.x, y: a.y, floor: a.floor, radius: a.radius,
+  });
+
+  for (const v of vitimas) {
+    // Dano só quando a armadilha TEM dano: a de Caça prende e não fere.
+    if (a.power > 0) {
+      if ('def' in v) golpeDeArea(dono, a, v, now);
+      else danoDeAreaEmJogador(dono, a, v, now);
+    }
+    if (a.condition) {
+      applyConditionTo(
+        v, a.condition.id, a.condition.chance, a.condition.durationMs, now,
+        a.condition.power, dono.id,
+      );
     }
   }
 }
