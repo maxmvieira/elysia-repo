@@ -728,8 +728,8 @@ function setupStartScreen(): void {
   // enfiado logo acima da grade de classes.
   (document.getElementById('ccgender') ?? classesEl).appendChild(genderBar);
 
-  // A ordem da arte de referência que o dono trouxe.
-  const order: PlayerClass[] = ['knight', 'sorcerer', 'assassin', 'archer'];
+  // A ordem da arte de referência que o dono trouxe. As CINCO desde 02/09.
+  const order: PlayerClass[] = ['knight', 'sorcerer', 'assassin', 'archer', 'druid'];
   const cards = new Map<PlayerClass, HTMLElement>();
   let knightIcon!: HTMLElement;
   for (const id of order) {
@@ -754,27 +754,6 @@ function setupStartScreen(): void {
     classesEl.appendChild(card);
     cards.set(id, card);
   }
-  /*
-   * 🔴 O DRUIDA aparece, mas APAGADO e sem clique.
-   *
-   * Ele existe no GDD — que fala em cinco classes — e na arte de referência, mas
-   * NÃO existe no código: está na etapa 15 do roadmap, e `CLASSES` tem quatro.
-   *
-   * ⚠️ Esconder faria a tela discordar do documento e da arte; deixar clicável
-   * daria um personagem de uma classe que o servidor não conhece. Mostrar
-   * apagado, com o motivo escrito, é o único jeito que não mente.
-   */
-  const druida = document.createElement('div');
-  druida.className = 'classcard embreve';
-  druida.title = 'O Druida entra na etapa 15 do roadmap';
-  druida.innerHTML =
-    '<div class="cicon"></div>'
-    + '<div class="cinfo"><b>DRUIDA</b>'
-    + '<p>Guardião da natureza que controla as forças da vida, cura aliados e '
-    + 'transforma-se em poderosas feras.</p></div>'
-    + '<span class="emb">EM BREVE</span>';
-  classesEl.appendChild(druida);
-
   if (chosen && cards.has(chosen)) cards.get(chosen)!.classList.add('sel');
   genderBtns[gender].classList.add('sel');
 

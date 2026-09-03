@@ -959,26 +959,10 @@
         color: #9a9284;
       }
       /*
-       * ⚠️ O Druida entra APAGADO e não clicável: ele existe no GDD (são cinco
-       * classes) e na arte de referência, mas não existe no código — está na
-       * etapa 15 do roadmap. Mostrar e avisar é mais honesto que esconder, e
-       * muito mais honesto que deixar escolher uma classe que não existe.
+       * ⚠️ As regras de `.classcard.embreve` saíram em 02/09, junto com o cartão
+       * falso: o Druida virou classe de verdade. Se um dia houver outra classe
+       * anunciada e não implementada, o padrão está no histórico deste arquivo.
        */
-      .classcard.embreve {
-        opacity: 0.42;
-        cursor: default;
-        filter: grayscale(0.7);
-      }
-      .classcard.embreve:hover {
-        border-color: var(--border);
-      }
-      .classcard .emb {
-        margin-left: auto;
-        font-size: 9px;
-        letter-spacing: 1px;
-        color: #8a8272;
-        white-space: nowrap;
-      }
       #startmid #playbtn {
         width: 100%;
         max-width: 420px;

@@ -10,7 +10,7 @@
  * atributos e usa isso no combate. O cliente só exibe.
  */
 
-export type PlayerClass = 'knight' | 'sorcerer' | 'archer' | 'assassin';
+export type PlayerClass = 'knight' | 'sorcerer' | 'archer' | 'assassin' | 'druid';
 export type AttributeKey = 'str' | 'dex' | 'vit' | 'int' | 'wis' | 'agi' | 'luk';
 export type AttackType = 'melee' | 'ranged' | 'magic';
 export type SkillKind = 'melee' | 'distance' | 'magic';
@@ -259,8 +259,8 @@ export function checkAttributes(
  * de atributo — o que muda é a distribuição, não a soma. Nenhuma classe nasce
  * matematicamente maior que outra.
  *
- * São CINCO classes no total: Knight, Sorcerer, Archer, Assassin e Druid.
- * O Druid entra na etapa 15 do roadmap. Priest NÃO existe.
+ * São CINCO classes, e desde 02/09 as cinco existem: Knight, Sorcerer, Archer,
+ * Assassin e Druid. Priest NÃO existe.
  */
 export const CLASSES: Record<PlayerClass, ClassDef> = {
   knight: {
@@ -314,6 +314,51 @@ export const CLASSES: Record<PlayerClass, ClassDef> = {
     hpAt1: 150,
     manaAt1: 70,
     blurb: 'Alta velocidade e adagas. Críticos, venenos e furtividade — golpeia e some.',
+  },
+  /**
+   * 🌿 O DRUIDA — a quinta e última classe, fechada em 2026-09-02.
+   *
+   * 🔴 **Todos os números aqui vêm do GDD, não de invenção.** A "Ficha V1 do
+   * Druid" está no cap. 71 do Doc 1: *HP 140 · MP 150 · STR 4 · VIT 7 · AGI 5 ·
+   * DEX 5 · INT 9 · WIS 11 · LUK 4*. Ela soma exatamente os 45 pontos-base, como
+   * as outras quatro.
+   *
+   * ⚠️ **A tabela do 65.20 marca o Druid como PENDENTE (`DD-BAL-029`) — e é fácil
+   * concluir daí que os números não existem.** Existem: estão noutro capítulo.
+   * Quem for revisar, procure a ficha V1 antes de arbitrar.
+   *
+   * 🔴 **`attackType: 'melee'` e `spellCost: 0` saem do `DD-PROG-028`:** *"ataque
+   * básico com cajado é FÍSICO (Sorcerer e Druid); dano mágico à distância exige
+   * gastar uma habilidade e mana"*. O cajado bate, não conjura.
+   *
+   * ⚠️ **Isto o deixa DIFERENTE do Feiticeiro deste arquivo**, que está com
+   * `attackType: 'magic'` e um `firebolt` de 6 de mana. Aquilo contraria o mesmo
+   * `DD-PROG-028` e é divergência anterior a esta classe — não a "consertei"
+   * junto para a mudança não virar duas.
+   *
+   * 🔴 **`skill: 'magic'` apesar do golpe físico**, e não é contradição: o doc
+   * mapeia **cajado → Magic Level** na lista de proficiências. O que a classe
+   * TREINA é magia; o que o bastão faz no golpe básico é dano físico.
+   *
+   * ⚠️ **WIS é o atributo principal, não INT** (`DD-PROG-024/025`), e é WIS que
+   * escala a cura. É por isso que a ficha dá 11 de WIS contra 9 de INT — o
+   * contrário do Feiticeiro.
+   *
+   * ⚠️ **Ele ainda não tem NENHUMA habilidade.** O doc descreve 23, em quatro
+   * ramos (cura, buff, debuff, natureza), e nenhuma existe no código. A classe é
+   * jogável pelo golpe básico, e a árvore é trabalho à parte.
+   */
+  druid: {
+    id: 'druid',
+    name: 'Druida',
+    attackType: 'melee',
+    skill: 'magic',
+    base: { str: 4, vit: 7, agi: 5, dex: 5, int: 9, wis: 11, luk: 4 },
+    attackRange: 1,
+    spellCost: 0,
+    hpAt1: 140,
+    manaAt1: 150,
+    blurb: 'Guardião da natureza. Cura, fortalece aliados e enfraquece inimigos — sustenta o grupo em vez de derrubar sozinho.',
   },
 };
 

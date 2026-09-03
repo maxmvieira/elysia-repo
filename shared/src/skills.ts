@@ -86,7 +86,10 @@ export function skillTotalCost(nivel: number): number {
  * diferente por classe (GDD §4): o Sorcerer desenvolve muito mais magias, então
  * recebe mais pontos — sem receber mais pontos de atributo por isso.
  *
- * Médias de projeto: Knight 1,5/nível · Assassin e Archer 1,7 · Sorcerer 2,5.
+ * Médias de projeto: Knight 1,5/nível · Assassin e Archer 1,7 · Sorcerer 2,5 ·
+ * **Druid 2,0** (`DD-PROG-008/009`: "Druid entra com 2,0 SP/nível, entre as
+ * físicas e o Sorcerer" — ele tem 23 habilidades contra as 18 do Sorcerer, mas
+ * árvore grande não é o único critério).
  */
 export function skillPointsAtLevel(cls: PlayerClass, level: number): number {
   if (level < 1) return 0;
@@ -94,6 +97,10 @@ export function skillPointsAtLevel(cls: PlayerClass, level: number): number {
   if (cls === 'sorcerer') {
     // Alterna +2 / +3 → média 2,5.
     pts = level % 2 === 0 ? 3 : 2;
+  } else if (cls === 'druid') {
+    // 🔴 Exatos 2 por nível — a média do doc é redonda, então não precisa
+    // alternar como as outras. Ver `DD-PROG-008/009`.
+    pts = 2;
   } else if (cls === 'knight') {
     // +1 normalmente, +2 a cada segundo nível → média 1,5.
     pts = level % 2 === 0 ? 2 : 1;
