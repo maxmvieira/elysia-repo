@@ -795,10 +795,36 @@
       .srvstatus.off {
         color: #d98a7a;
       }
-      #loginsom {
+      /*
+       * O canto do som: alto-falante + volume. O slider só aparece com a música
+       * ligada — desligada ele não teria o que controlar, e mais um controle
+       * morto no canto da tela só polui.
+       */
+      #loginaudio {
         position: absolute;
         top: 14px;
         right: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 2;
+      }
+      #loginvol {
+        width: 0;
+        opacity: 0;
+        padding: 0;
+        transition: width 180ms ease, opacity 180ms ease;
+        accent-color: #c9a86a;
+        cursor: pointer;
+        /* Fechado ele tem largura zero, mas ainda pegaria o clique da borda. */
+        pointer-events: none;
+      }
+      #loginaudio.tocando #loginvol {
+        width: 92px;
+        opacity: 1;
+        pointer-events: auto;
+      }
+      #loginsom {
         width: 34px;
         height: 34px;
         font-size: 15px;
@@ -2877,6 +2903,25 @@
         cheia por conta própria.
       -->
       <div id="loginbg">
+        <!--
+          🔴 **O `loop` aqui é costura de verdade, e não emenda escondida.**
+
+          O clipe original era um empurrão de câmera de 5,17 s: começava aberto e
+          terminava fechado no pé da Árvore. Em laço isso PULAVA do fechado para
+          o aberto a cada cinco segundos — o talho que o dono viu. E dissolvência
+          não resolvia: cruzar um quadro aberto com um fechado é sobrepor duas
+          escalas da mesma imagem, o que dá fantasma, não transição.
+
+          O arquivo foi refeito em **vai-e-volta** (02/09, noite): 124 quadros de
+          ida e os mesmos 122 de volta, sem repetir as pontas. A câmera fecha e
+          abre de novo, e o quadro que emenda com o primeiro é o VIZINHO dele.
+          Não há transição a suavizar porque não há mais corte — e por isso o
+          segundo vídeo e a dissolvência que existiam aqui foram embora.
+
+          ⚠️ Refazer o vídeo também **cortou peso**: 8,4 MB → 2,6 MB, com o dobro
+          da duração (10,25 s). O `cover` é sobre um véu escuro, então 1920 de
+          largura sobra — os 2544 do original não chegavam a aparecer.
+        -->
         <video
           id="loginvid"
           autoplay
@@ -2888,6 +2933,35 @@
         >
           <source src="/assets/ui/login-bg.mp4" type="video/mp4" />
         </video>
+        <!--
+          🔴 A MÚSICA saiu da trilha do vídeo e virou DOIS elementos.
+
+          Presa ao vídeo, ela era obrigada a cortar junto com a imagem. Solta num
+          elemento só, com `loop` nativo, ela ainda dava um talho na volta; com a
+          rampa descendo a zero, o talho virou um buraco de silêncio — que é o
+          que o dono continuou ouvindo.
+
+          Agora são dois, e a volta é uma DISSOLVÊNCIA: o segundo entra do zero
+          enquanto o primeiro toca a última ponta, e em nenhum instante o som cai
+          para o silêncio. Quem cruza os volumes é o `main.ts`.
+
+          ⚠️ **`src` é o `main.ts` quem põe** — ver `TRILHAS` lá e o LEIA-ME desta
+          pasta.
+
+          🔴 **Os `preload` são diferentes de propósito, e isso é sobre BANDA.**
+          A faixa tem 10 minutos e 9,2 MB. Com `auto` nos dois, o navegador
+          puxaria os 9,2 MB **duas vezes** só para ter a segunda volta pronta —
+          para uma volta que só acontece aos dez minutos, se alguém ficar tanto
+          tempo na tela. Então:
+
+          - o primeiro fica em `metadata`: pega a duração (que a travessia
+            precisa) e streama o resto conforme toca, gastando banda só pelo
+            tempo que o jogador realmente ouvir;
+          - o segundo fica em `none` e só é acordado pelo `main.ts`, vinte
+            segundos antes da volta.
+        -->
+        <audio id="loginmus" preload="metadata"></audio>
+        <audio id="loginmus2" preload="none"></audio>
       </div>
       <div id="loginwrap">
         <div id="loginmark">
@@ -2947,8 +3021,21 @@
 
         <!-- Alto-falante: a ÚNICA forma de a música começar.
              🔴 O som NÃO se liga sozinho (decisão do dono em 02/09, depois de
-             ouvir). O vídeo toca mudo; quem quiser música clica aqui. -->
-        <button id="loginsom" title="Ligar a música">🔇</button>
+             ouvir). O vídeo toca mudo; quem quiser música clica aqui.
+             O volume ao lado só abre depois que a música está tocando. -->
+        <div id="loginaudio">
+          <input
+            id="loginvol"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value="10"
+            title="Volume da música"
+            aria-label="Volume da música"
+          />
+          <button id="loginsom" title="Ligar a música">🔇</button>
+        </div>
         <div id="loginfoot">
           <!-- ⚠️ Sem número de build inventado: a arte de referência trazia
                "Versão 1.0.0 – Build #1000", que não existe em lugar nenhum. -->

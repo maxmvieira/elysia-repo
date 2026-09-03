@@ -238,23 +238,111 @@ const screens = {
 };
 
 /**
- * ---- O VÍDEO DE FUNDO DA TELA DE ENTRADA (02/09) --------------------------
+ * ---- O FUNDO DA TELA DE ENTRADA: VÍDEO E MÚSICA (02/09) -------------------
  *
  * 🔴 **Três coisas que o navegador impõe, e que este bloco existe para tratar:**
  *
  * 1. **`autoplay` não pega em elemento escondido.** A tela nasce
  *    `display: none`, então o vídeo carrega pausado. Quem manda tocar é o
  *    `showScreen`, quando a tela aparece de verdade.
- * 2. **Vídeo com som NUNCA toca sozinho.** Ele começa mudo — a única forma de
- *    autoplay permitida — e o som entra no PRIMEIRO gesto do jogador, que é o
- *    que a política de mídia exige.
+ * 2. **Mídia com som NUNCA toca sozinha.** O vídeo é mudo — a única forma de
+ *    autoplay permitida — e a música só entra num gesto do jogador, que é o que
+ *    a política de mídia exige.
  * 3. **`play()` devolve uma promessa que pode rejeitar** (aba em segundo plano,
  *    mídia bloqueada por política). Sem o `.catch` isso vira erro não tratado no
  *    console — e nesta tela, um erro solto é exatamente o que produzia a página
  *    preta e muda que o irmão do dono caçou hoje.
+ *
+ * ---- A EMENDA DO LAÇO (02/09, noite) --------------------------------------
+ *
+ * 🔴 **As duas emendas são problemas DIFERENTES, e só uma se resolve em código.**
+ *
+ * - **Imagem — resolvida no ARQUIVO, não aqui.** O clipe era um empurrão de
+ *   câmera de 5,17 s, e em laço ele pulava do enquadramento fechado de volta
+ *   para o aberto. Dissolvência não salvava: cruzar um quadro aberto com um
+ *   fechado sobrepõe duas escalas da mesma imagem e dá fantasma. O vídeo foi
+ *   refeito em vai-e-volta (fecha e abre), então a emenda sumiu do arquivo e o
+ *   `loop` nativo basta. **Foi por isso que a dissolvência de vídeo saiu daqui.**
+ * - **Som — resolvido aqui, com dois elementos.** Num elemento só, o laço dava
+ *   um talho; com a rampa descendo a zero, virou um buraco de silêncio. Agora o
+ *   segundo entra do zero enquanto o primeiro toca a última ponta, e o som nunca
+ *   cai para o silêncio (ver `cruzaMusica`).
+ *
+ * ⚠️ **E o que curou a música de verdade não foi nenhum dos dois: foi a FAIXA.**
+ * Enquanto ela eram os 5,09 s da trilha do vídeo, nenhuma costura escondia a
+ * repetição — o defeito era o material. Com "The Old Forest", de 10 minutos, a
+ * travessia virou o que devia ser desde o começo: uma emenda que quase ninguém
+ * vai chegar a ouvir.
  */
 /** Onde fica gravado se o jogador quer a música. Padrão: NÃO. */
 const CHAVE_SOM = 'elysia_login_som';
+/** Onde fica gravado o volume da música, de 0 a 1. */
+const CHAVE_VOL = 'elysia_login_vol';
+/**
+ * ⚠️ **Bem baixo de propósito**, a pedido do dono. Isto é fundo de tela de
+ * entrada, não é a atração — quem quiser mais sobe no controle ao lado do
+ * alto-falante.
+ */
+const VOLUME_PADRAO = 0.1;
+/**
+ * Teto da travessia entre as duas voltas da música, em segundos.
+ *
+ * ⚠️ **Travessia CUSTA duração de laço.** A volta começa `trav` segundos antes
+ * do fim, então a música se repete a cada `duração − trav`. Com "The Old Forest"
+ * isso é irrelevante — 0,9 s em 600 — mas foi o que ditou este número quando a
+ * trilha aqui tinha cinco segundos, e continua ditando o corte em `duração / 4`:
+ * numa faixa curtíssima a travessia comeria o laço inteiro.
+ */
+const FADE_MUSICA_S = 0.9;
+/**
+ * Onde a música é procurada, **na ordem**. A primeira que o navegador conseguir
+ * carregar ganha.
+ *
+ * ✅ **`login-music.mp3` é "The Old Forest"**, que o dono trouxe em 02/09 —
+ * 10 minutos, e é ela que toca. Para trocar a música, é só trocar esse arquivo.
+ *
+ * ⚠️ O `.m4a` é a reserva: são os 5,09 s arrancados da trilha do vídeo, de
+ * quando não havia faixa nenhuma. Ele só entra se o `.mp3` sumir ou vier
+ * corrompido — e aí a tela toca cinco segundos em laço em vez de ficar muda.
+ *
+ * 🔴 A trilha do vídeo virou arquivo próprio para a música **não arrastar o
+ * vídeo junto**: antes o `<audio>` apontava para o `login-bg.mp4` e baixava
+ * megabytes de imagem para tocar cinco segundos de som.
+ *
+ * ⚠️ Se um dia o `.mp3` faltar, o console mostra **um erro de mídia** — é a
+ * tentativa que falha e cai para o `.m4a`. Em desenvolvimento ele não vira 404:
+ * o Vite responde **200 com o `index.html`** a qualquer caminho que não exista,
+ * e quem recusa é o `<audio>`, por formato. É por isso que a queda tem de ser
+ * guiada pelo evento `error` do elemento, e não por olhar o status da resposta.
+ */
+const TRILHAS = ['/assets/ui/login-music.mp3', '/assets/ui/login-music.m4a'];
+/**
+ * Quanto antes da volta o segundo elemento começa a encher o buffer.
+ *
+ * 🔴 Ele nasce em `preload="none"` para não baixar a faixa inteira uma segunda
+ * vez (ver o HTML). O preço disso é que, na hora da travessia, ele estaria com
+ * zero byte carregado e entraria em silêncio — que é justamente o buraco que a
+ * travessia existe para tapar. Vinte segundos é folga de sobra para encher.
+ */
+const APRONTA_ANTES_S = 20;
+
+/** Volume que o jogador escolheu. A travessia multiplica ESTE valor. */
+let volumeAtual = VOLUME_PADRAO;
+/** Qual dos dois elementos de música está tocando a volta atual. */
+let musNoAr = 0;
+/**
+ * O que o jogador PEDIU, que não é o mesmo que o que está tocando.
+ *
+ * 🔴 A trilha é escolhida por tentativa e erro (ver `escolheTrilha`), e a queda
+ * do `.mp3` para o `.m4a` pode cair DEPOIS do clique — o arquivo só é buscado de
+ * verdade quando a aba está à vista, então numa aba aberta em segundo plano a
+ * primeira tentativa falha justamente na hora em que o jogador pediu música. O
+ * `load()` da troca deixa o elemento parado, e sem esta lembrança o clique dele
+ * simplesmente se perdia.
+ */
+let musicaPedida = false;
+/** O `requestAnimationFrame` que costura a volta da música. 0 = parado. */
+let vigiaFundo = 0;
 
 function querSom(): boolean {
   try {
@@ -265,34 +353,188 @@ function querSom(): boolean {
   }
 }
 
-function tocaFundoDoLogin(): void {
-  const v = document.getElementById('loginvid') as HTMLVideoElement | null;
-  if (!v) return;
-  v.play().catch(() => {
-    // Bloqueado: o poster continua no lugar e a tela segue utilizável.
-  });
+function volumeSalvo(): number {
+  try {
+    const bruto = localStorage.getItem(CHAVE_VOL);
+    // 🔴 O teste do nulo vem ANTES da conversão: `Number(null)` é 0, e 0 é um
+    // volume válido. Sem esta linha, quem nunca mexeu no controle entraria com
+    // a música no mudo e acharia que o botão não funciona.
+    if (bruto !== null) {
+      const n = Number(bruto);
+      if (Number.isFinite(n) && n >= 0 && n <= 1) return n;
+    }
+  } catch { /* sem armazenamento: cai no padrão */ }
+  return VOLUME_PADRAO;
 }
 
-/** O botão de alto-falante. É a ÚNICA forma de a música começar. */
-function ligaBotaoSom(): void {
+function videoDoFundo(): HTMLVideoElement | null {
+  return document.getElementById('loginvid') as HTMLVideoElement | null;
+}
+
+/**
+ * Os DOIS elementos de música. São dois porque a volta é uma travessia: os dois
+ * tocam junto durante ela, e é isso que impede o silêncio no meio.
+ */
+function musicasDoLogin(): [HTMLAudioElement, HTMLAudioElement] | null {
+  const a = document.getElementById('loginmus') as HTMLAudioElement | null;
+  const b = document.getElementById('loginmus2') as HTMLAudioElement | null;
+  return a && b ? [a, b] : null;
+}
+
+function musicaTocando(): boolean {
+  const ms = musicasDoLogin();
+  return !!ms && ms.some((m) => !m.paused);
+}
+
+/**
+ * A volta da música, e o volume dos dois lados dela a cada quadro.
+ *
+ * 🔴 **Nenhum dos dois elementos tem `loop`.** Com `loop`, a volta é instantânea
+ * e não há como sobrepor o fim ao começo — o melhor que se consegue é descer o
+ * volume até zero e subir de novo, e esse mergulho no silêncio é justamente o
+ * "corte" que o dono continuava ouvindo. Quem reinicia é este bloco: o segundo
+ * elemento começa do zero ENQUANTO o primeiro ainda toca a última ponta.
+ *
+ * ⚠️ Rodar isto num `timeupdate` não serviria: aquele evento sai a cada ~250 ms,
+ * e um degrau de 250 ms no volume é um clique audível. Por isso é `rAF`.
+ */
+function cruzaMusica(): void {
+  const ms = musicasDoLogin();
+  if (!ms) return;
+  const noAr = ms[musNoAr]!;
+  const outro = ms[1 - musNoAr]!;
+  const d = noAr.duration;
+  // Enquanto os metadados não chegam, `duration` é NaN.
+  if (noAr.paused || !Number.isFinite(d) || d <= 0) return;
+  const trav = Math.min(FADE_MUSICA_S, d / 4);
+
+  // Acorda o segundo com folga: ele dorme sem byte nenhum. Ver APRONTA_ANTES_S.
+  if (outro.paused && noAr.currentTime >= d - trav - APRONTA_ANTES_S) {
+    aprontaOutraMusica(outro, noAr);
+  }
+
+  // A troca. `outro.paused` é a trava: durante a travessia ele está tocando, e
+  // sem ela a volta seria disparada de novo a cada quadro.
+  if (outro.paused && noAr.currentTime >= d - trav) {
+    outro.currentTime = 0;
+    outro.volume = 0;
+    outro.play().catch(() => {});
+    musNoAr = 1 - musNoAr;
+  }
+
+  for (const m of ms) {
+    if (m.paused) continue;
+    const dm = m.duration;
+    if (!Number.isFinite(dm) || dm <= 0) continue;
+    const t = m.currentTime;
+    const rampa = Math.min(1, t / trav, Math.max(0, (dm - t) / trav));
+    // 🔴 Raiz, e não a rampa crua. Duas metades de música que se cruzam não são
+    // o mesmo som: elas somam em POTÊNCIA, não em amplitude. Com a rampa direta
+    // o meio da travessia afunda uns 3 dB — um vinco de volume bem no ponto que
+    // este código existe para disfarçar.
+    m.volume = Math.max(0, Math.min(1, volumeAtual * Math.sqrt(rampa)));
+  }
+  // Quem chegou ao fim se pausa sozinho (nenhum tem `loop`), e volta a ser o
+  // "outro" livre para a próxima travessia.
+}
+
+/**
+ * Deixa o segundo elemento pronto para a travessia, copiando a trilha que o
+ * primeiro JÁ resolveu.
+ *
+ * 🔴 Copiar o `currentSrc` do que está tocando, em vez de repetir a busca da
+ * `TRILHAS`, evita dois problemas de uma vez: o segundo não faz de novo o
+ * pedido que falha, e não há como os dois acabarem em arquivos diferentes se um
+ * dia a lista mudar debaixo deles.
+ */
+function aprontaOutraMusica(outro: HTMLAudioElement, noAr: HTMLAudioElement): void {
+  if (outro.src === noAr.currentSrc && outro.readyState > 0) return;
+  outro.src = noAr.currentSrc;
+  outro.load();
+}
+
+function vigia(): void {
+  vigiaFundo = requestAnimationFrame(vigia);
+  cruzaMusica();
+}
+
+/**
+ * Põe o `src` da música, tentando os arquivos de `TRILHAS` na ordem.
+ *
+ * 🔴 Isto NÃO dá para deixar a cargo de vários `<source>`: o navegador escolhe
+ * por tipo suportado, não por arquivo existente. Ele ficaria no primeiro `.mp3`
+ * mesmo com a resposta errada, e a música simplesmente não tocaria.
+ */
+function escolheTrilha(m: HTMLAudioElement): void {
+  let i = 0;
+  const tenta = (): void => {
+    if (i >= TRILHAS.length) return; // sem trilha: a tela segue, só que muda.
+    m.src = TRILHAS[i]!;
+    i += 1;
+    m.load();
+    // Retoma o pedido que a troca de arquivo engoliu. Ver `musicaPedida`.
+    // ⚠️ O `musNoAr` vai junto: quem resolve a trilha é sempre o elemento 0, e
+    // sem isto a travessia poderia considerar no ar o que não está tocando.
+    if (musicaPedida && !musicaTocando()) {
+      musNoAr = 0;
+      m.currentTime = 0;
+      m.volume = 0;
+      m.play().then(atualizaBotaoSom).catch(() => {});
+    }
+  };
+  m.addEventListener('error', tenta);
+  tenta();
+}
+
+/** O canto do som: o alto-falante que liga a música e o volume ao lado dele. */
+function ligaControlesDeSom(): void {
+  const caixa = document.getElementById('loginaudio');
   const b = document.getElementById('loginsom');
-  const v = document.getElementById('loginvid') as HTMLVideoElement | null;
-  if (!b || !v) return;
-  // Se o jogador já pediu som antes, o clique dele naquela sessão vale como
-  // gesto? Não vale — a política de mídia é por carregamento de página. Por
-  // isso o vídeo continua mudo aqui, e só o clique DESTE botão liga.
-  v.muted = true;
+  const vol = document.getElementById('loginvol') as HTMLInputElement | null;
+  const ms = musicasDoLogin();
+  if (!caixa || !b || !vol || !ms) return;
+
+  volumeAtual = volumeSalvo();
+  vol.value = String(Math.round(volumeAtual * 100));
+  // 🔴 Só o PRIMEIRO procura a trilha. O segundo dorme em `preload="none"`, e
+  // ali um `error` nunca chegaria a disparar — a busca por tentativa e erro
+  // simplesmente não funciona nele. Ele copia do primeiro, já resolvido, quando
+  // for acordado (ver `aprontaOutraMusica`).
+  escolheTrilha(ms[0]);
+
+  // ⚠️ `input`, e não `change`: o volume tem de acompanhar o arrasto. Só ouvir
+  // o resultado depois de soltar é regular às cegas.
+  vol.oninput = () => {
+    volumeAtual = Number(vol.value) / 100;
+    // Vale já; no próximo quadro a travessia reassume por cima deste valor.
+    for (const m of ms) if (!m.paused) m.volume = volumeAtual;
+    try {
+      localStorage.setItem(CHAVE_VOL, String(volumeAtual));
+    } catch { /* sem armazenamento: vale só nesta sessão */ }
+  };
+
   b.onclick = () => {
-    v.muted = !v.muted;
-    if (!v.muted) {
-      v.volume = 0.35; // música de fundo entra baixa: ninguém pediu um susto
-      v.play().catch(() => {});
+    musicaPedida = !musicaPedida;
+    if (musicaPedida) {
+      const m = ms[musNoAr]!;
+      m.currentTime = 0;
+      m.volume = 0; // 🔴 entra pela rampa, nunca de supetão
+      m.play().catch(() => {
+        // Recusado pelo navegador: o pedido tem de cair junto, senão o botão
+        // fica dizendo 🔊 sobre um silêncio.
+        musicaPedida = false;
+        atualizaBotaoSom();
+      });
+      if (!vigiaFundo) vigiaFundo = requestAnimationFrame(vigia);
+    } else {
+      for (const m of ms) m.pause();
     }
     try {
-      localStorage.setItem(CHAVE_SOM, v.muted ? '0' : '1');
+      localStorage.setItem(CHAVE_SOM, musicaPedida ? '1' : '0');
     } catch { /* sem armazenamento: a escolha vale só nesta sessão */ }
     atualizaBotaoSom();
   };
+
   // ⚠️ A preferência gravada muda só o RÓTULO, não liga o som: sem um gesto
   // nesta página, `play()` com áudio seria recusado pelo navegador.
   if (querSom()) b.title = 'Ligar a música (clique — o navegador exige)';
@@ -300,12 +542,53 @@ function ligaBotaoSom(): void {
 }
 
 function atualizaBotaoSom(): void {
+  const caixa = document.getElementById('loginaudio');
   const b = document.getElementById('loginsom');
-  const v = document.getElementById('loginvid') as HTMLVideoElement | null;
-  if (!b || !v) return;
-  b.textContent = v.muted ? '🔇' : '🔊';
-  if (!querSom() || !v.muted) {
-    b.title = v.muted ? 'Ligar a música' : 'Desligar a música';
+  if (!caixa || !b) return;
+  // ⚠️ O rótulo segue o PEDIDO, não o `paused` do elemento. Entre o clique e o
+  // som existe uma janela (carregar o arquivo, cair para a trilha reserva) em
+  // que nada toca e o jogador já pediu — ali o 🔇 seria mentira, e ele clicaria
+  // de novo, desligando o que estava prestes a começar.
+  const tocando = musicaPedida;
+  b.textContent = tocando ? '🔊' : '🔇';
+  // É esta classe que abre o controle de volume: desligada, ele não teria o que
+  // controlar, e mais um controle morto no canto só polui.
+  caixa.classList.toggle('tocando', tocando);
+  if (!querSom() || tocando) {
+    b.title = tocando ? 'Desligar a música' : 'Ligar a música';
+  }
+}
+
+function tocaFundoDoLogin(): void {
+  const v = videoDoFundo();
+  if (!v) return;
+  v.play().catch(() => {
+    // Bloqueado: o poster continua no lugar e a tela segue utilizável.
+  });
+  if (!vigiaFundo && musicaTocando()) vigiaFundo = requestAnimationFrame(vigia);
+}
+
+/**
+ * @param comMusica Também calar a música. A seleção de personagem ainda é
+ *   antessala, e lá a música segue tocando — quem entra no MUNDO é que leva o
+ *   silêncio.
+ */
+function paraFundoDoLogin(comMusica: boolean): void {
+  const v = videoDoFundo();
+  // ⚠️ Escondido, o vídeo continuaria decodificando quadro a quadro atrás do jogo.
+  if (v) v.pause();
+  if (comMusica) {
+    musicaPedida = false;
+    const ms = musicasDoLogin();
+    if (ms) for (const m of ms) m.pause();
+    atualizaBotaoSom();
+  }
+  // 🔴 O vigia só morre quando não sobrou nada para vigiar. Com a música ainda
+  // tocando na seleção de personagem, é ele que faz a travessia da volta —
+  // desligar aqui devolveria o corte a ela.
+  if (vigiaFundo && !musicaTocando()) {
+    cancelAnimationFrame(vigiaFundo);
+    vigiaFundo = 0;
   }
 }
 
@@ -316,6 +599,7 @@ function showScreen(which: keyof typeof screens | 'none'): void {
   // 🔴 O vídeo de fundo só toca depois de a tela existir na tela — autoplay
   // não pega em elemento escondido. Ver tocaFundoDoLogin().
   if (which === 'login') tocaFundoDoLogin();
+  else paraFundoDoLogin(which === 'none');
 }
 
 /**
@@ -7486,8 +7770,8 @@ function escapeHtml(s: string): string {
 // A conexão é criada ANTES de qualquer tela: o login já precisa dela.
 let autoAuthEnviado = false;
 // 🔴 O som NÃO se liga sozinho — decisão do dono em 02/09, depois de ouvir.
-// A música começa muda e só toca se o jogador clicar no alto-falante.
-ligaBotaoSom();
+// A música fica parada e só toca se o jogador clicar no alto-falante.
+ligaControlesDeSom();
 
 net = new NetClient(routeServerMessage, (connected) => {
   statusEl.innerHTML = connected

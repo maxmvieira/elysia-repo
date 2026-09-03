@@ -31,6 +31,18 @@ __pycache__/
 # Arquivos pesados só de trabalho (zips baixados, PSD), esses não precisam.
 *.zip
 *.psd
+
+# 🔴 Áudio ORIGINAL, na taxa cheia em que chegou. Mesma regra do PSD: o que o
+# jogo carrega é a versão preparada em client/public/assets/ui/, e só ela precisa
+# ser versionada. "The Old Forest" chegou com 22,9 MB a 320 kbps e virou 9,2 MB a
+# 128 — versionar os dois seria 23 MB de repositório para um arquivo que ninguém
+# abre depois de convertido.
+#
+# ⚠️ Isto quer dizer que o original NÃO viaja para quem clonar. Ele fica só na
+# máquina do dono — guarde-o em outro lugar também, porque daqui ele some.
+assets/*.mp3
+assets/*.wav
+assets/*.flac
 # Cupom de desconto que a CraftPix enfia em todo pack. Não é arte.
 COUPON.pdf
 COUPON.png
