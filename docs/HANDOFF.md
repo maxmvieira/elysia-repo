@@ -53,11 +53,20 @@ meio da progressão.
 Trocado a pedido do dono, sem som. O `<video>` já era `muted` (obrigatório para
 o `autoplay`), então som nunca tocou.
 
-⚠️ **A faixa de áudio continua dentro do arquivo** — removê-la de verdade exige
-ffmpeg, que não está instalado nesta máquina.
+✅ **A faixa de áudio foi REMOVIDA do arquivo** (ffmpeg instalado via winget,
+`-c:v copy -an -movflags +faststart`). Não há o que tocar nem se alguém apagar
+o `muted` do HTML.
 
-⚠️ **27 MB** (o anterior tinha 8,8): 4 s em 4K a 45 Mbps. Numa conexão de
-10 Mbps o jogador vê só o poster por ~22 s. **Vale reencodar para 1080p.**
+🔴 **Por CÓPIA de fluxo, não reencode** — o dono pediu qualidade máxima. O vídeo
+saiu **bit a bit idêntico**: mesmo h264 High, mesmo 3840×2160, mesmo bitrate de
+47.242.135. Reencodar 4K perderia qualidade a cada passagem; `-c:v copy` não
+perde nada. `+faststart` entrou junto (índice do MP4 no começo do arquivo, o
+navegador começa a tocar antes de baixar tudo) e também não custa qualidade.
+
+⚠️ **27 MB** (o anterior tinha 8,8): 4,8 s em 4K a 47 Mbps. Numa conexão de
+10 Mbps o jogador vê só o poster por ~22 s. Tirar o áudio cortou só 80 KB — o
+peso é o vídeo. **O dono pediu qualidade máxima sabendo disso**; quem um dia
+quiser aliviar, o caminho é 1080p (`-vf scale=1920:-2`), não mexer no áudio.
 
 O logo `#loginmark` foi escondido (não apagado): o vídeo traz o título e os dois
 ficavam sobrepostos.
@@ -67,8 +76,8 @@ ficavam sobrepostos.
 ## 🎯 A PRÓXIMA COISA
 
 1. 🔴 **Jogar.** Quatro sessões sem passada humana.
-2. ⏳ **Reencodar o vídeo** para 1080p e sem faixa de áudio (`winget install
-   Gyan.FFmpeg`, depois `ffmpeg -i login-bg.mp4 -an -vf scale=1920:-2 -crf 28`).
+2. ✅ ~~Reencodar o vídeo~~ — áudio removido sem perda em 04/09. O tamanho
+   (27 MB) fica por decisão do dono: qualidade máxima.
 3. ⏳ **Munição** — shuriken e azagaia consumíveis.
 4. ⏳ **Slot de segunda arma** — destrava a build de duas adagas.
 5. ⏳ **Esquiva no bestiário** — faria a precisão valer em PvE.

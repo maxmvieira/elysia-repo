@@ -3204,17 +3204,28 @@
         se o vídeo falhar (formato não suportado, arquivo faltando, navegador
         com mídia bloqueada). A tela nunca fica preta.
 
-        ⚠️ **27 MB é MUITO para uma tela de login** (o vídeo anterior tinha 8,8).
-        São 4 s em 4K a 45 Mbps. Numa conexão de 10 Mbps o jogador vê só o
-        poster por ~22 s. Vale reencodar para 1080p quando houver ffmpeg à mão —
-        está anotado no HANDOFF.
+        🔴 **SEM SOM, em duas camadas — e as duas estão no lugar.** A faixa de
+        áudio foi REMOVIDA do arquivo (`ffmpeg -c:v copy -an`), então não há o
+        que tocar nem se alguém apagar o `muted` daqui. E o `muted` fica de
+        qualquer forma, porque é OBRIGATÓRIO para o `autoplay`: navegador
+        nenhum toca vídeo com som sozinho.
 
-        🔴 **SEM SOM, em duas camadas.** `muted` é o que o navegador obedece — e
-        é OBRIGATÓRIO para o `autoplay` funcionar, porque navegador nenhum toca
-        vídeo com som sozinho. A segunda camada seria remover a faixa de áudio
-        do arquivo; ela ainda está lá, ocupando bytes, e voltaria a tocar se
-        alguém tirasse o `muted` daqui.
+        ⚠️ **A remoção foi por CÓPIA de fluxo, não reencode.** O vídeo saiu
+        bit a bit idêntico — mesmo h264 High, mesmo 3840×2160, mesmo bitrate de
+        47 Mbps. Se algum dia for preciso mexer nele de novo, use `-c:v copy`
+        pelo mesmo motivo: reencodar 4K perde qualidade a cada passagem.
 
+        ⚠️ **27 MB continua sendo MUITO para uma tela de login** (o anterior
+        tinha 8,8), e tirar o áudio só cortou 80 KB — o peso é o vídeo: 4,8 s em
+        4K a 47 Mbps. Numa conexão de 10 Mbps o jogador vê só o poster por
+        ~22 s. O dono pediu **qualidade máxima** sabendo disso; quem quiser
+        reverter, o caminho é 1080p (`-vf scale=1920:-2`), não mexer no áudio.
+
+        `+faststart` foi aplicado junto: o índice do MP4 passou para o começo do
+        arquivo, então o navegador começa a tocar antes de baixar os 27 MB
+        inteiros. Não custa qualidade nenhuma.
+
+        `loop` faz o vídeo recomeçar sozinho — são 4,8 s em ciclo.
         `playsinline` impede o iOS de abrir em tela cheia por conta própria.
       -->
       <div id="loginbg">

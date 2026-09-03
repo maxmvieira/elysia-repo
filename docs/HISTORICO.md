@@ -9,6 +9,54 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-04 (noite) — O áudio sai do vídeo sem tocar num pixel
+
+**Onde mora:** `client/public/assets/ui/login-bg.mp4` e o comentário do
+`<video>` em `client/index.html`.
+
+O dono fechou o pedido do vídeo: *"quero qualidade máxima, porém sem áudio e em
+loop"*.
+
+### 🔴 Cópia de fluxo, não reencode
+
+`ffmpeg -c:v copy -an -movflags +faststart`. O `-c:v copy` **não reencoda** — ele
+copia o fluxo de vídeo bit a bit e descarta o de áudio. Conferido antes e
+depois:
+
+| | Antes | Depois |
+|---|---|---|
+| Codec | h264 High | h264 High |
+| Resolução | 3840×2160 | 3840×2160 |
+| Bitrate | 47.242.135 | **47.242.135** |
+| Faixas | vídeo + AAC 132 kbps | só vídeo |
+
+🔴 **Bitrate idêntico até o último dígito é a prova de que nada foi
+reprocessado.** Era o que "qualidade máxima" exigia: reencodar 4K perde
+qualidade a cada passagem, e uma passagem seria irreversível.
+
+⚠️ **Tirar o áudio cortou 80 KB de 27 MB.** Quem espera que remover som deixe o
+arquivo leve se engana — o peso é o vídeo. Continua sendo muito para uma tela
+de login, e é decisão consciente do dono.
+
+### O que veio de brinde
+
+`+faststart` move o índice do MP4 (`moov`) para o começo do arquivo. Sem ele o
+navegador precisa baixar os 27 MB antes do primeiro quadro; com ele começa a
+tocar quase na hora. **Não custa qualidade nenhuma** — é só reordenar bytes.
+
+### O loop já estava lá
+
+`loop` é atributo do `<video>` desde que a tela nasceu. Conferido no navegador:
+o vídeo dá a volta de 4,43 s para 0 sozinho.
+
+⚠️ **E uma armadilha de diagnóstico:** o vídeo aparecia como `paused` nos
+testes. Não era bug — o painel de navegador pausa mídia quando não está em
+foco. `readyState: 4`, arquivo inteiro em buffer, `error: null` e avanço normal
+ao chamar `play()` fecharam o diagnóstico. Vale lembrar disso antes de
+"consertar" um vídeo que não está quebrado.
+
+---
+
 ## 2026-09-04 (tarde) — AGI volta a ter dois usos, e duas fórmulas viviam em paralelo
 
 **Onde mora:** `computeStats`, `moveIntervalAt` e `ATTRIBUTE_INFO` em
