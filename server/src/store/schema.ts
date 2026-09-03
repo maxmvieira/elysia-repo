@@ -15,7 +15,7 @@
  * Migrações: `user_version` do SQLite. Cada versão é um passo idempotente.
  */
 
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 /**
  * v2 — Profissões (`DD-PROF-023`).
@@ -190,6 +190,21 @@ CREATE INDEX IF NOT EXISTS ix_decal_cel ON world_decal(floor, x, y);
  */
 export const SCHEMA_V9 = `
 ALTER TABLE world_decal ADD COLUMN colisao TEXT;
+`;
+
+/**
+ * v10 — EXCLUSÃO DE PERSONAGEM COM ARREPENDIMENTO.
+ *
+ * 🔴 `delete_at` é QUANDO o personagem morre de vez, não uma marca de
+ * "apagado". Nulo = vivo. Preenchido = a conta pediu a exclusão e tem até
+ * aquele instante para desistir.
+ *
+ * ⚠️ Guardar o INSTANTE, e não um sinalizador, é o que faz o prazo sobreviver a
+ * reinício do servidor: o varredor compara com `Date.now()` e não depende de
+ * nenhum temporizador ter ficado vivo.
+ */
+export const SCHEMA_V10 = `
+ALTER TABLE character ADD COLUMN delete_at INTEGER;
 `;
 
 export const SCHEMA_V1 = `

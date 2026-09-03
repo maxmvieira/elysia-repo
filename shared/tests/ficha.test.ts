@@ -7,6 +7,9 @@ import assert from 'node:assert/strict';
 import {
   ATTRIBUTE_KEYS,
   BASE_ATTRIBUTE_POINTS,
+  CREATION_POINTS,
+  startingAttributes,
+  checkAttributes,
   CLASSES,
   POINTS_PER_LEVEL,
   attributeCost,
@@ -22,6 +25,54 @@ const CLASSES_IDS: PlayerClass[] = ['knight', 'sorcerer', 'archer', 'assassin'];
 test('são SETE atributos, incluindo LUK', () => {
   assert.equal(ATTRIBUTE_KEYS.length, 7);
   assert.ok(ATTRIBUTE_KEYS.includes('luk'));
+});
+
+test('🔴 a criação distribui 38 pontos sobre sete atributos em 1, somando os 45', () => {
+  // Desde 02/09 a classe não decide mais os atributos: o jogador reparte. O que
+  // NÃO mudou é a soma — foi decisão do dono manter os 45 do GDD §4 em vez dos
+  // 37 que "30 pontos" dariam, para o personagem de nível 1 nascer com a mesma
+  // força de sempre.
+  assert.equal(CREATION_POINTS, BASE_ATTRIBUTE_POINTS - ATTRIBUTE_KEYS.length);
+  const inicial = startingAttributes();
+  for (const k of ATTRIBUTE_KEYS) assert.equal(inicial[k], 1, `${k} devia nascer em 1`);
+  assert.equal(totalAttributes(inicial), ATTRIBUTE_KEYS.length);
+});
+
+test('🔴 o servidor recusa distribuição que não fecha exatamente 45', () => {
+  // Esta função roda nos DOIS lados. A tela impede passar do limite, mas quem
+  // monta o `createchar` é o cliente — e atributo é permanente.
+  const cheio = startingAttributes();
+  cheio.vit += CREATION_POINTS;
+  assert.equal(checkAttributes(cheio).ok, true, 'gastar tudo em um atributo é build válida');
+
+  const faltando = startingAttributes();
+  faltando.vit += CREATION_POINTS - 1;
+  assert.equal(checkAttributes(faltando).ok, false, 'sobrou ponto: não pode criar');
+
+  const passou = { ...cheio, str: cheio.str + 1 };
+  assert.equal(checkAttributes(passou).ok, false, 'passou do limite: não pode criar');
+});
+
+test('🔴 o piso é 1, e não 0 — atributo zerado é personagem quebrado', () => {
+  // Zerar VIT não é build: várias fórmulas derivadas dividem por atributo.
+  const zerado = startingAttributes();
+  zerado.luk = 0;
+  zerado.vit += CREATION_POINTS + 1; // mantém a soma em 45 para isolar o piso
+  const r = checkAttributes(zerado);
+  assert.equal(r.ok, false);
+  assert.match(r.ok === false ? r.message : '', /luk/);
+});
+
+test('a distribuição livre muda vida e mana no nível 1 — e é o ponto dela', () => {
+  // A prévia da tela existe por causa disto: um Knight que ignora VIT nasce com
+  // bem menos vida, e o nome já é definitivo quando ele descobrir jogando.
+  const k = CLASSES.knight;
+  const tanque = startingAttributes(); tanque.vit += CREATION_POINTS;
+  const mago = startingAttributes(); mago.int += CREATION_POINTS;
+  const vida = (a: typeof tanque) =>
+    computeStats(k, a, 1, { kind: k.skill, level: 1, progress: 0 }).maxHp;
+  assert.ok(vida(tanque) > vida(mago), 'VIT tem que valer vida');
+  assert.ok(vida(mago) < k.hpAt1, 'ignorar VIT custa vida em relação à sugestão da classe');
 });
 
 test('toda classe começa com os mesmos 45 pontos-base', () => {

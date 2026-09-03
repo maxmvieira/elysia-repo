@@ -153,6 +153,76 @@ const MANA_PER_INT = 8;
 export const BASE_ATTRIBUTE_POINTS = 45;
 
 /**
+ * ---- DISTRIBUIÇÃO NA CRIAÇÃO (2026-09-02) ---------------------------------
+ *
+ * 🔴 **A classe deixou de decidir os atributos; quem decide é o jogador.**
+ *
+ * Até aqui, escolher Knight dava `{ str: 11, vit: 10, ... }` — a distribuição
+ * vinha pronta em `ClassDef.base`. Agora todo atributo nasce em **1** e o
+ * jogador reparte `CREATION_POINTS` como quiser, na tela de criação.
+ *
+ * ⚠️ **A soma continua sendo os 45 do GDD §4, e isso foi decisão do dono.** Ele
+ * pediu "30 pontos"; 30 sobre sete uns daria 37, 18 % abaixo do documento e do
+ * personagem que o jogo cria hoje. Com 38 a liberdade é a mesma e nada no
+ * documento nem no teste `toda classe começa com os mesmos 45 pontos-base`
+ * precisa mudar.
+ *
+ * ⚠️ **Aqui o ponto é PLANO: 1 ponto = +1 de atributo.** A
+ * `ATTRIBUTE_COST_TABLE` (2 pontos por +1 no começo, 20 acima de 200) continua
+ * valendo da subida de nível em diante — ela existe para frear build extrema no
+ * fim do jogo, e aplicá-la na criação faria os 38 pontos comprarem só 19.
+ *
+ * 🔴 **`ClassDef.base` NÃO morreu, e não é decoração:** ela é a âncora de
+ * `hpAt1`/`manaAt1` em `computeStats` (o cálculo desconta `base.vit` para o
+ * alvo do GDD bater exatamente no nível 1) e é o que o teste da ficha confere.
+ * Ela passa a ser a distribuição SUGERIDA da classe, não a imposta.
+ */
+export const ATTRIBUTE_START = 1;
+
+/** Quantos pontos o jogador reparte no nível 1. 45 − 7 × 1 = 38. */
+export const CREATION_POINTS =
+  BASE_ATTRIBUTE_POINTS - ATTRIBUTE_KEYS.length * ATTRIBUTE_START;
+
+/** Todos os sete atributos no piso. É daqui que a tela de criação parte. */
+export function startingAttributes(): Attributes {
+  const a = {} as Attributes;
+  for (const k of ATTRIBUTE_KEYS) a[k] = ATTRIBUTE_START;
+  return a;
+}
+
+/**
+ * A distribuição é válida?
+ *
+ * 🔴 Mora no `shared` porque **o servidor revalida**: a tela impede passar do
+ * limite, mas cliente mente, e um `createchar` forjado com `str: 999` entraria
+ * direto no banco. As duas pontas chamam esta função.
+ */
+export function checkAttributes(
+  a: Attributes,
+): { ok: true } | { ok: false; message: string } {
+  for (const k of ATTRIBUTE_KEYS) {
+    const v = a[k];
+    if (!Number.isInteger(v)) return { ok: false, message: `${k} precisa ser inteiro.` };
+    // ⚠️ O piso é 1, não 0: atributo zerado divide por zero em várias fórmulas
+    // derivadas, e "zerar VIT" não é build, é personagem quebrado.
+    if (v < ATTRIBUTE_START) {
+      return { ok: false, message: `${k} não pode ficar abaixo de ${ATTRIBUTE_START}.` };
+    }
+  }
+  const soma = totalAttributes(a);
+  if (soma !== BASE_ATTRIBUTE_POINTS) {
+    const sobra = BASE_ATTRIBUTE_POINTS - soma;
+    return {
+      ok: false,
+      message: sobra > 0
+        ? `Faltam ${sobra} ponto(s) para distribuir.`
+        : `Você passou ${-sobra} ponto(s) do limite.`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
  * As classes de Elysia Online (GDD §4). Todas começam com os MESMOS 45 pontos
  * de atributo — o que muda é a distribuição, não a soma. Nenhuma classe nasce
  * matematicamente maior que outra.

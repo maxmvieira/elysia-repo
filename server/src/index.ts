@@ -23,6 +23,7 @@ import {
   CLASSES,
   CREATURES,
   DEFAULT_SERVER_PORT,
+  DELETE_GRACE_MS,
   DEPOT_SIZE,
   DIRECTION_VECTORS,
   EQUIP_SLOTS,
@@ -156,6 +157,7 @@ import {
   skillUpgradeCost,
   xpToNext,
   type Attributes,
+  checkAttributes,
   type BestiaryEntry,
   type BestiaryState,
   type ClassDef,
@@ -3561,6 +3563,7 @@ function sendCharList(player: Player, error?: string): void {
     charClass: c.cls as PlayerClass,
     gender: c.gender as Gender,
     level: c.level,
+    ...(c.deleteAt ? { deleteAt: c.deleteAt } : {}),
   }));
   send(player, { t: 'charlist', characters: chars, ...(error ? { error } : {}) });
 }
@@ -3580,9 +3583,23 @@ function sendTowns(player: Player): void {
  * cidade principal só vira ponto de renascimento depois que este personagem
  * caminhar até lá.
  */
-function createCharacterFor(player: Player, name: string, cls: ClassDef, gender: Gender): number {
+function createCharacterFor(
+  player: Player,
+  name: string,
+  cls: ClassDef,
+  gender: Gender,
+  /**
+   * 🔴 A distribuição que o JOGADOR escolheu na criação. Desde 02/09 a classe
+   * não decide mais os atributos — ela sugere.
+   *
+   * ⚠️ Ausente cai em `cls.base`, que é a distribuição sugerida e o
+   * comportamento de antes. Serve para cliente antigo e para qualquer chamada
+   * interna que não venha da tela.
+   */
+  attrs?: Attributes,
+): number {
   const vila = starterTown();
-  const attributes = { ...cls.base };
+  const attributes = { ...(attrs ?? cls.base) };
   const skill: SkillState = { kind: cls.skill, level: START_SKILL_LEVEL, progress: 0 };
   const derived = computeStats(cls, attributes, 1, skill);
 
@@ -3776,6 +3793,67 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       break;
     }
 
+    /**
+     * ---- EXCLUIR PERSONAGEM (02/09) --------------------------------------
+     *
+     * 🔴 **Não apaga: MARCA.** Grava o instante em que o personagem morre e
+     * devolve a lista. Quem apaga de fato é `varreExcluidos`, comparando com o
+     * relógio — por isso o prazo sobrevive a reinício do servidor.
+     */
+    case 'deletechar': {
+      if (!player.accountId) {
+        send(player, { t: 'denied', reason: 'Faça login primeiro.' });
+        return;
+      }
+      /*
+       * 🔴 A SENHA É CONFERIDA DE NOVO, com a sessão já autenticada.
+       *
+       * Passado o prazo, isto destrói progresso sem volta — é a única ação do
+       * jogo assim. Redigitar protege de quem senta no computador destravado, e
+       * o custo é uma caixa de texto.
+       *
+       * ⚠️ Reusa `store.login`, que compara em tempo constante e devolve a mesma
+       * mensagem para senha errada e conta inexistente.
+       */
+      const conta = store.accountById(player.accountId);
+      if (!conta || !store.login(conta.username, msg.password).ok) {
+        sendCharList(player, 'Senha incorreta.');
+        return;
+      }
+      /*
+       * ⚠️ Personagem EM JOGO não pode ser marcado: ele tem estado vivo na
+       * memória, e o prazo venceria com alguém dentro dele.
+       */
+      const emJogo = [...players.values()].some((p) => p.characterId === msg.characterId);
+      if (emJogo) {
+        sendCharList(player, 'Saia do personagem antes de excluí-lo.');
+        return;
+      }
+      const prazo = Date.now() + DELETE_GRACE_MS;
+      if (!store.scheduleCharacterDeletion(msg.characterId, player.accountId, prazo)) {
+        sendCharList(player, 'Não foi possível marcar este personagem.');
+        return;
+      }
+      console.log('[excluir] personagem ' + msg.characterId + ' marcado (conta ' + player.accountId + ')');
+      sendCharList(player);
+      break;
+    }
+
+    /** Desistir, dentro do prazo. Não pede senha: desfazer não destrói nada. */
+    case 'canceldelete': {
+      if (!player.accountId) {
+        send(player, { t: 'denied', reason: 'Faça login primeiro.' });
+        return;
+      }
+      if (!store.cancelCharacterDeletion(msg.characterId, player.accountId)) {
+        sendCharList(player, 'Este personagem não estava marcado para exclusão.');
+        return;
+      }
+      console.log('[excluir] cancelado no personagem ' + msg.characterId);
+      sendCharList(player);
+      break;
+    }
+
     case 'createchar': {
       if (!player.accountId) {
         send(player, { t: 'denied', reason: 'Faça login primeiro.' });
@@ -3797,7 +3875,24 @@ function handleMessage(player: Player, msg: ClientMessage): void {
         sendCharList(player, 'Classe inválida.');
         return;
       }
-      createCharacterFor(player, check.name, cls, msg.gender === 'female' ? 'female' : 'male');
+      /*
+       * 🔴 **REVALIDA a distribuição, mesmo com a tela já impedindo.** O cliente
+       * é quem monta o `createchar`, e um forjado com `str: 999` entraria
+       * direto no banco — atributo é permanente, não dá para desfazer depois.
+       * A mesma função roda nos dois lados (`shared/src/stats.ts`).
+       */
+      if (msg.attributes) {
+        const attrOk = checkAttributes(msg.attributes);
+        if (!attrOk.ok) {
+          sendCharList(player, attrOk.message);
+          return;
+        }
+      }
+      createCharacterFor(
+        player, check.name, cls,
+        msg.gender === 'female' ? 'female' : 'male',
+        msg.attributes,
+      );
       sendCharList(player);
       console.log(`[novo] ${check.name} — ${cls.name} (conta ${player.accountId})`);
       break;
@@ -5278,6 +5373,32 @@ function gameTick(): void {
 // ---------------------------------------------------------------------------
 // Conexões
 // ---------------------------------------------------------------------------
+/**
+ * ---- VARREDOR DE EXCLUSÃO (02/09) ----------------------------------------
+ *
+ * 🔴 **É ele quem apaga de verdade.** O pedido do jogador só grava um instante
+ * em `character.delete_at`; nada some até este varredor comparar com o relógio.
+ *
+ * ⚠️ **Roda no BOOT antes de qualquer coisa, e é o caso que mais importa.**
+ * Servidor desligado a noite inteira acorda com prazos vencidos — sem a
+ * varredura de partida, eles só venceriam quando alguém abrisse a tela de
+ * personagens, e um prazo que depende de alguém olhar não é prazo.
+ *
+ * ⚠️ O intervalo é generoso (10 min) de propósito: exclusão não tem pressa, e um
+ * laço apertado só gastaria disco para nada.
+ */
+const VARREDURA_MS = 10 * 60 * 1000;
+
+function varreExcluidos(): void {
+  const nomes = store.purgeExpiredCharacters(Date.now());
+  if (nomes.length > 0) {
+    console.log(`[excluir] ${nomes.length} personagem(ns) apagado(s): ${nomes.join(', ')}`);
+  }
+}
+
+varreExcluidos();
+setInterval(varreExcluidos, VARREDURA_MS);
+
 const wss = new WebSocketServer({ port: DEFAULT_SERVER_PORT });
 
 wss.on('connection', (socket) => {

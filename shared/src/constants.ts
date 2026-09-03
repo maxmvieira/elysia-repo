@@ -24,6 +24,19 @@ export const DEFAULT_MOVE_SPEED_TPS = 4;
 /** Porta padrão do servidor de gameplay (WebSocket). */
 export const DEFAULT_SERVER_PORT = 8080;
 
+/**
+ * Quanto tempo o jogador tem para desistir de excluir um personagem.
+ *
+ * 🔴 **24 h, e o número é do dono.** O ponto do prazo é o arrependimento: quem
+ * apaga no impulso, ou por conta invadida, tem uma noite inteira para voltar
+ * atrás. Menos que isso não cobre "só vi no dia seguinte".
+ *
+ * ⚠️ Vive no shared porque a TELA também precisa dele: ela mostra a contagem
+ * regressiva, e um segundo valor no cliente divergiria do servidor no dia em
+ * que alguém mexesse num só.
+ */
+export const DELETE_GRACE_MS = 24 * 60 * 60 * 1000;
+
 /** Direções cardinais suportadas no MVP (doc 6.1). */
 export const DIRECTIONS = ['up', 'down', 'left', 'right'] as const;
 export type Direction = (typeof DIRECTIONS)[number];

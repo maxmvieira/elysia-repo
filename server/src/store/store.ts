@@ -20,7 +20,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { nameKey, type WorldEdit, type WorldDecal } from '@dominion/shared';
-import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8, SCHEMA_V9, SCHEMA_VERSION } from './schema.js';
+import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8, SCHEMA_V9, SCHEMA_V10, SCHEMA_VERSION } from './schema.js';
 
 // --------------------------------------------------------------- Tipos ----
 
@@ -90,6 +90,8 @@ export interface CharacterSummary {
   gender: string;
   level: number;
   lastPlayedAt: number;
+  /** Instante em que o personagem some de vez. Ausente = não foi marcado. */
+  deleteAt?: number;
 }
 
 export interface Account {
@@ -181,6 +183,10 @@ export class Store {
     // v9 (colisão do decalque): coluna nova, portão pelo schema.
     if (!this.hasColumn('world_decal', 'colisao')) {
       this.db.exec(SCHEMA_V9);
+    }
+    // v10 (exclusão com prazo): mesmo portão auto-verificável das anteriores.
+    if (!this.hasColumn('character', 'delete_at')) {
+      this.db.exec(SCHEMA_V10);
     }
     if (current !== SCHEMA_VERSION) {
       this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
@@ -295,16 +301,19 @@ export class Store {
   listCharacters(accountId: number): CharacterSummary[] {
     const rows = this.db
       .prepare(
-        `SELECT id, name, class, gender, level, last_played_at
+        `SELECT id, name, class, gender, level, last_played_at, delete_at
            FROM character WHERE account_id = ? ORDER BY last_played_at DESC`,
       )
       .all(accountId) as Array<{
         id: number; name: string; class: string; gender: string;
-        level: number; last_played_at: number;
+        level: number; last_played_at: number; delete_at: number | null;
       }>;
     return rows.map((r) => ({
       id: r.id, name: r.name, cls: r.class, gender: r.gender,
       level: r.level, lastPlayedAt: r.last_played_at,
+      // ⚠️ Continua na lista enquanto o prazo corre: o jogador precisa VER que
+      // marcou, e precisa de um lugar de onde desistir.
+      deleteAt: r.delete_at ?? undefined,
     }));
   }
 
@@ -472,6 +481,61 @@ export class Store {
   // para por que a amizade aponta para a conta mas guarda o nome.
 
   /** Conta dona de um personagem, pelo nome. `undefined` se o nome não existe. */
+  /**
+   * ---- EXCLUSÃO DE PERSONAGEM, COM 24 H PARA DESISTIR --------------------
+   *
+   * 🔴 **Nada é apagado na hora.** O pedido só grava QUANDO o personagem morre;
+   * quem apaga é o varredor, comparando com o relógio. Assim o prazo sobrevive a
+   * reinício do servidor — não depende de nenhum `setTimeout` ter ficado vivo.
+   *
+   * ⚠️ O `account_id` entra no `WHERE` de propósito, e não só o id do
+   * personagem: sem ele, qualquer conta autenticada poderia marcar o personagem
+   * de outra pessoa mandando um id qualquer.
+   */
+  scheduleCharacterDeletion(characterId: number, accountId: number, deleteAt: number): boolean {
+    const info = this.db
+      .prepare('UPDATE character SET delete_at = ? WHERE id = ? AND account_id = ? AND delete_at IS NULL')
+      .run(deleteAt, characterId, accountId);
+    return info.changes > 0;
+  }
+
+  /** Desistir. Devolve falso se não havia exclusão marcada (ou não é da conta). */
+  cancelCharacterDeletion(characterId: number, accountId: number): boolean {
+    const info = this.db
+      .prepare('UPDATE character SET delete_at = NULL WHERE id = ? AND account_id = ? AND delete_at IS NOT NULL')
+      .run(characterId, accountId);
+    return info.changes > 0;
+  }
+
+  /**
+   * Apaga de vez quem passou do prazo. Devolve os nomes, para o log dizer o quê.
+   *
+   * ⚠️ Roda no boot e de tempos em tempos. No boot é o que importa: servidor
+   * desligado a noite inteira acorda com prazos vencidos, e sem esta varredura
+   * eles só venceriam quando alguém abrisse a tela de personagens.
+   */
+  purgeExpiredCharacters(now: number): string[] {
+    const vencidos = this.db
+      .prepare('SELECT id, name FROM character WHERE delete_at IS NOT NULL AND delete_at <= ?')
+      .all(now) as Array<{ id: number; name: string }>;
+    for (const c of vencidos) {
+      // `character_item` sai junto: a tabela tem ON DELETE CASCADE, mas o
+      // apagamento explícito não depende de o PRAGMA estar ligado nesta conexão.
+      this.db.prepare('DELETE FROM character_item WHERE character_id = ?').run(c.id);
+      this.db.prepare('DELETE FROM character_town WHERE character_id = ?').run(c.id);
+      this.db.prepare('DELETE FROM character WHERE id = ?').run(c.id);
+    }
+    return vencidos.map((c) => c.name);
+  }
+
+  /** A conta pelo id. Usado para reconferir a senha de quem já está logado. */
+  accountById(id: number): Account | undefined {
+    const row = this.db
+      .prepare('SELECT id, username FROM account WHERE id = ?')
+      .get(id) as { id: number; username: string } | undefined;
+    return row ? { id: row.id, username: row.username } : undefined;
+  }
+
   accountOfCharacter(name: string): { accountId: number; name: string } | undefined {
     const row = this.db
       .prepare('SELECT account_id, name FROM character WHERE name_key = ?')

@@ -161,12 +161,47 @@ export interface C2S_Auth {
   password: string;
 }
 
+/**
+ * Pedir a exclusão de um personagem. Não apaga: MARCA, com prazo de 24 h para
+ * desistir. Quem apaga é o varredor do servidor.
+ */
+export interface C2S_DeleteChar {
+  t: 'deletechar';
+  characterId: number;
+  /**
+   * 🔴 A senha da CONTA, redigitada.
+   *
+   * Exclusão é a única ação do jogo que destrói progresso sem volta depois do
+   * prazo, e a sessão já está autenticada — pedir a senha de novo é o que
+   * protege de quem senta no computador destravado.
+   */
+  password: string;
+}
+
+/** Desistir da exclusão, dentro do prazo. */
+export interface C2S_CancelDelete {
+  t: 'canceldelete';
+  characterId: number;
+}
+
 /** Criar personagem na conta já autenticada. */
 export interface C2S_CreateChar {
   t: 'createchar';
   name: string;
   charClass: PlayerClass;
   gender: Gender;
+  /**
+   * A distribuição escolhida na tela de criação — os sete atributos já somados.
+   *
+   * 🔴 **Viaja inteira, e não como "onde gastei os 38 pontos"**, porque o
+   * servidor precisa validar o RESULTADO: `checkAttributes` confere piso 1 e
+   * soma 45 de uma vez, sem depender de o cliente ter partido do lugar certo.
+   *
+   * ⚠️ **Opcional só para não quebrar cliente antigo.** Ausente, o servidor cai
+   * na distribuição sugerida da classe (`ClassDef.base`), que é exatamente o
+   * comportamento de antes de 02/09.
+   */
+  attributes?: Attributes;
 }
 
 /**
@@ -478,6 +513,8 @@ export type ClientMessage =
   | C2S_Hello
   | C2S_Auth
   | C2S_CreateChar
+  | C2S_DeleteChar
+  | C2S_CancelDelete
   | C2S_SetRespawn
   | C2S_MoveIntent
   | C2S_Chat
@@ -617,6 +654,14 @@ export interface S2C_AuthResult {
 
 /** Um personagem na tela de seleção. */
 export interface CharacterSlot {
+  /**
+   * Instante em que o personagem some de vez, quando a exclusão foi pedida.
+   *
+   * ⚠️ Ele CONTINUA na lista enquanto o prazo corre, de propósito: o jogador
+   * precisa ver que marcou, e precisa de um lugar de onde desistir. Ausente = a
+   * exclusão não foi pedida.
+   */
+  deleteAt?: number;
   id: number;
   name: string;
   charClass: PlayerClass;
