@@ -167,10 +167,10 @@ export const BASE_ATTRIBUTE_POINTS = 45;
  * documento nem no teste `toda classe começa com os mesmos 45 pontos-base`
  * precisa mudar.
  *
- * ⚠️ **Aqui o ponto é PLANO: 1 ponto = +1 de atributo.** A
- * `ATTRIBUTE_COST_TABLE` (2 pontos por +1 no começo, 20 acima de 200) continua
- * valendo da subida de nível em diante — ela existe para frear build extrema no
- * fim do jogo, e aplicá-la na criação faria os 38 pontos comprarem só 19.
+ 🔴 **O custo é o MESMO da subida de nível** (`ATTRIBUTE_COST_TABLE`: 2 pontos
+ * por +1 no começo, 3 acima de 20, e por aí acima), a pedido do dono em 02/09.
+ * É o que faz especializar doer: levar um atributo sozinho de 1 a 20 consome
+ * metade do orçamento inteiro.
  *
  * 🔴 **`ClassDef.base` NÃO morreu, e não é decoração:** ela é a âncora de
  * `hpAt1`/`manaAt1` em `computeStats` (o cálculo desconta `base.vit` para o
@@ -179,15 +179,46 @@ export const BASE_ATTRIBUTE_POINTS = 45;
  */
 export const ATTRIBUTE_START = 1;
 
-/** Quantos pontos o jogador reparte no nível 1. 45 − 7 × 1 = 38. */
-export const CREATION_POINTS =
-  BASE_ATTRIBUTE_POINTS - ATTRIBUTE_KEYS.length * ATTRIBUTE_START;
+/**
+ * O orçamento da criação, em PONTOS (não em atributos).
+ *
+ * 🔴 **76 não é número escolhido, é número MEDIDO.** É exatamente o que custa
+ * sair de sete atributos em 1 e montar qualquer uma das quatro distribuições
+ * sugeridas pelas classes — as quatro dão 76, porque todas somam os 45 do GDD e
+ * nenhuma passa de 20 em atributo nenhum. Há teste travando isso: se alguém
+ * mexer na tabela de custo ou na base de uma classe, ele avisa.
+ *
+ * ⚠️ **Era 38 com ponto plano, e virou 76 com o custo escalonado em 02/09**,
+ * a pedido do dono: *"os pontos de distribuição iniciais têm aquele mesmo custo
+ * do lvl"*. Mantendo os 38, o custo de 2 por +1 compraria só 19 aumentos e o
+ * personagem nasceria com 26 de atributo em vez de 45 — bem mais fraco do que
+ * ele já tinha decidido preservar.
+ */
+export const CREATION_POINTS = 76;
 
 /** Todos os sete atributos no piso. É daqui que a tela de criação parte. */
 export function startingAttributes(): Attributes {
   const a = {} as Attributes;
   for (const k of ATTRIBUTE_KEYS) a[k] = ATTRIBUTE_START;
   return a;
+}
+
+/**
+ * Quantos pontos custa chegar nesta distribuição, partindo de tudo em 1.
+ *
+ * 🔴 Cobra degrau a degrau pela `ATTRIBUTE_COST_TABLE` — a MESMA da subida de
+ * nível. É isso que faz especializar doer: levar um atributo de 1 a 20 custa 38
+ * (2 por ponto), e cada ponto depois dos 20 custa 3.
+ *
+ * ⚠️ Não dá para calcular por atalho ("aumentos × custo médio"): o preço muda no
+ * meio do caminho, então o laço tem de passar por cada degrau.
+ */
+export function creationCost(a: Attributes): number {
+  let total = 0;
+  for (const k of ATTRIBUTE_KEYS) {
+    for (let v = ATTRIBUTE_START; v < a[k]; v++) total += attributeCost(v);
+  }
+  return total;
 }
 
 /**
@@ -209,9 +240,9 @@ export function checkAttributes(
       return { ok: false, message: `${k} não pode ficar abaixo de ${ATTRIBUTE_START}.` };
     }
   }
-  const soma = totalAttributes(a);
-  if (soma !== BASE_ATTRIBUTE_POINTS) {
-    const sobra = BASE_ATTRIBUTE_POINTS - soma;
+  const gasto = creationCost(a);
+  if (gasto !== CREATION_POINTS) {
+    const sobra = CREATION_POINTS - gasto;
     return {
       ok: false,
       message: sobra > 0
@@ -221,6 +252,7 @@ export function checkAttributes(
   }
   return { ok: true };
 }
+
 
 /**
  * As classes de Elysia Online (GDD §4). Todas começam com os MESMOS 45 pontos

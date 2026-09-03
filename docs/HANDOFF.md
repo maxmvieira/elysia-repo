@@ -10,18 +10,27 @@
 
 ### 1. 🔴 A CLASSE NÃO DECIDE MAIS OS ATRIBUTOS
 
-Todo atributo nasce em **1** e o jogador reparte **38 pontos** na criação, como
-quiser. A regra mora em `shared/src/stats.ts` e o **servidor revalida** com a
-mesma função (`checkAttributes`) — quem monta o `createchar` é o cliente, e
-atributo é permanente.
+Todo atributo nasce em **1** e o jogador reparte **76 pontos** na criação. A
+regra mora em `shared/src/stats.ts` e o **servidor revalida** com a mesma função
+(`checkAttributes`) — quem monta o `createchar` é o cliente, e atributo é
+permanente.
 
-⚠️ **A soma continua sendo os 45 do GDD §4, e isso foi decisão do dono.** Ele
-pediu "30 pontos"; 30 sobre sete uns daria 37, 18 % abaixo do documento e do
-personagem que o jogo criava antes. Com 38 a liberdade é a mesma e o teste
-`toda classe começa com os mesmos 45 pontos-base` continua valendo.
+🔴 **O custo é o MESMO da subida de nível** (`ATTRIBUTE_COST_TABLE`: 2 pontos por
++1 até o valor 20, 3 dali até 40, e assim por diante), a pedido do dono. É o que
+faz especializar doer.
 
-⚠️ **Na criação o ponto é PLANO (1 = +1).** A `ATTRIBUTE_COST_TABLE` (2 por +1)
-segue valendo da subida de nível em diante, onde existe para frear build extrema.
+⚠️ **76 não é número escolhido, é MEDIDO**: é exatamente o que custa sair de sete
+atributos em 1 e montar a distribuição sugerida de qualquer uma das quatro
+classes. Há teste travando isso — mexeu na tabela de custo ou na base de uma
+classe, ele avisa.
+
+⚠️ **O orçamento mudou junto com o custo, e tinha de mudar.** A primeira versão
+era 38 com ponto plano; com o custo escalonado, 38 compraria só 19 aumentos e o
+personagem nasceria com **26 de atributo em vez de 45** — bem mais fraco do que o
+dono já tinha decidido preservar.
+
+O efeito medido, com o mesmo orçamento: **espalhado rende 45** de atributo,
+**concentrado num só rende 32** (STR chega a 33 e para).
 
 🔴 **`ClassDef.base` não morreu** — virou a distribuição *sugerida*. Ela continua
 sendo a âncora de `hpAt1`/`manaAt1` no `computeStats`, e é o que o teste confere.
@@ -51,7 +60,7 @@ Duas travas: personagem **em jogo não pode ser marcado** (o prazo venceria com
 alguém dentro dele), e o `account_id` entra no `WHERE` — sem ele, qualquer conta
 autenticada marcaria o personagem alheio mandando um id qualquer.
 
-### 3. A TELA DE ENTRADA
+### 3. AS TELAS DE ENTRADA E DE CRIAÇÃO
 
 Três colunas — lore, login, servidor — sobre um vídeo em loop. **Os ids não
 mudaram** (`userin`, `passin`, `loginbtn`…), então a tela foi trocada sem tocar em
@@ -69,6 +78,49 @@ que o irmão caçou hoje:
 2. **Vídeo com som nunca toca sozinho.** Começa mudo.
 3. **`play()` pode rejeitar**, e sem `.catch` isso vira erro solto — que nesta
    tela é exatamente o que produzia a página preta e muda.
+
+🔴 **A TELA DE CRIAÇÃO foi remontada** no desenho que o dono trouxe: classes à
+esquerda com a marca em cima, o palco do personagem no meio, gênero e nome
+embaixo, e os pontos numa coluna à direita.
+
+⚠️ **O meio está VAZIO de propósito** — é o lugar do boneco, e o dono avisou que
+ainda está fazendo o sprite universal. A altura está reservada para a tela não se
+remontar no dia em que ele entrar.
+
+⚠️ **O DRUIDA aparece APAGADO, com "EM BREVE".** Ele existe no GDD (são cinco
+classes) e na arte de referência, mas **não existe no código** — está na etapa 15
+do roadmap. Esconder faria a tela discordar do documento; deixar clicável criaria
+personagem de uma classe que o servidor não conhece.
+
+🔴 **Três regras de CSS antigas venciam as novas por cascata** e desmontavam a
+tela — a grade de `#classes` em 2×260, a largura fixa de 532 px do painel de
+atributos, e a lista de atributos em duas colunas. A terceira era a causa de uma
+**barra de rolagem horizontal na página inteira**: numa coluna estreita, duas
+colunas de atributo empurram o conteúdo para fora. Saíram.
+
+### 4. 🔴 O AUTO-LOGIN DE DESENVOLVIMENTO ESTAVA MEIO LIGADO
+
+O cliente tinha `VITE_DEV_ACCOUNT ?? 'maxmurtesvieira'` — o `??` com nome de
+conta cravado **ligava o auto-login em qualquer `npm run dev`**, enquanto o
+servidor só aceita entrada sem senha com `ELYSIA_DEV_ACCOUNT` preenchida, que
+ninguém preenche. As duas metades discordavam, e a discordância produzia dois
+defeitos que o dono relatou:
+
+1. **"ao logar ele já vai direto pro último personagem"** — o bloco de
+   auto-entrada disparava depois de QUALQUER login, inclusive o digitado à mão.
+2. **"trocar personagem volta pra tela de login"** — a recarga mandava um `auth`
+   com senha vazia, o servidor recusava, e sobrava a tela de senha com
+   "Usuário ou senha inválidos" antes de o jogador tocar em nada.
+
+Agora é **adesão explícita**: quem quiser o atalho põe `VITE_DEV_ACCOUNT` no
+cliente E `ELYSIA_DEV_ACCOUNT` no servidor. Uma sem a outra não faz nada.
+
+⚠️ **O sintoma 2 melhora mas não some**, e isso é falta de recurso, não bug: o
+botão funciona RECARREGANDO a página, e a recarga não tem como retomar a sessão
+porque o cliente não guarda senha, de propósito. As duas saídas de verdade são um
+**token de sessão** (o servidor emite no login, o cliente guarda em
+`sessionStorage`, a recarga reautentica com ele) ou **não recarregar** — que
+esbarra em `startGame` não ter teardown. O token é o caminho barato.
 
 🔴 **O som NÃO se liga sozinho**, decisão do dono depois de ouvir. A única forma
 é o alto-falante no canto. ⚠️ Mesmo com a preferência gravada, o navegador não

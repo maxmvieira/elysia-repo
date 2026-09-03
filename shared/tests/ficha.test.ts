@@ -10,6 +10,7 @@ import {
   CREATION_POINTS,
   startingAttributes,
   checkAttributes,
+  creationCost,
   CLASSES,
   POINTS_PER_LEVEL,
   attributeCost,
@@ -27,37 +28,75 @@ test('são SETE atributos, incluindo LUK', () => {
   assert.ok(ATTRIBUTE_KEYS.includes('luk'));
 });
 
-test('🔴 a criação distribui 38 pontos sobre sete atributos em 1, somando os 45', () => {
-  // Desde 02/09 a classe não decide mais os atributos: o jogador reparte. O que
-  // NÃO mudou é a soma — foi decisão do dono manter os 45 do GDD §4 em vez dos
-  // 37 que "30 pontos" dariam, para o personagem de nível 1 nascer com a mesma
-  // força de sempre.
-  assert.equal(CREATION_POINTS, BASE_ATTRIBUTE_POINTS - ATTRIBUTE_KEYS.length);
+test('🔴 o orçamento da criação é o custo EXATO de montar qualquer classe', () => {
+  // 76 não é número escolhido, é medido: sair de sete atributos em 1 e chegar na
+  // distribuição sugerida de qualquer uma das quatro classes custa exatamente
+  // isso. Este teste é o que trava — mexeu na tabela de custo ou na base de uma
+  // classe e o orçamento deixa de bater, ele avisa.
+  for (const id of CLASSES_IDS) {
+    assert.equal(
+      creationCost(CLASSES[id].base),
+      CREATION_POINTS,
+      `a distribuição sugerida do ${id} devia custar exatamente o orçamento`,
+    );
+  }
   const inicial = startingAttributes();
   for (const k of ATTRIBUTE_KEYS) assert.equal(inicial[k], 1, `${k} devia nascer em 1`);
-  assert.equal(totalAttributes(inicial), ATTRIBUTE_KEYS.length);
+  assert.equal(creationCost(inicial), 0, 'não gastou nada ainda');
+});
+
+test('🔴 a criação cobra pela MESMA tabela da subida de nível', () => {
+  // O dono pediu isso em 02/09: especializar tem que doer. Levar um atributo
+  // sozinho de 1 a 20 consome metade do orçamento inteiro.
+  const um = startingAttributes();
+  um.str = 20;
+  assert.equal(creationCost(um), 38, '1→20 num atributo custa 38 (19 × 2)');
+  // ⚠️ O degrau vira 3 a partir do valor 21, não do 20: `attributeCost(v)` é o
+  // preço para sair de `v`, e a faixa "até 20" ainda cobra 2 quando v = 20.
+  const vinteEUm = { ...um, str: 21 };
+  const vinteEDois = { ...um, str: 22 };
+  assert.equal(creationCost(vinteEUm) - creationCost(um), 2, '20→21 ainda custa 2');
+  assert.equal(creationCost(vinteEDois) - creationCost(vinteEUm), 3, '21→22 já custa 3');
+});
+
+test('🔴 concentrar custa caro: o mesmo orçamento rende 45 espalhado e 32 num só', () => {
+  // É a razão de o dono ter pedido a tabela na criação. Espalhado pelas sete
+  // faixas baratas, o orçamento compra os 45 do GDD; jogado num atributo só,
+  // ele atravessa o degrau dos 20 e rende bem menos.
+  const espalhado = CLASSES.knight.base;
+  assert.equal(creationCost(espalhado), CREATION_POINTS);
+  assert.equal(totalAttributes(espalhado), BASE_ATTRIBUTE_POINTS);
+
+  const concentrado = startingAttributes();
+  concentrado.str = 33; // 19×2 + 1×2 + 12×3 = 76, o orçamento inteiro
+  assert.equal(creationCost(concentrado), CREATION_POINTS);
+  assert.ok(
+    totalAttributes(concentrado) < BASE_ATTRIBUTE_POINTS,
+    'concentrar tem que render MENOS atributo que espalhar',
+  );
 });
 
 test('🔴 o servidor recusa distribuição que não fecha exatamente 45', () => {
   // Esta função roda nos DOIS lados. A tela impede passar do limite, mas quem
   // monta o `createchar` é o cliente — e atributo é permanente.
-  const cheio = startingAttributes();
-  cheio.vit += CREATION_POINTS;
-  assert.equal(checkAttributes(cheio).ok, true, 'gastar tudo em um atributo é build válida');
+  // Duas maneiras válidas de fechar o orçamento: espalhada e concentrada.
+  const espalhado = CLASSES.knight.base;
+  assert.equal(checkAttributes(espalhado).ok, true, 'a sugestão da classe fecha o orçamento');
 
-  const faltando = startingAttributes();
-  faltando.vit += CREATION_POINTS - 1;
+  const concentrado = startingAttributes();
+  concentrado.str = 33;
+  assert.equal(checkAttributes(concentrado).ok, true, 'concentrar também é build válida');
+
+  const faltando = { ...concentrado, str: 32 };
   assert.equal(checkAttributes(faltando).ok, false, 'sobrou ponto: não pode criar');
 
-  const passou = { ...cheio, str: cheio.str + 1 };
+  const passou = { ...concentrado, vit: 2 };
   assert.equal(checkAttributes(passou).ok, false, 'passou do limite: não pode criar');
 });
 
 test('🔴 o piso é 1, e não 0 — atributo zerado é personagem quebrado', () => {
   // Zerar VIT não é build: várias fórmulas derivadas dividem por atributo.
-  const zerado = startingAttributes();
-  zerado.luk = 0;
-  zerado.vit += CREATION_POINTS + 1; // mantém a soma em 45 para isolar o piso
+  const zerado = { ...CLASSES.knight.base, luk: 0 };
   const r = checkAttributes(zerado);
   assert.equal(r.ok, false);
   assert.match(r.ok === false ? r.message : '', /luk/);
