@@ -2332,6 +2332,30 @@
         outline: 1px solid #c9a86a;
       }
       /*
+       * As duas fileiras de doze. O grid vive DENTRO da barra, ao lado do
+       * pegador — se os slots fossem filhos diretos de `#spellbar`, que é
+       * flex-row, as 24 células virariam uma fileira só de 1000 px.
+       */
+      .sgrid {
+        display: grid;
+        grid-template-columns: repeat(12, auto);
+        gap: 4px;
+      }
+      /* A célula sendo arrastada some pela metade — dá o "peguei isto". */
+      .sslot.dragging,
+      .skrow.dragging {
+        opacity: 0.4;
+      }
+      /* Slot sob o cursor durante o arraste. */
+      .sslot.dropok {
+        outline: 2px solid #c9a86a;
+        outline-offset: -2px;
+        background: #3a3020;
+      }
+      .skrow[draggable='true'] {
+        cursor: grab;
+      }
+      /*
        * Buffs e debuffs ativos, com o tempo restante.
        *
        * 🔴 O tempo é o ponto, não o ícone. A Bênção da Natureza dura 90 s e tem
@@ -2341,7 +2365,7 @@
       #buffbar {
         position: fixed;
         left: 50%;
-        bottom: 118px;
+        bottom: 162px;
         transform: translateX(-50%);
         display: flex;
         gap: 4px;
@@ -2381,7 +2405,8 @@
       #castbar {
         position: fixed;
         left: 50%;
-        bottom: 96px;
+        /* Acima da barra de magias, que agora tem DUAS fileiras (~100 px). */
+        bottom: 138px;
         transform: translateX(-50%);
         display: none;
         width: 220px;

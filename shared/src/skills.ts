@@ -23,6 +23,8 @@ import type { DamageType } from './elements.js';
 import type { ConditionId } from './conditions.js';
 import type { ModifierKey, Modifiers } from './effects.js';
 import type { AreaKind } from './areas.js';
+import type { Grip } from './grip.js';
+import type { WeaponType } from './weapons.js';
 
 export type SkillId =
   // ⚔️ Knight
@@ -82,7 +84,24 @@ export type SkillId =
   | 'mana_regen'
   | 'magic_protection'
   | 'revealing_flame'
-  | 'arcane_circle';
+  | 'arcane_circle'
+  // 🗡️ Assassino — lâminas (adaga e katar)
+  | 'double_attack'
+  | 'sonic_blow'
+  | 'envenom'
+  | 'evasion'
+  | 'hide'
+  // 🗡️ Assassino — espada curta
+  | 'cross_slash'
+  | 'deep_cut'
+  | 'blade_dance'
+  | 'counter_attack'
+  // 🗡️ Assassino — armas de arremesso
+  | 'quick_throw'
+  | 'shuriken_storm'
+  | 'poison_kunai'
+  | 'phantom_throw'
+  | 'hidden_strike';
 
 /** Como a habilidade escolhe seus alvos. */
 export type SkillShape =
@@ -1939,6 +1958,489 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     fx: 'arcane_circle',
     desc: 'Círculo que anula TODO o dano físico de quem estiver dentro. Magia passa.',
   },
+
+  // ==========================================================================
+  // 🗡️ ASSASSINO — 14 habilidades (Doc 1, cap. 68)
+  //
+  // 🔴 **LEIA ISTO ANTES DE MUDAR QUALQUER NÚMERO DAQUI.** O capítulo do
+  // Assassino é o MENOS fechado das cinco classes, e a diferença entre os três
+  // ramos abaixo não é temática — é de CONFIANÇA:
+  //
+  // | Ramo | Estado no doc |
+  // |---|---|
+  // | 🗡️ Lâminas | **canônico** — o Ataque Duplo tem tabela exata, e as regras de adaga/katar são decisões numeradas |
+  // | ⚔️ Espada Curta | ⚠️ `DD-ASS-015` **PROPOSTA** — os 4 nomes existem, os números não |
+  // | 🎯 Arremesso | ⚠️ `DD-ASS-014` **PROPOSTA** — os 5 nomes existem, os números não |
+  //
+  // ⚠️ **A exceção de 2026-07-30 (`PROPOSTA` não bloqueia) vale só para os Docs
+  // 3 e 4.** Estas são do Doc 1. Entraram a pedido do dono em 2026-09-03, e a
+  // regra do projeto foi aplicada à risca: **estrutura sim, número inventado
+  // marcado**. Todos os catorze NOMES são do documento — nenhum foi inventado,
+  // com a única exceção anotada em `hide`.
+  //
+  // ⚠️ **`DD-ASS-011`: o alcance de arremesso é MENOR que o do Archer.** O
+  // Assassino de shuriken é *"híbrido móvel (aproxima furtivo → ataca → recua →
+  // arremessa), não um segundo Archer"*. Por isso nenhuma daqui passa de 4
+  // tiles, contra os 5 do arco.
+  //
+  // ⚠️ **Munição ainda não existe como item.** O doc quer shuriken consumível
+  // (~40) e proficiência reduzindo a perda. As habilidades de arremesso entram
+  // custando MANA por enquanto, e é substituição provisória — quem implementar
+  // munição troca aqui.
+  // ==========================================================================
+
+  // ---------------------------- 🗡️ LÂMINAS (5) ------------------------------
+  /**
+   * 🔴 **A MECÂNICA CENTRAL DA CLASSE, e a única coisa totalmente fechada.**
+   * A tabela de chance é citação literal do cap. 68:
+   *
+   * | Lv | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+   * | Chance | 35 % | 40 % | 45 % | 50 % | 55 % | 60 % | 65 % | 70 % | 75 % | **80 %** |
+   *
+   * É **passiva** e age no ataque BÁSICO — não tem tecla. Quanto o golpe extra
+   * causa depende de como as mãos estão ocupadas, e as três regras são
+   * decisões numeradas:
+   *
+   * - `DD-ASS-003` **Adaga + Escudo** → golpe extra de **100 %** ⇒ o proc rende
+   *   200 % de um ataque normal. É a config **mais defensiva E mais
+   *   consistente**, não a versão fraca.
+   * - `DD-ASS-004/005` **Duas adagas TAMBÉM têm** (a regra antiga que
+   *   desativava foi **revogada**), mas o extra de cada uma causa só **50 %**.
+   *   Ganha volume, veneno e cartas dobradas; perde o escudo.
+   * - `DD-ASS-006` **Katar NÃO usa Ataque Duplo** — é 2 mãos, sem escudo, e vai
+   *   de crítico + burst + Sonic Blow.
+   *
+   * 🔴 `DD-ASS-007` **Anti-cascata: Ataque Duplo não gera outro Ataque Duplo.**
+   * Sem isso a chance de 80 % viraria uma série geométrica e o Lv.10 daria
+   * cinco golpes de vez em quando.
+   *
+   * Os multiplicadores vivem em `doubleAttackExtra`; a chance, em
+   * `doubleAttackChance`. Quem aplica é o servidor, no ataque básico.
+   */
+  double_attack: {
+    id: 'double_attack',
+    name: 'Ataque Duplo',
+    kind: 'passive',
+    branch: 'laminas',
+    classes: ['assassin'],
+    reqLevel: 1,
+    manaCost: 0,
+    manaPerLevel: 0,
+    cooldownMs: 0,
+    power: 0,
+    powerPerLevel: 0,
+    shape: 'self',
+    range: 0,
+    rangeEvery: 0,
+    durationMs: 0,
+    fx: 'passive',
+    desc: 'Passiva: seus ataques podem golpear duas vezes. 80 % de chance no Lv.10.',
+  },
+  /**
+   * 🔴 O doc nomeia esta habilidade e diz de quem ela é: o **Katar** *"é 2 mãos,
+   * sem escudo, e vai de crítico + burst + **Sonic Blow**"*. É o troco por
+   * abrir mão do Ataque Duplo.
+   *
+   * ⚠️ **Os números são REFERÊNCIA.** O doc dá o nome e o papel (burst), não a
+   * potência, a contagem de golpes nem o cooldown.
+   *
+   * ⚠️ Não há trava de arma na ficha: quem tiver adaga também consegue lançar.
+   * O doc separa katar de adaga pelo ESTILO, e trancar a habilidade exigiria um
+   * campo de requisito de arma que nenhuma outra classe usa hoje.
+   */
+  sonic_blow: {
+    id: 'sonic_blow',
+    name: 'Sonic Blow',
+    kind: 'multihit',
+    branch: 'laminas',
+    classes: ['assassin'],
+    reqLevel: 12,
+    manaCost: 20,
+    manaPerLevel: 3,
+    // ⚠️ REFERÊNCIA: 8 s. É a explosão da classe — cabe uma vez por luta curta,
+    // não na rotação.
+    cooldownMs: 8000,
+    // ⚠️ REFERÊNCIA: 8 golpes fracos no Lv.10 = 4,0 de poder total. Fica abaixo
+    // das supremas mágicas (Chuva 10,4) e acima do que o Knight faz num golpe,
+    // que é o lugar certo para o burst de alvo único de uma classe física.
+    power: 0.28,
+    powerPerLevel: 0.024,
+    shape: 'target',
+    range: 1,
+    rangeEvery: 0,
+    durationMs: 0,
+    hits: 4,
+    hitsAtLv10: 8,
+    fx: 'sonic_blow',
+    desc: 'Rajada de golpes num alvo. O burst do katar. ⚠️ Números provisórios.',
+  },
+  /**
+   * 🔴 **Veneno é um dos três pilares de identidade da classe** — o índice do
+   * GDD resume o Assassino como *"explosão + furtividade + veneno"*, e o cap. 68
+   * diz que a build de duas adagas *"ganha volume, **veneno**, on-hit e cartas
+   * dobradas"*.
+   *
+   * ⚠️ **Números REFERÊNCIA.** O pilar é do doc; a duração, a chance e a
+   * parcela não.
+   *
+   * Implementada como buff em si mesmo que passa a envenenar no ataque BÁSICO
+   * — é o que "on-hit" quer dizer. Quem aplica é o servidor.
+   */
+  envenom: {
+    id: 'envenom',
+    name: 'Envenenar Arma',
+    kind: 'buff',
+    branch: 'laminas',
+    classes: ['assassin'],
+    reqLevel: 6,
+    manaCost: 18,
+    manaPerLevel: 2,
+    cooldownMs: 3000,
+    power: 0,
+    powerPerLevel: 0,
+    shape: 'self',
+    range: 0,
+    rangeEvery: 0,
+    // ⚠️ REFERÊNCIA: 60 s no Lv.1 → 180 s no Lv.10. Longo porque é preparação,
+    // não reação — envenena-se a lâmina antes de entrar, não no meio da briga.
+    durationMs: 60000,
+    durationAtLv10: 180000,
+    fx: 'envenom',
+    desc: 'Unta a lâmina: seus golpes passam a envenenar. ⚠️ Números provisórios.',
+  },
+  /**
+   * 🔴 **O único número deste ramo que o doc AMARRA sem dar o valor.** O cap. 69
+   * diz que o Instinto do Caçador do Archer (+2/+6/**+10 %**) é
+   * *"deliberadamente **mais fraca** que a Evasão do Assassin"*.
+   *
+   * Ou seja: o valor exato é REFERÊNCIA, mas o **piso não é** — no Lv.10 tem de
+   * passar de 10 %, senão a frase do doc deixa de ser verdade. Há teste
+   * travando exatamente isso, e é ele que protege a comparação entre as duas
+   * classes se alguém rebalancear uma sem olhar a outra.
+   */
+  evasion: {
+    id: 'evasion',
+    name: 'Evasão',
+    kind: 'passive',
+    branch: 'laminas',
+    classes: ['assassin'],
+    reqLevel: 10,
+    manaCost: 0,
+    manaPerLevel: 0,
+    cooldownMs: 0,
+    power: 0,
+    powerPerLevel: 0,
+    shape: 'self',
+    range: 0,
+    rangeEvery: 0,
+    durationMs: 0,
+    // ⚠️ REFERÊNCIA no valor; o piso de "> 10 % no Lv.10" é do doc.
+    mods: [{ key: 'dodgeChance', atLv1: 0.04, atLv10: 0.18 }],
+    fx: 'passive',
+    desc: 'Passiva: esquiva. Mais forte que o Instinto do Caçador do Arqueiro.',
+  },
+  /**
+   * 🔴 **Furtividade é pilar de identidade** (*"explosão + furtividade +
+   * veneno"*), e o doc a trata como mecânica existente em dois lugares: o
+   * Assassino de shuriken *"aproxima **furtivo** → ataca → recua → arremessa"*,
+   * e a Chama de Revelação do Feiticeiro existe para *"detectar Assassin
+   * **furtivo**"*. Ou seja: o counter já está escrito, e é o counter de algo.
+   *
+   * ⚠️⚠️ **O NOME "Ocultar" É INVENÇÃO NOSSA.** É a única das catorze cujo nome
+   * não sai do documento — ele fala em "furtividade" como conceito e nunca
+   * nomeia a habilidade. É a primeira a mudar quando o texto aparecer, como o
+   * "Sopro Vital" do Druida.
+   *
+   * ⚠️ Números REFERÊNCIA. E a regra que o servidor aplica — **atacar quebra a
+   * furtividade** — é decisão nossa: sem ela, o Assassino atacaria para sempre
+   * de dentro da invisibilidade, e a Chama de Revelação nunca teria o que
+   * revelar.
+   */
+  hide: {
+    id: 'hide',
+    name: 'Ocultar',
+    kind: 'buff',
+    branch: 'laminas',
+    classes: ['assassin'],
+    reqLevel: 15,
+    manaCost: 25,
+    manaPerLevel: 3,
+    cooldownMs: 12000,
+    power: 0,
+    powerPerLevel: 0,
+    shape: 'self',
+    range: 0,
+    rangeEvery: 0,
+    // ⚠️ REFERÊNCIA: 6 s → 15 s. É janela de aproximação, não modo de jogo.
+    durationMs: 6000,
+    durationAtLv10: 15000,
+    fx: 'hide',
+    desc: 'Some de vista: monstro perde o interesse. Atacar quebra. ⚠️ Provisório.',
+  },
+
+  // -------------------------- ⚔️ ESPADA CURTA (4) ---------------------------
+  //
+  // ⚠️ **RAMO INTEIRO EM `PROPOSTA` (`DD-ASS-015`).** Os quatro nomes são do
+  // doc; **nenhum número é**. Entrou a estrutura, com valores derivados do papel
+  // que cada nome descreve.
+  //
+  // O doc dá a identidade da família, e ela guiou os números: *"Espada Curta ≠
+  // adaga com outro sprite: **mais dano base, menos velocidade, menos crítico,
+  // mais duelo**"*. Daí as quatro serem mais lentas e mais pesadas por golpe
+  // que o Sonic Blow, e uma delas ser um contra-ataque de duelo.
+
+  cross_slash: {
+    id: 'cross_slash',
+    name: 'Corte Cruzado',
+    kind: 'damage',
+    branch: 'espada',
+    classes: ['assassin'],
+    reqLevel: 4,
+    manaCost: 10,
+    manaPerLevel: 2,
+    cooldownMs: 3000,
+    // ⚠️ REFERÊNCIA. O básico do ramo: alvo único, honesto, sem truque.
+    power: 1.25,
+    powerPerLevel: 0.11,
+    shape: 'target',
+    range: 1,
+    rangeEvery: 0,
+    durationMs: 0,
+    fx: 'cross_slash',
+    desc: 'Dois cortes em X num alvo. ⚠️ PROPOSTA no doc — números provisórios.',
+  },
+  deep_cut: {
+    id: 'deep_cut',
+    name: 'Corte Profundo',
+    kind: 'damage',
+    branch: 'espada',
+    classes: ['assassin'],
+    reqLevel: 14,
+    requires: [{ skill: 'cross_slash', level: 3 }],
+    manaCost: 16,
+    manaPerLevel: 2,
+    cooldownMs: 6000,
+    // ⚠️ REFERÊNCIA. "Profundo" pede sangramento — a única leitura do nome que
+    // não é chute puro.
+    power: 1.5,
+    powerPerLevel: 0.14,
+    shape: 'target',
+    range: 1,
+    rangeEvery: 0,
+    durationMs: 0,
+    applies: {
+      id: 'bleed',
+      chanceAtLv1: 0.35,
+      chanceAtLv10: 0.85,
+      durationAtLv1: 6000,
+      durationAtLv10: 8000,
+      power: 5,
+    },
+    fx: 'deep_cut',
+    desc: 'Corte que abre o alvo e faz sangrar. ⚠️ PROPOSTA no doc.',
+  },
+  blade_dance: {
+    id: 'blade_dance',
+    name: 'Dança das Lâminas',
+    kind: 'damage',
+    branch: 'espada',
+    classes: ['assassin'],
+    reqLevel: 18,
+    requires: [{ skill: 'cross_slash', level: 5 }],
+    manaCost: 28,
+    manaPerLevel: 4,
+    cooldownMs: 7000,
+    // ⚠️ REFERÊNCIA. "Dança" é a única do ramo em área — girar entre vários é o
+    // que o nome descreve.
+    power: 0.8,
+    powerPerLevel: 0.07,
+    shape: 'area',
+    range: 1,
+    rangeEvery: 5,
+    durationMs: 0,
+    fx: 'blade_dance',
+    desc: 'Gira entre os inimigos ao redor. ⚠️ PROPOSTA no doc.',
+  },
+  /**
+   * ⚠️ `PROPOSTA`. E é a que mais depende de mecânica nova: contra-atacar exige
+   * o servidor saber devolver golpe quando o jogador APANHA — nada no jogo
+   * fazia isso.
+   *
+   * Entrou como buff de janela: enquanto dura, todo golpe recebido devolve uma
+   * fração. É a leitura de "Contra-ataque" que cabe na arquitetura sem inventar
+   * um sistema de parry inteiro.
+   */
+  counter_attack: {
+    id: 'counter_attack',
+    name: 'Contra-ataque',
+    kind: 'buff',
+    branch: 'espada',
+    classes: ['assassin'],
+    reqLevel: 22,
+    requires: [{ skill: 'deep_cut', level: 3 }],
+    manaCost: 24,
+    manaPerLevel: 3,
+    cooldownMs: 15000,
+    // ⚠️ REFERÊNCIA: devolve 40 % → 100 % do seu ataque por golpe recebido.
+    power: 0.4,
+    powerPerLevel: 0.067,
+    shape: 'self',
+    range: 0,
+    rangeEvery: 0,
+    // ⚠️ REFERÊNCIA: 5 s → 10 s. Curta: é reação a uma investida, não postura.
+    durationMs: 5000,
+    durationAtLv10: 10000,
+    fx: 'counter_attack',
+    desc: 'Por alguns segundos, quem te bate leva de volta. ⚠️ PROPOSTA no doc.',
+  },
+
+  // --------------------------- 🎯 ARREMESSO (5) -----------------------------
+  //
+  // ⚠️ **RAMO INTEIRO EM `PROPOSTA` (`DD-ASS-014`).** Cinco nomes do doc, zero
+  // números do doc.
+  //
+  // 🔴 O que NÃO é proposta e amarra o ramo: `DD-ASS-011` **o alcance é menor
+  // que o do Archer**, porque o Assassino de shuriken é *"híbrido móvel"* e
+  // *"não um segundo Archer"*. Nenhuma daqui passa de 4 tiles; o arco tem 5.
+  // Há teste travando isso.
+
+  quick_throw: {
+    id: 'quick_throw',
+    name: 'Lançamento Rápido',
+    kind: 'damage',
+    branch: 'arremesso',
+    classes: ['assassin'],
+    reqLevel: 8,
+    manaCost: 8,
+    manaPerLevel: 1,
+    // ⚠️ REFERÊNCIA. "Rápido" é a ficha inteira: recarga curta, dano modesto.
+    cooldownMs: 1500,
+    power: 0.9,
+    powerPerLevel: 0.08,
+    shape: 'target',
+    range: 4,
+    rangeEvery: 0,
+    durationMs: 0,
+    fx: 'quick_throw',
+    desc: 'Arremesso rápido à distância curta. ⚠️ PROPOSTA no doc.',
+  },
+  shuriken_storm: {
+    id: 'shuriken_storm',
+    name: 'Tempestade de Shurikens',
+    kind: 'multihit',
+    branch: 'arremesso',
+    classes: ['assassin'],
+    reqLevel: 20,
+    requires: [{ skill: 'quick_throw', level: 5 }],
+    manaCost: 35,
+    manaPerLevel: 5,
+    cooldownMs: 9000,
+    // ⚠️ REFERÊNCIA. "Tempestade" = muitos projéteis numa área.
+    power: 0.35,
+    powerPerLevel: 0.03,
+    shape: 'area',
+    range: 3,
+    rangeEvery: 6,
+    durationMs: 0,
+    hits: 4,
+    hitsAtLv10: 9,
+    fx: 'shuriken_storm',
+    desc: 'Chuva de shurikens na área. ⚠️ PROPOSTA no doc.',
+  },
+  poison_kunai: {
+    id: 'poison_kunai',
+    name: 'Kunai Envenenada',
+    kind: 'damage',
+    branch: 'arremesso',
+    classes: ['assassin'],
+    reqLevel: 16,
+    requires: [{ skill: 'quick_throw', level: 3 }],
+    manaCost: 18,
+    manaPerLevel: 2,
+    cooldownMs: 6000,
+    // ⚠️ REFERÊNCIA nos números; o veneno é o que o NOME garante.
+    power: 1.0,
+    powerPerLevel: 0.09,
+    shape: 'target',
+    range: 4,
+    rangeEvery: 0,
+    durationMs: 0,
+    damageType: 'poison',
+    applies: {
+      id: 'poison',
+      chanceAtLv1: 0.45,
+      chanceAtLv10: 0.95,
+      durationAtLv1: 8000,
+      durationAtLv10: 12000,
+      power: 5,
+    },
+    fx: 'poison_kunai',
+    desc: 'Kunai que envenena quase sempre. ⚠️ PROPOSTA no doc.',
+  },
+  phantom_throw: {
+    id: 'phantom_throw',
+    name: 'Lançamento Fantasma',
+    kind: 'damage',
+    branch: 'arremesso',
+    classes: ['assassin'],
+    reqLevel: 26,
+    requires: [{ skill: 'shuriken_storm', level: 3 }],
+    manaCost: 30,
+    manaPerLevel: 4,
+    cooldownMs: 10000,
+    // ⚠️ REFERÊNCIA. "Fantasma" lido como golpe que ignora a armadura: o dano é
+    // SOMBRIO, então bate contra a resistência mágica em vez da defesa física.
+    power: 1.6,
+    powerPerLevel: 0.16,
+    shape: 'target',
+    range: 4,
+    rangeEvery: 0,
+    durationMs: 0,
+    /**
+     * 🔴 **`magic` fica FALSO de propósito, e a distinção custou um teste.**
+     *
+     * `magic: true` mandaria o poder sair de `magicAtk` — e o Assassino tem
+     * INT 3. A habilidade nasceria inútil, com cara de implementada.
+     *
+     * O que "fantasma" pede é outra coisa: sair da FORÇA do assassino e bater
+     * contra a defesa MÁGICA do alvo. Isso é `damageType`, não `magic`. Os dois
+     * campos respondem perguntas diferentes, e esta é a habilidade que provou.
+     */
+    damageType: 'dark',
+    fx: 'phantom_throw',
+    desc: 'Arremesso sombrio que passa pela armadura. ⚠️ PROPOSTA no doc.',
+  },
+  /**
+   * ⚠️ `PROPOSTA`, e é a que amarra os dois ramos: o doc a lista entre as de
+   * arremesso, mas o nome descreve o combo que ele mesmo escreve para a classe
+   * — *"aproxima **furtivo** → ataca → recua → arremessa"*.
+   *
+   * Implementada como o pagamento por ter usado `hide`: **dano muito maior
+   * quando lançada de dentro da furtividade**. Sem isso, "Ataque Oculto" seria
+   * só mais um golpe com nome bonito.
+   */
+  hidden_strike: {
+    id: 'hidden_strike',
+    name: 'Ataque Oculto',
+    kind: 'damage',
+    branch: 'arremesso',
+    classes: ['assassin'],
+    reqLevel: 30,
+    requires: [{ skill: 'hide', level: 3 }],
+    manaCost: 26,
+    manaPerLevel: 3,
+    cooldownMs: 12000,
+    // ⚠️ REFERÊNCIA. O número que importa é o bônus de furtividade, em
+    // `HIDDEN_STRIKE_BONUS`.
+    power: 1.4,
+    powerPerLevel: 0.15,
+    shape: 'target',
+    range: 4,
+    rangeEvery: 0,
+    durationMs: 0,
+    fx: 'hidden_strike',
+    desc: 'Muito mais forte se lançado de dentro da furtividade. ⚠️ PROPOSTA no doc.',
+  },
 };
 
 export const SKILL_IDS: SkillId[] = [
@@ -1959,44 +2461,85 @@ export const SKILL_IDS: SkillId[] = [
   'lightning_ball', 'electric_discharge', 'thor_wrath',
   'magic_enhance', 'magic_amplify', 'cast_mastery', 'mana_regen',
   'magic_protection', 'revealing_flame', 'arcane_circle',
+  // 🗡️ Assassino (14)
+  'double_attack', 'sonic_blow', 'envenom', 'evasion', 'hide',
+  'cross_slash', 'deep_cut', 'blade_dance', 'counter_attack',
+  'quick_throw', 'shuriken_storm', 'poison_kunai', 'phantom_throw',
+  'hidden_strike',
 ];
 
 /** Quantos slots a barra de atalhos tem: F1..F8. */
-export const SKILL_BAR_SLOTS = 8;
+/**
+ * Slots da barra de atalhos: **duas fileiras de doze**.
+ *
+ * 🔴 Eram oito, e oito era o número da época em que só o Knight tinha
+ * habilidades. Não fecha mais: o Druida tem **21 conjuráveis** (23 menos as
+ * duas passivas) e o Feiticeiro **15**. Pedir ao jogador que escolha 8 de 21
+ * para ter à mão é escondê-lo do próprio personagem.
+ *
+ * ⚠️ **Por que 12 + 12 e não 16 ou 20.** A fileira tem de casar com uma linha
+ * de teclas de verdade, senão metade dos slots vira só botão de mouse. O
+ * teclado dá F1–F12; a segunda fileira é **Shift+F1–F12**. Vinte e quatro cobre
+ * as 21 do Druida com folga e não inventa tecla que não existe.
+ */
+export const SKILL_BAR_ROWS = 2;
+export const SKILL_BAR_COLS = 12;
+export const SKILL_BAR_SLOTS = SKILL_BAR_ROWS * SKILL_BAR_COLS;
+
+/** Monta uma barra do tamanho certo a partir das habilidades informadas. */
+function barra(ids: (SkillId | null)[]): (SkillId | null)[] {
+  const out = ids.slice(0, SKILL_BAR_SLOTS);
+  while (out.length < SKILL_BAR_SLOTS) out.push(null);
+  return out;
+}
 
 /**
- * Barra de atalhos padrão de cada classe: índice 0 = F1, 1 = F2, …
- * `null` = slot vazio.
+ * Barra de atalhos PADRÃO de cada classe: índice 0 = F1 … 11 = F12, 12 =
+ * Shift+F1 … 23 = Shift+F12.
  *
- * 🔴 **Por que passou a ser por classe.** Até aqui `SKILL_BAR` era UM array
- * global de oito, montado quando só o Knight tinha habilidades, e o cliente
- * filtrava por classe em cima dele. Com 23 do Druida e 18 do Feiticeiro isso
- * deixa de fechar por aritmética: 49 habilidades não cabem em oito slots
- * compartilhados, e o Druida acabaria com a barra do Knight quase toda vazia.
+ * 🔴 **O padrão agora traz TUDO que se conjura**, na ordem da árvore. Antes
+ * eram oito escolhidas a dedo, e o resto o jogador tinha que descobrir na
+ * janela. Com 24 slots não há motivo para esconder nada: quem quiser uma barra
+ * enxuta arrasta o que não usa para fora.
  *
- * ⚠️ Isto é o **padrão**, não uma prisão: são as oito que fazem sentido ter à
- * mão desde cedo. As passivas ficam de fora de propósito — não se aperta F para
- * uma passiva. As demais se usam pela janela de habilidades.
+ * ⚠️ **As passivas ficam de fora, e continuam fora.** Não se aperta tecla para
+ * uma passiva — o slot dela seria um botão que responde "já está ativa".
+ *
+ * ⚠️ Isto é só o ponto de partida. O jogador arrasta da janela de habilidades
+ * para qualquer slot, e a arrumação dele é guardada por personagem (no
+ * cliente). Ver `skillBarFor`.
  */
 export const SKILL_BARS: Record<PlayerClass, (SkillId | null)[]> = {
-  knight: [
+  knight: barra([
     'power_strike', 'bash', 'charge', 'rupture',
     'execution', 'taunt', 'defensive_stance', 'battle_fury',
-  ],
-  // A ordem conta a rotação: cura, cura, os dois debuffs que se usa sempre,
-  // o dano básico, o controle e a suprema.
-  druid: [
-    'heal', 'regeneration', 'weaken', 'vulnerability',
-    'earth_spike', 'binding_roots', 'area_heal', 'nature_wrath',
-  ],
-  sorcerer: [
+  ]),
+  // A ordem conta a rotação: as duas curas, os debuffs que se usa sempre, o
+  // dano básico, o controle, e as grandes no fim da primeira fileira.
+  druid: barra([
+    'heal', 'regeneration', 'emergency_heal', 'area_heal',
+    'weaken', 'vulnerability', 'curse_slowness', 'curse_weakness',
+    'earth_spike', 'binding_roots', 'wind_blades', 'nature_wrath',
+    // Segunda fileira (Shift+F1…): o que se usa por decisão, não por rotação.
+    'sanctuary', 'blessing_agility', 'oak_skin', 'spirit_blessing',
+    'nature_strength', 'nature_blessing', 'silence', 'nature_plague',
+    'poison_spores',
+  ]),
+  sorcerer: barra([
     'fire_bolt', 'cold_bolt', 'lightning_ball', 'electric_discharge',
-    'meteor', 'ice_wall', 'arcane_circle', 'meteor_storm',
-  ],
+    'meteor', 'glacial_burst', 'fire_wall', 'ice_wall',
+    'arcane_circle', 'meteor_storm', 'blizzard', 'thor_wrath',
+    // Segunda fileira: as utilitárias arcanas.
+    'magic_amplify', 'magic_protection', 'revealing_flame',
+  ]),
   // Sem árvore própria ainda (Etapa 13). A barra existe e nasce vazia em vez de
   // herdar a do Knight — ver `skillBarFor`.
-  archer: [null, null, null, null, null, null, null, null],
-  assassin: [null, null, null, null, null, null, null, null],
+  archer: barra([]),
+  assassin: barra([
+    'sonic_blow', 'cross_slash', 'deep_cut', 'blade_dance',
+    'counter_attack', 'envenom', 'hide', 'hidden_strike',
+    'quick_throw', 'shuriken_storm', 'poison_kunai', 'phantom_throw',
+  ]),
 };
 
 /**
@@ -2251,6 +2794,91 @@ export function magicProtectionShare(nivel: number): number {
  * imortalidade.
  */
 export const MAGIC_PROTECTION_MANA_PER_HP = 2;
+
+// ---------------------------------------------------------------------------
+// 🗡️ Assassino
+// ---------------------------------------------------------------------------
+
+/**
+ * 🔴 **A tabela do Ataque Duplo, citação literal do cap. 68.**
+ *
+ * | Lv | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+ * | Chance | 35 % | 40 % | 45 % | 50 % | 55 % | 60 % | 65 % | 70 % | 75 % | 80 % |
+ *
+ * ⚠️ Escrita como TABELA e não como fórmula de propósito. `0,35 + 0,05 × (n−1)`
+ * dá exatamente os mesmos dez valores, mas quando o balanceamento mudar um
+ * degrau — e o doc já mudou o do congelamento uma vez — a tabela aceita a
+ * mudança e a fórmula obriga a reescrever a regra.
+ */
+export const DOUBLE_ATTACK_CHANCE: readonly number[] = [
+  0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80,
+];
+
+/** Chance de o Ataque Duplo disparar no nível informado. 0 = não aprendido. */
+export function doubleAttackChance(nivel: number): number {
+  if (nivel <= 0) return 0;
+  return DOUBLE_ATTACK_CHANCE[Math.min(nivel, MAX_SKILL_LEVEL) - 1]!;
+}
+
+/**
+ * Quanto o golpe EXTRA causa, como fração de um ataque normal — e é aqui que
+ * as três decisões do doc viram número:
+ *
+ * - `DD-ASS-003` **uma adaga (com escudo)** → `1.0`. O proc rende **200 %** de
+ *   um ataque normal, e o doc é enfático: é a config **mais defensiva e mais
+ *   consistente**, não a versão fraca.
+ * - `DD-ASS-004/005` **duas adagas** → `0.5` por golpe extra. A regra antiga
+ *   que desativava o Ataque Duplo no dual foi **revogada**.
+ * - `DD-ASS-006` **katar** → `0`. Não tem, ponto. Ele troca isso por crítico,
+ *   burst e Sonic Blow.
+ *
+ * ⚠️ **Katar ainda não é um `WeaponType` próprio.** Enquanto não for, ele cai
+ * no `return 0` de baixo junto com todas as outras armas — o resultado é o que
+ * o doc manda, mas pelo motivo errado. Quem criar o tipo `katar` deve conferir
+ * que esta função continua devolvendo 0 para ele.
+ */
+export function doubleAttackExtra(grip: Grip, arma?: WeaponType): number {
+  if (arma !== 'dagger') return 0;
+  return grip === 'dual' ? 0.5 : 1.0;
+}
+
+/**
+ * 🥷 Ataque Oculto: quanto o dano cresce quando o golpe sai de dentro da
+ * furtividade.
+ *
+ * ⚠️ REFERÊNCIA. O doc descreve o combo (*"aproxima furtivo → ataca → recua →
+ * arremessa"*) e não dá o número. 2,5× é o que faz o combo valer: abaixo disso
+ * os 25 de mana do `hide` mais os 26 do golpe custam mais do que rendem, e
+ * ninguém o usaria duas vezes.
+ */
+export const HIDDEN_STRIKE_BONUS = 2.5;
+
+/**
+ * ☠️ Envenenar Arma: chance e parcela do veneno no ataque BÁSICO.
+ *
+ * ⚠️ REFERÊNCIA nos dois. O pilar "veneno" é do doc; os números não.
+ */
+export function envenomChance(nivel: number): number {
+  if (nivel <= 0) return 0;
+  return porNivel(nivel, 0.20, 0.60);
+}
+export function envenomPower(nivel: number): number {
+  if (nivel <= 0) return 0;
+  return porNivel(nivel, 2, 8);
+}
+/** Duração do veneno aplicado pela lâmina untada. */
+export const ENVENOM_POISON_MS = 8000;
+
+/**
+ * ⚔️ Contra-ataque: fração do SEU ataque devolvida a cada golpe recebido.
+ *
+ * ⚠️ REFERÊNCIA. `PROPOSTA` no doc — só o nome é dele.
+ */
+export function counterAttackShare(nivel: number): number {
+  if (nivel <= 0) return 0;
+  return porNivel(nivel, 0.4, 1.0);
+}
+
 
 /** Interpola linearmente entre o valor do Lv.1 e o do Lv.10. */
 function porNivel(nivel: number, noLv1: number, noLv10: number): number {

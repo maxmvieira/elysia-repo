@@ -9,6 +9,122 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-03 (madrugada) — A barra virou 24 slots, e o Assassino ganhou árvore
+
+**Onde mora:** `SKILL_BARS`/`SKILL_BAR_COLS` em `shared/src/skills.ts` · o
+arrastar-e-soltar em `buildSpellBar`/`ligaArrastarNoSlot` no cliente · o Ataque
+Duplo e a furtividade em `server/src/index.ts`.
+
+**601 testes** (eram 579), typecheck limpo nos três pacotes.
+
+### ⌨️ A barra: de 8 para 24 slots, e configurável
+
+Pedido do dono, em duas partes: *"preciso de mais atalhos para colocar todas as
+magias"* e *"se eu clicar e arrastar a magia para o slot do atalho ela tem que
+substituir a que está nele"*.
+
+🔴 **Oito era o número da época em que só o Knight tinha habilidades.** Com 21
+conjuráveis no Druida, pedir que ele escolha 8 é escondê-lo do próprio
+personagem. São **duas fileiras de doze**: F1–F12 em cima, **Shift**+F1–F12
+embaixo.
+
+⚠️ **Por que 12+12 e não 16 ou 20:** a fileira tem de casar com uma linha de
+teclas de verdade. O teclado dá F1–F12, e Shift é o único modificador que não
+briga com o sistema — Ctrl+F4 fecha aba, Alt+F4 fecha janela.
+
+**As três regras de arraste, e o motivo de cada uma:**
+- **Janela → slot** substitui, e **esvazia o slot antigo** se a magia já
+  estivesse noutro. `spellSlots` é indexado por id: dois atalhos para a mesma
+  magia fariam o segundo sobrescrever o primeiro, e um deles pararia de acender
+  o cooldown sem nenhum erro.
+- **Slot → slot** TROCA os dois. Copiar deixaria a magia em dois lugares e um
+  buraco onde ela estava, obrigando o jogador a limpar a sobra na mão.
+- **Botão direito** esvazia. É o par natural do arraste: sem ele não há como
+  deixar um espaço em branco de propósito.
+
+🔴 **Passiva não entra na barra** — confirmado pelo dono: *"as passivas não
+precisa equipar para usar, elas ficam só dentro da árvore de habilidades"*. A
+regra vale em três pontos, e os três têm teste: fora da barra padrão, linha não
+arrastável, e `castSpell` recusando com "já está ativa".
+
+⚠️ **Guardado no cliente**, por personagem (`localStorage`), na mesma escolha
+que a POSIÇÃO da barra já fazia. Trocar de navegador devolve ao padrão — se um
+dia incomodar, o lugar certo passa a ser uma coluna no personagem.
+
+⚠️ **Duas armadilhas que morderam aqui:**
+1. Remontar a barra com `textContent = ''` levava junto o `#spellgrip`, o
+   pegador de arrastar — a barra ficaria presa no centro da tela para sempre,
+   sem erro nenhum.
+2. O regex das teclas era `F([1-9])`, que deixava **F10, F11 e F12 mudos** —
+   justamente onde as magias grandes ficam no padrão novo.
+
+### 🗡️ O Assassino: 14 habilidades, e a honestidade sobre elas
+
+🔴 **O cap. 68 é o menos fechado das cinco classes**, e os três ramos existem
+para tornar isso visível em vez de esconder:
+
+| Ramo | Estado |
+|---|---|
+| 🗡️ Lâminas (5) | **canônico** |
+| ⚔️ Espada Curta (4) | ⚠️ `DD-ASS-015` **PROPOSTA** |
+| 🎯 Arremesso (5) | ⚠️ `DD-ASS-014` **PROPOSTA** |
+
+⚠️ **A exceção de 30/07 não cobre estas.** "`PROPOSTA` não bloqueia" vale só
+para os Docs 3 e 4; o cap. 68 é do Doc 1. Entraram a pedido do dono, com a regra
+do projeto aplicada à risca: **estrutura sim, número inventado marcado**. E o
+aviso "PROPOSTA no doc" vai no **tooltip do jogador**, não só no código — há
+teste guardando o aviso, e o teste espelho garantindo que o ramo canônico
+**não** se anuncie como provisório (marcar o Ataque Duplo como provisório faria
+alguém "corrigir" a única tabela que o doc fecha).
+
+⚠️ **Um nome é invenção nossa: "Ocultar".** O doc trata furtividade como
+conceito e nunca nomeia a habilidade. Os outros treze são todos do documento.
+
+**O que é canônico e entrou de verdade:** a tabela do **Ataque Duplo**
+(35 %→80 %), escrita como TABELA e não como fórmula — `0,35 + 0,05×(n−1)` dá os
+mesmos dez valores, mas quando um degrau mudar (e o doc já mudou o do
+congelamento), a tabela aceita e a fórmula obriga a reescrever a regra.
+
+🔴 **A anti-cascata do `DD-ASS-007` é estrutural, não uma flag:** a função do
+Ataque Duplo **não chama a si mesma nem `playerAttack`**. Com 80 % de chance no
+Lv.10, uma versão recursiva daria cinco golpes com frequência.
+
+### 🔴 Empunhadura dupla não é equipável — e a regra dela está pronta
+
+`DD-ASS-004/005` (duas adagas, extra de 50 % cada) está implementada e testada.
+**Não tem como disparar em jogo:** `offhand` existe em `grip.ts` e **nenhum
+código do projeto o preenche** — `EquipSlot` tem nove slots e nenhum é segunda
+arma. O que funciona hoje é o `DD-ASS-003`: adaga com escudo, extra de 100 %.
+
+Deixar assim é melhor que fingir. O dia em que o slot existir, o Ataque Duplo já
+sabe o que fazer com ele. Está dito em `equippedForGrip`.
+
+### ✨🥷 Um par que estava pela metade fechou
+
+A **Chama de Revelação** do Feiticeiro nasceu ontem sem nada para revelar — a
+furtividade não existia. Com o Assassino ela arranca o oculto da sombra, e
+`70.42` fica de pé: *"não é detecção permanente — é **counter com
+counterplay**"*.
+
+⚠️ **Atacar quebra a furtividade, e essa regra é nossa** — o doc descreve o
+combo (*"aproxima furtivo → ataca → recua"*) mas não a escreve. Sem ela o
+Assassino atacaria para sempre de dentro da invisibilidade, e a Chama nunca
+teria alvo.
+
+### 🔴 A regra que este dia aprendeu: `magic` ≠ `damageType`
+
+Os dois campos respondem perguntas diferentes — **de qual ATAQUE o poder sai** e
+**contra qual DEFESA ele bate** — e o servidor roteava o dano pelo campo errado.
+A Kunai Envenenada é física na origem e de veneno no dano, e passava pela
+armadura física em vez da resistência a veneno.
+
+O erro só apareceu porque o **Lançamento Fantasma** nasceu com `magic: true`,
+o que o faria escalar com INT — e o Assassino tem **INT 3**. A habilidade
+nasceria inútil com cara de implementada. Foi um teste que pegou, e virou dois:
+um que proíbe habilidade mágica em classe física, outro específico do Fantasma.
+
+---
+
 ## 2026-09-03 — As 41 magias entraram, e o motor que faltava embaixo delas
 
 **Onde mora:** `shared/src/skills.ts` (as 49 fichas) · `shared/src/effects.ts` e

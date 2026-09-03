@@ -304,6 +304,11 @@ const PALETAS: Record<string, Paleta> = {
   gelo: ['#3aa8d8', '#04222f', '#dcf6ff', '#9fe4ff'],
   raio: ['#d8c02a', '#2f2600', '#fffbe0', '#ffe96a'],
   arcano: ['#8a5ad8', '#180a30', '#efe6ff', '#c4a8ff'],
+  // 🗡️ Assassino. Aço frio nas lâminas, um vermelho seco no duelo de espada
+  // curta, e verde-veneno no arremesso — que é o ramo da kunai envenenada.
+  laminas: ['#5f6a78', '#101418', '#e8eef5', '#b8c6d6'],
+  espada: ['#8a3a3a', '#240c0c', '#ffd8d8', '#ff9f9f'],
+  arremesso: ['#4a7a52', '#0e1c11', '#dcf5e0', '#a0e0ac'],
 };
 
 /** As silhuetas. Cada uma diz uma FUNÇÃO, não uma magia específica. */
@@ -562,6 +567,23 @@ const GLIFOS: Record<string, Glifo> = {
   magic_protection: 'escudo',
   revealing_flame: 'olho',
   arcane_circle: 'circulo',
+  // 🗡️ Assassino — lâminas
+  double_attack: 'corrente', // dois elos = dois golpes
+  sonic_blow: 'estrela',
+  envenom: 'gota',
+  evasion: 'seta',
+  hide: 'nuvem', // fumaça: some de vista
+  // 🗡️ Assassino — espada curta
+  cross_slash: 'espinho',
+  deep_cut: 'gota',
+  blade_dance: 'estrela',
+  counter_attack: 'escudo',
+  // 🗡️ Assassino — arremesso
+  quick_throw: 'espinho',
+  shuriken_storm: 'floco', // o shuriken é o floco de seis pontas do jogo
+  poison_kunai: 'nuvem',
+  phantom_throw: 'olho',
+  hidden_strike: 'raio',
 };
 
 /** Ícone genérico: moldura na cor do ramo + a silhueta da função. */

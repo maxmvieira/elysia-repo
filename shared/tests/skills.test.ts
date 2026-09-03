@@ -9,6 +9,8 @@ import {
   MAX_SKILL_LEVEL,
   SKILLS,
   SKILL_BAR,
+  SKILL_BARS,
+  SKILL_BAR_SLOTS,
   CONDITIONS,
   SKILL_LEVEL_COST,
   getSkill,
@@ -229,5 +231,46 @@ test('nenhuma habilidade escala com poder mágico E com arma física ao mesmo te
       def.classes.every((c) => c === 'sorcerer' || c === 'druid'),
       `${def.id} é mágica mas pertence a uma classe física`,
     );
+  }
+});
+
+test('nenhuma passiva ocupa slot de atalho em barra nenhuma', () => {
+  /**
+   * 🔴 **Passiva não se equipa na barra — ela vive só dentro da árvore.**
+   * Confirmado pelo dono em 2026-09-03.
+   *
+   * O slot de uma passiva seria um botão que responde "já está ativa", e pior:
+   * ocuparia um dos 24 lugares que as conjuráveis precisam. A regra vale em
+   * três pontos, e este teste cobre o primeiro — os outros dois são a linha da
+   * janela não ser arrastável e o `castSpell` recusar o lançamento.
+   */
+  for (const [cls, barra] of Object.entries(SKILL_BARS)) {
+    for (const id of barra) {
+      if (id === null) continue;
+      assert.notEqual(
+        SKILLS[id].kind, 'passive',
+        `${id} é passiva e não pode estar na barra do ${cls}`,
+      );
+    }
+  }
+});
+
+test('toda barra padrão tem exatamente o número de slots da barra', () => {
+  // Uma barra curta deixaria as últimas teclas sem célula, e o jogador
+  // apertaria Shift+F12 num slot que não existe.
+  for (const [cls, barra] of Object.entries(SKILL_BARS)) {
+    assert.equal(barra.length, SKILL_BAR_SLOTS, `a barra do ${cls} tem tamanho errado`);
+  }
+});
+
+test('a barra padrão só aponta para habilidades DA classe', () => {
+  for (const [cls, barra] of Object.entries(SKILL_BARS)) {
+    for (const id of barra) {
+      if (id === null) continue;
+      assert.ok(
+        SKILLS[id].classes.includes(cls as keyof typeof SKILL_BARS),
+        `${id} está na barra do ${cls} e não pertence à classe`,
+      );
+    }
   }
 });

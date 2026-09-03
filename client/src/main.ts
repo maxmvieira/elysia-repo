@@ -43,6 +43,8 @@ import {
   SKILLS,
   skillBarFor,
   skillsOfClass,
+  SKILL_BAR_COLS,
+  SKILL_BAR_SLOTS,
   skillDuration,
   skillConditionChance,
   skillConditionDuration,
@@ -3949,26 +3951,96 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   let barraAtual: (SkillId | null)[] = [];
   /** Classe cuja barra está montada agora. `null` = ainda não montou nenhuma. */
   let classeDaBarra: S2C_Stats['charClass'] | null = null;
+  /**
+   * Rótulo da tecla de um slot. Índices 0–11 são F1–F12; 12–23 são Shift+F1–F12.
+   *
+   * ⚠️ O teclado só tem doze teclas de função. A segunda fileira precisava de
+   * um modificador, e Shift é o único que o navegador entrega sem brigar com
+   * atalhos do sistema (Ctrl+F4 fecha aba, Alt+F4 fecha janela).
+   */
+  function teclaDoSlot(i: number): string {
+    const f = `F${(i % SKILL_BAR_COLS) + 1}`;
+    return i < SKILL_BAR_COLS ? f : `⇧${f}`;
+  }
+
+  /** Onde a arrumação da barra deste personagem é guardada. */
+  function chaveDaBarra(cls: S2C_Stats['charClass']): string {
+    const id = net.charId;
+    return `elysia.spellbar.slots.${id ?? `cls-${cls}`}`;
+  }
+
+  /**
+   * Guarda a arrumação da barra.
+   *
+   * ⚠️ **No cliente, e não no servidor.** É a mesma escolha que a POSIÇÃO da
+   * barra já fazia (`elysia.spellbar.pos`): arrumação de HUD é preferência de
+   * interface, não estado de jogo, e mandá-la para o banco exigiria migração de
+   * schema para guardar algo que não afeta regra nenhuma.
+   *
+   * ⚠️ **A consequência é real e vale saber:** trocar de navegador ou de
+   * máquina devolve a barra ao padrão da classe. Se um dia isso incomodar, o
+   * lugar certo passa a ser uma coluna no personagem.
+   */
+  function salvaBarra(cls: S2C_Stats['charClass']): void {
+    try {
+      localStorage.setItem(chaveDaBarra(cls), JSON.stringify(barraAtual));
+    } catch { /* armazenamento cheio ou bloqueado — a barra só não persiste */ }
+  }
+
+  /**
+   * Lê a arrumação guardada, se houver e se ainda fizer sentido.
+   *
+   * 🔴 **Cada id é revalidado contra a CLASSE.** Uma barra salva pode ter
+   * sobrevivido a um rename de habilidade, a um reset de skill ou — o caso que
+   * realmente acontece — a uma troca de personagem que reusou a chave. Um id
+   * inválido viraria `SKILLS[id]` indefinido e derrubaria a montagem inteira da
+   * barra, deixando o jogador sem nenhuma tecla.
+   */
+  function carregaBarra(cls: S2C_Stats['charClass']): (SkillId | null)[] | null {
+    let bruto: unknown;
+    try {
+      bruto = JSON.parse(localStorage.getItem(chaveDaBarra(cls)) ?? 'null');
+    } catch { return null; }
+    if (!Array.isArray(bruto)) return null;
+    const out: (SkillId | null)[] = [];
+    for (let i = 0; i < SKILL_BAR_SLOTS; i++) {
+      const id = bruto[i];
+      const def = typeof id === 'string' ? SKILLS[id as SkillId] : undefined;
+      out.push(def && def.classes.includes(cls) && def.kind !== 'passive' ? (id as SkillId) : null);
+    }
+    return out;
+  }
+
   function buildSpellBar(cls: S2C_Stats['charClass']): void {
-    barraAtual = skillBarFor(cls);
+    barraAtual = carregaBarra(cls) ?? skillBarFor(cls).slice();
+    desenhaSpellBar(cls);
+  }
+
+  function desenhaSpellBar(cls: S2C_Stats['charClass']): void {
     // ⚠️ Só os SLOTS saem. `spellBarEl.textContent = ''` levaria junto o
     // `#spellgrip`, que é o pegador de arrastar — e a barra ficaria presa no
     // meio da tela para sempre, sem nenhuma mensagem de erro.
-    for (const velho of Array.from(spellBarEl.querySelectorAll('.sslot'))) velho.remove();
+    for (const velho of Array.from(spellBarEl.querySelectorAll('.sgrid'))) velho.remove();
     spellSlots.clear();
+
+    // As duas fileiras vivem num grid próprio, ao lado do pegador.
+    const grid = document.createElement('div');
+    grid.className = 'sgrid';
+
     barraAtual.forEach((id, i) => {
-      const key = `F${i + 1}`;
       const cell = document.createElement('div');
       cell.className = id ? 'sslot' : 'sslot free';
+      cell.dataset.slot = String(i);
       const label = document.createElement('span');
       label.className = 'sk';
-      label.textContent = key;
+      label.textContent = teclaDoSlot(i);
       cell.appendChild(label);
       if (id) {
         const def = SKILLS[id];
         const img = document.createElement('img');
         img.src = spellIconUrl(id);
         img.alt = def.name;
+        img.draggable = false; // quem arrasta é a CÉLULA, não a imagem
         const lock = document.createElement('span');
         lock.className = 'lock';
         lock.textContent = '🔒';
@@ -3985,7 +4057,90 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         cell.onclick = () => castSpellId(id);
         spellSlots.set(id, { id, cell, cd, cdText, lvl, tip });
       }
-      spellBarEl.appendChild(cell);
+      ligaArrastarNoSlot(cell, i, cls);
+      grid.appendChild(cell);
+    });
+    spellBarEl.appendChild(grid);
+  }
+
+  // -------------------------------------------------------------------------
+  // Arrastar-e-soltar na barra
+  //
+  // Duas origens caem no mesmo alvo: a linha da JANELA de habilidades (colocar)
+  // e outro SLOT (mover ou trocar). O `dataTransfer` carrega qual das duas é,
+  // e o `drop` decide pela presença do índice de origem.
+  //
+  // ⚠️ HTML5 drag-and-drop, e não pointerdown/pointermove como o arrastar da
+  // barra inteira. O `dragstart` nativo é o que dá a imagem-fantasma seguindo o
+  // cursor de graça, e aqui isso importa: sem ela o jogador não vê o que está
+  // carregando entre 24 slots parecidos.
+  // -------------------------------------------------------------------------
+
+  const DND_SKILL = 'application/x-elysia-skill';
+  const DND_SLOT = 'application/x-elysia-slot';
+
+  function ligaArrastarNoSlot(cell: HTMLElement, i: number, cls: S2C_Stats['charClass']): void {
+    const id = barraAtual[i];
+    if (id) {
+      cell.draggable = true;
+      cell.addEventListener('dragstart', (ev) => {
+        ev.dataTransfer?.setData(DND_SKILL, id);
+        ev.dataTransfer?.setData(DND_SLOT, String(i));
+        cell.classList.add('dragging');
+      });
+      cell.addEventListener('dragend', () => cell.classList.remove('dragging'));
+    }
+    cell.addEventListener('dragover', (ev) => {
+      if (!ev.dataTransfer?.types.includes(DND_SKILL)) return;
+      ev.preventDefault(); // sem isto o navegador recusa o drop
+      cell.classList.add('dropok');
+    });
+    cell.addEventListener('dragleave', () => cell.classList.remove('dropok'));
+    cell.addEventListener('drop', (ev) => {
+      cell.classList.remove('dropok');
+      const novo = ev.dataTransfer?.getData(DND_SKILL) as SkillId | undefined;
+      if (!novo || !SKILLS[novo]) return;
+      ev.preventDefault();
+      const origem = ev.dataTransfer?.getData(DND_SLOT);
+      if (origem !== undefined && origem !== '') {
+        /*
+         * Veio de outro slot: TROCA os dois em vez de duplicar. Copiar deixaria
+         * a mesma habilidade em dois lugares e um buraco onde ela estava — e o
+         * jogador que só queria reordenar teria de limpar a sobra na mão.
+         */
+        const de = Number(origem);
+        if (de === i) return;
+        const antes = barraAtual[i] ?? null;
+        barraAtual[i] = novo;
+        barraAtual[de] = antes;
+      } else {
+        /*
+         * Veio da janela: SUBSTITUI o que estava no slot. E se a habilidade já
+         * estivesse noutro slot, o antigo é esvaziado — dois atalhos para a
+         * mesma magia é quase sempre engano, e o `spellSlots` é indexado por id,
+         * então o segundo sobrescreveria o primeiro e um deles pararia de
+         * acender o cooldown.
+         */
+        const jaEstava = barraAtual.indexOf(novo);
+        if (jaEstava >= 0) barraAtual[jaEstava] = null;
+        barraAtual[i] = novo;
+      }
+      salvaBarra(cls);
+      desenhaSpellBar(cls);
+      if (ultimoStats) updateSpellBar(ultimoStats);
+    });
+    /*
+     * Botão direito esvazia o slot. É o par natural do arrastar: sem ele, tirar
+     * uma habilidade da barra exigiria arrastar outra por cima, e não haveria
+     * como deixar um espaço em branco de propósito.
+     */
+    cell.addEventListener('contextmenu', (ev) => {
+      if (!barraAtual[i]) return;
+      ev.preventDefault();
+      barraAtual[i] = null;
+      salvaBarra(cls);
+      desenhaSpellBar(cls);
+      if (ultimoStats) updateSpellBar(ultimoStats);
     });
   }
 
@@ -4165,8 +4320,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     net.send({ t: 'cast', spell: id });
   }
 
+  /**
+   * Último pacote de stats recebido. Guardado porque a barra pode ser
+   * redesenhada FORA de um pacote — quando o jogador arrasta um slot — e ela
+   * precisa dos níveis e da mana para repintar o que acabou de montar.
+   */
+  let ultimoStats: S2C_Stats | null = null;
+
   /** Repinta os slots (nível, sem mana, não aprendida) a cada S2C_Stats. */
   function updateSpellBar(s: S2C_Stats): void {
+    ultimoStats = s;
     skillLevels = s.skillLevels;
     currentMana = s.mana;
     myProficiencies = s.proficiencies;
@@ -4279,10 +4442,28 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       const row = document.createElement('div');
       row.className = 'skrow';
 
+      /*
+       * 🔴 A linha é ARRASTÁVEL para a barra de atalhos — menos as passivas.
+       *
+       * Passiva não tem o que atalhar: o slot dela seria um botão que responde
+       * "já está ativa". Deixá-la arrastável e recusar no `drop` seria pior —
+       * o jogador arrastaria, veria o cursor aceitar, e nada aconteceria.
+       */
+      if (def.kind !== 'passive') {
+        row.draggable = true;
+        row.title = 'Arraste para um slot da barra de atalhos';
+        row.addEventListener('dragstart', (ev) => {
+          ev.dataTransfer?.setData(DND_SKILL, id);
+          row.classList.add('dragging');
+        });
+        row.addEventListener('dragend', () => row.classList.remove('dragging'));
+      }
+
       const top = document.createElement('div');
       top.className = 'top';
       const img = document.createElement('img');
       img.src = spellIconUrl(id);
+      img.draggable = false;
       const nm = document.createElement('span');
       nm.className = 'nm';
       nm.textContent = def.name;
@@ -4808,13 +4989,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (ev.code === 'KeyB') {
       bestPanel.style.display = bestPanel.style.display === 'block' ? 'none' : 'block';
     }
-    // Atalhos da barra de habilidades: F1..F8 conforme a barra DA CLASSE.
-    const fn = /^F([1-9])$/.exec(ev.code);
+    /*
+     * Atalhos da barra: **F1–F12 na fileira de cima, Shift+F1–F12 na de baixo**.
+     *
+     * ⚠️ `F([1-9])` não bastava mais — pegava F1..F9 e deixava F10, F11 e F12
+     * mudos, que é exatamente onde as habilidades grandes ficam no padrão novo.
+     */
+    const fn = /^F(\d{1,2})$/.exec(ev.code);
     if (fn) {
-      const id = barraAtual[Number(fn[1]) - 1];
-      if (id) {
-        castSpellId(id);
-        ev.preventDefault(); // F1 abriria a ajuda do navegador
+      const coluna = Number(fn[1]) - 1;
+      if (coluna >= 0 && coluna < SKILL_BAR_COLS) {
+        const id = barraAtual[coluna + (ev.shiftKey ? SKILL_BAR_COLS : 0)];
+        // O preventDefault vale mesmo com o slot vazio: F1 abre a ajuda do
+        // navegador e F11 põe em tela cheia, e ambos no meio de uma luta são
+        // pior do que não fazer nada.
+        ev.preventDefault();
+        if (id) castSpellId(id);
       }
     }
   });

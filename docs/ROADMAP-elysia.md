@@ -463,7 +463,7 @@ derivada de quem está conectado. Detalhes e o porquê de cada escolha em `SCHEM
 1. **Habilidades Gerais + linhas de maestria por família**, cada uma com 1H/2H.
 2. **As 7 skills que faltam ao Warrior.**
 3. **Magic Level e Fist** como proficiências.
-4. 🔴 **Assassin:** Ataque Duplo (35 % → **80 %** do Lv.1 ao 10) — **1 adaga = golpe extra
+4. ✅ **Assassin (feito em 2026-09-03 — 14 habilidades):** Ataque Duplo (35 % → **80 %** do Lv.1 ao 10) — **1 adaga = golpe extra
    integral (200 %)** · **2 adagas = golpe extra a 50 %** · **Katar sem Ataque Duplo**
    (crítico + Sonic Blow) · **anti-cascata**: Ataque Duplo não gera outro.
 5. 🔴 **Archer:** 5 configurações (Arco Curto+escudo · Arco Longo · Besta Leve+escudo ·

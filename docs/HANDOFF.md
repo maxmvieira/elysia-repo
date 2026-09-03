@@ -1,3 +1,125 @@
+# Handoff — estado do projeto em 2026-09-03 (madrugada)
+
+## ⏸️ ONDE PARAMOS — barra configurável e o Assassino
+
+> Typecheck limpo nos 3 pacotes, **601 testes** (eram 579). `npm run dev:test` →
+> `localhost:5173` (o `dev:test` liga `/level`, `/sp`, `/gold`, `/heal`).
+>
+> ⚠️ **Continua sem passada humana.** Confirmei o layout da barra medindo o DOM
+> (604 × 106 px = 12 × 2) e os 14 ícones novos no navegador; não entro com senha.
+
+### ⌨️ A BARRA VIROU 24 SLOTS, E É ARRASTÁVEL
+
+Pedido do dono: *"preciso de mais atalhos para colocar todas as magias, além de
+que se eu clicar e arrastar a magia para o slot do atalho ela tem que
+substituir a que está nele"*.
+
+| | |
+|---|---|
+| **24 slots** em duas fileiras de 12 | eram 8 — número da época em que só o Knight tinha habilidades |
+| **F1–F12** na fileira de cima, **⇧F1–⇧F12** na de baixo | Shift é o único modificador que não briga com o sistema (Ctrl+F4 fecha aba, Alt+F4 fecha janela) |
+| **Arrastar da janela → slot** substitui | e esvazia o slot antigo se a magia já estava noutro |
+| **Arrastar slot → slot** TROCA os dois | copiar deixaria a mesma magia em dois lugares e um buraco |
+| **Botão direito** esvazia | par natural do arrastar; sem ele não dá para deixar espaço em branco de propósito |
+| Guardado **por personagem** em `localStorage` | ⚠️ trocar de navegador devolve ao padrão da classe — ver a decisão em `salvaBarra` |
+
+🔴 **O padrão de cada classe agora traz TUDO que se conjura**, na ordem da
+árvore. Passivas continuam fora: o slot delas seria um botão que responde "já
+está ativa".
+
+⚠️ **Duas armadilhas que já morderam neste arquivo:** o `#spellgrip` (pegador de
+arrastar) não pode ser levado junto quando a barra é remontada — a barra ficaria
+presa no centro para sempre, sem erro nenhum. E o regex das teclas era
+`F([1-9])`, que deixava F10, F11 e F12 mudos, que é justamente onde as magias
+grandes ficam agora.
+
+### 🗡️ O ASSASSINO — 14 HABILIDADES, EM TRÊS NÍVEIS DE CONFIANÇA
+
+🔴 **Leia isto antes de mexer em qualquer número dele.** O cap. 68 é o **menos
+fechado das cinco classes**, e os ramos existem para tornar isso visível:
+
+| Ramo | Estado no doc |
+|---|---|
+| 🗡️ **Lâminas** (5) | **canônico** — tabela exata do Ataque Duplo, regras de adaga/katar numeradas |
+| ⚔️ **Espada Curta** (4) | ⚠️ `DD-ASS-015` **PROPOSTA** — os nomes existem, os números não |
+| 🎯 **Arremesso** (5) | ⚠️ `DD-ASS-014` **PROPOSTA** — idem |
+
+⚠️ **A exceção de 30/07 (`PROPOSTA` não bloqueia) vale só para os Docs 3 e 4.**
+Estas são do Doc 1. Entraram a pedido do dono, com a regra aplicada à risca:
+estrutura sim, número inventado marcado `⚠️ REFERÊNCIA`, e o aviso "PROPOSTA no
+doc" aparece **no tooltip do jogador**, não só no código. Há teste guardando
+esse aviso.
+
+⚠️ **Um nome é invenção nossa: "Ocultar"** — o doc trata furtividade como
+conceito e nunca nomeia a habilidade. É o "Sopro Vital" desta classe.
+
+**O que é canônico e está implementado de verdade:**
+- **Ataque Duplo**, com a tabela 35 %→80 % literal, em `DOUBLE_ATTACK_CHANCE`.
+  Age no ataque BÁSICO, e a anti-cascata (`DD-ASS-007`) é **estrutural**: a
+  função não chama a si mesma nem `playerAttack`.
+- `DD-ASS-003` adaga+escudo → extra de **100 %** (o proc rende 200 %).
+- `DD-ASS-004/005` duas adagas → **50 %** cada.
+- `DD-ASS-006` duas mãos → **zero**.
+
+🔴 **MAS: empunhadura dupla NÃO É EQUIPÁVEL hoje.** `offhand` existe em
+`grip.ts` e **nenhum código do projeto o preenche** — `EquipSlot` tem nove
+slots e nenhum é segunda arma. A regra do dual está implementada e testada, e
+**não tem como disparar em jogo** até alguém criar o slot. Está dito em
+`equippedForGrip`.
+
+**Furtividade entrou de verdade**, e fechou um par que estava pela metade: a
+Chama de Revelação do Feiticeiro nasceu ontem sem nada para revelar; agora
+arranca o Assassino da sombra. `70.42` em pé — *"counter com counterplay"*.
+Atacar quebra a furtividade (decisão nossa, sem ela a Chama nunca teria alvo).
+
+### 🔴 Um acoplamento consertado no caminho
+
+`magic` e `damageType` respondem perguntas diferentes — **de qual ATAQUE o
+poder sai** e **contra qual DEFESA ele bate** — e o servidor estava roteando o
+dano pelo campo errado. A Kunai Envenenada é física na origem e de veneno no
+dano, e passava pela armadura física em vez da resistência a veneno.
+
+O erro apareceu porque o Lançamento Fantasma nasceu com `magic: true`, o que o
+faria escalar com INT — e o Assassino tem **INT 3**. Ficaria inútil com cara de
+implementado. Foi um teste que pegou.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Jogar.** Nada das duas sessões foi jogado. Lista abaixo.
+2. ⏳ **Slot de segunda arma** — destrava metade do Ataque Duplo (`DD-ASS-004/005`)
+   e a build de duas adagas inteira.
+3. ⏳ **Munição** (shuriken ~40, proficiência reduz a perda). Hoje as habilidades
+   de arremesso custam **mana**, que é substituição provisória.
+4. ⏳ **Archer** (12 skills, Etapa 13) — é a única classe ainda sem árvore.
+5. ⏳ **"Cura como arma"** (Etapa 15): energia vital fere morto-vivo, vampiro e
+   demônio. Exige etiqueta de família em `CreatureDef` — 77 espécies.
+6. ⏳ Sprite do palco · sprites base M/F · token de sessão · sistema de GUARDA.
+
+## ⚠️ O QUE PRECISA DE UMA PASSADA HUMANA
+
+Acumulado das duas sessões, em ordem de risco:
+
+- **A barra:** arrastar da janela para um slot ocupado (tem que substituir),
+  arrastar slot→slot (tem que trocar), botão direito (esvaziar), e conferir que
+  a arrumação **volta igual depois de recarregar a página**.
+- **Shift+F1..F12** dispara a segunda fileira; **F11 não pode** pôr em tela cheia.
+- **Ataque Duplo:** criar Assassino, `/lvl 30`, subir a passiva, equipar **adaga
+  e escudo** e bater. Deve sair o dobro com frequência visível (80 % no Lv.10).
+- **Ocultar:** ativar perto de um monstro que ainda não te viu — ele não deve
+  puxar. Atacar tem que quebrar, com aviso no chat.
+- **Curar** (Druida): F1 sem alvo cura você mesmo, com 1 s de conjuração.
+- **Andar no meio de uma conjuração** cancela.
+- **Esporos Venenosos:** confirmar que o veneno TIRA VIDA (bug silencioso já
+  corrigido uma vez aqui).
+- **Muralha de Gelo:** bloqueia passagem de verdade.
+- **Cajado do Feiticeiro:** corpo a corpo, sem mana, fraco.
+- ⚠️ **Precisa de duas janelas:** curar/buffar outro jogador, e a Chama de
+  Revelação achando um Assassino oculto.
+
+---
+
 # Handoff — estado do projeto em 2026-09-03 (noite)
 
 ## ⏸️ ONDE PARAMOS — o Druida e o Feiticeiro têm magia

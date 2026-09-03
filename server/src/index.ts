@@ -137,6 +137,16 @@ import {
   skillHits,
   skillModifiers,
   skillsOfClass,
+  hasEffect,
+  resolveHold,
+  doubleAttackChance,
+  doubleAttackExtra,
+  envenomChance,
+  envenomPower,
+  counterAttackShare,
+  type Equipped,
+  ENVENOM_POISON_MS,
+  HIDDEN_STRIKE_BONUS,
   HOT_PULSES,
   MAGIC_PROTECTION_MANA_PER_HP,
   type DefenseProfile,
@@ -2817,6 +2827,113 @@ function playerAttack(player: Player, creature: Creature, now: number): void {
     });
   }
   damageCreature(player, creature, dmg, crit, now);
+
+  // 🥷 Atacar SEMPRE quebra a furtividade — antes dos extras, para o golpe
+  // seguinte já sair descoberto.
+  quebraFurtividade(player);
+  // ☠️ Lâmina untada: o veneno entra no golpe básico, não numa habilidade.
+  aplicaEnvenom(player, creature, now);
+  // 🗡️ E por último o Ataque Duplo, que é um golpe a mais do mesmo tipo.
+  ataqueDuplo(player, creature, power, now);
+}
+
+/**
+ * Como o personagem SEGURA o que está equipado, na forma que `resolveHold` lê.
+ *
+ * 🔴 **`offhand` fica vazio, e não é esquecimento.** `EquipSlot` tem nove
+ * slots e **nenhum é segunda arma** — `offhand` existe em `grip.ts` e nenhum
+ * código do projeto o preenche. Na prática, hoje `resolveHold` só devolve
+ * `one_hand` ou `two_hand`.
+ *
+ * ⚠️ **A consequência para o Assassino é grande e precisa estar dita:** a regra
+ * `DD-ASS-004/005` (duas adagas, golpe extra de 50 % cada) está implementada e
+ * testada em `doubleAttackExtra`, mas **não tem como disparar em jogo** até
+ * alguém criar o slot de segunda arma. O que funciona hoje é o caminho
+ * `DD-ASS-003`: adaga com escudo, golpe extra de 100 %.
+ *
+ * Deixar assim é melhor do que fingir: o dia em que o slot existir, o Ataque
+ * Duplo já sabe o que fazer com ele.
+ */
+function equippedForGrip(player: Player): Equipped {
+  const arma = equippedWeapon(player);
+  // `hands` do ITEM vence o padrão do tipo (`handsOf` cuida disso). É o que
+  // permite uma espada específica ser de duas mãos sem mudar a família inteira.
+  const maos = arma ? getItem(arma.stack.kind)?.hands : undefined;
+  const escudo = player.equipment.shield;
+  return {
+    ...(arma ? { weapon: arma.identity.type } : {}),
+    ...(maos ? { hands: maos } : {}),
+    shield: escudo !== undefined && escudo !== null,
+  };
+}
+
+/**
+ * 🗡️ **ATAQUE DUPLO** — a mecânica central do Assassino (`DD-ASS-003/004/005/
+ * 006/007`).
+ *
+ * 🔴 **A anti-cascata é estrutural, não uma flag.** `DD-ASS-007` proíbe um
+ * Ataque Duplo gerar outro, e a garantia aqui é que esta função **não chama a
+ * si mesma nem `playerAttack`**: ela aplica o dano direto. Com 80 % de chance
+ * no Lv.10, uma versão recursiva daria cinco golpes com alguma frequência.
+ */
+function ataqueDuplo(player: Player, creature: Creature, powerBase: number, now: number): void {
+  if (!creature.alive) return;
+  const nivel = skillLevelOf(player.skillLevels, 'double_attack');
+  if (nivel <= 0) return;
+  const arma = equippedWeapon(player);
+  const hold = resolveHold(equippedForGrip(player));
+  const extra = doubleAttackExtra(hold.grip, arma?.identity.type);
+  if (extra <= 0) return; // katar e qualquer arma que não seja adaga
+  if (Math.random() >= doubleAttackChance(nivel)) return;
+
+  const d = player.derived;
+  const tipo = playerDamageType(player);
+  // 🔴 Com DUAS adagas o proc rende dois golpes de 50 % — é o "numa sequência
+  // favorável saem 4 hits" do doc. Com adaga e escudo, um golpe de 100 %.
+  const golpes = hold.grip === 'dual' ? 2 : 1;
+  for (let i = 0; i < golpes; i++) {
+    if (!creature.alive) break;
+    const { amount, crit } = computeHit(powerBase * extra, d.critChance, d.critMult);
+    const dano = resolveDamage(
+      amount, tipo, creatureDefenseProfile(creature, now, player, tipo !== 'physical'),
+    ).amount;
+    applyLifeSteal(player, dano);
+    damageCreature(player, creature, dano, crit, now);
+  }
+  broadcastFloor(player.floor, {
+    t: 'fx', kind: 'double_attack', x: creature.tileX, y: creature.tileY, floor: player.floor,
+  });
+}
+
+/** ☠️ Envenenar Arma: o golpe básico tenta envenenar enquanto o buff durar. */
+function aplicaEnvenom(player: Player, alvo: Player | Creature, now: number): void {
+  if (!hasEffect(player.effects, 'envenom')) return;
+  const nivel = skillLevelOf(player.skillLevels, 'envenom');
+  if (nivel <= 0) return;
+  applyConditionTo(
+    alvo, 'poison', envenomChance(nivel), ENVENOM_POISON_MS, now,
+    envenomPower(nivel), player.id,
+  );
+}
+
+/**
+ * 🥷 Sai da furtividade, se estiver nela.
+ *
+ * 🔴 **Atacar quebra, e isso é decisão nossa** — o doc descreve o combo
+ * (*"aproxima furtivo → ataca → recua"*) mas não escreve a regra. Sem ela, o
+ * Assassino atacaria para sempre de dentro da invisibilidade e a Chama de
+ * Revelação do Feiticeiro nunca teria o que revelar.
+ */
+function quebraFurtividade(player: Player): void {
+  if (!hasEffect(player.effects, 'hide')) return;
+  player.effects = removeEffect(player.effects, 'hide');
+  recompute(player);
+  send(player, { t: 'chat', from: 'Sistema', text: 'Você saiu da furtividade.' });
+}
+
+/** O jogador está oculto agora? */
+function estaOculto(player: Player): boolean {
+  return hasEffect(player.effects, 'hide');
 }
 
 /**
@@ -3029,6 +3146,9 @@ function tickCasting(now: number): void {
  */
 function executeSpell(player: Player, def: SkillDef, now: number, targetId: string | null): void {
   const nivel = skillLevelOf(player.skillLevels, def.id);
+  // 🥷 Lido AQUI, antes de qualquer coisa: o Ataque Oculto quebra a própria
+  // furtividade que o bonifica, então perguntar depois daria sempre "não".
+  const estavaOculto = estaOculto(player);
   const custoMana = skillManaCost(def, nivel);
   // A mana é reconferida aqui: durante uma conjuração de 3 s ela pode ter sido
   // gasta em outra coisa, ou drenada.
@@ -3080,6 +3200,33 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
     return;
   }
 
+  /**
+   * ✨🥷 **A Chama de Revelação finalmente tem o que revelar.**
+   *
+   * Ela entrou em 03/09 com a estrutura pronta e nada para detectar — a
+   * furtividade não existia. Com o Assassino, o par que `70.42` descreve fecha:
+   * *"não é detecção permanente — é **counter com counterplay**"*. O Feiticeiro
+   * gasta um cooldown de 15 s para arrancar o Assassino da sombra; o Assassino
+   * pode se ocultar de novo.
+   *
+   * ⚠️ Continua sem revelar **armadilha** e **monstro invisível**: nenhum dos
+   * dois existe ainda (Etapas 13 e 16).
+   */
+  if (def.id === 'revealing_flame') {
+    const raio = skillRange(def, nivel);
+    for (const p of players.values()) {
+      if (!p.joined || !p.alive || p.floor !== player.floor) continue;
+      if (ehAliado(player, p) || !estaOculto(p)) continue;
+      if (chebyshev(player.tileX, player.tileY, p.tileX, p.tileY) > raio) continue;
+      p.effects = removeEffect(p.effects, 'hide');
+      recompute(p);
+      send(p, { t: 'chat', from: 'Sistema', text: `${player.name} revelou sua posição!` });
+      broadcastFloor(p.floor, {
+        t: 'fx', kind: 'reveal', x: p.tileX, y: p.tileY, floor: p.floor,
+      });
+    }
+  }
+
   // --- Cura, HoT e buff: miram ALIADO ---------------------------------------
   if (def.kind === 'heal' || def.kind === 'hot'
     || (def.kind === 'buff' && def.shape !== 'area')) {
@@ -3123,6 +3270,9 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
   player.mana -= custoMana;
   player.spellReadyAt[def.id] = now + def.cooldownMs;
   send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
+  // 🥷 Qualquer habilidade OFENSIVA quebra a furtividade — o bônus do Ataque
+  // Oculto já foi lido em `estavaOculto`, no topo da função.
+  quebraFurtividade(player);
 
   // Provocar não causa dano: só arranca o aggro da criatura para o Knight.
   if (def.kind === 'taunt') {
@@ -3209,8 +3359,18 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
   const afinidade = benefitsFromNatureAffinity(def)
     ? 1 + natureAffinityBonus(skillLevelOf(player.skillLevels, 'nature_affinity'))
     : 1;
+  /**
+   * 🥷 **Ataque Oculto: o pagamento por ter gasto a furtividade.** Sem este
+   * bônus, "Ataque Oculto" seria só mais um arremesso com nome bonito — e o
+   * combo que o doc descreve (*"aproxima furtivo → ataca"*) não teria motivo
+   * mecânico nenhum para existir.
+   *
+   * A leitura da furtividade é AQUI, antes do golpe: o `quebraFurtividade` de
+   * baixo derruba o estado, então ler depois daria sempre 1×.
+   */
+  const oculto = def.id === 'hidden_strike' && estavaOculto ? HIDDEN_STRIKE_BONUS : 1;
   const poderBase = ataque * skillPower(def, nivel) * offenseMult(player)
-    * bonusEquip * sabor * afinidade;
+    * bonusEquip * sabor * afinidade * oculto;
 
   /**
    * 🔴 `DD-SOR-010` **os meteoros caem em posições parcialmente aleatórias**:
@@ -3241,10 +3401,22 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
         c.defBreakUntil = now + def.durationMs;
         c.defBreakPct = ruptureDefReduction(nivel);
       }
-      const dano = def.magic
+      /**
+       * 🔴 **Quem decide a rota do dano é o `damageType`, não o `magic`.**
+       *
+       * Os dois campos respondem perguntas diferentes — `magic` diz de qual
+       * ATAQUE o poder sai, `damageType` diz contra qual DEFESA ele bate — e
+       * até aqui a rota olhava o campo errado. A consequência aparecia numa
+       * habilidade só: a Kunai Envenenada é física na origem e de VENENO no
+       * dano, e passava pela armadura física em vez da resistência a veneno.
+       *
+       * Agora qualquer golpe não-físico vai pela resolução elemental, venha o
+       * poder de onde vier.
+       */
+      const tipo = def.damageType ?? 'physical';
+      const dano = def.magic || tipo !== 'physical'
         ? Math.max(1, Math.round(resolveDamage(
-          amount, def.damageType ?? 'physical',
-          creatureDefenseProfile(c, now, player, (def.damageType ?? 'physical') !== 'physical'),
+          amount, tipo, creatureDefenseProfile(c, now, player, tipo !== 'physical'),
         ).amount))
         : Math.max(1, Math.round(amount - creatureDefense(c, now, player)));
       applyLifeSteal(player, dano);
@@ -3817,7 +3989,40 @@ function creatureAttack(creature: Creature, player: Player, now: number): void {
   if (fatal) {
     killPlayer(player, creature.name);
     bossTriumph(creature);
+    return;
   }
+  // ⚔️ Contra-ataque: quem apanhou devolve, se estiver com a janela aberta.
+  // Só depois de confirmar que sobreviveu — cadáver não revida.
+  if (!dodged && dmg > 0) contraAtaca(player, creature, now);
+}
+
+/**
+ * ⚔️ Devolve uma fração do ataque a quem acabou de bater no jogador.
+ *
+ * ⚠️ **A janela não é consumida pelo revide.** Ela dura o tempo dela e devolve
+ * em TODO golpe recebido — é o que a torna uma resposta a ser cercado, e não um
+ * escudo de um golpe só. `PROPOSTA` no doc; a leitura é nossa.
+ *
+ * ⚠️ Não dispara em esquiva nem em golpe de 0: contra-atacar o que não te
+ * acertou seria dano de graça.
+ */
+function contraAtaca(player: Player, creature: Creature, now: number): void {
+  if (!hasEffect(player.effects, 'counter_attack')) return;
+  if (!creature.alive || creature.floor !== player.floor) return;
+  const nivel = skillLevelOf(player.skillLevels, 'counter_attack');
+  if (nivel <= 0) return;
+  // Só a curta distância: o contra-ataque é físico, e devolver golpe num
+  // arqueiro a cinco tiles não é contra-atacar, é teleportar dano.
+  if (chebyshev(player.tileX, player.tileY, creature.tileX, creature.tileY) > 1) return;
+
+  const d = player.derived;
+  const poder = d.physAtk * offenseMult(player) * counterAttackShare(nivel);
+  const { amount, crit } = computeHit(poder, d.critChance, d.critMult);
+  const dano = Math.max(1, Math.round(amount - creatureDefense(creature, now, player)));
+  broadcastFloor(player.floor, {
+    t: 'fx', kind: 'counter_attack', x: creature.tileX, y: creature.tileY, floor: player.floor,
+  });
+  damageCreature(player, creature, dano, crit, now);
 }
 
 /**
@@ -5639,6 +5844,14 @@ function nearestPlayerTo(c: Creature): Player | null {
   let bestDist = Infinity;
   for (const p of players.values()) {
     if (!p.joined || !p.alive || p.floor !== c.floor) continue;
+    // 🥷 FURTIVIDADE: o oculto não é visto, então não é escolhido como alvo.
+    //
+    // ⚠️ Isto NÃO tira a criatura que já estava brigando com ele — quem estava
+    // em cima do Assassino continua (ver `updateCreatures`, que só larga o alvo
+    // por distância). Ocultar-se com um monstro grudado não deve apagá-lo do
+    // mapa; serve para chegar perto de quem ainda não te viu, que é o combo que
+    // o doc descreve.
+    if (estaOculto(p)) continue;
     const d = chebyshev(c.tileX, c.tileY, p.tileX, p.tileY);
     if (d < bestDist) { bestDist = d; best = p; }
   }

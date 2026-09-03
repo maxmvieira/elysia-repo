@@ -100,6 +100,11 @@ export class NetClient {
   }
 
   /** Entra no mundo com um personagem da conta. */
+  /** Personagem em jogo, ou `null` fora dele. Usado para guardar HUD por personagem. */
+  get charId(): number | null {
+    return this.characterId;
+  }
+
   enterGame(characterId: number): void {
     this.characterId = characterId;
     this.send({ t: 'hello', protocol: PROTOCOL_VERSION, characterId });
