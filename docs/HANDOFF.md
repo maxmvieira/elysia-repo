@@ -1,3 +1,100 @@
+# Handoff — estado do projeto em 2026-09-02 (noite)
+
+## ⏸️ ONDE PARAMOS — três coisas novas na porta de entrada
+
+> Typecheck limpo nos 3 pacotes, **497 testes**. `npm run dev` → `localhost:5173`.
+>
+> ⚠️ **Nada aqui foi testado por um jogador de verdade ainda.** Eu não entro com
+> senha, então validei por unidade e no navegador com a tela forçada. Os três
+> fluxos abaixo precisam de uma passada humana.
+
+### 1. 🔴 A CLASSE NÃO DECIDE MAIS OS ATRIBUTOS
+
+Todo atributo nasce em **1** e o jogador reparte **38 pontos** na criação, como
+quiser. A regra mora em `shared/src/stats.ts` e o **servidor revalida** com a
+mesma função (`checkAttributes`) — quem monta o `createchar` é o cliente, e
+atributo é permanente.
+
+⚠️ **A soma continua sendo os 45 do GDD §4, e isso foi decisão do dono.** Ele
+pediu "30 pontos"; 30 sobre sete uns daria 37, 18 % abaixo do documento e do
+personagem que o jogo criava antes. Com 38 a liberdade é a mesma e o teste
+`toda classe começa com os mesmos 45 pontos-base` continua valendo.
+
+⚠️ **Na criação o ponto é PLANO (1 = +1).** A `ATTRIBUTE_COST_TABLE` (2 por +1)
+segue valendo da subida de nível em diante, onde existe para frear build extrema.
+
+🔴 **`ClassDef.base` não morreu** — virou a distribuição *sugerida*. Ela continua
+sendo a âncora de `hpAt1`/`manaAt1` no `computeStats`, e é o que o teste confere.
+
+⚠️ A tela mostra **prévia de vida e mana ao vivo**, e ela não é enfeite: o mesmo
+Knight vai de **128 a 432 de vida** conforme a distribuição. Descobrir isso
+jogando, com o nome já definitivo, seria cruel.
+
+### 2. 🔴 EXCLUSÃO DE PERSONAGEM, COM 24 H PARA DESISTIR
+
+| | |
+|---|---|
+| Banco | migração **v10**: coluna `delete_at`. Nulo = vivo |
+| Senha | reconferida no servidor, com a sessão já autenticada |
+| Prazo | `DELETE_GRACE_MS` no `shared` — a tela mostra a contagem |
+| Quem apaga | `varreExcluidos`, comparando com o relógio |
+
+🔴 **Nada é apagado na hora: o pedido só grava o instante.** É isso que faz o
+prazo sobreviver a reinício do servidor — não depende de nenhum `setTimeout` ter
+ficado vivo. O varredor **roda no boot**, e esse é o caso que mais importa:
+servidor desligado a noite inteira acorda com prazos vencidos.
+
+⚠️ O personagem **continua na lista** com o prazo correndo, riscado, e o botão
+vira **Cancelar**. Some da lista e o jogador não teria de onde desistir.
+
+Duas travas: personagem **em jogo não pode ser marcado** (o prazo venceria com
+alguém dentro dele), e o `account_id` entra no `WHERE` — sem ele, qualquer conta
+autenticada marcaria o personagem alheio mandando um id qualquer.
+
+### 3. A TELA DE ENTRADA
+
+Três colunas — lore, login, servidor — sobre um vídeo em loop. **Os ids não
+mudaram** (`userin`, `passin`, `loginbtn`…), então a tela foi trocada sem tocar em
+uma linha da lógica de autenticação.
+
+⚠️ **UM servidor só**, por decisão do dono. E o **status é real**: sai do
+websocket. Um "Online" fixo mentiria justamente quando o servidor caiu — o
+jogador ficaria tentando entrar e culpando a própria senha.
+
+🔴 **Três imposições do navegador tratadas no vídeo**, e a terceira liga no bug
+que o irmão caçou hoje:
+
+1. `autoplay` **não pega em elemento escondido** — a tela nasce `display: none`,
+   então quem manda tocar é o `showScreen`.
+2. **Vídeo com som nunca toca sozinho.** Começa mudo.
+3. **`play()` pode rejeitar**, e sem `.catch` isso vira erro solto — que nesta
+   tela é exatamente o que produzia a página preta e muda.
+
+🔴 **O som NÃO se liga sozinho**, decisão do dono depois de ouvir. A única forma
+é o alto-falante no canto. ⚠️ Mesmo com a preferência gravada, o navegador não
+deixa a música voltar sozinha na visita seguinte: a política de mídia exige um
+gesto por carregamento. O que a preferência muda é só o rótulo do botão.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. ⏳ **Magias das outras classes.** O dono pediu junto com a tela de criação e
+   ficou para depois. Hoje só o Feiticeiro tem `spellCost` > 0.
+2. ⏳ **Sprites base masculina e feminina.** Os dois packs (CraftPix 419402 e
+   555940) estão em `~/Downloads`, **não entraram no repo ainda**.
+3. ⏳ **O sistema de GUARDA** continua parado no mesmo lugar — ver o bloco de
+   02/09 (manhã). A arte está pronta, os seis guardas estão na ficha **sem
+   spawn**, e falta o servidor saber criatura-ataca-criatura.
+
+## ⚠️ Peso
+
+A tela de entrada somou **11 MB** ao repositório (vídeo 8,4 + imagem 2,5). É a
+primeira coisa que baixa quem abre o jogo. O `.webp` da imagem e um vídeo mais
+curto cortariam isso muito, se um dia incomodar.
+
+---
+
 # Handoff — 2026-09-02, sessão da noite (o link para jogar de fora)
 
 ## ⏸️ ONDE PARAMOS — a TELA PRETA do jogador remoto, ainda em aberto
