@@ -592,6 +592,254 @@
         max-height: 46vh;
         overflow-y: auto;
       }
+      /* ---- TELA DE ENTRADA (02/09) ------------------------------------- */
+      /*
+       * 🔴 Estas regras VÊM DEPOIS do bloco compartilhado com `#charselect` de
+       * propósito: elas sobrescrevem o `flex-direction: column` centralizado que
+       * as três telas de autenticação dividem. Mover este bloco para cima
+       * desmonta o layout de três colunas.
+       */
+      #login {
+        display: none; /* o JS liga; o padrão continua escondido */
+        padding: 0;
+        background: #07060a;
+      }
+      /*
+       * A arte fica numa camada PRÓPRIA, e não no `background` do `#login`.
+       *
+       * ⚠️ Assim ela pode escurecer sem levar junto o texto: o gradiente do
+       * ::after passa por cima da foto e por baixo do conteúdo. Com tudo na
+       * mesma camada, escurecer o fundo apagaria as letras.
+       */
+      #loginbg {
+        position: absolute;
+        inset: 0;
+        /*
+         * A imagem saiu daqui em 02/09: quem desenha o fundo agora é o
+         * `#loginvid`. O que fica é o gradiente de base, que preenche a sobra
+         * nas beiradas — sem ele seria barra preta chapada.
+         */
+        background: radial-gradient(circle at 50% 35%, #16151f, #07060a 70%);
+        background-color: #07060a;
+        z-index: 0;
+        overflow: hidden;
+      }
+      /*
+       * 🔴 `cover`, a pedido do dono: *"quero que ele seja mais estendido"*. O
+       * vídeo PREENCHE a tela, sem faixa escura em cima e embaixo.
+       *
+       * ⚠️ Isto reverte a escolha que a IMAGEM parada tinha feito minutos antes
+       * — lá o `cover` estourava. A diferença é a proporção: a imagem tinha
+       * 1672×941 e o vídeo tem 2544×1456 (bem mais largo), então o corte que o
+       * `cover` faz aqui é pequeno e cai nas bordas, não no meio da cena.
+       */
+      #loginvid {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        /* Sem isto o vídeo captura o clique e a tela inteira vira um player. */
+        pointer-events: none;
+      }
+      #loginbg::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(7, 6, 10, 0.55), rgba(7, 6, 10, 0.82));
+      }
+      #loginwrap {
+        position: relative;
+        z-index: 1;
+        width: min(1180px, 96vw);
+        max-height: 100vh;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+        padding: 24px 0;
+      }
+      #loginmark {
+        text-align: center;
+        line-height: 1;
+      }
+      #loginmark h1 {
+        margin: 0;
+        font-size: 46px;
+        letter-spacing: 10px;
+        color: #e8cd8f;
+        text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+      }
+      #loginmark span {
+        font-size: 13px;
+        letter-spacing: 8px;
+        color: #b9a173;
+      }
+      #logincols {
+        display: grid;
+        /* Coluna do meio fixa: o cartão de entrada não pode encolher. */
+        grid-template-columns: 1fr 340px 1fr;
+        gap: 26px;
+        align-items: start;
+        width: 100%;
+      }
+      #loginlore,
+      #loginsrv,
+      #logincard {
+        background: rgba(10, 9, 14, 0.72);
+        border: 1px solid #3b3630;
+        border-radius: 6px;
+        padding: 18px 20px;
+        backdrop-filter: blur(2px);
+      }
+      #loginlore h3,
+      #loginsrv h3 {
+        margin: 0 0 10px;
+        font-size: 12px;
+        letter-spacing: 3px;
+        color: #c9a86a;
+        text-align: center;
+      }
+      #loginlore p {
+        margin: 0 0 10px;
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: #cfc6b6;
+        text-align: center;
+      }
+      #logincard {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      #logincard h2 {
+        margin: 0 0 4px;
+        text-align: center;
+        font-size: 16px;
+        letter-spacing: 5px;
+      }
+      #logincard input {
+        width: auto; /* anula os 260px fixos do bloco compartilhado */
+        text-align: left;
+        padding: 10px 12px;
+        background: rgba(20, 18, 15, 0.9);
+      }
+      #loginbtn {
+        padding: 10px;
+        font-size: 14px;
+        letter-spacing: 2px;
+        background: linear-gradient(#2a4a7a, #1b3153);
+        border: 1px solid #4a6a9a;
+        color: #e8e2d5;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #loginbtn:hover {
+        background: linear-gradient(#345a92, #223c66);
+      }
+      #regbtn {
+        padding: 9px;
+        font-size: 13px;
+        letter-spacing: 2px;
+        background: transparent;
+        border: 1px solid #6a5a3a;
+        color: #c9a86a;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #regbtn:hover {
+        background: rgba(201, 168, 106, 0.1);
+      }
+      /* O "OU" com um filete de cada lado, como na arte. */
+      .loginou {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #8a8272;
+        font-size: 11px;
+      }
+      .loginou::before,
+      .loginou::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #3b3630;
+      }
+      .srvhead {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10.5px;
+        color: #8a8272;
+        padding: 0 6px 6px;
+        border-bottom: 1px solid #3b3630;
+      }
+      .srvrow {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 6px;
+        font-size: 12.5px;
+        color: #cfc6b6;
+      }
+      .srvrow.sel {
+        background: rgba(201, 168, 106, 0.08);
+      }
+      .srvstatus {
+        font-size: 11.5px;
+        color: #8a8272;
+      }
+      .srvstatus.on {
+        color: #7fbf6b;
+      }
+      .srvstatus.off {
+        color: #d98a7a;
+      }
+      #loginsom {
+        position: absolute;
+        top: 14px;
+        right: 16px;
+        width: 34px;
+        height: 34px;
+        font-size: 15px;
+        background: rgba(10, 9, 14, 0.72);
+        border: 1px solid #3b3630;
+        border-radius: 4px;
+        color: #c9a86a;
+        cursor: pointer;
+      }
+      #loginsom:hover { background: rgba(201, 168, 106, 0.14); }
+      #loginfoot {
+        font-size: 11px;
+        color: #6a6458;
+      }
+      /* Tela estreita: as três colunas viram uma, e a lore some primeiro. */
+      @media (max-width: 900px) {
+        #logincols {
+          grid-template-columns: 1fr;
+        }
+        #loginlore {
+          display: none;
+        }
+      }
+      /* ---- Exclusão de personagem (02/09) ------------------------------ */
+      .charrow .cnome { flex: 1; min-width: 0; }
+      .charrow .cdel {
+        padding: 3px 10px;
+        font-size: 11px;
+        background: #2a1c1a;
+        color: #d98a7a;
+        border: 1px solid #5a3a34;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      .charrow .cdel:hover { background: #3a2420; }
+      /* Marcado: a linha inteira avisa, não só o botão. */
+      .charrow.marcado { border-color: #5a3a34; background: #1d1512; }
+      .charrow.marcado .cnome b { color: #d98a7a; text-decoration: line-through; }
+      .charrow .prazo { display: block; color: #d98a7a; font-size: 10.5px; }
+      /* Cancelar não é destrutivo: deixa de ser vermelho. */
+      .charrow.marcado .cdel { background: #1c2a1c; color: #8fbf7a; border-color: #3a5a34; }
       .charrow {
         display: flex;
         align-items: center;
@@ -649,6 +897,86 @@
         display: grid;
         grid-template-columns: repeat(2, 260px);
         gap: 12px;
+      }
+      /* ---- Distribuição de atributos na criação (02/09) ------------------ */
+      #ccattrs {
+        width: 532px; /* casa com a grade de classes: 2 × 260 + 12 de gap */
+        background: #16130f;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 10px 12px;
+      }
+      #ccattrs-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 8px;
+        font-size: 13px;
+        color: #c9a86a;
+      }
+      #ccattrs-head b {
+        font-size: 16px;
+      }
+      /* Sem pontos sobrando o número deixa de gritar: verde = pode criar. */
+      #ccattrs-head b.pronto {
+        color: #7fbf6b;
+      }
+      #ccattrs-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 4px 16px;
+      }
+      .ccrow {
+        display: flex;
+        /* 🔴 O wrap é o que joga o texto de efeito (.ae, com flex-base 100%) para
+           a linha de baixo. Sem ele, os dois nomes de atributo colidem. */
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 6px;
+        font-size: 12px;
+        margin-bottom: 2px;
+      }
+      .ccrow .an {
+        flex: 1;
+        color: var(--text);
+      }
+      .ccrow .av {
+        width: 22px;
+        text-align: right;
+        color: #e8d9b5;
+        font-weight: bold;
+      }
+      .ccrow button {
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        line-height: 1;
+        background: #241f18;
+        color: #d8cfbf;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      .ccrow button:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      /* O efeito de cada atributo, em cinza: ninguém decide build no escuro. */
+      .ccrow .ae {
+        flex: 0 0 100%;
+        margin: -2px 0 4px 0;
+        font-size: 10px;
+        color: #8a8272;
+      }
+      #ccattrs-prev {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+        font-size: 12px;
+        color: #8a8272;
+      }
+      #ccattrs-prev b {
+        color: #e8d9b5;
       }
       #starttag {
         margin: -6px 0 2px;
@@ -2523,26 +2851,112 @@
       <small id="deathby"></small>
       <small>Renascendo…</small>
     </div>
+    <!--
+      ---- TELA DE ENTRADA (02/09) -------------------------------------------
+
+      Três colunas sobre o cenário: lore à esquerda, entrada no meio, servidor à
+      direita. O desenho veio de uma arte que o dono trouxe.
+
+      🔴 **Os ids de dentro NÃO mudaram** (`userin`, `passin`, `loginbtn`,
+      `regbtn`, `loginerr`): o `main.ts` acha tudo por `getElementById`, então a
+      tela inteira foi trocada sem tocar em uma linha de lógica de autenticação.
+
+      ⚠️ **A arte de fundo é um encaixe vazio.** Solte o PNG em
+      `client/public/assets/ui/login-bg.png` e ele aparece; sem o arquivo, o CSS
+      cai num gradiente escuro e a tela continua utilizável.
+    -->
     <div id="login">
-      <h2>ELYSIA ONLINE</h2>
-      <p id="logintag">Um mundo persistente e vivo. Sua conta guarda o caminho.</p>
-      <input id="userin" placeholder="Usuário" maxlength="24" autocomplete="username" />
-      <input
-        id="passin"
-        type="password"
-        placeholder="Senha"
-        maxlength="64"
-        autocomplete="current-password"
-      />
-      <div class="autherr" id="loginerr"></div>
-      <div class="authrow">
-        <button id="loginbtn">Entrar</button>
-        <button id="regbtn">Criar conta</button>
+      <!--
+        🔴 O `poster` é a MESMA imagem que era o fundo antes, e não decoração:
+        ele aparece enquanto os 8 MB do vídeo carregam, e continua no lugar se o
+        vídeo falhar (formato não suportado, arquivo faltando, navegador com
+        mídia bloqueada). A tela nunca fica preta.
+
+        ⚠️ `muted` é OBRIGATÓRIO para o `autoplay` funcionar — navegador nenhum
+        toca vídeo com som sozinho. `playsinline` impede o iOS de abrir em tela
+        cheia por conta própria.
+      -->
+      <div id="loginbg">
+        <video
+          id="loginvid"
+          autoplay
+          muted
+          loop
+          playsinline
+          preload="auto"
+          poster="/assets/ui/login-bg.png"
+        >
+          <source src="/assets/ui/login-bg.mp4" type="video/mp4" />
+        </video>
       </div>
-      <p class="authhint">
-        Usuário: letras, números e _ (3 a 24). Senha: pelo menos 6 caracteres.
-      </p>
+      <div id="loginwrap">
+        <div id="loginmark">
+          <h1>ELYSIA</h1>
+          <span>O N L I N E</span>
+        </div>
+
+        <div id="logincols">
+          <!-- Lore: o texto que o dono escreveu na arte de referência. -->
+          <aside id="loginlore">
+            <h3>LORE DO MUNDO</h3>
+            <p>
+              Criado por Deus, sustentado pelo Heart e banhado pelo Aether, o
+              mundo de Elysia é um lugar de escolhas, conflitos e destinos
+              entrelaçados.
+            </p>
+            <p><i>A verdade existe.<br />Mas poucos a conhecem.</i></p>
+          </aside>
+
+          <section id="logincard">
+            <h2>LOGIN</h2>
+            <input id="userin" placeholder="USUÁRIO" maxlength="24" autocomplete="username" />
+            <input
+              id="passin"
+              type="password"
+              placeholder="SENHA"
+              maxlength="64"
+              autocomplete="current-password"
+            />
+            <div class="autherr" id="loginerr"></div>
+            <button id="loginbtn">ENTRAR</button>
+            <div class="loginou"><span>OU</span></div>
+            <button id="regbtn">CRIAR CONTA</button>
+            <p class="authhint">
+              Usuário: letras, números e _ (3 a 24). Senha: pelo menos 6 caracteres.
+            </p>
+          </section>
+
+          <!--
+            ⚠️ **UM servidor só, e é decisão do dono**: "não teremos todos estes
+            servidores, somente o principal". A lista da arte de referência tinha
+            sete, com população inventada.
+
+            🔴 E o status é REAL, não enfeite: sai do estado do websocket, que o
+            cliente já abre ao carregar. Um "Online" fixo mentiria justamente no
+            momento em que o jogador precisa da verdade — quando o servidor caiu.
+          -->
+          <aside id="loginsrv">
+            <h3>SERVIDOR</h3>
+            <div class="srvhead"><span>Servidor</span><span>Status</span></div>
+            <div class="srvrow sel">
+              <span class="srvname">◆ Elysia — Heartland</span>
+              <span class="srvstatus" id="srvstatus">Conectando…</span>
+            </div>
+          </aside>
+        </div>
+
+        <!-- Alto-falante: a ÚNICA forma de a música começar.
+             🔴 O som NÃO se liga sozinho (decisão do dono em 02/09, depois de
+             ouvir). O vídeo toca mudo; quem quiser música clica aqui. -->
+        <button id="loginsom" title="Ligar a música">🔇</button>
+        <div id="loginfoot">
+          <!-- ⚠️ Sem número de build inventado: a arte de referência trazia
+               "Versão 1.0.0 – Build #1000", que não existe em lugar nenhum. -->
+          <span id="loginver">Elysia Online — mundo persistente</span>
+        </div>
+      </div>
     </div>
+
     <div id="charselect">
       <h2>SEUS PERSONAGENS</h2>
       <div id="charlist"></div>
@@ -2558,6 +2972,22 @@
       <input id="namein" placeholder="Nome do aventureiro" maxlength="20" />
       <div class="autherr" id="nameerr"></div>
       <div id="classes"></div>
+      <!--
+        DISTRIBUIÇÃO DE ATRIBUTOS (02/09). Nasce escondido: só aparece depois de
+        a classe ser escolhida, porque a prévia de vida e mana depende dela.
+
+        🔴 A prévia existe por um motivo concreto: vida e mana no nível 1 saem de
+        VIT e INT. Um Knight que ignora VIT nasce com 128 de vida em vez de 200 —
+        e descobrir isso depois de criar, com o nome já definitivo, seria cruel.
+      -->
+      <div id="ccattrs" style="display: none">
+        <div id="ccattrs-head">
+          <span>Distribua seus pontos</span>
+          <b id="ccattrs-left">0</b>
+        </div>
+        <div id="ccattrs-list"></div>
+        <div id="ccattrs-prev"></div>
+      </div>
       <button id="playbtn" disabled>Escolha uma classe</button>
       <button id="backbtn">Voltar</button>
     </div>

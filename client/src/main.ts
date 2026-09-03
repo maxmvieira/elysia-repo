@@ -24,6 +24,11 @@ import {
   CREATURES,
   ATTRIBUTE_KEYS,
   attributeCost,
+  CREATION_POINTS,
+  startingAttributes,
+  checkAttributes,
+  computeStats,
+  type Attributes,
   CLASSES,
   RARITY,
   WEAPON_IDENTITY,
@@ -232,10 +237,85 @@ const screens = {
   create: () => el('start'),
 };
 
+/**
+ * ---- O VÍDEO DE FUNDO DA TELA DE ENTRADA (02/09) --------------------------
+ *
+ * 🔴 **Três coisas que o navegador impõe, e que este bloco existe para tratar:**
+ *
+ * 1. **`autoplay` não pega em elemento escondido.** A tela nasce
+ *    `display: none`, então o vídeo carrega pausado. Quem manda tocar é o
+ *    `showScreen`, quando a tela aparece de verdade.
+ * 2. **Vídeo com som NUNCA toca sozinho.** Ele começa mudo — a única forma de
+ *    autoplay permitida — e o som entra no PRIMEIRO gesto do jogador, que é o
+ *    que a política de mídia exige.
+ * 3. **`play()` devolve uma promessa que pode rejeitar** (aba em segundo plano,
+ *    mídia bloqueada por política). Sem o `.catch` isso vira erro não tratado no
+ *    console — e nesta tela, um erro solto é exatamente o que produzia a página
+ *    preta e muda que o irmão do dono caçou hoje.
+ */
+/** Onde fica gravado se o jogador quer a música. Padrão: NÃO. */
+const CHAVE_SOM = 'elysia_login_som';
+
+function querSom(): boolean {
+  try {
+    return localStorage.getItem(CHAVE_SOM) === '1';
+  } catch {
+    // Aba anônima ou armazenamento bloqueado: cai no padrão, que é silêncio.
+    return false;
+  }
+}
+
+function tocaFundoDoLogin(): void {
+  const v = document.getElementById('loginvid') as HTMLVideoElement | null;
+  if (!v) return;
+  v.play().catch(() => {
+    // Bloqueado: o poster continua no lugar e a tela segue utilizável.
+  });
+}
+
+/** O botão de alto-falante. É a ÚNICA forma de a música começar. */
+function ligaBotaoSom(): void {
+  const b = document.getElementById('loginsom');
+  const v = document.getElementById('loginvid') as HTMLVideoElement | null;
+  if (!b || !v) return;
+  // Se o jogador já pediu som antes, o clique dele naquela sessão vale como
+  // gesto? Não vale — a política de mídia é por carregamento de página. Por
+  // isso o vídeo continua mudo aqui, e só o clique DESTE botão liga.
+  v.muted = true;
+  b.onclick = () => {
+    v.muted = !v.muted;
+    if (!v.muted) {
+      v.volume = 0.35; // música de fundo entra baixa: ninguém pediu um susto
+      v.play().catch(() => {});
+    }
+    try {
+      localStorage.setItem(CHAVE_SOM, v.muted ? '0' : '1');
+    } catch { /* sem armazenamento: a escolha vale só nesta sessão */ }
+    atualizaBotaoSom();
+  };
+  // ⚠️ A preferência gravada muda só o RÓTULO, não liga o som: sem um gesto
+  // nesta página, `play()` com áudio seria recusado pelo navegador.
+  if (querSom()) b.title = 'Ligar a música (clique — o navegador exige)';
+  atualizaBotaoSom();
+}
+
+function atualizaBotaoSom(): void {
+  const b = document.getElementById('loginsom');
+  const v = document.getElementById('loginvid') as HTMLVideoElement | null;
+  if (!b || !v) return;
+  b.textContent = v.muted ? '🔇' : '🔊';
+  if (!querSom() || !v.muted) {
+    b.title = v.muted ? 'Ligar a música' : 'Desligar a música';
+  }
+}
+
 function showScreen(which: keyof typeof screens | 'none'): void {
   for (const [nome, get] of Object.entries(screens)) {
     get().style.display = nome === which ? 'flex' : 'none';
   }
+  // 🔴 O vídeo de fundo só toca depois de a tela existir na tela — autoplay
+  // não pega em elemento escondido. Ver tocaFundoDoLogin().
+  if (which === 'login') tocaFundoDoLogin();
 }
 
 /**
@@ -469,6 +549,30 @@ function setupCharSelectScreen(): void {
 }
 
 /** Redesenha a lista de personagens da conta. */
+/**
+ * A caixa de confirmação da exclusão.
+ *
+ * 🔴 **Pede a senha da conta, com a sessão já autenticada.** Passado o prazo,
+ * isto destrói progresso sem volta — é a única ação do jogo assim. O servidor
+ * confere de novo; esta caixa existe para o jogador PARAR e ler, não para
+ * validar.
+ *
+ * ⚠️ Escrever o nome do personagem seria mais cerimonioso, mas não protege de
+ * quem senta no computador destravado — e é justamente esse o caso que a senha
+ * cobre.
+ */
+function pedeExclusao(c: CharacterSlot): void {
+  const senha = window.prompt(
+    `Excluir ${c.name} (nível ${c.level})?\n\n`
+    + 'Ele fica 24 horas na lista, e você pode desistir a qualquer momento nesse '
+    + 'prazo. Passadas as 24 horas, some para sempre.\n\n'
+    + 'Digite a senha da sua conta para confirmar:',
+  );
+  // Cancelar na caixa devolve null; senha vazia não vale a viagem até o servidor.
+  if (!senha) return;
+  net.send({ t: 'deletechar', characterId: c.id, password: senha });
+}
+
 function renderCharList(chars: CharacterSlot[], error?: string): void {
   charSlots = chars;
   const listEl = el('charlist');
@@ -491,10 +595,25 @@ function renderCharList(chars: CharacterSlot[], error?: string): void {
   for (const c of chars) {
     const def = CLASSES[c.charClass];
     const row = document.createElement('div');
-    row.className = 'charrow' + (c.id === selectedChar ? ' sel' : '');
+    /*
+     * ---- EXCLUSÃO MARCADA (02/09) -----------------------------------------
+     *
+     * 🔴 O personagem CONTINUA na lista com o prazo correndo, e essa é a razão
+     * de a exclusão ter prazo: some da lista e o jogador não tem de onde
+     * desistir. A linha muda de cara e troca "Excluir" por "Cancelar".
+     */
+    const marcado = typeof c.deleteAt === 'number';
+    row.className = 'charrow' + (c.id === selectedChar ? ' sel' : '') + (marcado ? ' marcado' : '');
+    const restante = marcado ? Math.max(0, c.deleteAt! - Date.now()) : 0;
+    const horas = Math.floor(restante / 3_600_000);
+    const minutos = Math.floor((restante % 3_600_000) / 60_000);
+    const prazo = marcado
+      ? `<small class="prazo">Excluindo em ${horas}h${String(minutos).padStart(2, '0')}</small>`
+      : '';
     row.innerHTML =
       `<div class="cicon" style="${classIconCss(c.charClass, 36)}"></div>` +
-      `<div><b>${c.name}</b><small>${def?.name ?? c.charClass} · nível ${c.level}</small></div>`;
+      `<div class="cnome"><b>${c.name}</b><small>${def?.name ?? c.charClass} · nível ${c.level}</small>${prazo}</div>` +
+      `<button class="cdel">${marcado ? 'Cancelar' : 'Excluir'}</button>`;
     row.onclick = () => {
       selectedChar = c.id;
       renderCharList(charSlots);
@@ -502,6 +621,17 @@ function renderCharList(chars: CharacterSlot[], error?: string): void {
     row.ondblclick = () => {
       selectedChar = c.id;
       enterBtn.click();
+    };
+    const btn = row.querySelector<HTMLButtonElement>('.cdel')!;
+    btn.onclick = (ev) => {
+      // Sem isto o clique no botão também SELECIONA a linha, e o duplo-clique
+      // acidental entraria no mundo com o personagem que se quer apagar.
+      ev.stopPropagation();
+      if (marcado) {
+        net.send({ t: 'canceldelete', characterId: c.id });
+        return;
+      }
+      pedeExclusao(c);
     };
     listEl.appendChild(row);
   }
@@ -592,7 +722,8 @@ function setupStartScreen(): void {
       chosen = id;
       for (const c of cards.values()) c.classList.remove('sel');
       card.classList.add('sel');
-      refresh();
+      // Repinta em vez de so chamar refresh: a previa muda com a classe.
+      pintaAtributos();
     };
     classesEl.appendChild(card);
     cards.set(id, card);
@@ -602,6 +733,75 @@ function setupStartScreen(): void {
 
   const errEl = el('nameerr');
 
+  /*
+   * ---- DISTRIBUIÇÃO DE ATRIBUTOS (02/09) ---------------------------------
+   *
+   * 🔴 **A classe deixou de decidir os atributos.** Todo atributo nasce em 1 e o
+   * jogador reparte `CREATION_POINTS` (38) como quiser — a regra e a validação
+   * moram em `shared/src/stats.ts`, e o servidor roda a MESMA função.
+   *
+   * ⚠️ Trocar de classe **não zera** a distribuição, de propósito: quem montou
+   * uma build e foi comparar as classes perderia o trabalho a cada clique. O que
+   * muda ao trocar é só a prévia de vida e mana.
+   */
+  const atributos = startingAttributes();
+  const attrBox = el('ccattrs');
+  const attrLeft = el('ccattrs-left');
+  const attrList = el('ccattrs-list');
+  const attrPrev = el('ccattrs-prev');
+  const linhas = new Map<string, { val: HTMLElement; mais: HTMLButtonElement; menos: HTMLButtonElement }>();
+
+  for (const key of ATTRIBUTE_KEYS) {
+    const row = document.createElement('div');
+    row.className = 'ccrow';
+    row.innerHTML =
+      `<button class="menos" title="-1">−</button>`
+      + `<span class="av"></span>`
+      + `<button class="mais" title="+1">+</button>`
+      + `<span class="an">${ATTRIBUTE_INFO[key].name}</span>`
+      + `<span class="ae">${ATTRIBUTE_INFO[key].effects}</span>`;
+    const mais = row.querySelector<HTMLButtonElement>('.mais')!;
+    const menos = row.querySelector<HTMLButtonElement>('.menos')!;
+    mais.onclick = () => { if (sobrando() > 0) { atributos[key]++; pintaAtributos(); } };
+    // ⚠️ O piso é 1, o mesmo que o `checkAttributes` exige — não 0.
+    menos.onclick = () => { if (atributos[key] > 1) { atributos[key]--; pintaAtributos(); } };
+    attrList.appendChild(row);
+    linhas.set(key, { val: row.querySelector('.av')!, mais, menos });
+  }
+
+  /** Quantos dos 38 ainda não foram gastos. */
+  function sobrando(): number {
+    let gasto = 0;
+    for (const k of ATTRIBUTE_KEYS) gasto += atributos[k] - 1;
+    return CREATION_POINTS - gasto;
+  }
+
+  function pintaAtributos(): void {
+    const resta = sobrando();
+    attrLeft.textContent = String(resta);
+    attrLeft.classList.toggle('pronto', resta === 0);
+    for (const key of ATTRIBUTE_KEYS) {
+      const l = linhas.get(key)!;
+      l.val.textContent = String(atributos[key]);
+      l.mais.disabled = resta <= 0;
+      l.menos.disabled = atributos[key] <= 1;
+    }
+    /*
+     * 🔴 A PRÉVIA DE VIDA E MANA é o que impede a surpresa cruel: elas saem de
+     * VIT e INT, então um Knight que ignora VIT nasce com 128 de vida em vez de
+     * 200 — e o nome já é definitivo quando ele descobrir jogando.
+     */
+    if (chosen) {
+      const cls = CLASSES[chosen];
+      const d = computeStats(cls, atributos as Attributes, 1, {
+        kind: cls.skill, level: 1, progress: 0,
+      });
+      attrPrev.innerHTML =
+        `No nível 1: <b>${d.maxHp}</b> de vida · <b>${d.maxMana}</b> de mana`;
+    }
+    refresh();
+  }
+
   function refresh(): void {
     // Valida o nome NA HORA, com a mesma função que o servidor usa. O jogador
     // descobre o problema enquanto digita, não depois de clicar.
@@ -610,11 +810,20 @@ function setupStartScreen(): void {
     errEl.textContent = check && !check.ok ? (check.message ?? '') : '';
 
     const nomeOk = !!check?.ok;
-    playBtn.disabled = !chosen || !nomeOk;
-    playBtn.textContent = !chosen ? 'Escolha uma classe' : 'Criar personagem';
+    // A caixa de atributos só faz sentido depois da classe: a prévia depende dela.
+    attrBox.style.display = chosen ? '' : 'none';
+    const attrOk = checkAttributes(atributos as Attributes);
+    playBtn.disabled = !chosen || !nomeOk || !attrOk.ok;
+    playBtn.textContent = !chosen
+      ? 'Escolha uma classe'
+      : !attrOk.ok
+        // ⚠️ A mensagem vem do `shared`, a mesma que o servidor devolveria —
+        // duas redações para a mesma regra é como elas passam a divergir.
+        ? attrOk.message
+        : 'Criar personagem';
   }
   nameIn.addEventListener('input', refresh);
-  refresh();
+  pintaAtributos();
 
   (el('backbtn') as HTMLButtonElement).onclick = () => showScreen('charselect');
 
@@ -625,7 +834,10 @@ function setupStartScreen(): void {
     localStorage.setItem('elysia_gender', gender);
     // O servidor responde com um `charlist` novo (com o personagem criado) ou
     // com o mesmo `charlist` mais um erro — quem troca de tela é o handler.
-    net.send({ t: 'createchar', name: check.name, charClass: chosen, gender });
+    net.send({
+      t: 'createchar', name: check.name, charClass: chosen, gender,
+      attributes: atributos as Attributes,
+    });
     startEl.style.display = 'none';
   };
 }
@@ -7273,10 +7485,27 @@ function escapeHtml(s: string): string {
 // ---- Bootstrap -------------------------------------------------------------
 // A conexão é criada ANTES de qualquer tela: o login já precisa dela.
 let autoAuthEnviado = false;
+// 🔴 O som NÃO se liga sozinho — decisão do dono em 02/09, depois de ouvir.
+// A música começa muda e só toca se o jogador clicar no alto-falante.
+ligaBotaoSom();
+
 net = new NetClient(routeServerMessage, (connected) => {
   statusEl.innerHTML = connected
     ? 'Servidor: <span class="on">conectado</span>'
     : 'Servidor: <span class="off">reconectando…</span>';
+  /*
+   * 🔴 O status na TELA DE ENTRADA sai daqui, do socket de verdade.
+   *
+   * A arte de referência trazia sete servidores com "Online / Alto" escritos à
+   * mão. Um rótulo fixo mentiria exatamente quando o jogador mais precisa da
+   * verdade — com o servidor fora do ar, ele ficaria tentando entrar e culpando
+   * a própria senha.
+   */
+  const srv = document.getElementById('srvstatus');
+  if (srv) {
+    srv.textContent = connected ? 'Online' : 'Offline';
+    srv.className = 'srvstatus ' + (connected ? 'on' : 'off');
+  }
   /*
    * 🔴 TEMPORÁRIO: autentica sozinho quando o socket abre pela PRIMEIRA vez.
    * Senha vazia — quem autoriza é o servidor de desenvolvimento, pelo nome da
