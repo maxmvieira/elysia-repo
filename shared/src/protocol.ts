@@ -156,9 +156,20 @@ export interface C2S_Hello {
 export interface C2S_Auth {
   t: 'auth';
   protocol: number;
-  mode: 'login' | 'register';
+  /**
+   * `token` entra em 2026-09-05 e existe para **trocar de personagem sem
+   * redigitar a senha**.
+   *
+   * 🔴 O botão "Trocar personagem" RECARREGA a página (ver o comentário dele no
+   * cliente: não há teardown do jogo, e recarregar dá estado limpo de graça).
+   * Como o cliente não guarda senha — de propósito —, a recarga caía na tela de
+   * login. Com o token ela volta direto para a lista da conta.
+   */
+  mode: 'login' | 'register' | 'token';
   username: string;
   password: string;
+  /** Só no modo `token`. Emitido pelo servidor no login anterior. */
+  token?: string;
 }
 
 /**
@@ -176,6 +187,25 @@ export interface C2S_DeleteChar {
    * protege de quem senta no computador destravado.
    */
   password: string;
+}
+
+/**
+ * 🚪 **Pedir para sair do mundo** (botão "Trocar personagem").
+ *
+ * 🔴 Precisa ser um PEDIDO, e não uma ação do cliente, porque o servidor é quem
+ * sabe se o jogador está em combate. Até 2026-09-05 a troca era só um
+ * `location.reload()` — o servidor nem ficava sabendo, e sair no meio de um
+ * duelo era de graça.
+ *
+ * Resposta: `leaveok` libera, `denied` recusa com o tempo que falta.
+ */
+export interface C2S_Leave {
+  t: 'leave';
+}
+
+/** Saída autorizada: o cliente pode recarregar e voltar à lista. */
+export interface S2C_LeaveOk {
+  t: 'leaveok';
 }
 
 /** Desistir da exclusão, dentro do prazo. */
@@ -512,6 +542,7 @@ export interface C2S_Friend {
 export type ClientMessage =
   | C2S_Hello
   | C2S_Auth
+  | C2S_Leave
   | C2S_CreateChar
   | C2S_DeleteChar
   | C2S_CancelDelete
@@ -650,6 +681,18 @@ export interface S2C_AuthResult {
   ok: boolean;
   username?: string;
   message?: string;
+  /**
+   * Token de sessão, emitido a cada login bem-sucedido.
+   *
+   * O cliente guarda em `sessionStorage` — não em `localStorage`, e a diferença
+   * é a intenção: `sessionStorage` morre quando a aba fecha, então o token vale
+   * para a sessão do navegador e não vira "lembrar de mim" que ninguém pediu.
+   *
+   * ⚠️ **Vive só na MEMÓRIA do servidor.** Reiniciar o servidor invalida todos
+   * — o que é aceitável para o que ele resolve (trocar personagem) e evita uma
+   * coluna nova no banco para guardar credencial.
+   */
+  token?: string;
 }
 
 /** Um personagem na tela de seleção. */
@@ -1032,6 +1075,7 @@ export interface S2C_Friends {
 export type ServerMessage =
   | S2C_Welcome
   | S2C_AuthResult
+  | S2C_LeaveOk
   | S2C_CharList
   | S2C_Towns
   | S2C_Snapshot

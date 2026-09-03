@@ -48,6 +48,77 @@ export type SkullKind = 'white';
  */
 export const WHITE_SKULL_MS = 5 * 60_000;
 
+// ---------------------------------------------------------------------------
+// ⚪ Caveira branca: uma agressão ou muitas — decisão do dono em 2026-09-05
+// ---------------------------------------------------------------------------
+//
+// 🔴 **A duração passou a depender do que a pessoa FEZ**, e não de um número só:
+//
+// > *"se eu virei pk a duração mínima são 10 minutos caso eu continue atacando
+// > o player. caso tenha sido somente 1 ataque em um player, a caveira branca
+// > some com 60 segundos."*
+//
+// ⚠️ Isto SUBSTITUI o `WHITE_SKULL_MS` de 5 minutos, que era `⚠️ REFERÊNCIA`
+// (o Doc 1 não dá o número da branca — só fecha vermelha 7 dias e preta 30). A
+// constante fica porque outros pontos ainda a citam, mas quem manda agora é
+// `whiteSkullDuration`.
+//
+// O que a regra compra: **um golpe sem querer não é a mesma coisa que caçar
+// alguém.** Antes, encostar uma vez num jogador custava os mesmos 5 minutos de
+// alvo livre que perseguir a pessoa pelo mapa.
+
+/** Uma agressão isolada: a caveira some em 1 minuto. */
+export const WHITE_SKULL_SINGLE_MS = 60_000;
+/** Insistiu: 10 minutos, contados a partir da ÚLTIMA agressão. */
+export const WHITE_SKULL_REPEAT_MS = 10 * 60_000;
+
+/**
+ * Quanto tempo de caveira branca uma agressão concede.
+ *
+ * @param agressoes Quantas agressões o atacante já cometeu na janela atual,
+ *   **incluindo a que está acontecendo agora**. 1 = primeira.
+ *
+ * ⚠️ A duração é sempre contada do instante da agressão, então continuar
+ * batendo RENOVA os 10 minutos em vez de somar. Somar faria uma briga longa
+ * virar caveira de horas, que é papel da vermelha e não da branca.
+ */
+export function whiteSkullDuration(agressoes: number): number {
+  return agressoes <= 1 ? WHITE_SKULL_SINGLE_MS : WHITE_SKULL_REPEAT_MS;
+}
+
+// ---------------------------------------------------------------------------
+// 🚪 Trava de saída em combate — decisão do dono em 2026-09-05
+// ---------------------------------------------------------------------------
+//
+// > *"se estiver em batalha não consigo deslogar, somente após 60 segundos sem
+// > batalhar eu consigo deslogar, agora se for um player que me atacou esse
+// > tempo triplica"*
+//
+// 🔴 **Serve para tirar o "desligar o cabo" como jogada.** Sem trava, quem está
+// perdendo uma luta sai do jogo e não perde nada — o que esvazia a penalidade de
+// morte e o PvP inteiro.
+//
+// ⚠️ **A trava alcança o botão de sair/trocar, não o fechamento da aba.**
+// Ninguém consegue impedir alguém de fechar o navegador; impedir de verdade
+// exigiria o personagem CONTINUAR no mundo depois da queda do socket, que é um
+// sistema que o jogo não tem. Está anotado no HANDOFF como pendência.
+
+/** Tempo sem combate para poder sair, quando a briga foi com criatura. */
+export const LOGOUT_LOCK_PVE_MS = 60_000;
+/**
+ * O mesmo, quando quem atacou foi um JOGADOR. Triplica.
+ *
+ * 🔴 Triplica porque a fuga por logout é um problema de PvP, não de PvE: contra
+ * monstro, sair só interrompe a caçada de quem saiu; contra gente, decide o
+ * resultado de um duelo alheio.
+ */
+export const LOGOUT_LOCK_PVP_MS = LOGOUT_LOCK_PVE_MS * 3;
+
+/** Quanto tempo a trava dura, a partir do último combate. */
+export function logoutLockDuration(porJogador: boolean): number {
+  return porJogador ? LOGOUT_LOCK_PVP_MS : LOGOUT_LOCK_PVE_MS;
+}
+
 export interface Combatant {
   id: string;
   kind: CombatantKind;

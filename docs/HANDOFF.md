@@ -1,3 +1,70 @@
+# Handoff — estado do projeto em 2026-09-05 (tarde)
+
+## ⏸️ ONDE PARAMOS — três pedidos do teste em jogo
+
+> Typecheck limpo nos 3 pacotes, **634 testes**. `npm run dev:test` →
+> `localhost:5173`.
+
+### 🔑 Token de sessão — a pendência de 02/09 fechou
+
+"Trocar personagem" volta para a **lista de personagens**, sem redigitar senha.
+O servidor emite um token a cada login; o cliente guarda em `sessionStorage`
+(morre ao fechar a aba, de propósito) e o usa na recarga.
+
+🔴 **Uso único** — cada entrada emite outro.
+⚠️ **Não é senha:** só reabre a lista. Excluir personagem continua pedindo senha.
+⚠️ **Vive na memória do servidor:** reiniciar invalida todos.
+
+### 🚪 Trava de saída em combate
+
+| Situação | Espera |
+|---|---|
+| Lutando com criatura | **60 s** sem combate |
+| Atacado por jogador | **180 s** (triplica) |
+
+Vale nos dois sentidos (golpe dado ou recebido) e nos dois lados de um PvP. O
+relógio reinicia a cada golpe novo.
+
+🔴 **PvE não rebaixa PvP:** levar uma mordida de lobo depois de um duelo não
+encurta a trava para 60 s.
+
+⚠️ **A trava alcança o BOTÃO, não o fechamento da aba.** Impedir de verdade
+exigiria o personagem continuar no mundo depois da queda do socket — sistema
+que o jogo não tem. **É a maior pendência que este bloco deixa.**
+
+### ⚪ Caveira branca por reincidência
+
+| Agressões | Caveira |
+|---|---|
+| 1 | **60 s** |
+| 2+ | **10 min** a partir da última |
+
+Substitui os 5 minutos fixos, que eram `⚠️ REFERÊNCIA` (o Doc 1 não fecha a
+duração da branca). A contagem zera junto com a caveira.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Continuar o teste em jogo.**
+2. ⏳ **Personagem permanecer no mundo após a queda do socket** — é o que faria a
+   trava de saída valer contra quem fecha a aba.
+3. ⏳ **Munição** (shuriken, azagaia) · **slot de segunda arma** · **esquiva no
+   bestiário** · **"cura como arma"** · sprite do palco · sprites base M/F ·
+   sistema de GUARDA.
+
+## ⚠️ O QUE PRECISA DE PASSADA HUMANA (novo deste bloco)
+
+- **Trocar personagem** fora de combate → cai na lista, sem senha. Trocar duas
+  vezes seguidas também tem que funcionar (o token é de uso único e renova).
+- **Trocar personagem batendo num monstro** → recusa, dizendo os segundos.
+  Esperar 60 s parado libera.
+- **Fechar a aba e reabrir** → tem que pedir senha de novo (`sessionStorage`).
+- **Excluir personagem** continua pedindo a senha da conta.
+- ⚠️ **Precisa de duas janelas:** os 180 s de PvP e a caveira de 60 s × 10 min.
+
+---
+
 # Handoff — estado do projeto em 2026-09-05
 
 ## ⏸️ ONDE PARAMOS — tela de login fechada

@@ -9,6 +9,86 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-05 (tarde) — Token de sessão, trava de saída e caveira por reincidência
+
+**Onde mora:** `sessionTokens` e `case 'leave'` em `server/src/index.ts` ·
+`whiteSkullDuration`/`logoutLockDuration` em `shared/src/pvp.ts` ·
+`authWithToken` e `ultimoToken` em `client/src/net.ts`.
+
+**634 testes** (eram 629). Três pedidos do dono, feitos durante o teste do jogo.
+
+### 🔑 Trocar personagem não pede mais senha
+
+O botão recarrega a página (não há teardown do jogo — ver o comentário dele), e
+a recarga caía na tela de login porque **o cliente não guarda senha, de
+propósito**. Era a pendência "token de sessão" que estava no HANDOFF desde 02/09.
+
+O servidor passa a emitir um token a cada login. O cliente guarda em
+`sessionStorage` — **não** em `localStorage**, e a diferença é a intenção:
+`sessionStorage` morre quando a aba fecha, então o token vale para a sessão do
+navegador em vez de virar um "lembrar de mim" que ninguém pediu.
+
+🔴 **Uso único.** Cada entrada por token emite outro. Um token que vazou (log,
+print, histórico) deixa de servir assim que o dono o usa.
+
+⚠️ **Ele NÃO é uma senha:** só reabre a LISTA de personagens. Excluir personagem
+continua pedindo a senha da conta à parte.
+
+⚠️ **Um furo que quase passou:** a reconexão do `NetClient` refaz o login com
+`username`, e quem entra por token não tem `username`. O socket cairia e nada
+seria reenviado — "reconectando…" para sempre. Resolvido guardando o
+`ultimoToken` em memória e reenviando-o no `onopen`.
+
+### 🚪 Não dá para sair no meio da luta
+
+> *"se estiver em batalha não consigo deslogar, somente após 60 segundos sem
+> batalhar eu consigo deslogar, agora se for um player que me atacou esse tempo
+> triplica"*
+
+🔴 **O servidor passou a decidir.** Até aqui "Trocar personagem" era um
+`location.reload()` puro: o servidor só descobria pela queda do socket, e sair
+de um duelo perdido era de graça. Agora o cliente **pede** (`leave`) e o
+servidor responde `leaveok` ou recusa dizendo quanto falta.
+
+A trava vale nas duas direções — golpe dado ou recebido — e nos dois lados de
+um PvP: travar só a vítima deixaria o agressor sumir depois de roubar o abate.
+
+🔴 **PvE não rebaixa PvP.** Se um lobo acertar o jogador logo depois de um
+duelo, a trava continua sendo a de 180 s. Sem isso, bastaria levar uma mordida
+para escapar da trava de PvP.
+
+⚠️ **Só alcança o BOTÃO, não o fechamento da aba.** Impedir de verdade exigiria
+o personagem continuar no mundo depois da queda do socket — sistema que o jogo
+não tem. Está no HANDOFF como pendência.
+
+### ⚪ A caveira agora depende do que a pessoa fez
+
+> *"se eu virei pk a duração mínima são 10 minutos caso eu continue atacando o
+> player. caso tenha sido somente 1 ataque em um player, a caveira branca some
+> com 60 segundos."*
+
+Era um número só: **5 minutos** para qualquer agressão — e ele era
+`⚠️ REFERÊNCIA`, porque o Doc 1 não fecha a duração da branca (só vermelha
+7 dias e preta 30). Agora:
+
+| Agressões na janela | Caveira |
+|---|---|
+| 1 | **60 s** |
+| 2 ou mais | **10 min**, a partir da última |
+
+🔴 **O que a regra compra:** encostar uma vez sem querer deixa de custar o mesmo
+que caçar alguém pelo mapa.
+
+A contagem zera junto com a caveira — quem parou e esperou volta a ser "primeira
+vez". Sem esse zeramento, uma briga de meses atrás faria o próximo encostão
+custar 10 minutos.
+
+⚠️ O aviso de "você insistiu" sai **uma vez**, no golpe que muda a regra.
+Repetir a cada golpe viraria spam no meio da briga, que é quando o jogador menos
+lê o chat.
+
+---
+
 ## 2026-09-05 — O loop vira vai-e-volta, e o botão de som morre
 
 **Onde mora:** `client/public/assets/ui/login-bg.mp4` · o `<video>` e o CSS em

@@ -13,6 +13,7 @@
  * Ainda em memória — persistência é a etapa 7 (ver docs/ROADMAP-elysia.md).
  */
 
+import { randomUUID } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import {
   ATTRIBUTE_KEYS,
@@ -78,6 +79,9 @@ import {
   type FragmentSource,
   canHarm,
   WHITE_SKULL_MS,
+  whiteSkullDuration,
+  logoutLockDuration,
+  LOGOUT_LOCK_PVP_MS,
   type Combatant,
   type HarmVeto,
   canInvite,
@@ -558,6 +562,24 @@ interface Player {
    * contagem de assassinatos que gera vermelha e preta.
    */
   whiteSkullUntil: number;
+  /**
+   * Quantas agressões a jogador este personagem cometeu na janela atual de
+   * caveira. Zera junto com a caveira.
+   *
+   * 🔴 É o que separa *"encostei uma vez"* de *"estou caçando a pessoa"*: a
+   * primeira dá 60 s de caveira, a segunda em diante dá 10 minutos.
+   */
+  aggressions: number;
+  /**
+   * Instante até o qual este jogador NÃO pode sair pelo botão de trocar
+   * personagem. Renovado a cada golpe dado ou recebido.
+   *
+   * ⚠️ Não persiste: quem cai o socket já saiu, e a trava não tem o que impedir
+   * depois disso. Ver o comentário de `LOGOUT_LOCK_PVE_MS` no `pvp.ts`.
+   */
+  logoutLockUntil: number;
+  /** A trava atual veio de PvP? Só muda a MENSAGEM mostrada ao jogador. */
+  logoutLockByPlayer: boolean;
   /** Grupo atual (`parties`), quando há. */
   partyId: string | null;
 }
@@ -807,6 +829,62 @@ const PARTY_INVITE_MS = 30_000;
  */
 const PK_COMBAT_LOCK_MS = 10_000;
 
+// ---------------------------------------------------------------------------
+// 🔑 Tokens de sessão
+//
+// Existem para uma coisa só: o botão "Trocar personagem" recarrega a página, e
+// a recarga caía na tela de login pedindo a senha de novo.
+//
+// 🔴 **Em memória, de propósito.** Guardar no banco exigiria uma tabela nova
+// para credencial — mais superfície de ataque — e não resolveria nada a mais:
+// reiniciar o servidor derruba todo mundo de qualquer jeito, então tokens
+// morrerem junto é coerente.
+//
+// ⚠️ **O token NÃO é uma senha.** Ele só reabre a LISTA de personagens da conta.
+// Não cria personagem sem senha, não exclui (a exclusão pede a senha à parte,
+// e continua pedindo) e não sobrevive ao fechamento da aba, porque o cliente o
+// guarda em `sessionStorage`.
+// ---------------------------------------------------------------------------
+
+/** Quanto tempo um token vale. Trocar de personagem leva segundos; 12 h sobra. */
+const SESSION_TOKEN_MS = 12 * 60 * 60_000;
+/** Teto de tokens vivos, para uma sessão em laço não crescer sem limite. */
+const SESSION_TOKEN_MAX = 500;
+
+const sessionTokens = new Map<string, { accountId: number; expiresAt: number }>();
+
+function emiteTokenDeSessao(accountId: number): string {
+  const agora = Date.now();
+  // Varre os vencidos aqui em vez de num temporizador: são poucos, e o único
+  // momento em que a lista cresce é justamente este.
+  for (const [t, v] of sessionTokens) if (v.expiresAt <= agora) sessionTokens.delete(t);
+  if (sessionTokens.size >= SESSION_TOKEN_MAX) {
+    // Descarta o mais antigo. `Map` preserva a ordem de inserção, então o
+    // primeiro do iterador é o mais velho.
+    const maisVelho = sessionTokens.keys().next().value;
+    if (maisVelho) sessionTokens.delete(maisVelho);
+  }
+  const token = randomUUID();
+  sessionTokens.set(token, { accountId, expiresAt: agora + SESSION_TOKEN_MS });
+  return token;
+}
+
+/**
+ * Valida e **consome** o token: ele vale uma vez só.
+ *
+ * 🔴 Uso único de propósito. Cada entrada por token emite outro, então trocar
+ * de personagem em sequência continua funcionando — e um token que vazou
+ * (histórico, log, print de tela) deixa de servir assim que o dono o usa.
+ */
+function consomeTokenDeSessao(token: string): number | null {
+  if (!token) return null;
+  const v = sessionTokens.get(token);
+  if (!v) return null;
+  sessionTokens.delete(token);
+  if (v.expiresAt <= Date.now()) return null;
+  return v.accountId;
+}
+
 /** Tem caveira branca de pé agora? Fonte única — não comparar o prazo à mão. */
 function hasWhiteSkull(player: Player, now = Date.now()): boolean {
   return player.whiteSkullUntil > now;
@@ -1024,19 +1102,79 @@ function harmVetoText(veto: HarmVeto | undefined, target: Player): string {
  * flag do alvo não faz nada pela defesa dele — travá-lo seria punir a vítima por
  * ter sido atacada.
  */
+/**
+ * 🚪 **Marca combate: o relógio da trava de saída reinicia.**
+ *
+ * Chamado em TODO golpe que envolve um jogador, nas duas direções — dado ou
+ * recebido. Sair fugindo vale tanto para quem está apanhando quanto para quem
+ * está batendo, e travar só a vítima deixaria o agressor sumir depois de
+ * roubar o abate.
+ *
+ * @param porJogador A briga é com gente? Então a trava triplica (`pvp.ts`).
+ *
+ * ⚠️ **PvP não pode ser rebaixado para PvE por um golpe de monstro.** Se um
+ * lobo acertar o jogador logo depois de um duelo, a trava continua sendo a de
+ * 180 s — senão bastaria levar uma mordida para escapar do PvP.
+ */
+function marcaCombate(player: Player, porJogador: boolean, now: number): void {
+  const dura = logoutLockDuration(porJogador);
+  const novoFim = now + dura;
+  // Se já havia trava de PvP correndo, o PvE não a encurta.
+  const eraPvpValida = player.logoutLockByPlayer && player.logoutLockUntil > now;
+  if (porJogador || !eraPvpValida) {
+    player.logoutLockUntil = Math.max(player.logoutLockUntil, novoFim);
+    if (porJogador) player.logoutLockByPlayer = true;
+    else if (!eraPvpValida) player.logoutLockByPlayer = false;
+  } else {
+    // PvE durante trava de PvP: renova o relógio, mantendo a regra do PvP.
+    player.logoutLockUntil = Math.max(player.logoutLockUntil, now + LOGOUT_LOCK_PVP_MS);
+  }
+}
+
+/** Quanto falta para poder sair. 0 = liberado. */
+function faltaParaSair(player: Player, now: number): number {
+  return Math.max(0, player.logoutLockUntil - now);
+}
+
 function applyAggression(attacker: Player, marksAsPk: boolean, now: number): void {
   attacker.pkLockedUntil = now + PK_COMBAT_LOCK_MS;
   if (!marksAsPk) return;
 
   const jaTinha = hasWhiteSkull(attacker, now);
-  // Renova, não soma: cada nova agressão reinicia os 5 minutos. Somar faria de
-  // uma briga longa uma caveira de horas, que é papel da vermelha, não da branca.
-  attacker.whiteSkullUntil = now + WHITE_SKULL_MS;
+  /**
+   * 🔴 **A duração depende de quantas agressões já houve** (decisão do dono em
+   * 05/09): a primeira dá 60 s, a segunda em diante dá 10 minutos.
+   *
+   * A contagem zera junto com a caveira — quem parou de bater e esperou o
+   * tempo passar volta a ser "primeira vez". Sem esse zeramento, uma briga de
+   * meses atrás faria o próximo encostão custar 10 minutos.
+   *
+   * ⚠️ Renova, não soma: continuar batendo reinicia os 10 minutos a partir da
+   * ÚLTIMA agressão. Somar faria uma briga longa virar caveira de horas, que é
+   * papel da vermelha e não da branca.
+   */
+  if (!jaTinha) attacker.aggressions = 0;
+  attacker.aggressions += 1;
+  const duracao = whiteSkullDuration(attacker.aggressions);
+  attacker.whiteSkullUntil = now + duracao;
+
+  const minutos = Math.round(duracao / 60_000);
+  const quanto = duracao >= 60_000 && minutos >= 1
+    ? `${minutos} minuto${minutos > 1 ? 's' : ''}`
+    : `${Math.round(duracao / 1000)} segundos`;
   if (!jaTinha) {
     send(attacker, {
       t: 'chat', from: 'Sistema',
-      text: '⚪ Você recebeu a Caveira Branca — por 5 minutos qualquer jogador '
+      text: `⚪ Você recebeu a Caveira Branca — por ${quanto} qualquer jogador `
         + 'pode atacá-lo sem punição.',
+    });
+  } else if (attacker.aggressions === 2) {
+    // Avisa UMA vez, no golpe que muda a regra. Repetir a cada golpe viraria
+    // spam no meio da briga, que é quando o jogador menos lê o chat.
+    send(attacker, {
+      t: 'chat', from: 'Sistema',
+      text: `⚠️ Você insistiu: a Caveira Branca passa a durar ${quanto} a partir `
+        + 'do seu último ataque.',
     });
   }
 }
@@ -2823,6 +2961,7 @@ function playerAttack(player: Player, creature: Creature, now: number): void {
   if (isMagic && player.mana < d.manaCost) return; // sem mana, não conjura
   if (isMagic) player.mana -= d.manaCost;
   player.lastAttackAt = now;
+  marcaCombate(player, false, now); // 🚪 bater em monstro tranca a saída por 60 s
 
   const bonus = equipBonus(player);
   const power = (isMagic ? d.magicAtk : d.physAtk)
@@ -3041,6 +3180,10 @@ function playerAttackPlayer(player: Player, alvo: Player, now: number): void {
   // Cobrado no golpe que SAIU, não no alvo escolhido: mirar não é agredir.
   // `marksAsPk` é falso quando o alvo já estava de caveira — revidar é de graça.
   applyAggression(player, decisao.marksAsPk, now);
+  // 🚪 Trava de saída nos DOIS: 180 s para quem bateu e para quem apanhou.
+  // Travar só a vítima deixaria o agressor sumir depois de roubar o abate.
+  marcaCombate(player, true, now);
+  marcaCombate(alvo, true, now);
   const fatal = alvo.hp <= 0;
   broadcastFloor(player.floor, {
     t: 'hit', attackerId: player.id, targetId: alvo.id, amount: dmg, crit, dodged,
@@ -4083,6 +4226,8 @@ function tickFury(player: Player, now: number): void {
 function creatureAttack(creature: Creature, player: Player, now: number): void {
   if (!player.alive) return;
   creature.lastAttackAt = now;
+  marcaCombate(player, false, now); // 🚪 apanhar de monstro também tranca
+
   // À noite os monstros batem mais forte; a variante incomum também; e um
   // chefe que já dizimou grupos vai ficando mais perigoso a cada vitória.
   const str = creature.def.strength
@@ -4964,6 +5109,38 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       if (autoLoginDev) {
         console.warn(`[DEV] auto-login SEM SENHA para "${DEV_ACCOUNT}" (ELYSIA_DEV_ACCOUNT)`);
       }
+      /**
+       * 🔑 **Entrada por TOKEN — o que faz "Trocar personagem" não pedir senha.**
+       *
+       * O botão recarrega a página, e a recarga perde tudo que estava em
+       * memória. Sem token, o cliente não tem o que mandar (ele não guarda
+       * senha, de propósito) e cai na tela de login.
+       *
+       * ⚠️ O token NÃO substitui a senha em nada mais: ele só reabre a lista de
+       * personagens da conta que já se autenticou nesta sessão de navegador.
+       */
+      if (msg.mode === 'token') {
+        const conta = consomeTokenDeSessao(msg.token ?? '');
+        if (conta === null) {
+          send(player, { t: 'authresult', ok: false, message: 'Sessão expirada — entre de novo.' });
+          return;
+        }
+        const nome = store.accountName(conta);
+        if (!nome) {
+          send(player, { t: 'authresult', ok: false, message: 'Sessão expirada — entre de novo.' });
+          return;
+        }
+        player.accountId = conta;
+        // Emite um token NOVO: assim trocar de personagem várias vezes seguidas
+        // continua funcionando, e o antigo deixa de valer.
+        send(player, {
+          t: 'authresult', ok: true, username: nome, token: emiteTokenDeSessao(conta),
+        });
+        sendCharList(player);
+        console.log(`[auth] ${nome} (conta ${conta}) por token`);
+        break;
+      }
+
       const res = autoLoginDev
         ? store.contaSemSenhaParaDesenvolvimento(msg.username)
         : msg.mode === 'register'
@@ -4974,9 +5151,43 @@ function handleMessage(player: Player, msg: ClientMessage): void {
         return;
       }
       player.accountId = res.account.id;
-      send(player, { t: 'authresult', ok: true, username: res.account.username });
+      send(player, {
+        t: 'authresult', ok: true, username: res.account.username,
+        token: emiteTokenDeSessao(res.account.id),
+      });
       sendCharList(player);
       console.log(`[auth] ${res.account.username} (conta ${res.account.id})`);
+      break;
+    }
+
+    /**
+     * ---- 🚪 SAIR DO MUNDO (05/09) -----------------------------------------
+     *
+     * 🔴 **O servidor decide, não o cliente.** Até aqui "Trocar personagem" era
+     * um `location.reload()` puro: o servidor só descobria pela queda do
+     * socket, e sair no meio de um duelo perdido não custava nada.
+     *
+     * ⚠️ **Isto NÃO impede fechar a aba**, e não teria como. Impedir de verdade
+     * exigiria o personagem continuar no mundo depois da queda do socket — um
+     * sistema que o jogo não tem. Está no HANDOFF como pendência.
+     */
+    case 'leave': {
+      if (!player.joined) {
+        send(player, { t: 'leaveok' });
+        return;
+      }
+      const falta = faltaParaSair(player, Date.now());
+      if (falta > 0) {
+        const seg = Math.ceil(falta / 1000);
+        send(player, {
+          t: 'denied',
+          reason: player.logoutLockByPlayer
+            ? `Em combate com jogador — espere ${seg}s sem apanhar para sair.`
+            : `Em combate — espere ${seg}s sem lutar para sair.`,
+        });
+        return;
+      }
+      send(player, { t: 'leaveok' });
       break;
     }
 
@@ -6631,6 +6842,7 @@ wss.on('connection', (socket) => {
     lastGatherAt: 0,
     wasAtDepot: false, wasNearVendor: false, wasNearBank: false,
     pkEnabled: false, pkLockedUntil: 0, whiteSkullUntil: 0, partyId: null,
+    aggressions: 0, logoutLockUntil: 0, logoutLockByPlayer: false,
   };
   addToBackpack(player, 'mana_potion', 5);
   setGold(player, 50);

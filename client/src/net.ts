@@ -36,6 +36,8 @@ export class NetClient {
   private password = '';
   /** Personagem em jogo. Null enquanto o jogador não escolheu. */
   private characterId: number | null = null;
+  /** Último token de sessão recebido. Serve à reconexão de quem entrou por token. */
+  private ultimoToken = '';
 
   constructor(onMessage: ServerHandler, onStatus: StatusHandler) {
     this.onMessage = onMessage;
@@ -54,6 +56,15 @@ export class NetClient {
       this.onStatus(true);
       // Se já temos credencial (reconexão), refaz o login sozinho.
       if (this.username) this.sendAuth('login');
+      /*
+       * 🔑 Entrou por TOKEN: não há usuário nem senha guardados, então a
+       * reconexão precisa do último token emitido.
+       *
+       * ⚠️ Sem isto, quem entrasse por "Trocar personagem" ficava sem
+       * reconexão: o socket caía e nada era reenviado, porque `username` está
+       * vazio. O jogador via "reconectando…" para sempre.
+       */
+      else if (this.ultimoToken) this.authWithToken(this.ultimoToken);
     };
 
     this.socket.onmessage = (ev) => {
@@ -61,6 +72,9 @@ export class NetClient {
       if (!msg) return;
       // Reconexão: autenticou de novo e já sabemos qual personagem estava em
       // jogo -> volta direto para ele, sem passar pela tela de seleção.
+      // 🔑 Guarda o token mais recente para a PRÓXIMA reconexão. Cada entrada
+      // emite um novo, então o guardado é sempre o que ainda não foi usado.
+      if (msg.t === 'authresult' && msg.ok && msg.token) this.ultimoToken = msg.token;
       if (msg.t === 'authresult' && msg.ok && this.characterId !== null) {
         this.enterGame(this.characterId);
       }
@@ -92,6 +106,22 @@ export class NetClient {
     this.sendAuth(mode);
   }
 
+  /**
+   * 🔑 Entra pela sessão anterior, sem senha. É o que faz "Trocar personagem"
+   * cair na lista da conta em vez da tela de login.
+   *
+   * ⚠️ **Não guarda usuário nem senha**, ao contrário do `auth()`. Quem cuida
+   * da reconexão é o `ultimoToken`, atualizado a cada `authresult`: o token é
+   * de uso único e o servidor emite outro na resposta, então o guardado é
+   * sempre um que ainda serve.
+   */
+  authWithToken(token: string): void {
+    this.send({
+      t: 'auth', protocol: PROTOCOL_VERSION, mode: 'token',
+      username: '', password: '', token,
+    });
+  }
+
   private sendAuth(mode: 'login' | 'register'): void {
     this.send({
       t: 'auth', protocol: PROTOCOL_VERSION, mode,
@@ -99,12 +129,12 @@ export class NetClient {
     });
   }
 
-  /** Entra no mundo com um personagem da conta. */
   /** Personagem em jogo, ou `null` fora dele. Usado para guardar HUD por personagem. */
   get charId(): number | null {
     return this.characterId;
   }
 
+  /** Entra no mundo com um personagem da conta. */
   enterGame(characterId: number): void {
     this.characterId = characterId;
     this.send({ t: 'hello', protocol: PROTOCOL_VERSION, characterId });

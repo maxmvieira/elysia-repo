@@ -384,10 +384,18 @@ function onTowns(visited: string[], respawn: string): void {
 function routeServerMessage(msg: ServerMessage): void {
   switch (msg.t) {
     case 'authresult':
+      // 🔑 Guarda o token ANTES de tratar o resultado: é ele que faz a próxima
+      // troca de personagem cair na lista em vez da tela de senha.
+      if (msg.ok && msg.token) guardaToken(msg.token);
+      else if (!msg.ok) esqueceToken();
       onAuthResult(msg.ok, msg.message);
       return;
     case 'charlist':
       renderCharList(msg.characters, msg.error);
+      return;
+    case 'leaveok':
+      // 🚪 O servidor liberou: agora sim recarrega e volta para a lista.
+      aoLiberarSaida?.();
       return;
     case 'welcome':
       // Primeira entrada: monta o mundo. Nas reconexões o jogo já existe e a
@@ -501,6 +509,40 @@ const pediuTrocarPersonagem: boolean = (() => {
     return false; // sessionStorage bloqueado (aba anônima restrita): segue o fluxo normal
   }
 })();
+
+// ---------------------------------------------------------------------------
+// 🔑 Token de sessão
+//
+// 🔴 **`sessionStorage`, não `localStorage`, e a diferença é a intenção.** O
+// token existe para sobreviver a UMA recarga — a do botão "Trocar personagem".
+// Em `localStorage` ele viraria um "lembrar de mim" que ninguém pediu e que
+// deixaria a conta aberta no computador depois de fechar o navegador.
+//
+// ⚠️ O token não é senha: ele só reabre a LISTA de personagens. Excluir
+// personagem continua pedindo a senha da conta, à parte.
+// ---------------------------------------------------------------------------
+
+const CHAVE_TOKEN = 'elysia_sessao';
+
+function guardaToken(token: string): void {
+  try {
+    sessionStorage.setItem(CHAVE_TOKEN, token);
+  } catch { /* sem armazenamento: a troca volta a pedir senha, e só */ }
+}
+
+function leToken(): string {
+  try {
+    return sessionStorage.getItem(CHAVE_TOKEN) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function esqueceToken(): void {
+  try {
+    sessionStorage.removeItem(CHAVE_TOKEN);
+  } catch { /* idem */ }
+}
 
 // ---- Tela 1: login / criação de conta --------------------------------------
 function setupLoginScreen(): void {
@@ -8115,6 +8157,25 @@ net = new NetClient(routeServerMessage, (connected) => {
    * Adiando para o próximo tique, o `onopen` termina com `username` ainda vazio
    * e só o nosso login acontece.
    */
+  /**
+   * 🔑 **Sessão anterior: volta direto para a lista de personagens.**
+   *
+   * Vem ANTES do auto-login de desenvolvimento porque resolve o mesmo problema
+   * para todo mundo, inclusive em produção — enquanto o `DEV_AUTOLOGIN` só
+   * existe nesta máquina e com duas variáveis ligadas.
+   *
+   * ⚠️ Se o token estiver vencido ou já usado, o servidor responde "sessão
+   * expirada" e a tela de login aparece normalmente. O jogador nunca fica preso.
+   */
+  if (connected && !autoAuthEnviado && leToken()) {
+    autoAuthEnviado = true;
+    const token = leToken();
+    // Esquece na hora: o token é de uso único, e o servidor manda outro na
+    // resposta. Guardar o velho faria a próxima troca falhar.
+    esqueceToken();
+    window.setTimeout(() => net.authWithToken(token), 0);
+    return;
+  }
   if (connected && DEV_AUTOLOGIN && !autoAuthEnviado) {
     autoAuthEnviado = true;
     console.warn(`[DEV] auto-login ligado para "${DEV_AUTOLOGIN}" — tela de login pulada`);
@@ -8145,8 +8206,22 @@ net.connect();
 function setupSwitchCharButton(): void {
   const btn = document.getElementById('switchchar') as HTMLButtonElement | null;
   if (!btn) return;
+  /**
+   * 🚪 **Pede antes de sair.** O servidor recusa quem está em combate — 60 s
+   * sem lutar, ou 180 s quando a briga foi com jogador.
+   *
+   * ⚠️ O botão é reabilitado na recusa, senão uma negativa o deixaria morto
+   * para o resto da sessão e o jogador teria de recarregar na mão — que é
+   * justamente o que a trava existe para evitar.
+   */
   btn.onclick = () => {
-    btn.disabled = true; // clique duplo não dispara duas recargas
+    btn.disabled = true; // clique duplo não dispara dois pedidos
+    net.send({ t: 'leave' });
+    // Rede de segurança: se a resposta nunca vier (socket caiu no meio), o
+    // botão volta a funcionar em vez de ficar travado para sempre.
+    window.setTimeout(() => { btn.disabled = false; }, 5000);
+  };
+  aoLiberarSaida = () => {
     net.leaveCharacter();
     try {
       sessionStorage.setItem(CHAVE_TROCA, '1');
@@ -8158,6 +8233,9 @@ function setupSwitchCharButton(): void {
     location.reload();
   };
 }
+
+/** O que fazer quando o servidor autoriza a saída. Preenchido pelo botão. */
+let aoLiberarSaida: (() => void) | null = null;
 
 setupLoginScreen();
 setupCharSelectScreen();
