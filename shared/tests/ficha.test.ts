@@ -21,7 +21,10 @@ import {
 } from '../src/index.js';
 
 const skill = (kind: SkillState['kind'], level = 10): SkillState => ({ kind, level, progress: 0 });
-const CLASSES_IDS: PlayerClass[] = ['knight', 'sorcerer', 'archer', 'assassin'];
+// ⚠️ As CINCO classes desde 02/09. Escrito à mão e não `Object.keys(CLASSES)`
+// de propósito: se alguém acrescentar uma sexta sem passar por aqui, o teste
+// continua verde e a classe nova entra sem ninguém conferir os 45 pontos.
+const CLASSES_IDS: PlayerClass[] = ['knight', 'sorcerer', 'archer', 'assassin', 'druid'];
 
 test('são SETE atributos, incluindo LUK', () => {
   assert.equal(ATTRIBUTE_KEYS.length, 7);

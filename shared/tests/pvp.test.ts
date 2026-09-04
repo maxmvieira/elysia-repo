@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canHarm, type Combatant } from '../src/index.js';
+import {
+  canHarm,
+  whiteSkullDuration,
+  logoutLockDuration,
+  LOGOUT_LOCK_PVE_MS,
+  LOGOUT_LOCK_PVP_MS,
+  type Combatant,
+} from '../src/index.js';
 
 const jogador = (id: string, extra: Partial<Combatant> = {}): Combatant => ({
   id,
@@ -111,4 +118,49 @@ test('DD-PK-009: duelo consensual é separado de PK', () => {
 test('ninguém se machuca sozinho', () => {
   const a = jogador('a', { pkEnabled: true });
   assert.equal(canHarm(a, a).veto, 'self');
+});
+
+// ---------------------------------------------------------------------------
+// ⚪ Duração da caveira e 🚪 trava de saída — decisões do dono em 2026-09-05
+// ---------------------------------------------------------------------------
+
+test('uma agressão isolada dá 60 s de caveira; insistir dá 10 minutos', () => {
+  /**
+   * 🔴 Citação do dono: *"se eu virei pk a duração mínima são 10 minutos caso
+   * eu continue atacando o player. caso tenha sido somente 1 ataque em um
+   * player, a caveira branca some com 60 segundos."*
+   *
+   * O que a regra compra: encostar uma vez sem querer deixa de custar o mesmo
+   * que caçar alguém pelo mapa.
+   */
+  assert.equal(whiteSkullDuration(1), 60_000);
+  assert.equal(whiteSkullDuration(2), 10 * 60_000);
+  assert.equal(whiteSkullDuration(7), 10 * 60_000, 'da segunda em diante não sobe mais');
+});
+
+test('a caveira de quem insiste dura MUITO mais que a de um golpe só', () => {
+  // É a relação, não o número, que dá sentido à regra.
+  assert.ok(whiteSkullDuration(2) > whiteSkullDuration(1) * 5);
+});
+
+test('0 ou menos agressões cai no caso de uma só — nunca em zero', () => {
+  // Defensivo: uma contagem zerada por engano não pode devolver "caveira de 0
+  // segundos", que na prática seria caveira nenhuma.
+  assert.equal(whiteSkullDuration(0), 60_000);
+  assert.equal(whiteSkullDuration(-3), 60_000);
+});
+
+test('a trava de saída TRIPLICA quando quem atacou foi um jogador', () => {
+  // Citação: "se for um player que me atacou esse tempo triplica".
+  assert.equal(logoutLockDuration(false), 60_000);
+  assert.equal(logoutLockDuration(true), 180_000);
+  assert.equal(
+    logoutLockDuration(true), logoutLockDuration(false) * 3,
+    'a relação é EXATAMENTE o triplo — se alguém mexer num, o outro acompanha',
+  );
+});
+
+test('as duas travas de saída batem com as constantes exportadas', () => {
+  assert.equal(LOGOUT_LOCK_PVE_MS, 60_000);
+  assert.equal(LOGOUT_LOCK_PVP_MS, 180_000);
 });

@@ -660,7 +660,20 @@
         gap: 18px;
         padding: 24px 0;
       }
+      /*
+       * 🔴 **ESCONDIDO desde 2026-09-04 — o título agora vem do VÍDEO.**
+       *
+       * O vídeo de fundo novo traz "ELYSIA ONLINE" desenhado nele, e a marca
+       * daqui ficava sobreposta em cima: dois títulos, um por baixo do outro.
+       *
+       * ⚠️ **Não foi apagado, e o motivo importa:** o `poster` é o que aparece
+       * enquanto os 55,8 MB carregam e é o que fica se o vídeo falhar. Se um dia
+       * o vídeo mudar para um sem título — ou se o poster for trocado por uma
+       * arte sem o nome —, a tela de login fica anônima, e a volta é tirar este
+       * `display: none`.
+       */
       #loginmark {
+        display: none;
         text-align: center;
         line-height: 1;
       }
@@ -985,26 +998,10 @@
         color: #9a9284;
       }
       /*
-       * ⚠️ O Druida entra APAGADO e não clicável: ele existe no GDD (são cinco
-       * classes) e na arte de referência, mas não existe no código — está na
-       * etapa 15 do roadmap. Mostrar e avisar é mais honesto que esconder, e
-       * muito mais honesto que deixar escolher uma classe que não existe.
+       * ⚠️ As regras de `.classcard.embreve` saíram em 02/09, junto com o cartão
+       * falso: o Druida virou classe de verdade. Se um dia houver outra classe
+       * anunciada e não implementada, o padrão está no histórico deste arquivo.
        */
-      .classcard.embreve {
-        opacity: 0.42;
-        cursor: default;
-        filter: grayscale(0.7);
-      }
-      .classcard.embreve:hover {
-        border-color: var(--border);
-      }
-      .classcard .emb {
-        margin-left: auto;
-        font-size: 9px;
-        letter-spacing: 1px;
-        color: #8a8272;
-        white-space: nowrap;
-      }
       #startmid #playbtn {
         width: 100%;
         max-width: 420px;
@@ -2186,20 +2183,49 @@
         text-align: center;
       }
       /* Painel de habilidades (tecla K): árvore + gasto de Skill Points */
+      /*
+       * 🔴 Rola a LISTA, não o painel inteiro.
+       *
+       * Com as 8 do Knight o painel cabia na tela e rolar tudo junto não fazia
+       * diferença. Com as 23 do Druida faz: o rodapé com "Resetar skills" subia
+       * para fora da vista, e o botão só reaparecia rolando até o fim de uma
+       * lista de 23 itens. Cabeçalho e rodapé ficam parados; o meio corre.
+       */
       #skillpanel {
         position: fixed;
         top: 20px;
         left: 340px;
         width: 340px;
         max-height: 80vh;
-        overflow-y: auto;
+        display: none;
+        flex-direction: column;
         background: var(--panel);
         border: 2px solid var(--border);
         border-radius: 6px;
         padding: 12px;
-        display: none;
         z-index: 8;
         font-size: 12px;
+      }
+      #sp-list {
+        overflow-y: auto;
+        min-height: 0;
+        flex: 1;
+      }
+      /* Cabeçalho de ramo: 💚 Cura, ☠️ Debuff… Sem isto, 23 linhas iguais. */
+      .skbranch {
+        margin: 10px 0 5px;
+        color: #c9a86a;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border-bottom: 1px solid #2a241c;
+        padding-bottom: 3px;
+        position: sticky;
+        top: 0;
+        background: var(--panel);
+      }
+      .skbranch:first-child {
+        margin-top: 0;
       }
       #skillpanel h3 {
         margin: 0 0 8px;
@@ -2343,6 +2369,110 @@
       }
       #spellbar.dragging {
         outline: 1px solid #c9a86a;
+      }
+      /*
+       * As duas fileiras de doze. O grid vive DENTRO da barra, ao lado do
+       * pegador — se os slots fossem filhos diretos de `#spellbar`, que é
+       * flex-row, as 24 células virariam uma fileira só de 1000 px.
+       */
+      .sgrid {
+        display: grid;
+        grid-template-columns: repeat(12, auto);
+        gap: 4px;
+      }
+      /* A célula sendo arrastada some pela metade — dá o "peguei isto". */
+      .sslot.dragging,
+      .skrow.dragging {
+        opacity: 0.4;
+      }
+      /* Slot sob o cursor durante o arraste. */
+      .sslot.dropok {
+        outline: 2px solid #c9a86a;
+        outline-offset: -2px;
+        background: #3a3020;
+      }
+      .skrow[draggable='true'] {
+        cursor: grab;
+      }
+      /*
+       * Buffs e debuffs ativos, com o tempo restante.
+       *
+       * 🔴 O tempo é o ponto, não o ícone. A Bênção da Natureza dura 90 s e tem
+       * 30 s de recarga: sem ver quanto falta, não há como decidir se dá para
+       * entrar no MVP com ela — e essa decisão é a habilidade inteira.
+       */
+      #buffbar {
+        position: fixed;
+        left: 50%;
+        bottom: 162px;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 4px;
+        z-index: 10;
+        pointer-events: none;
+      }
+      .buffchip {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 6px;
+        font-size: 11px;
+        border-radius: 4px;
+        border: 1px solid #000;
+        background: #14110c;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+        white-space: nowrap;
+      }
+      /* Verde é bom, vermelho é ruim — a leitura tem de ser pela cor. */
+      .buffchip.good {
+        color: #a8e8b8;
+        border-color: #2a5a38;
+      }
+      .buffchip.bad {
+        color: #f0a8a8;
+        border-color: #5a2a2a;
+      }
+      .buffchip .t {
+        opacity: 0.75;
+        font-variant-numeric: tabular-nums;
+      }
+      /*
+       * Barra de CONJURAÇÃO. Fica logo acima da barra de magias porque é ali
+       * que o olho já está quando se aperta a tecla — e porque o que ela mede
+       * é justamente o tempo entre apertar e acontecer.
+       */
+      #castbar {
+        position: fixed;
+        left: 50%;
+        /* Acima da barra de magias, que agora tem DUAS fileiras (~100 px). */
+        bottom: 138px;
+        transform: translateX(-50%);
+        display: none;
+        width: 220px;
+        height: 16px;
+        background: #14110c;
+        border: 1px solid #000;
+        border-radius: 4px;
+        box-shadow: inset 0 1px 0 rgba(201, 168, 106, 0.16);
+        z-index: 10;
+        overflow: hidden;
+      }
+      #castfill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(#a87ce8, #6a3fb0);
+        transition: width 60ms linear;
+      }
+      #casttext {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        color: #f0e6ff;
+        text-shadow: 0 1px 2px #000;
+        pointer-events: none;
       }
       .sslot {
         position: relative;
@@ -2977,6 +3107,8 @@
         </div>
       </aside>
     </div>
+    <div id="buffbar"></div>
+    <div id="castbar"><div id="castfill"></div><div id="casttext"></div></div>
     <div id="spellbar"><div id="spellgrip" title="Arraste para mover a barra"></div></div>
     <!--
       Menu de contexto do botão direito em outro jogador. Os botões são criados
@@ -3094,33 +3226,67 @@
     <div id="login">
       <!--
         🔴 O `poster` é a MESMA imagem que era o fundo antes, e não decoração:
-        ele aparece enquanto os 8 MB do vídeo carregam, e continua no lugar se o
-        vídeo falhar (formato não suportado, arquivo faltando, navegador com
-        mídia bloqueada). A tela nunca fica preta.
+        ele aparece enquanto os **55,8 MB** do vídeo carregam, e continua no lugar
+        se o vídeo falhar (formato não suportado, arquivo faltando, navegador
+        com mídia bloqueada). A tela nunca fica preta.
 
-        ⚠️ `muted` é OBRIGATÓRIO para o `autoplay` funcionar — navegador nenhum
-        toca vídeo com som sozinho. `playsinline` impede o iOS de abrir em tela
-        cheia por conta própria.
+        🔴 **O VÍDEO é mudo, mas a TELA não é — e a diferença é o ponto.** A
+        faixa de áudio foi REMOVIDA do arquivo (`ffmpeg -c:v copy -an`), então
+        não há o que tocar nem se alguém apagar o `muted` daqui. E o `muted`
+        fica de qualquer forma, porque é OBRIGATÓRIO para o `autoplay`:
+        navegador nenhum toca vídeo com som sozinho.
+
+        A música vive num `<audio>` PRÓPRIO, mais abaixo, e é assim de
+        propósito: presa ao vídeo ela era obrigada a cortar junto com a imagem,
+        e trocar o vídeo derrubava a trilha. Separada, o arquivo de fundo pode
+        ser trocado à vontade sem encostar nela. Ela também não começa sozinha
+        — só pelo alto-falante no canto (decisão do dono em 02/09).
+
+        🔁 **O LOOP É VAI-E-VOLTA, e isso foi necessário.** O vídeo original é
+        um **zoom contínuo de câmera**: começa aberto e termina perto. Ao voltar
+        para o quadro 0 dava um salto seco — a diferença média entre o último e
+        o primeiro quadro media **16,3** numa escala de 0–255 (um loop perfeito
+        fica perto de zero).
+
+        A solução foi concatenar o vídeo com ele mesmo invertido: a câmera entra
+        e sai, o que num zoom lê como respiração e não como rebobinar. Depois
+        disso a emenda mede **0,37** — e a virada mede 1,20, que é o movimento
+        normal entre dois quadros vizinhos (nenhum quadro repetido).
+
+        ⚠️ **A metade de IDA continua bit a bit idêntica ao original.** Só a de
+        volta foi codificada, no mesmo bitrate da fonte (47 Mbps), e as duas
+        foram unidas com `-c copy`. Metade do vídeo nunca passou por um
+        encoder — que era o jeito de honrar "qualidade máxima" sem abrir mão do
+        loop.
+
+        ⚠️ **55,8 MB, e o número é alto de propósito.** Dobrar a duração dobra os
+        bytes; não há mágica. Numa conexão de 10 Mbps o jogador vê só o poster
+        por ~45 s. Quem um dia quiser aliviar, o caminho é **1080p**
+        (`-vf scale=1920:-2`), que corta ~75 % — nunca reencodar em 4K de novo,
+        porque cada passagem perde qualidade.
+
+        `+faststart` põe o índice do MP4 no começo do arquivo, então o navegador
+        começa a tocar antes de baixar tudo. Não custa qualidade nenhuma.
+
+        `loop` faz o vídeo recomeçar sozinho — são 9,66 s por ciclo.
+        `playsinline` impede o iOS de abrir em tela cheia por conta própria.
       -->
       <div id="loginbg">
         <!--
-          🔴 **O `loop` aqui é costura de verdade, e não emenda escondida.**
+          🔴 **O vídeo já vem costurado — a explicação está no comentário
+          acima**, e não se repete aqui. O que este bloco guarda é o que MORREU
+          quando ele passou a ser vai-e-volta.
 
-          O clipe original era um empurrão de câmera de 5,17 s: começava aberto e
-          terminava fechado no pé da Árvore. Em laço isso PULAVA do fechado para
-          o aberto a cada cinco segundos — o talho que o dono viu. E dissolvência
-          não resolvia: cruzar um quadro aberto com um fechado é sobrepor duas
-          escalas da mesma imagem, o que dá fantasma, não transição.
+          Antes eram DOIS vídeos sobrepostos, com uma dissolvência cruzando um
+          no outro para esconder o salto do laço. Não funcionava: cruzar um
+          quadro aberto com um fechado é sobrepor duas escalas da mesma imagem,
+          o que dá fantasma, não transição. Com a câmera fechando e abrindo, o
+          quadro que emenda com o primeiro é o VIZINHO dele — não há corte a
+          suavizar, então o segundo vídeo e a dissolvência foram embora.
 
-          O arquivo foi refeito em **vai-e-volta** (02/09, noite): 124 quadros de
-          ida e os mesmos 122 de volta, sem repetir as pontas. A câmera fecha e
-          abre de novo, e o quadro que emenda com o primeiro é o VIZINHO dele.
-          Não há transição a suavizar porque não há mais corte — e por isso o
-          segundo vídeo e a dissolvência que existiam aqui foram embora.
-
-          ⚠️ Refazer o vídeo também **cortou peso**: 8,4 MB → 2,6 MB, com o dobro
-          da duração (10,25 s). O `cover` é sobre um véu escuro, então 1920 de
-          largura sobra — os 2544 do original não chegavam a aparecer.
+          ⚠️ Se um dia alguém voltar a trocar o arquivo por um de ida só, o
+          talho volta junto, e o conserto é refazer o vai-e-volta — NÃO
+          ressuscitar a dissolvência daqui.
         -->
         <video
           id="loginvid"

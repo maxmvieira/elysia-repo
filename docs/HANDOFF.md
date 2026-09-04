@@ -1,3 +1,707 @@
+# Handoff — estado do projeto em 2026-09-05 (tarde)
+
+## ⏸️ ONDE PARAMOS — três pedidos do teste em jogo
+
+> Typecheck limpo nos 3 pacotes, **634 testes**. `npm run dev:test` →
+> `localhost:5173`.
+
+### 🔑 Token de sessão — a pendência de 02/09 fechou
+
+"Trocar personagem" volta para a **lista de personagens**, sem redigitar senha.
+O servidor emite um token a cada login; o cliente guarda em `sessionStorage`
+(morre ao fechar a aba, de propósito) e o usa na recarga.
+
+🔴 **Uso único** — cada entrada emite outro.
+⚠️ **Não é senha:** só reabre a lista. Excluir personagem continua pedindo senha.
+⚠️ **Vive na memória do servidor:** reiniciar invalida todos.
+
+### 🚪 Trava de saída em combate
+
+| Situação | Espera |
+|---|---|
+| Lutando com criatura | **60 s** sem combate |
+| Atacado por jogador | **180 s** (triplica) |
+
+Vale nos dois sentidos (golpe dado ou recebido) e nos dois lados de um PvP. O
+relógio reinicia a cada golpe novo.
+
+🔴 **PvE não rebaixa PvP:** levar uma mordida de lobo depois de um duelo não
+encurta a trava para 60 s.
+
+⚠️ **A trava alcança o BOTÃO, não o fechamento da aba.** Impedir de verdade
+exigiria o personagem continuar no mundo depois da queda do socket — sistema
+que o jogo não tem. **É a maior pendência que este bloco deixa.**
+
+### ⚪ Caveira branca por reincidência
+
+| Agressões | Caveira |
+|---|---|
+| 1 | **60 s** |
+| 2+ | **10 min** a partir da última |
+
+Substitui os 5 minutos fixos, que eram `⚠️ REFERÊNCIA` (o Doc 1 não fecha a
+duração da branca). A contagem zera junto com a caveira.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Continuar o teste em jogo.**
+2. ⏳ **Personagem permanecer no mundo após a queda do socket** — é o que faria a
+   trava de saída valer contra quem fecha a aba.
+3. ⏳ **Munição** (shuriken, azagaia) · **slot de segunda arma** · **esquiva no
+   bestiário** · **"cura como arma"** · sprite do palco · sprites base M/F ·
+   sistema de GUARDA.
+
+## ⚠️ O QUE PRECISA DE PASSADA HUMANA (novo deste bloco)
+
+- **Trocar personagem** fora de combate → cai na lista, sem senha. Trocar duas
+  vezes seguidas também tem que funcionar (o token é de uso único e renova).
+- **Trocar personagem batendo num monstro** → recusa, dizendo os segundos.
+  Esperar 60 s parado libera.
+- **Fechar a aba e reabrir** → tem que pedir senha de novo (`sessionStorage`).
+- **Excluir personagem** continua pedindo a senha da conta.
+- ⚠️ **Precisa de duas janelas:** os 180 s de PvP e a caveira de 60 s × 10 min.
+
+---
+
+# Handoff — estado do projeto em 2026-09-05
+
+## ⏸️ ONDE PARAMOS — tela de login fechada
+
+> Typecheck limpo nos 3 pacotes, **629 testes**. `npm run dev:test` →
+> `localhost:5173`.
+>
+> ⚠️ **Cinco sessões sem passada humana.** A lista completa está nos blocos
+> abaixo; o acumulado de habilidades é o que mais precisa.
+
+### 🔊 O botão de som VOLTOU no merge de 03/09
+
+⚠️ **Este bloco corrige o LOGO ABAIXO, e é a única coisa que o merge desfez.** Na
+mesma noite os dois lados atacaram a tela de entrada: um refez o vídeo em 4K e
+tirou a faixa de áudio; o outro tinha tirado a música do vídeo antes e posto
+num `<audio>` próprio, com alto-falante e volume.
+
+🔴 **O merge ficou com as duas metades.** O VÍDEO é o de 55,8 MB descrito
+abaixo; a MÚSICA é "The Old Forest" (10 min) em dois `<audio id="loginmus*">`,
+com travessia por dissolvência. O bloco abaixo diz que, se voltasse música, "o
+certo é um `<audio>` próprio" — era exatamente o que já existia do outro lado,
+então o botão não voltou por capricho: voltou na forma que o próprio bloco
+pediu.
+
+✅ **O acoplamento que derrubou o botão não existe mais.** Trocar o vídeo — ou
+encolher para 1080p — não encosta na trilha. E o vídeo continua mudo em duas
+camadas: sem faixa no arquivo E com `muted` no elemento, que o `autoplay` exige.
+
+🔴 **A música NÃO começa sozinha** (decisão do dono em 02/09): o vídeo entra
+mudo e a trilha só toca no clique do alto-falante. Padrão de volume: 10%.
+
+⚠️ **`ligaControlesDeSom()` roda no bootstrap**, antes do `NetClient`. As
+funções listadas abaixo como removidas (`querSom`, `CHAVE_SOM`,
+`atualizaBotaoSom`) estão vivas em `client/src/main.ts`.
+
+### 🔇 O botão de som saiu
+
+O vídeo perdeu a faixa de áudio em 04/09, então o botão ligava o som de um vídeo
+mudo. Saíram o botão, o CSS e as quatro funções (`ligaBotaoSom`,
+`atualizaBotaoSom`, `querSom`, `CHAVE_SOM`).
+
+⚠️ **`tocaFundoDoLogin` FICOU** e quase foi junto por engano — o typecheck pegou.
+Ela não tem nada a ver com som: `autoplay` não pega em elemento escondido, e a
+tela de login nasce com `display: none`.
+
+⚠️ **Se um dia voltar música**, ela NÃO deve voltar por aqui — o certo é um
+`<audio>` próprio. Foi o acoplamento trilha-dentro-do-vídeo que derrubou o botão.
+
+### 🔁 O loop virou VAI-E-VOLTA
+
+O dono relatou que o loop não estava bom. A medição explicou: o vídeo é um
+**zoom contínuo de câmera**, e voltar ao quadro 0 era um salto de escala.
+Diferença entre o último e o primeiro quadro: **16,3** (escala 0–255).
+
+🔴 **Nenhum conserto era possível sem reencodar**, o que conflitava com a
+"qualidade máxima" pedida no dia anterior. O conflito foi posto na mesa e o dono
+escolheu o vai-e-volta.
+
+| | Antes | Depois |
+|---|---|---|
+| Duração | 4,83 s | **9,66 s** |
+| Emenda do loop | 16,3 | **0,37** |
+| Tamanho | 27,2 MB | **55,8 MB** |
+
+🔴 **A metade de IDA continua bit a bit idêntica ao original** — só a de volta
+passou por encoder (no bitrate da fonte, 47 Mbps), e as duas foram unidas com
+`-c copy`.
+
+⚠️ **Duas armadilhas registradas no HISTORICO**, e as duas custariam tempo a
+quem repetir:
+1. **CRF em vídeo já comprimido INFLA** — CRF 15 deu 80 MB. Mirar o bitrate da
+   fonte deu 28,6 MB com a mesma qualidade por quadro.
+2. **O `concat` produziu 232 quadros em 4,75 s** por causa do
+   `time_base=1/24017802` da fonte. A correção é normalizar o contêiner
+   (`-c copy -video_track_timescale`) antes de unir.
+
+⚠️ **55,8 MB é alto de propósito.** Numa conexão de 10 Mbps o jogador vê só o
+poster por ~45 s. Quem quiser aliviar deve ir para **1080p**
+(`-vf scale=1920:-2`, corta ~75 %) — **nunca** reencodar em 4K de novo.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Jogar.** Cinco sessões acumuladas sem passada humana.
+2. ⏳ **Munição** (shuriken, azagaia) — as habilidades de arremesso do Assassino
+   custam mana provisoriamente.
+3. ⏳ **Slot de segunda arma** — destrava a build de duas adagas.
+4. ⏳ **Esquiva no bestiário** — faria a precisão valer em PvE.
+5. ⏳ **"Cura como arma"** · sprite do palco · sprites base M/F · token de sessão
+   · sistema de GUARDA.
+
+---
+
+# Handoff — estado do projeto em 2026-09-04 (tarde)
+
+## ⏸️ ONDE PARAMOS — AGI voltou a ter dois usos
+
+> Typecheck limpo nos 3 pacotes, **629 testes**. `npm run dev:test` →
+> `localhost:5173`.
+>
+> ⚠️ **Continua sem passada humana** — agora são quatro sessões acumuladas.
+
+### 🔴 O pedido do dono era CORREÇÃO, não override
+
+Ele pediu que AGI deixasse de dar velocidade de movimento. Fui ao doc antes de
+mexer: **`DD-BAL-012` diz "AGI = velocidade de ataque + esquiva"**, e a tabela
+de conferência do destilado marcava a linha como "✅ igual" — enquanto o código
+dava **quatro** usos.
+
+| Uso | Antes | Agora |
+|---|---|---|
+| Velocidade de ataque | AGI | ✅ AGI |
+| Esquiva | AGI (linear, teto 50 %) | ✅ AGI (curva, teto 35 %) |
+| Movimento | AGI | ❌ → **NÍVEL** |
+| Defesa | AGI +0,2/ponto | ❌ → VIT (peso dobrado, 0,15 → 0,3) |
+
+**Movimento agora:** 480 ms no nível 1, −0,35 ms/nível, piso 380 ms. ~21 % ao
+longo de 300 níveis, contra os ~110 % que a AGI dava. Há teste travando a faixa
+("bem pouco" é medido: entre 10 % e 25 %).
+
+### 🔴 DUAS fórmulas de esquiva conviviam há meses
+
+`computeDodgeChance` existe em `defense.ts` desde a Etapa 8 — teto de 35 %,
+curva assintótica, comentário citando `DD-DEF-005`. **E `computeStats` nunca a
+chamou:** a ficha usava a linear da Etapa 1 com teto de 50 %.
+
+Um Assassino com AGI 100 esquivava **metade** dos golpes; a curva dá 16 %.
+Agora há uma fórmula só.
+
+⚠️ **Consequência de balanceamento real:** quem já tinha AGI alta ficou bem mais
+fácil de acertar. É o que o doc pede (*"meta de 30–35 % máximo vindo de AGI.
+Nunca 80 %"*), mas é uma mudança grande para personagens existentes.
+
+### ⚠️ O conserto quebrou a precisão, e ela também foi consertada
+
+A precisão entrou ontem LINEAR porque a esquiva era linear. Com a esquiva
+virando curva, a precisão passou a esmagá-la — DEX 100 dava **40 %** contra
+15,9 % de AGI 100. Ganhou a mesma curva, com teto de 30 %.
+
+🔴 **A lição, e vale além deste caso:** duas estatísticas que se cancelam
+precisam ter a MESMA FORMA, senão a comparação entre elas troca de sinal no
+meio da progressão.
+
+### 🎬 Vídeo novo na tela de login
+
+Trocado a pedido do dono, sem som. O `<video>` já era `muted` (obrigatório para
+o `autoplay`), então som nunca tocou.
+
+✅ **A faixa de áudio foi REMOVIDA do arquivo** (ffmpeg instalado via winget,
+`-c:v copy -an -movflags +faststart`). Não há o que tocar nem se alguém apagar
+o `muted` do HTML.
+
+🔴 **Por CÓPIA de fluxo, não reencode** — o dono pediu qualidade máxima. O vídeo
+saiu **bit a bit idêntico**: mesmo h264 High, mesmo 3840×2160, mesmo bitrate de
+47.242.135. Reencodar 4K perderia qualidade a cada passagem; `-c:v copy` não
+perde nada. `+faststart` entrou junto (índice do MP4 no começo do arquivo, o
+navegador começa a tocar antes de baixar tudo) e também não custa qualidade.
+
+⚠️ **27 MB** (o anterior tinha 8,8): 4,8 s em 4K a 47 Mbps. Numa conexão de
+10 Mbps o jogador vê só o poster por ~22 s. Tirar o áudio cortou só 80 KB — o
+peso é o vídeo. **O dono pediu qualidade máxima sabendo disso**; quem um dia
+quiser aliviar, o caminho é 1080p (`-vf scale=1920:-2`), não mexer no áudio.
+
+O logo `#loginmark` foi escondido (não apagado): o vídeo traz o título e os dois
+ficavam sobrepostos.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Jogar.** Quatro sessões sem passada humana.
+2. ✅ ~~Reencodar o vídeo~~ — áudio removido sem perda em 04/09. O tamanho
+   (27 MB) fica por decisão do dono: qualidade máxima.
+3. ⏳ **Munição** — shuriken e azagaia consumíveis.
+4. ⏳ **Slot de segunda arma** — destrava a build de duas adagas.
+5. ⏳ **Esquiva no bestiário** — faria a precisão valer em PvE.
+6. ⏳ **"Cura como arma"** · sprite do palco · sprites base M/F · token de sessão
+   · sistema de GUARDA.
+
+## ⚠️ O QUE PRECISA DE UMA PASSADA HUMANA
+
+Novo desta sessão:
+- **Andar com dois personagens de níveis bem diferentes** (`/lvl 1` e `/lvl 200`)
+  e sentir se a diferença de velocidade ficou boa. É o número que o dono pediu
+  para ser "bem pouco", e é o único que só se avalia jogando.
+- **A tela de login** com o vídeo novo: um título só, e o poster aparecendo
+  enquanto os 27 MB carregam.
+
+O acumulado das sessões anteriores continua no bloco de 2026-09-04 (manhã),
+abaixo.
+
+---
+
+# Handoff — estado do projeto em 2026-09-04
+
+## ⏸️ ONDE PARAMOS — as cinco classes têm árvore
+
+> Typecheck limpo nos 3 pacotes, **627 testes** (eram 604).
+> `npm run dev:test` → `localhost:5173` (liga `/level`, `/sp`, `/gold`, `/heal`).
+>
+> ⚠️ **Nada das três sessões foi jogado por uma pessoa.** Validei por unidade,
+> por typecheck e conferindo ícones e layout no navegador; não entro com senha.
+
+### 🏹 O ARQUEIRO FECHOU O CICLO — 12 habilidades
+
+Com ele, **as cinco classes têm árvore**: Knight 8 · Druida 23 · Feiticeiro 18 ·
+Assassino 14 · Arqueiro 12 = **75 habilidades**.
+
+✅ **É a classe mais bem especificada das cinco.** Ao contrário do Assassino,
+quase toda skill vem com número no doc — e por isso `archer.test.ts` é
+majoritariamente CITAÇÃO, não balanceamento nosso:
+
+| Habilidade | O que o doc dá |
+|---|---|
+| Disparo Duplo | só arco · CD 1,5 s · 2 projéteis · 60 % → 90 % |
+| Tiro Preciso | só besta · 0,7 s de preparação |
+| Disparo Perfurante | CD 6 s · DEF −5 % → −15 % · sangramento 10 % → 30 % |
+| Chuva de Flechas | até **10 alvos** |
+| Saraivada | 5 a 8 disparos |
+| Olho de Águia | +15 % precisão · **+20 % alcance** · zero dano |
+| Concentração | +15 % precisão · +10 % ASPD · +10 % movimento |
+| Armadilha de Caça | 1 → 3 traps · a 4ª apaga a mais antiga · ocultas ao inimigo |
+| Armadilha Explosiva | queimadura 10 % → 30 % |
+| Instinto do Caçador | esquiva +2 % → +10 % |
+
+### 🔴 As quatro PROIBIÇÕES que definem a classe (todas com teste)
+
+Cada uma é algo que alguém adicionaria de boa-fé achando que melhora:
+
+1. `DD-ARC-015` **sem dash, sem backstep, sem teleporte** — a sobrevivência é
+   alcance → armadilha → Concentração → correr.
+2. `DD-ARC-013` **estar mais longe não aumenta o dano.**
+3. `DD-ARC-019` **munição elemental é ITEM, não skill** — nada de "Flecha de
+   Fogo" na árvore. A única com elemento é a Armadilha Explosiva, e o fogo é da
+   trapa.
+4. `DD-ARC-009` **o Disparo Perfurante NÃO atravessa inimigos** — o nome sugere
+   fila e o doc corrige.
+
+⚠️ E o doc avisa: **Flecha Explosiva ≠ Armadilha Explosiva, não fundir.** A que
+existe é a armadilha. Há teste guardando isso e a ausência das quatro propostas
+não fechadas (Disparo Pesado, Flecha Explosiva, Arremesso Preciso, Arremesso
+Rápido).
+
+### 🆕 Três coisas novas no motor
+
+**1. `accuracy` — precisão entrou na ficha.** `ATTRIBUTE_INFO.dex` prometia
+*"Dano de arco/besta · **precisão**"* desde o primeiro dia e precisão não
+existia; o Olho de Águia e a Concentração dão "+15 %" e não tinham onde pousar.
+Agora DEX dá precisão, que **desconta da esquiva do alvo**.
+
+⚠️ **Só morde em PvP hoje:** `creatureDefenseProfile` devolve `dodgeChance: 0` —
+monstro não desvia. É coerente com o doc (que vende o Olho de Águia pelo
+ALCANCE), e no dia em que o bestiário ganhar esquiva ela passa a valer em PvE
+sem tocar em nada.
+
+⚠️ A esquiva pesa mais por ponto que a precisão (0,005 contra 0,004), senão quem
+investe em AGI perde para quem investe em DEX só para acertar.
+
+**2. 🪤 Armadilhas.** Novo `AreaKind: 'trap'` — fica ARMADA, não pulsa, dispara
+uma vez e some. 🔴 **É oculta ao inimigo e visível à party, e o filtro é do
+SERVIDOR**: mandar para todos e esconder no cliente deixaria a posição de cada
+trapa trafegando na rede. Não dispara com o dono nem com a party em cima.
+
+**3. `requiresWeapon` e `maxTargets`.** Primeira vez que uma habilidade depende
+do que está na mão (só arco / só besta), e primeiro teto de alvos numa AoE. A
+Chuva de Flechas ordena por DISTÂNCIA antes de cortar em 10 — cortar na ordem
+do mapa acertaria monstros do outro lado.
+
+⚠️ **A Azagaia não virou habilidade, e não devia:** o doc a trata como
+configuração de ARMA (lança curta de arremesso que usa escudo, consumível), e
+`DD-ARC-029` amarra a perda dela ao Distance. É item e munição — os dois ainda
+não existem.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Jogar.** Três sessões acumuladas sem passada humana.
+2. ⏳ **Munição** — shuriken (~40) e azagaia (~10) consumíveis, com a
+   proficiência reduzindo a perda. Hoje as habilidades de arremesso do Assassino
+   custam **mana**, que é substituição provisória.
+3. ⏳ **Slot de segunda arma** — destrava a build de duas adagas e metade do
+   Ataque Duplo (`DD-ASS-004/005`), hoje implementada e inalcançável.
+4. ⏳ **Esquiva no bestiário** — faria a precisão valer em PvE.
+5. ⏳ **"Cura como arma"** (Etapa 15): energia vital fere morto-vivo, vampiro e
+   demônio. Exige etiqueta de família em `CreatureDef` — 77 espécies.
+6. ⏳ Sprite do palco · sprites base M/F · token de sessão · sistema de GUARDA.
+
+## ⚠️ O QUE PRECISA DE UMA PASSADA HUMANA
+
+Acumulado das três sessões, em ordem de risco:
+
+**Arqueiro**
+- **Disparo Duplo sem arco na mão** tem que RECUSAR, nomeando a arma. Idem Tiro
+  Preciso sem besta.
+- **Armadilha de Caça:** armar, sair de perto, esperar um monstro pisar — ele
+  tem que ficar preso. E a trapa **não pode aparecer** para quem não é da party.
+- **Olho de Águia:** o alcance do ataque básico tem que crescer de verdade
+  (5 → 6 tiles).
+- **Armar a 4ª armadilha** faz a mais antiga sumir.
+
+**Barra**
+- Arrastar da janela para slot ocupado (substitui), slot→slot (troca), botão
+  direito (esvazia), e conferir que **volta igual depois de recarregar**.
+- **Shift+F1..F12** dispara a segunda fileira; **F11 não pode** pôr em tela cheia.
+
+**Assassino**
+- **Ataque Duplo:** `/lvl 30`, subir a passiva, equipar **adaga e escudo**, bater.
+- **Ocultar** perto de um monstro que ainda não te viu; atacar quebra.
+
+**Druida / Feiticeiro**
+- **Curar** (F1 sem alvo cura você mesmo, 1 s de conjuração); **andar no meio
+  cancela**.
+- **Esporos Venenosos:** confirmar que o veneno TIRA VIDA.
+- **Muralha de Gelo** bloqueia passagem.
+- **Cajado do Feiticeiro:** corpo a corpo, sem mana, fraco.
+
+⚠️ **Precisa de duas janelas:** curar/buffar outro jogador, Chama de Revelação
+achando um Assassino oculto, e a armadilha invisível para o inimigo.
+
+---
+
+# Handoff — estado do projeto em 2026-09-03 (madrugada)
+
+## ⏸️ ONDE PARAMOS — barra configurável e o Assassino
+
+> Typecheck limpo nos 3 pacotes, **604 testes** (eram 579). `npm run dev:test` →
+> `localhost:5173` (o `dev:test` liga `/level`, `/sp`, `/gold`, `/heal`).
+>
+> ⚠️ **Continua sem passada humana.** Confirmei o layout da barra medindo o DOM
+> (604 × 106 px = 12 × 2) e os 14 ícones novos no navegador; não entro com senha.
+
+### ⌨️ A BARRA VIROU 24 SLOTS, E É ARRASTÁVEL
+
+Pedido do dono: *"preciso de mais atalhos para colocar todas as magias, além de
+que se eu clicar e arrastar a magia para o slot do atalho ela tem que
+substituir a que está nele"*.
+
+| | |
+|---|---|
+| **24 slots** em duas fileiras de 12 | eram 8 — número da época em que só o Knight tinha habilidades |
+| **F1–F12** na fileira de cima, **⇧F1–⇧F12** na de baixo | Shift é o único modificador que não briga com o sistema (Ctrl+F4 fecha aba, Alt+F4 fecha janela) |
+| **Arrastar da janela → slot** substitui | e esvazia o slot antigo se a magia já estava noutro |
+| **Arrastar slot → slot** TROCA os dois | copiar deixaria a mesma magia em dois lugares e um buraco |
+| **Botão direito** esvazia | par natural do arrastar; sem ele não dá para deixar espaço em branco de propósito |
+| Guardado **por personagem** em `localStorage` | ⚠️ trocar de navegador devolve ao padrão da classe — ver a decisão em `salvaBarra` |
+
+🔴 **O padrão de cada classe agora traz TUDO que se conjura**, na ordem da
+árvore. Passivas continuam fora: o slot delas seria um botão que responde "já
+está ativa".
+
+⚠️ **Duas armadilhas que já morderam neste arquivo:** o `#spellgrip` (pegador de
+arrastar) não pode ser levado junto quando a barra é remontada — a barra ficaria
+presa no centro para sempre, sem erro nenhum. E o regex das teclas era
+`F([1-9])`, que deixava F10, F11 e F12 mudos, que é justamente onde as magias
+grandes ficam agora.
+
+### 🗡️ O ASSASSINO — 14 HABILIDADES, EM TRÊS NÍVEIS DE CONFIANÇA
+
+🔴 **Leia isto antes de mexer em qualquer número dele.** O cap. 68 é o **menos
+fechado das cinco classes**, e os ramos existem para tornar isso visível:
+
+| Ramo | Estado no doc |
+|---|---|
+| 🗡️ **Lâminas** (5) | **canônico** — tabela exata do Ataque Duplo, regras de adaga/katar numeradas |
+| ⚔️ **Espada Curta** (4) | ⚠️ `DD-ASS-015` **PROPOSTA** — os nomes existem, os números não |
+| 🎯 **Arremesso** (5) | ⚠️ `DD-ASS-014` **PROPOSTA** — idem |
+
+⚠️ **A exceção de 30/07 (`PROPOSTA` não bloqueia) vale só para os Docs 3 e 4.**
+Estas são do Doc 1. Entraram a pedido do dono, com a regra aplicada à risca:
+estrutura sim, número inventado marcado `⚠️ REFERÊNCIA`, e o aviso "PROPOSTA no
+doc" aparece **no tooltip do jogador**, não só no código. Há teste guardando
+esse aviso.
+
+⚠️ **Um nome é invenção nossa: "Ocultar"** — o doc trata furtividade como
+conceito e nunca nomeia a habilidade. É o "Sopro Vital" desta classe.
+
+**O que é canônico e está implementado de verdade:**
+- **Ataque Duplo**, com a tabela 35 %→80 % literal, em `DOUBLE_ATTACK_CHANCE`.
+  Age no ataque BÁSICO, e a anti-cascata (`DD-ASS-007`) é **estrutural**: a
+  função não chama a si mesma nem `playerAttack`.
+- `DD-ASS-003` adaga+escudo → extra de **100 %** (o proc rende 200 %).
+- `DD-ASS-004/005` duas adagas → **50 %** cada.
+- `DD-ASS-006` duas mãos → **zero**.
+
+🔴 **MAS: empunhadura dupla NÃO É EQUIPÁVEL hoje.** `offhand` existe em
+`grip.ts` e **nenhum código do projeto o preenche** — `EquipSlot` tem nove
+slots e nenhum é segunda arma. A regra do dual está implementada e testada, e
+**não tem como disparar em jogo** até alguém criar o slot. Está dito em
+`equippedForGrip`.
+
+**Furtividade entrou de verdade**, e fechou um par que estava pela metade: a
+Chama de Revelação do Feiticeiro nasceu ontem sem nada para revelar; agora
+arranca o Assassino da sombra. `70.42` em pé — *"counter com counterplay"*.
+Atacar quebra a furtividade (decisão nossa, sem ela a Chama nunca teria alvo).
+
+### 🔴 Um acoplamento consertado no caminho
+
+`magic` e `damageType` respondem perguntas diferentes — **de qual ATAQUE o
+poder sai** e **contra qual DEFESA ele bate** — e o servidor estava roteando o
+dano pelo campo errado. A Kunai Envenenada é física na origem e de veneno no
+dano, e passava pela armadura física em vez da resistência a veneno.
+
+O erro apareceu porque o Lançamento Fantasma nasceu com `magic: true`, o que o
+faria escalar com INT — e o Assassino tem **INT 3**. Ficaria inútil com cara de
+implementado. Foi um teste que pegou.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Jogar.** Nada das duas sessões foi jogado. Lista abaixo.
+2. ⏳ **Slot de segunda arma** — destrava metade do Ataque Duplo (`DD-ASS-004/005`)
+   e a build de duas adagas inteira.
+3. ⏳ **Munição** (shuriken ~40, proficiência reduz a perda). Hoje as habilidades
+   de arremesso custam **mana**, que é substituição provisória.
+4. ⏳ **Archer** (12 skills, Etapa 13) — é a única classe ainda sem árvore.
+5. ⏳ **"Cura como arma"** (Etapa 15): energia vital fere morto-vivo, vampiro e
+   demônio. Exige etiqueta de família em `CreatureDef` — 77 espécies.
+6. ⏳ Sprite do palco · sprites base M/F · token de sessão · sistema de GUARDA.
+
+## ⚠️ O QUE PRECISA DE UMA PASSADA HUMANA
+
+Acumulado das duas sessões, em ordem de risco:
+
+- **A barra:** arrastar da janela para um slot ocupado (tem que substituir),
+  arrastar slot→slot (tem que trocar), botão direito (esvaziar), e conferir que
+  a arrumação **volta igual depois de recarregar a página**.
+- **Shift+F1..F12** dispara a segunda fileira; **F11 não pode** pôr em tela cheia.
+- **Ataque Duplo:** criar Assassino, `/lvl 30`, subir a passiva, equipar **adaga
+  e escudo** e bater. Deve sair o dobro com frequência visível (80 % no Lv.10).
+- **Ocultar:** ativar perto de um monstro que ainda não te viu — ele não deve
+  puxar. Atacar tem que quebrar, com aviso no chat.
+- **Curar** (Druida): F1 sem alvo cura você mesmo, com 1 s de conjuração.
+- **Andar no meio de uma conjuração** cancela.
+- **Esporos Venenosos:** confirmar que o veneno TIRA VIDA (bug silencioso já
+  corrigido uma vez aqui).
+- **Muralha de Gelo:** bloqueia passagem de verdade.
+- **Cajado do Feiticeiro:** corpo a corpo, sem mana, fraco.
+- ⚠️ **Precisa de duas janelas:** curar/buffar outro jogador, e a Chama de
+  Revelação achando um Assassino oculto.
+
+---
+
+# Handoff — estado do projeto em 2026-09-03 (noite)
+
+## ⏸️ ONDE PARAMOS — o Druida e o Feiticeiro têm magia
+
+> Typecheck limpo nos 3 pacotes, **579 testes** (eram 499). `npm run dev` →
+> `localhost:5173`.
+>
+> ⚠️ **NADA disto foi jogado por uma pessoa** — e desta vez a lista é grande.
+> Eu não entro com senha; validei por unidade, por typecheck e conferindo os 49
+> ícones no navegador. Ver o bloco final.
+
+### 🌿🔮 AS 41 MAGIAS ENTRARAM — e o motor que faltava embaixo delas
+
+**Etapas 14 e 15 do roadmap, juntas.** 23 habilidades do Druida em 4 ramos, 18
+do Feiticeiro em 4 escolas.
+
+🔴 **A parte grande não foram as habilidades, foi o que faltava embaixo.**
+`castSpell` sabia fazer uma coisa só: dano físico em criatura no alcance. Curar
+aliado, buffar party, derrubar o ATK de um inimigo, plantar área que dura —
+nada disso tinha caminho no código. Sete sistemas novos:
+
+| Entrou | Onde |
+|---|---|
+| Dano mágico em habilidade | `executeSpell`, campo `magic` da ficha |
+| Mirar em JOGADOR (aliado/party) | `lancaEmAliados` |
+| Buff/debuff com modificador de ficha | `shared/src/effects.ts` **(novo)** |
+| Tempo de conjuração, interrompível | `castSpell` + `tickCasting` |
+| Área persistente no chão | `shared/src/areas.ts` **(novo)** |
+| Cura ao longo do tempo | `ActiveHot` + `tickHots` |
+| Barra de atalhos por classe | `SKILL_BARS` / `skillBarFor` |
+
+✅ **`conditions.ts` estava pronto e parado** — Congelamento, Petrificação,
+Silêncio, Raiz, Veneno, Queimadura e Knockback já existiam com DR, anti-cadeia e
+imunidade. Foi ligar fio, não construir.
+
+### ✅ O FEITICEIRO PAROU DE ATIRAR DE GRAÇA
+
+A divergência anotada em 02/09 morreu. Ele estava com `attackType: 'magic'` e um
+firebolt de 6 de mana no golpe COMUM, contra `DD-PROG-028`. Agora: **cajado bate
+físico, corpo a corpo, alcance 1**, e magia exige habilidade e mana.
+
+⚠️ **A segunda metade quase passou batido:** o próprio CAJADO
+(`WEAPON_IDENTITY.staff`) tinha `range: 4` e `magic: true`, e `recompute` lê isso
+para decidir o ataque básico — equipar um cajado devolveria o firebolt. Entrou
+`basicPhysical`, que separa *"de onde sai o poder"* (magia) de *"como é o golpe
+comum"* (bastonada).
+
+⚠️ Com STR 3 o golpe dele é quase simbólico. É a intenção.
+
+### 🔴 As decisões que não são minhas — onde procurar se discordar
+
+- **`effects.ts` não é `conditions.ts`**, de propósito: juntá-los faria a Pele
+  de Carvalho entrar na fila de diminishing returns do Congelamento, e o quarto
+  buff seguido duraria metade.
+- **A área sobrevive à morte do dono.** O Druida cai e a Ira da Natureza
+  continua — a magia já saiu.
+- **Não entrou um oitavo elemento.** O doc fala em "dano de natureza", mas
+  `DD-ELM-002` fecha a lista em sete. "Natureza" virou o RAMO: estaca e lâmina
+  ferem `physical`, esporo fere `poison`, e a passiva soma sobre o ramo.
+
+### ⚠️ O QUE É `REFERÊNCIA` E NÃO CITAÇÃO
+
+Quase todo número das 41 veio do doc **e tem teste conferindo** (`druid.test.ts`
+29 · `sorcerer.test.ts` 27). O que **não** veio, e está marcado no código:
+
+1. **As três últimas curas** — Cura em Área, Santuário e a 5ª de emergência. O
+   cap. 71 avisa que os detalhes não foram recuperados. Entrou a estrutura, com
+   números por proporção da Cura individual. **O nome "Sopro Vital" é invenção
+   nossa** e é o primeiro a mudar quando o texto aparecer.
+2. **Lv.7** como o "níveis altos" em que as Raízes passam a petrificar.
+3. **O elemento de cada habilidade de Natureza** (ver acima).
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **Jogar isto.** É o item 1 e não é formalidade — ver a lista abaixo.
+2. ⏳ **`DD-DRU-032` merece uma passada**: "cura como arma" (energia vital fere
+   morto-vivo, vampiro e demônio) está na Etapa 15 do roadmap e **não entrou** —
+   exige uma etiqueta de família em `CreatureDef`, que hoje não existe. São 77
+   espécies para classificar.
+3. ⏳ **Archer (12 skills) e Assassin** — Etapa 13. A fundação agora está pronta;
+   o trabalho é ficha e munição, não motor. ⚠️ As skills de Shuriken/Kunai e
+   Espada Curta são `PROPOSTA` no Doc 1 e ficaram de fora de propósito.
+4. ⏳ **O sprite universal** do palco da criação — o dono está fazendo.
+5. ⏳ **Sprites base masculina e feminina** (CraftPix 419402 e 555940), em
+   `~/Downloads`, fora do repo.
+6. ⏳ **Token de sessão** — fecha o "trocar personagem volta pro login".
+7. ⏳ **O sistema de GUARDA**, parado desde 02/09 esperando o servidor saber
+   criatura-ataca-criatura.
+
+## ⚠️ O QUE PRECISA DE UMA PASSADA HUMANA
+
+Isto é grande e nada foi jogado. Em ordem de risco:
+
+- **Criar um Druida e um Feiticeiro** e subir habilidade na janela nova — ela
+  agora lista a árvore inteira agrupada por ramo, e rola.
+- **Curar alguém.** É o caminho mais novo de todos (`lancaEmAliados`): sem alvo
+  aliado escolhido, a Cura cai em você mesmo, de propósito.
+- **Conjurar algo com cast** (Cura, 1 s · Meteoro, 1,8 s · Chuva, 3 s) e
+  **andar no meio** — tem de cancelar, com aviso no chat.
+- **Plantar uma Muralha de Gelo e tentar atravessar.** É a única magia do jogo
+  que vira colisão, e vale para monstro e jogador.
+- **Esporos Venenosos num monstro:** conferir que o veneno TIRA VIDA. Foi
+  exatamente aqui que apareceu um bug silencioso (ver `HISTORICO.md`).
+- **Um debuff num monstro** — Enfraquecer/Vulnerabilidade — e ver se o dano dele
+  cai e o seu sobe. Os chips com o tempo restante aparecem acima da barra.
+- **O golpe básico do Feiticeiro com cajado:** tem de ser corpo a corpo, sem
+  gastar mana, e fraco.
+- **A barra de atalhos ao trocar de personagem entre classes** — ela é remontada
+  do zero, e o pegador de arrastar (`#spellgrip`) tinha de sobreviver a isso.
+
+---
+
+# Handoff — estado do projeto em 2026-09-03
+
+## ⏸️ ONDE PARAMOS — as cinco classes existem
+
+> Typecheck limpo nos 3 pacotes, **499 testes**. `npm run dev` → `localhost:5173`.
+>
+> ⚠️ **Nada do que entrou ontem à noite e hoje foi jogado por uma pessoa.** Eu
+> não entro com senha, então validei por unidade e no navegador com a tela
+> forçada. Ver a lista do que precisa de passada humana, no fim deste bloco.
+
+### 🌿 O DRUIDA ENTROU — o bestiário de classes fechou
+
+🔴 **Todos os números vieram do GDD, não de arbítrio.** E vale saber ONDE, porque
+o lugar óbvio engana: a tabela de atributos-base (65.20) marca o Druid como
+**`DD-BAL-029` PENDENTE**, o que faz parecer que os números não existem. Eles
+existem, no **cap. 71** — a "Ficha V1 do Druid":
+
+> HP **140** · MP **150** · STR 4 · VIT 7 · AGI 5 · DEX 5 · INT 9 · **WIS 11** · LUK 4
+
+Ela soma exatamente os **45 pontos-base**, como as outras quatro. E o teste
+confirma que é internamente consistente: `computeStats` com esses atributos
+devolve **exatamente** 140 de vida e 150 de mana no nível 1. Número arbitrado não
+fecharia assim.
+
+**As três decisões que o documento ditou:**
+
+| | |
+|---|---|
+| `attackType: 'melee'`, alcance 1, mana 0 | `DD-PROG-028`: *"ataque básico com cajado é FÍSICO (Sorcerer e Druid)"*. O cajado bate, não conjura |
+| `skill: 'magic'` mesmo assim | o doc mapeia **cajado → Magic Level**. O que ele TREINA é magia; o que o bastão faz no golpe é dano físico |
+| WIS 11 contra INT 9 | `DD-PROG-024/025`: **WIS é o principal, não INT**, e é WIS que escala cura |
+
+Mais **2,0 SP/nível** (`DD-PROG-008/009`), entre as físicas (1,5–1,7) e o
+Feiticeiro (2,5).
+
+⚠️ **Ele não tem NENHUMA habilidade.** O doc descreve **23**, em quatro ramos
+(cura 5 · buff 6 · debuff 6 · natureza 6). A classe é jogável pelo golpe básico, e
+a árvore é provavelmente o maior trabalho que sobrou no projeto.
+
+⚠️ **A arte é placeholder** — o mago VERDE do MiniWorld. O roxo já é do
+Feiticeiro; verde separa os dois de relance.
+
+🔴 **Uma divergência anterior que NÃO consertei junto**, para a mudança não virar
+duas: o **Feiticeiro está com `attackType: 'magic'`** e um firebolt de 6 de mana,
+o que contraria o mesmo `DD-PROG-028` que o Druida agora segue. As duas classes
+de cajado estão em modelos diferentes. Está anotado no código.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. ⏳ **As 23 habilidades do Druida**, e as magias das outras classes. O dono
+   pediu as magias junto com a tela de criação e ficou para depois.
+2. ⏳ **O sprite universal** do palco da tela de criação — o dono está fazendo.
+   O lugar já está reservado e dimensionado; é só preencher `#ccpalco`.
+3. ⏳ **Sprites base masculina e feminina** (CraftPix 419402 e 555940). Os packs
+   estão em `~/Downloads`, **fora do repo**.
+4. ⏳ **Token de sessão** — fecha o "trocar personagem volta pro login". Ver o
+   bloco de 02/09.
+5. ⏳ **O sistema de GUARDA**, parado desde 02/09 de manhã esperando o servidor
+   saber criatura-ataca-criatura.
+
+## ⚠️ O QUE PRECISA DE UMA PASSADA HUMANA
+
+Nada disto foi jogado de verdade — a lista é curta e vale meia hora:
+
+- **Criar personagem** com o Druida e com outra classe, e conferir na ficha se os
+  atributos distribuídos chegaram certos.
+- **Distribuir os 76 pontos**: o custo é escalonado, então concentrar num só
+  atributo rende bem menos (45 espalhado × 32 concentrado).
+- **Excluir personagem**: senha errada recusa, a linha fica riscada com a
+  contagem, o cancelar volta, e excluir o personagem em que se está logado é
+  recusado.
+- **As telas** em janelas de tamanhos diferentes — abaixo de 1100 px a criação
+  vira uma coluna, e abaixo de 900 px a de entrada também.
+
+---
+
 # Handoff — estado do projeto em 2026-09-02 (noite)
 
 ## ⏸️ ONDE PARAMOS — três coisas novas na porta de entrada

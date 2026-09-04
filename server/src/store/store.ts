@@ -298,6 +298,21 @@ export class Store {
     return !!row;
   }
 
+  /**
+   * Nome da conta, ou `null` se ela não existe mais.
+   *
+   * Existe para a entrada por TOKEN: o token guarda só o id, e a tela precisa
+   * do nome. E a checagem de `null` não é formalidade — a conta pode ter sido
+   * apagada entre o login e a troca de personagem, e aí o token tem de falhar
+   * como sessão expirada em vez de entrar numa conta fantasma.
+   */
+  accountName(accountId: number): string | null {
+    const row = this.db
+      .prepare('SELECT username FROM account WHERE id = ?')
+      .get(accountId) as { username: string } | undefined;
+    return row?.username ?? null;
+  }
+
   listCharacters(accountId: number): CharacterSummary[] {
     const rows = this.db
       .prepare(

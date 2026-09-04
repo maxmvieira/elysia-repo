@@ -35,8 +35,23 @@ export interface WeaponIdentity {
   speedMult: number;
   /** Alcance em tiles do ataque básico. */
   range: number;
-  /** Arma mágica usa poder mágico em vez de físico. */
+  /**
+   * A arma canaliza magia: o poder dela soma em `magicAtk`, não em `physAtk`.
+   *
+   * 🔴 **Isto NÃO quer dizer que o golpe básico seja mágico.** `DD-PROG-028` é
+   * explícito: *"ataque básico com cajado é FÍSICO (Sorcerer e Druid); dano
+   * mágico à distância exige gastar uma habilidade e mana"*. O cajado aumenta
+   * o que as MAGIAS fazem; o que ele faz na mão é bater. Ver `basicPhysical`.
+   */
   magic: boolean;
+  /**
+   * O golpe básico é físico e corpo a corpo, mesmo sendo `magic`.
+   *
+   * ⚠️ Existe só para o cajado, e existe porque as duas perguntas — "de onde
+   * sai o poder?" e "como é o golpe comum?" — tinham a mesma resposta enquanto
+   * o Feiticeiro atirava firebolt de graça. Desde 03/09 não têm mais.
+   */
+  basicPhysical?: boolean;
   blurb: string;
 }
 
@@ -52,7 +67,9 @@ export const WEAPON_IDENTITY: Record<WeaponType, WeaponIdentity> = {
   spear:    { type: 'spear',    name: 'Lança',   hands: 2, damageMult: 1.2,  speedMult: 1.1,  range: 2, magic: false, blurb: 'Perfuração e alcance de 2 tiles.' },
   bow:      { type: 'bow',      name: 'Arco',    hands: 2, damageMult: 1.0,  speedMult: 0.9,  range: 5, magic: false, blurb: 'Rápido e de longo alcance.' },
   crossbow: { type: 'crossbow', name: 'Besta',   hands: 2, damageMult: 1.45, speedMult: 1.35, range: 5, magic: false, blurb: 'Lenta, dano alto, longo alcance.' },
-  staff:    { type: 'staff',    name: 'Cajado',  hands: 1, damageMult: 1.0,  speedMult: 1.0,  range: 4, magic: true,  blurb: 'Canaliza poder mágico.' },
+  // 🔴 `range: 1` e `basicPhysical` desde 03/09: o cajado deixou de atirar. Ele
+  // canaliza magia (`magic: true` → soma em `magicAtk`) e bate de perto.
+  staff:    { type: 'staff',    name: 'Cajado',  hands: 1, damageMult: 1.0,  speedMult: 1.0,  range: 1, magic: true,  basicPhysical: true, blurb: 'Canaliza poder mágico. O golpe em si é uma bastonada.' },
 };
 
 // ---------------------------------------------------------------------------

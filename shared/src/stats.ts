@@ -10,7 +10,9 @@
  * atributos e usa isso no combate. O cliente só exibe.
  */
 
-export type PlayerClass = 'knight' | 'sorcerer' | 'archer' | 'assassin';
+import { computeAccuracy, computeDodgeChance } from './defense.js';
+
+export type PlayerClass = 'knight' | 'sorcerer' | 'archer' | 'assassin' | 'druid';
 export type AttributeKey = 'str' | 'dex' | 'vit' | 'int' | 'wis' | 'agi' | 'luk';
 export type AttackType = 'melee' | 'ranged' | 'magic';
 export type SkillKind = 'melee' | 'distance' | 'magic';
@@ -34,7 +36,9 @@ export const ATTRIBUTE_KEYS: AttributeKey[] = ['str', 'vit', 'agi', 'dex', 'int'
 export const ATTRIBUTE_INFO: Record<AttributeKey, { name: string; effects: string }> = {
   str: { name: 'Strength', effects: 'Dano físico corpo a corpo · capacidade de carga' },
   vit: { name: 'Vitality', effects: 'Vida máxima · regeneração de vida · resistência física' },
-  agi: { name: 'Agility', effects: 'Velocidade de ataque · esquiva · movimento' },
+  // 🔴 Dois usos, e só dois — `DD-BAL-012`. Movimento saiu em 2026-09-04 (agora
+  // vem do NÍVEL) e a defesa também (é VIT + armadura, cap. 31).
+  agi: { name: 'Agility', effects: 'Velocidade de ataque · esquiva' },
   dex: { name: 'Dexterity', effects: 'Dano de arco/besta · precisão' },
   int: { name: 'Intelligence', effects: 'Dano mágico · mana máxima' },
   wis: { name: 'Wisdom', effects: 'Regeneração de mana · resistência mágica' },
@@ -259,8 +263,8 @@ export function checkAttributes(
  * de atributo — o que muda é a distribuição, não a soma. Nenhuma classe nasce
  * matematicamente maior que outra.
  *
- * São CINCO classes no total: Knight, Sorcerer, Archer, Assassin e Druid.
- * O Druid entra na etapa 15 do roadmap. Priest NÃO existe.
+ * São CINCO classes, e desde 02/09 as cinco existem: Knight, Sorcerer, Archer,
+ * Assassin e Druid. Priest NÃO existe.
  */
 export const CLASSES: Record<PlayerClass, ClassDef> = {
   knight: {
@@ -275,18 +279,37 @@ export const CLASSES: Record<PlayerClass, ClassDef> = {
     manaAt1: 60,
     blurb: 'Especialista em combate corpo a corpo. Espadas, machados, maças, escudos e armaduras pesadas.',
   },
+  /**
+   * 🔮 O FEITICEIRO — e a correção de 2026-09-03.
+   *
+   * 🔴 **O ataque básico dele deixou de ser magia.** Até aqui a classe tinha
+   * `attackType: 'magic'`, alcance 5 e um `firebolt` de 6 de mana no golpe
+   * comum. Isso contrariava `DD-PROG-028` de frente: *"ataque básico com cajado
+   * é FÍSICO (Sorcerer e Druid); dano mágico à distância exige gastar uma
+   * habilidade e mana"*. A Etapa 14 do roadmap manda a correção em letras
+   * garrafais — *"ataque básico com cajado é FÍSICO — magia exige habilidade e
+   * mana"* — e este é o passo em que ela cabe, porque agora as 18 habilidades
+   * existem: antes de hoje, tirar o firebolt teria deixado a classe sem NADA.
+   *
+   * ⚠️ **A consequência é dura e é a intenção.** Com STR 3, o golpe de cajado
+   * do Feiticeiro é quase simbólico. Ele não é mais uma classe que atira de
+   * longe de graça: para causar dano, gasta mana. Quem quiser bater sem mana
+   * escolhe outra classe — que é exatamente o que separa o mago do arqueiro.
+   *
+   * ⚠️ `skill: 'magic'` continua: o que ele TREINA é magia. O cajado é a
+   * ferramenta, o Magic Level é a proficiência.
+   */
   sorcerer: {
     id: 'sorcerer',
     name: 'Feiticeiro',
-    attackType: 'magic',
+    attackType: 'melee',
     skill: 'magic',
     base: { str: 3, vit: 5, agi: 5, dex: 6, int: 12, wis: 10, luk: 4 },
-    attackRange: 5,
-    projectile: 'firebolt',
-    spellCost: 6,
+    attackRange: 1,
+    spellCost: 0,
     hpAt1: 100,
     manaAt1: 180,
-    blurb: 'Controla o Éter. Magias ofensivas à distância, suporte, controle e invocações.',
+    blurb: 'Controla o Éter. Magias ofensivas à distância, controle e barreiras — o cajado só empurra.',
   },
   archer: {
     id: 'archer',
@@ -315,6 +338,49 @@ export const CLASSES: Record<PlayerClass, ClassDef> = {
     manaAt1: 70,
     blurb: 'Alta velocidade e adagas. Críticos, venenos e furtividade — golpeia e some.',
   },
+  /**
+   * 🌿 O DRUIDA — a quinta e última classe, fechada em 2026-09-02.
+   *
+   * 🔴 **Todos os números aqui vêm do GDD, não de invenção.** A "Ficha V1 do
+   * Druid" está no cap. 71 do Doc 1: *HP 140 · MP 150 · STR 4 · VIT 7 · AGI 5 ·
+   * DEX 5 · INT 9 · WIS 11 · LUK 4*. Ela soma exatamente os 45 pontos-base, como
+   * as outras quatro.
+   *
+   * ⚠️ **A tabela do 65.20 marca o Druid como PENDENTE (`DD-BAL-029`) — e é fácil
+   * concluir daí que os números não existem.** Existem: estão noutro capítulo.
+   * Quem for revisar, procure a ficha V1 antes de arbitrar.
+   *
+   * 🔴 **`attackType: 'melee'` e `spellCost: 0` saem do `DD-PROG-028`:** *"ataque
+   * básico com cajado é FÍSICO (Sorcerer e Druid); dano mágico à distância exige
+   * gastar uma habilidade e mana"*. O cajado bate, não conjura.
+   *
+   * ✅ **A divergência com o Feiticeiro acabou em 2026-09-03.** Ele estava com
+   * `attackType: 'magic'` e um `firebolt` de 6 de mana no golpe comum, contra o
+   * mesmo `DD-PROG-028`. As duas classes de cajado seguem hoje o mesmo modelo.
+   *
+   * 🔴 **`skill: 'magic'` apesar do golpe físico**, e não é contradição: o doc
+   * mapeia **cajado → Magic Level** na lista de proficiências. O que a classe
+   * TREINA é magia; o que o bastão faz no golpe básico é dano físico.
+   *
+   * ⚠️ **WIS é o atributo principal, não INT** (`DD-PROG-024/025`), e é WIS que
+   * escala a cura. É por isso que a ficha dá 11 de WIS contra 9 de INT — o
+   * contrário do Feiticeiro.
+   *
+   * ✅ **As 23 habilidades entraram em 2026-09-03**, nos quatro ramos que o doc
+   * descreve (cura 5 · buff 6 · debuff 6 · natureza 6). Ver `skills.ts`.
+   */
+  druid: {
+    id: 'druid',
+    name: 'Druida',
+    attackType: 'melee',
+    skill: 'magic',
+    base: { str: 4, vit: 7, agi: 5, dex: 5, int: 9, wis: 11, luk: 4 },
+    attackRange: 1,
+    spellCost: 0,
+    hpAt1: 140,
+    manaAt1: 150,
+    blurb: 'Guardião da natureza. Cura, fortalece aliados e enfraquece inimigos — sustenta o grupo em vez de derrubar sozinho.',
+  },
 };
 
 export interface SkillState {
@@ -336,11 +402,39 @@ export interface DerivedStats {
   manaRegen: number;
   physAtk: number;
   magicAtk: number;
+  /**
+   * Poder de CURA — a base de tudo que o Druida cura.
+   *
+   * 🔴 Existe separado de `magicAtk` por causa de `DD-PROG-024/025`: *"Druid tem
+   * WIS como atributo principal, não INT — e **WIS escala cura**"*. Se a cura
+   * saísse do poder mágico, o caminho para curar melhor seria subir INT, e o
+   * Druida viraria um Feiticeiro de cajado verde. Sai de WIS, e a ficha do
+   * cap. 71 (WIS 11 contra INT 9) passa a fazer sentido mecânico.
+   *
+   * ⚠️ `DD-DRU-026`: a passiva ofensiva do Druida **não** entra aqui — quem
+   * investe em Natureza não cura melhor por isso.
+   */
+  healPower: number;
   critChance: number;
   critMult: number;
   defense: number;
   magicResist: number;
   dodgeChance: number;
+  /**
+   * Precisão — o contrário da esquiva. Desconta da chance do ALVO de desviar.
+   *
+   * 🔴 Entrou com o Arqueiro (2026-09-03) e fechou uma promessa antiga:
+   * `ATTRIBUTE_INFO.dex` diz *"Dano de arco/besta · **precisão**"* desde o
+   * primeiro dia, e precisão não existia. O Olho de Águia e a Concentração dão
+   * "+15 % de precisão" e não tinham onde pousar.
+   *
+   * ⚠️ **Hoje ela só morde em PvP.** `creatureDefenseProfile` devolve
+   * `dodgeChance: 0` — monstro não desvia —, então precisão contra criatura
+   * desconta de zero. Isso é coerente com o doc, que vende o Olho de Águia
+   * pelo ALCANCE e a precisão como vantagem de duelo; e no dia em que o
+   * bestiário ganhar esquiva, ela passa a valer em PvE sem tocar em nada.
+   */
+  accuracy: number;
   attackCooldownMs: number;
   moveIntervalMs: number;
   manaCost: number;
@@ -349,6 +443,58 @@ export interface DerivedStats {
 }
 
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
+
+// ---------------------------------------------------------------------------
+// 🏃 Velocidade de MOVIMENTO — do NÍVEL, não da AGI (decisão de 2026-09-04)
+// ---------------------------------------------------------------------------
+
+/**
+ * 🔴 **AGI deixou de acelerar o passo.** `DD-BAL-012` fecha o atributo em dois
+ * usos: *"AGI = velocidade de ataque + esquiva"*. Movimento nunca esteve lá — e
+ * a própria tabela de conferência do destilado marcava essa linha como
+ * "✅ igual", sem que ninguém percebesse que o código dava um terceiro.
+ *
+ * ⚠️ **Isso mexe em quem já jogava.** Antes, `480 − AGI×5` com piso de 150 ms:
+ * um Assassino com AGI 66 andava ao DOBRO da velocidade de um Feiticeiro. Agora
+ * todo mundo anda igual no mesmo nível, e a diferença vem de equipamento, buff
+ * (Bênção da Agilidade, Concentração) e debuff (Maldição da Lentidão) — que é
+ * onde ela dá decisão em vez de sair de graça na criação do personagem.
+ *
+ * 🔴 **O nível dá um pouco, e "pouco" é medido:** ~21 % ao longo de 300 níveis,
+ * contra os ~110 % que a AGI dava sozinha. O jogo continua obedecendo a
+ * filosofia do arquivo — *"o NÍVEL sozinho quase não fortalece"* —, mas o
+ * personagem de 200 sente que anda melhor que o de 10, que é o que o dono
+ * pediu.
+ */
+export const MOVE_BASE_MS = 480;
+/** Quanto cada nível encurta o intervalo entre passos. */
+export const MOVE_MS_PER_LEVEL = 0.35;
+/** Piso: ninguém anda mais rápido que isto só por ter nível. */
+export const MOVE_FLOOR_MS = 380;
+
+/** Intervalo entre passos no nível informado, antes de equipamento e buffs. */
+export function moveIntervalAt(level: number): number {
+  return Math.max(MOVE_FLOOR_MS, MOVE_BASE_MS - Math.max(0, level - 1) * MOVE_MS_PER_LEVEL);
+}
+
+// ---------------------------------------------------------------------------
+// 💨 Esquiva — a curva já existia, e ninguém a estava usando
+// ---------------------------------------------------------------------------
+//
+// 🔴 **`computeDodgeChance` mora em `defense.ts` desde a Etapa 8**, com o teto
+// de 35 %, a curva assintótica e o comentário citando `DD-DEF-005`
+// (*"retorno decrescente e teto — nada de Assassin com 90 %"*). Estava tudo
+// certo e pronto.
+//
+// ⚠️ **E `computeStats` nunca a chamou.** A ficha ficou com a versão linear da
+// Etapa 1 — `AGI × 0,005` com `clamp` em 50 % — e as duas conviveram por
+// meses: a de `defense.ts` usada em teste, a linear usada no jogo. Um Assassino
+// com AGI 100 esquivava metade dos golpes, contra os 16 % que a curva dá.
+//
+// A tabela de conferência do destilado não pegou porque conferia QUAIS stats
+// vêm de AGI, não a forma da curva.
+//
+// Corrigido em 2026-09-04: agora há UMA fórmula, e é a documentada.
 
 export function computeStats(
   cls: ClassDef,
@@ -371,17 +517,29 @@ export function computeStats(
     // Dano físico: STR no corpo a corpo, DEX no arco/besta.
     physAtk: 3 + (cls.attackType === 'ranged' ? a.dex : a.str) * 1.0 + skillPhys * 1.5,
     magicAtk: 3 + a.int * 1.0 + skillMagic * 2,
+    // WIS pesa mais na cura (1,2) do que INT pesa no dano mágico (1,0): é o que
+    // dá ao Druida um eixo próprio de crescimento em vez de uma cópia do
+    // Feiticeiro. O Magic Level entra nos dois — o cajado treina magia.
+    healPower: 3 + a.wis * 1.2 + skillMagic * 2,
     // Crítico é LUK — é a função principal do atributo Sorte.
     critChance: clamp(0.03 + a.luk * 0.006, 0, 0.6),
     critMult: 1.5 + a.luk * 0.008,
-    defense: 1 + Math.floor(a.agi * 0.2) + Math.floor(a.vit * 0.15),
+    // 🔴 **DEF Física = VIT + armadura** (cap. 31). AGI saiu daqui em 2026-09-04:
+    // ela dava +0,2 por ponto, o que fazia o Assassino ganhar armadura por ser
+    // rápido. O peso da VIT dobrou (0,15 → 0,3) para o tanque não sair perdendo
+    // na troca — quem tem VIT alta fica igual, quem tinha AGI alta perde a
+    // defesa que não devia ter.
+    defense: 1 + Math.floor(a.vit * 0.3),
     magicResist: clamp(a.wis * 0.01, 0, 0.6),
-    dodgeChance: clamp(a.agi * 0.005, 0, 0.5),
+    dodgeChance: computeDodgeChance(a.agi),
+    // DEX dá precisão, como `ATTRIBUTE_INFO` sempre prometeu — e com a MESMA
+    // curva da esquiva, senão as duas se cruzam no meio da progressão (ver
+    // `computeAccuracy`).
+    accuracy: computeAccuracy(a.dex),
     // Velocidade de ATAQUE vem de AGI (GDD §4: "AGI = velocidade de ataque").
     // O nível não acelera nada sozinho — ele dá pontos, e você escolhe.
     attackCooldownMs: Math.max(300, 1100 - a.agi * 12),
-    // Velocidade de MOVIMENTO idem: sobe conforme você gasta pontos em AGI.
-    moveIntervalMs: Math.max(150, 480 - a.agi * 5),
+    moveIntervalMs: moveIntervalAt(level),
     manaCost: Math.max(2, Math.round(cls.spellCost * (1 - a.wis * 0.01))),
     attackType: cls.attackType,
     attackRange: cls.attackRange,

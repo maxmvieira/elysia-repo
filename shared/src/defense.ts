@@ -113,6 +113,34 @@ export function computeDodgeChance(agi: number): number {
 }
 
 /**
+ * Teto da PRECISÃO, o contrário da esquiva.
+ *
+ * 🔴 **Fica ABAIXO do teto da esquiva de propósito.** Precisão existe para
+ * *descontar* do desvio do alvo, e com investimento igual em DEX e AGI quem
+ * esquiva tem de continuar esquivando alguma coisa. Um teto igual ou maior
+ * transformaria a esquiva em estatística morta — e `DD-BAL-012` deixou a AGI
+ * com só dois usos, então tirar o valor de um deles é tirar metade do atributo.
+ */
+export const ACCURACY_CAP = 0.30;
+
+/**
+ * Precisão a partir de DEX, com a **mesma curva** da esquiva.
+ *
+ * ⚠️ **A forma tem de casar, e essa é a lição do dia 04/09.** A precisão nasceu
+ * LINEAR (`DEX × 0,004`) porque a esquiva também era linear na época. Quando a
+ * esquiva foi corrigida para a curva do `DD-DEF-005`, a precisão linear passou
+ * a esmagá-la: DEX 100 dava 40 % contra 15,9 % de AGI 100 — o desvio virava
+ * zero e sobrava bônus.
+ *
+ * Duas estatísticas que se cancelam **precisam ter a mesma forma**, senão a
+ * comparação entre elas muda de sinal no meio da progressão.
+ */
+export function computeAccuracy(dex: number): number {
+  if (dex <= 0) return 0;
+  return (ACCURACY_CAP * dex) / (dex + DODGE_HALF_AGI);
+}
+
+/**
  * O que o defensor traz para a conta.
  *
  * `fullBlockChance` e `shieldMitigation` NÃO são derivados de atributo

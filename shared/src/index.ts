@@ -12,6 +12,8 @@ export * from './combat.js';
 export * from './elements.js';
 export * from './defense.js';
 export * from './conditions.js';
+export * from './effects.js';
+export * from './areas.js';
 export * from './pvp.js';
 export * from './party.js';
 export * from './stats.js';

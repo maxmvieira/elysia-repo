@@ -9,6 +9,9 @@ import {
   MAX_SKILL_LEVEL,
   SKILLS,
   SKILL_BAR,
+  SKILL_BARS,
+  SKILL_BAR_SLOTS,
+  CONDITIONS,
   SKILL_LEVEL_COST,
   getSkill,
   isSkillUsable,
@@ -90,8 +93,14 @@ test('nenhuma habilidade fica mais rápida ao subir de nível', () => {
   // Este teste existe para que ninguém adicione um no futuro sem perceber.
   for (const def of Object.values(SKILLS)) {
     assert.equal(typeof def.cooldownMs, 'number');
-    assert.ok(def.cooldownMs > 0, `${def.id} precisa de um cooldown`);
     assert.ok(!('cooldownPerLevel' in def), `${def.id} não pode ter cooldown por nível`);
+    // Passiva não é conjurada, então cooldown 0 é o correto — e o servidor
+    // recusa o lançamento antes de olhar para a recarga.
+    if (def.kind === 'passive') {
+      assert.equal(def.cooldownMs, 0, `${def.id} é passiva e não deveria ter recarga`);
+      continue;
+    }
+    assert.ok(def.cooldownMs > 0, `${def.id} precisa de um cooldown`);
   }
 });
 
@@ -160,4 +169,108 @@ test('a barra de atalhos só aponta para habilidades que existem', () => {
     assert.ok(getSkill(id), `SKILL_BAR aponta para habilidade inexistente: ${id}`);
   }
   assert.equal(getSkill('nao_existe'), undefined);
+});
+
+// ---------------------------------------------------------------------------
+// Regras que valem para TODA habilidade — as que pegam erro silencioso
+// ---------------------------------------------------------------------------
+
+test('toda habilidade que aplica DoT define a parcela de dano', () => {
+  /**
+   * 🔴 `tickConditions` só causa dano quando a parcela (`power`) vem
+   * preenchida. Uma habilidade que aplica Veneno sem ela fica **perfeita por
+   * fora** — ícone no monstro, duração certa — e tira ZERO de vida. É a pior
+   * classe de erro que existe aqui, porque parece funcionar.
+   *
+   * ⚠️ **Este teste cobre metade do caminho.** Ele garante que a FICHA traga a
+   * parcela; a outra metade é o servidor COPIAR essa parcela ao criar a área
+   * persistente, e foi exatamente ali que o bug real apareceu em 03/09 (os
+   * Esporos passavam `undefined`). Essa metade mora em `plantaArea` e não é
+   * alcançável daqui — o aviso está no campo `condition` de `areas.ts`.
+   */
+  for (const def of Object.values(SKILLS)) {
+    if (!def.applies) continue;
+    if (!CONDITIONS[def.applies.id].dot) continue;
+    assert.ok(
+      (def.applies.power ?? 0) > 0,
+      `${def.id} aplica ${def.applies.id} (DoT) sem definir power — não tiraria vida nenhuma`,
+    );
+  }
+});
+
+test('habilidade de área persistente sempre traz a configuração do chão', () => {
+  // `shape: 'ground'` sem `ground` faria o servidor sair calado de `plantaArea`:
+  // a mana seria gasta e nada apareceria no mundo.
+  for (const def of Object.values(SKILLS)) {
+    if (def.shape === 'ground') {
+      assert.ok(def.ground, `${def.id} é de chão e não tem bloco 'ground'`);
+      assert.ok(def.ground!.tickMs > 0, `${def.id}: tickMs precisa ser positivo`);
+    }
+    if (def.ground) {
+      assert.equal(def.shape, 'ground', `${def.id} tem bloco 'ground' mas não é shape 'ground'`);
+    }
+  }
+});
+
+test('buff e debuff sempre mexem em alguma coisa', () => {
+  // Um `mods` vazio dá um ícone na barra que não faz nada — e o jogador gasta
+  // mana nele para sempre sem descobrir.
+  for (const def of Object.values(SKILLS)) {
+    if (def.kind !== 'debuff') continue;
+    assert.ok(def.mods && def.mods.length > 0, `${def.id} é debuff e não modifica nada`);
+  }
+});
+
+test('nenhuma habilidade escala com poder mágico E com arma física ao mesmo tempo', () => {
+  // `magic: true` manda o dano sair de `magicAtk` e ignora o bônus físico do
+  // equipamento. Uma habilidade do Knight marcada `magic` sairia ridícula, e o
+  // erro só apareceria em jogo.
+  for (const def of Object.values(SKILLS)) {
+    if (!def.magic) continue;
+    assert.ok(
+      def.classes.every((c) => c === 'sorcerer' || c === 'druid'),
+      `${def.id} é mágica mas pertence a uma classe física`,
+    );
+  }
+});
+
+test('nenhuma passiva ocupa slot de atalho em barra nenhuma', () => {
+  /**
+   * 🔴 **Passiva não se equipa na barra — ela vive só dentro da árvore.**
+   * Confirmado pelo dono em 2026-09-03.
+   *
+   * O slot de uma passiva seria um botão que responde "já está ativa", e pior:
+   * ocuparia um dos 24 lugares que as conjuráveis precisam. A regra vale em
+   * três pontos, e este teste cobre o primeiro — os outros dois são a linha da
+   * janela não ser arrastável e o `castSpell` recusar o lançamento.
+   */
+  for (const [cls, barra] of Object.entries(SKILL_BARS)) {
+    for (const id of barra) {
+      if (id === null) continue;
+      assert.notEqual(
+        SKILLS[id].kind, 'passive',
+        `${id} é passiva e não pode estar na barra do ${cls}`,
+      );
+    }
+  }
+});
+
+test('toda barra padrão tem exatamente o número de slots da barra', () => {
+  // Uma barra curta deixaria as últimas teclas sem célula, e o jogador
+  // apertaria Shift+F12 num slot que não existe.
+  for (const [cls, barra] of Object.entries(SKILL_BARS)) {
+    assert.equal(barra.length, SKILL_BAR_SLOTS, `a barra do ${cls} tem tamanho errado`);
+  }
+});
+
+test('a barra padrão só aponta para habilidades DA classe', () => {
+  for (const [cls, barra] of Object.entries(SKILL_BARS)) {
+    for (const id of barra) {
+      if (id === null) continue;
+      assert.ok(
+        SKILLS[id].classes.includes(cls as keyof typeof SKILL_BARS),
+        `${id} está na barra do ${cls} e não pertence à classe`,
+      );
+    }
+  }
 });

@@ -47,6 +47,9 @@ export const CLASS_SHEETS: Record<PlayerClass, SheetCfg> = {
   sorcerer: { path: `${CHARS}/Soldiers/Ranged/PurpleRanged/MagePurple.png`, frames: 4, w: 96, h: 128 },
   archer: { path: `${CHARS}/Soldiers/Ranged/LimeRanged/BowmanLime.png`, frames: 5, w: 80, h: 128 },
   assassin: { path: `${CHARS}/Soldiers/Melee/RedMelee/AssasinRed.png`, frames: 5, w: 80, h: 192 },
+  // ⚠️ Placeholder: o mago VERDE do MiniWorld, porque o Druida ainda não tem
+  // arte própria. O roxo já é do Feiticeiro — verde separa os dois de relance.
+  druid: { path: `${CHARS}/Soldiers/Ranged/LimeRanged/MageLime.png`, frames: 4, w: 96, h: 128 },
 };
 
 /**

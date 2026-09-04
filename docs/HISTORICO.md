@@ -9,6 +9,650 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-05 (tarde) — Token de sessão, trava de saída e caveira por reincidência
+
+**Onde mora:** `sessionTokens` e `case 'leave'` em `server/src/index.ts` ·
+`whiteSkullDuration`/`logoutLockDuration` em `shared/src/pvp.ts` ·
+`authWithToken` e `ultimoToken` em `client/src/net.ts`.
+
+**634 testes** (eram 629). Três pedidos do dono, feitos durante o teste do jogo.
+
+### 🔑 Trocar personagem não pede mais senha
+
+O botão recarrega a página (não há teardown do jogo — ver o comentário dele), e
+a recarga caía na tela de login porque **o cliente não guarda senha, de
+propósito**. Era a pendência "token de sessão" que estava no HANDOFF desde 02/09.
+
+O servidor passa a emitir um token a cada login. O cliente guarda em
+`sessionStorage` — **não** em `localStorage**, e a diferença é a intenção:
+`sessionStorage` morre quando a aba fecha, então o token vale para a sessão do
+navegador em vez de virar um "lembrar de mim" que ninguém pediu.
+
+🔴 **Uso único.** Cada entrada por token emite outro. Um token que vazou (log,
+print, histórico) deixa de servir assim que o dono o usa.
+
+⚠️ **Ele NÃO é uma senha:** só reabre a LISTA de personagens. Excluir personagem
+continua pedindo a senha da conta à parte.
+
+⚠️ **Um furo que quase passou:** a reconexão do `NetClient` refaz o login com
+`username`, e quem entra por token não tem `username`. O socket cairia e nada
+seria reenviado — "reconectando…" para sempre. Resolvido guardando o
+`ultimoToken` em memória e reenviando-o no `onopen`.
+
+### 🚪 Não dá para sair no meio da luta
+
+> *"se estiver em batalha não consigo deslogar, somente após 60 segundos sem
+> batalhar eu consigo deslogar, agora se for um player que me atacou esse tempo
+> triplica"*
+
+🔴 **O servidor passou a decidir.** Até aqui "Trocar personagem" era um
+`location.reload()` puro: o servidor só descobria pela queda do socket, e sair
+de um duelo perdido era de graça. Agora o cliente **pede** (`leave`) e o
+servidor responde `leaveok` ou recusa dizendo quanto falta.
+
+A trava vale nas duas direções — golpe dado ou recebido — e nos dois lados de
+um PvP: travar só a vítima deixaria o agressor sumir depois de roubar o abate.
+
+🔴 **PvE não rebaixa PvP.** Se um lobo acertar o jogador logo depois de um
+duelo, a trava continua sendo a de 180 s. Sem isso, bastaria levar uma mordida
+para escapar da trava de PvP.
+
+⚠️ **Só alcança o BOTÃO, não o fechamento da aba.** Impedir de verdade exigiria
+o personagem continuar no mundo depois da queda do socket — sistema que o jogo
+não tem. Está no HANDOFF como pendência.
+
+### ⚪ A caveira agora depende do que a pessoa fez
+
+> *"se eu virei pk a duração mínima são 10 minutos caso eu continue atacando o
+> player. caso tenha sido somente 1 ataque em um player, a caveira branca some
+> com 60 segundos."*
+
+Era um número só: **5 minutos** para qualquer agressão — e ele era
+`⚠️ REFERÊNCIA`, porque o Doc 1 não fecha a duração da branca (só vermelha
+7 dias e preta 30). Agora:
+
+| Agressões na janela | Caveira |
+|---|---|
+| 1 | **60 s** |
+| 2 ou mais | **10 min**, a partir da última |
+
+🔴 **O que a regra compra:** encostar uma vez sem querer deixa de custar o mesmo
+que caçar alguém pelo mapa.
+
+A contagem zera junto com a caveira — quem parou e esperou volta a ser "primeira
+vez". Sem esse zeramento, uma briga de meses atrás faria o próximo encostão
+custar 10 minutos.
+
+⚠️ O aviso de "você insistiu" sai **uma vez**, no golpe que muda a regra.
+Repetir a cada golpe viraria spam no meio da briga, que é quando o jogador menos
+lê o chat.
+
+---
+
+## 2026-09-05 — O loop vira vai-e-volta, e o botão de som morre
+
+**Onde mora:** `client/public/assets/ui/login-bg.mp4` · o `<video>` e o CSS em
+`client/index.html` · `tocaFundoDoLogin` em `client/src/main.ts`.
+
+### 🔇 O botão de alto-falante saiu
+
+Ele existia porque o vídeo de fundo tinha faixa de áudio, e o dono decidiu em
+02/09 que a música só começaria por clique. Em 04/09 a faixa foi removida do
+arquivo — então o botão passou a ligar o som de um vídeo que **não tem som**.
+
+Um controle que não controla nada é pior do que nenhum. Saíram o botão, o CSS,
+`ligaBotaoSom`, `atualizaBotaoSom`, `querSom` e a chave `elysia_login_som`.
+
+⚠️ **`tocaFundoDoLogin` FICOU**, e quase foi junto por engano — o typecheck
+pegou. Ela não tem nada a ver com som: `autoplay` não pega em elemento
+escondido, e a tela de login nasce com `display: none`. Sem ela o jogador veria
+só o poster.
+
+⚠️ **Se um dia voltar música**, ela não deve voltar por aqui: o certo é um
+`<audio>` próprio, separado do vídeo. Foi justamente esse acoplamento — trilha
+dentro do vídeo de fundo — que derrubou o botão.
+
+### 🔁 O loop não era imperfeito por acaso
+
+O dono relatou que o loop "não está perfeito". A medição explicou por quê: o
+vídeo é um **zoom contínuo de câmera**, começa aberto e termina perto, então
+voltar ao quadro 0 é um salto de escala.
+
+**Diferença média entre o último e o primeiro quadro: 16,3** numa escala de
+0–255 (`blend=difference` + `signalstats`). Um loop perfeito fica perto de zero.
+
+🔴 **Nenhum conserto era possível sem reencodar** — e o dono tinha pedido
+qualidade máxima no dia anterior. O conflito foi posto na mesa antes de mexer,
+e ele escolheu o vai-e-volta.
+
+### A solução, e por que ela custou três tentativas
+
+Concatenar o vídeo com ele mesmo invertido. Num zoom isso lê como **respiração**
+(a câmera entra e sai), não como rebobinar — é o que torna a técnica adequada
+aqui e inadequada em vídeo com movimento direcional.
+
+| Tentativa | Resultado |
+|---|---|
+| `concat` com reencode CRF 15 | **80,3 MB** — reencodar 4K já comprimido infla |
+| Só a volta, CRF 16 | 43,4 MB **só a metade** — mesmo problema |
+| Só a volta, **no bitrate da fonte** (47 Mbps) | 28,6 MB ✅ |
+
+🔴 **A lição:** CRF num vídeo já comprimido tenta preservar até o ruído de
+compressão, e infla. Mirar o **bitrate da fonte** dá qualidade equivalente por
+quadro pelo tamanho esperado.
+
+Assim a **metade de IDA ficou bit a bit idêntica ao original** — só a de volta
+passou por encoder, e as duas foram unidas com `-c copy`.
+
+### ⚠️ E uma armadilha do `concat` que quase passou
+
+A primeira união deu **232 quadros com duração de 4,75 s** — os tempos do
+segundo trecho não foram deslocados. O culpado é o `time_base=1/24017802` da
+fonte, que não casa com o timebase padrão do trecho codificado.
+
+A correção foi normalizar o contêiner das duas partes
+(`-c copy -video_track_timescale 12288`) antes de concatenar. **`-c copy` não
+toca nos bytes de vídeo** — só reescreve o índice —, então a metade de ida
+continua intacta.
+
+Resultado: **9,66 s, 232 quadros, 55,8 MB**. Emenda do loop **0,37** (era 16,3)
+e virada **1,20**, que é o movimento normal entre quadros vizinhos.
+
+⚠️ **55,8 MB é alto de propósito:** dobrar a duração dobra os bytes. Quem quiser
+aliviar deve ir para **1080p**, nunca reencodar em 4K de novo.
+
+---
+
+## 2026-09-04 (noite) — O áudio sai do vídeo sem tocar num pixel
+
+**Onde mora:** `client/public/assets/ui/login-bg.mp4` e o comentário do
+`<video>` em `client/index.html`.
+
+O dono fechou o pedido do vídeo: *"quero qualidade máxima, porém sem áudio e em
+loop"*.
+
+### 🔴 Cópia de fluxo, não reencode
+
+`ffmpeg -c:v copy -an -movflags +faststart`. O `-c:v copy` **não reencoda** — ele
+copia o fluxo de vídeo bit a bit e descarta o de áudio. Conferido antes e
+depois:
+
+| | Antes | Depois |
+|---|---|---|
+| Codec | h264 High | h264 High |
+| Resolução | 3840×2160 | 3840×2160 |
+| Bitrate | 47.242.135 | **47.242.135** |
+| Faixas | vídeo + AAC 132 kbps | só vídeo |
+
+🔴 **Bitrate idêntico até o último dígito é a prova de que nada foi
+reprocessado.** Era o que "qualidade máxima" exigia: reencodar 4K perde
+qualidade a cada passagem, e uma passagem seria irreversível.
+
+⚠️ **Tirar o áudio cortou 80 KB de 27 MB.** Quem espera que remover som deixe o
+arquivo leve se engana — o peso é o vídeo. Continua sendo muito para uma tela
+de login, e é decisão consciente do dono.
+
+### O que veio de brinde
+
+`+faststart` move o índice do MP4 (`moov`) para o começo do arquivo. Sem ele o
+navegador precisa baixar os 27 MB antes do primeiro quadro; com ele começa a
+tocar quase na hora. **Não custa qualidade nenhuma** — é só reordenar bytes.
+
+### O loop já estava lá
+
+`loop` é atributo do `<video>` desde que a tela nasceu. Conferido no navegador:
+o vídeo dá a volta de 4,43 s para 0 sozinho.
+
+⚠️ **E uma armadilha de diagnóstico:** o vídeo aparecia como `paused` nos
+testes. Não era bug — o painel de navegador pausa mídia quando não está em
+foco. `readyState: 4`, arquivo inteiro em buffer, `error: null` e avanço normal
+ao chamar `play()` fecharam o diagnóstico. Vale lembrar disso antes de
+"consertar" um vídeo que não está quebrado.
+
+---
+
+## 2026-09-04 (tarde) — AGI volta a ter dois usos, e duas fórmulas viviam em paralelo
+
+**Onde mora:** `computeStats`, `moveIntervalAt` e `ATTRIBUTE_INFO` em
+`shared/src/stats.ts` · `computeAccuracy` em `defense.ts` · o vídeo e o logo em
+`client/index.html`.
+
+**629 testes** (eram 627).
+
+### 🔴 O pedido do dono era uma CORREÇÃO, não um override
+
+Ele pediu: *"o atributo agilidade não influenciará mais na velocidade de
+movimento do personagem. apenas na velocidade de ataque e chance de esquiva"*.
+
+Antes de mexer, fui ao documento — e `DD-BAL-012` diz exatamente isso:
+**"AGI = velocidade de ataque + esquiva"**.
+
+⚠️ **E a tabela de conferência do próprio destilado marcava essa linha como
+"✅ igual".** O código dava QUATRO usos a AGI (movimento, ataque, esquiva e
+defesa) e a conferência não pegou, porque conferia *quais* stats vêm de AGI e
+não a lista completa.
+
+Então saíram dois:
+- **Movimento** → passou para o NÍVEL.
+- **Defesa** (`+0,2/ponto`) → o cap. 31 fecha *"DEF Física = VIT + armadura"*.
+  O peso da VIT dobrou (0,15 → 0,3) para o tanque não perder na troca: quem tem
+  VIT alta fica igual, quem tinha AGI alta perde a defesa que não devia ter.
+
+### 🏃 Movimento pelo nível, e "pouco" medido
+
+`480 ms` no nível 1, −0,35 ms por nível, piso em `380 ms`. São **~21 % ao longo
+de 300 níveis**, contra os ~110 % que a AGI dava sozinha (`480 − AGI×5`, piso
+150 — um Assassino andava ao DOBRO da velocidade de um Feiticeiro).
+
+A filosofia do arquivo continua de pé — *"o NÍVEL sozinho quase não fortalece"*
+— e a diferença de velocidade passa a vir de equipamento, buff (Bênção da
+Agilidade, Concentração) e debuff (Maldição da Lentidão), que é onde ela custa
+uma decisão em vez de sair de graça na criação.
+
+### 🔴 A descoberta do dia: DUAS fórmulas de esquiva conviviam
+
+`computeDodgeChance` está em `defense.ts` **desde a Etapa 8**, com o teto de
+35 %, a curva assintótica e o comentário citando `DD-DEF-005` (*"retorno
+decrescente e teto — nada de Assassin com 90 %"*). Tudo certo, tudo pronto.
+
+⚠️ **E `computeStats` nunca a chamou.** A ficha ficou com a linear da Etapa 1 —
+`AGI × 0,005` com `clamp` em 50 % — e as duas conviveram por meses: a curva
+usada em teste, a linear usada no jogo. Um Assassino com AGI 100 esquivava
+**metade** dos golpes, contra os 16 % que a curva dá.
+
+Agora há uma fórmula só, e é a documentada.
+
+### ⚠️ E o conserto quebrou outra coisa, que também foi consertada
+
+A **precisão** entrou ontem LINEAR (`DEX × 0,004`), porque a esquiva também era
+linear na época. Com a esquiva virando curva, a precisão passou a esmagá-la:
+
+| AGI/DEX | esquiva (nova) | precisão (linear) |
+|---|---|---|
+| 20 | 5,0 % | 8,0 % |
+| 100 | 15,9 % | **40,0 %** |
+| 200 | 21,9 % | 50,0 % |
+
+O desvio virava zero e ainda sobrava bônus — bem na hora em que AGI acabava de
+perder movimento e defesa. `computeAccuracy` ganhou a **mesma curva**, com teto
+de 30 % (abaixo dos 35 % da esquiva), então com investimento igual quem esquiva
+continua esquivando alguma coisa.
+
+🔴 **A lição:** duas estatísticas que se cancelam **precisam ter a mesma
+forma**, senão a comparação entre elas troca de sinal no meio da progressão.
+
+### 🎬 Vídeo novo na tela de login
+
+Trocado a pedido do dono, **sem som**. O `<video>` já era `muted` (obrigatório
+para o `autoplay`), então som nunca tocaria.
+
+⚠️ **A faixa de áudio continua DENTRO do arquivo**, ocupando bytes, e voltaria a
+tocar se alguém tirasse o `muted`. Removê-la de verdade exige ffmpeg, que não
+está instalado.
+
+⚠️ **27 MB para uma tela de login** (o anterior tinha 8,8): são 4 s em 4K a
+45 Mbps. Numa conexão de 10 Mbps o jogador vê só o poster por ~22 s. Vale
+reencodar para 1080p.
+
+O logo `#loginmark` foi **escondido**, não apagado: o vídeo novo traz o título
+desenhado nele e os dois ficavam sobrepostos. Se um dia o vídeo mudar para um
+sem título, a volta é tirar o `display: none`.
+
+---
+
+## 2026-09-04 — O Arqueiro fecha o ciclo: as cinco classes têm árvore
+
+**Onde mora:** as 12 fichas em `shared/src/skills.ts` · `accuracy` em
+`stats.ts`/`effects.ts` · `AreaKind: 'trap'` em `areas.ts` · `disparaArmadilha`
+e o filtro de visibilidade em `server/src/index.ts`.
+
+**627 testes** (eram 604). Knight 8 · Druida 23 · Feiticeiro 18 · Assassino 14 ·
+Arqueiro 12 = **75 habilidades**.
+
+### ✅ A classe mais bem especificada das cinco
+
+Ao contrário do cap. 68 (Assassino), o cap. 69 dá número para quase tudo:
+cooldowns, percentuais por nível, teto de alvos, contagem de armadilhas. Por
+isso `archer.test.ts` é majoritariamente **citação**, não balanceamento nosso —
+quando um teste cair, a pergunta é "o doc mudou?", não "ajusto o teste?".
+
+### 🔴 As quatro proibições, e por que cada uma virou teste
+
+O cap. 69 define o Arqueiro mais pelo que ele NÃO tem do que pelo que tem, e
+cada proibição é algo que alguém adicionaria de boa-fé:
+
+| | O que alguém faria de errado |
+|---|---|
+| `DD-ARC-015` sem dash/backstep/teleporte | dar mobilidade a uma classe que "parece precisar" |
+| `DD-ARC-013` distância não aumenta dano | premiar o sniper por ficar longe |
+| `DD-ARC-019` munição elemental é ITEM | criar "Flecha de Fogo" na árvore |
+| `DD-ARC-009` o Perfurante não atravessa | ler o NOME e implementar uma linha |
+
+⚠️ E o doc avisa: **Flecha Explosiva ≠ Armadilha Explosiva — não fundir.**
+
+### ⚠️ Um teste que nasceu errado, e o que ele ensinou
+
+A primeira versão do teste do `DD-ARC-015` varria `name + desc` atrás de
+"dash|backstep|teleporte". Caiu na hora: a descrição da Concentração diz *"é a
+fuga do Arqueiro, que não tem dash"* — o regex não distingue a habilidade da
+frase que a explica.
+
+🔴 **Testar prosa pega o próprio comentário; testar `kind` pega o teleporte.** A
+versão final olha a mecânica (`kind !== 'charge'`, o único tipo que reposiciona
+o personagem) e confirma que a Concentração dá VELOCIDADE, que é a resposta
+certa do doc.
+
+### 🆕 `accuracy` — uma promessa de três meses cumprida
+
+`ATTRIBUTE_INFO.dex` diz *"Dano de arco/besta · **precisão**"* desde o primeiro
+dia, e precisão **não existia em `DerivedStats`**. Ninguém tinha notado porque
+nenhuma habilidade a concedia — até o Olho de Águia e a Concentração, que dão
+"+15 %" cada.
+
+Agora DEX dá precisão, e ela **desconta da esquiva do alvo** (nunca vira bônus
+de dano: o piso é zero).
+
+⚠️ **Só morde em PvP hoje** — `creatureDefenseProfile` devolve `dodgeChance: 0`,
+monstro não desvia. É coerente com o doc, que vende o Olho de Águia pelo
+ALCANCE e a precisão como vantagem de duelo. No dia em que o bestiário ganhar
+esquiva, ela passa a valer em PvE sem tocar em nada.
+
+⚠️ A esquiva pesa mais por ponto (0,005 contra 0,004): quem investe em AGI para
+desviar tem de vencer quem investe em DEX só para acertar, senão a esquiva vira
+estatística morta no duelo.
+
+### 🪤 Armadilhas: o quarto tipo de área
+
+`AreaKind: 'trap'` — fica ARMADA, não pulsa, dispara uma vez e some (marca
+`expiresAt = now` em vez de se remover no meio do laço que itera a lista).
+
+🔴 **Oculta ao inimigo, visível à party — e o filtro é do SERVIDOR.** Mandar a
+área para todos e esconder no cliente deixaria a posição de cada trapa
+trafegando na rede, e qualquer cliente modificado a leria. Isso é o mesmo que a
+armadilha não existir.
+
+O descarte da 4ª reusa o `dropOldestOf` que a Muralha de Gelo já usava — o doc
+pede a mesma cortesia nas duas.
+
+### Dois campos novos na ficha
+
+**`requiresWeapon`** — primeira vez que uma habilidade depende do que está na
+mão. O Bash do Knight muda de SABOR conforme a arma; o Disparo Duplo é recusado
+sem arco, e a mensagem nomeia a arma aceita.
+
+**`maxTargets`** — a Chuva de Flechas pega "até 10". Ordena por DISTÂNCIA antes
+de cortar: cortar na ordem em que o mapa devolve as criaturas escolheria alvos
+pela ordem de spawn, e o jogador veria dez monstros no raio e a flecha
+acertando os do outro lado.
+
+⚠️ **A Azagaia não virou habilidade**, e não devia: o doc a trata como
+configuração de ARMA (lança curta de arremesso que usa escudo, consumível), com
+`DD-ARC-029` amarrando a perda ao Distance. É item e munição, e os dois ainda
+não existem.
+
+---
+
+## 2026-09-03 (madrugada) — A barra virou 24 slots, e o Assassino ganhou árvore
+
+**Onde mora:** `SKILL_BARS`/`SKILL_BAR_COLS` em `shared/src/skills.ts` · o
+arrastar-e-soltar em `buildSpellBar`/`ligaArrastarNoSlot` no cliente · o Ataque
+Duplo e a furtividade em `server/src/index.ts`.
+
+**604 testes** (eram 579), typecheck limpo nos três pacotes.
+
+### ⌨️ A barra: de 8 para 24 slots, e configurável
+
+Pedido do dono, em duas partes: *"preciso de mais atalhos para colocar todas as
+magias"* e *"se eu clicar e arrastar a magia para o slot do atalho ela tem que
+substituir a que está nele"*.
+
+🔴 **Oito era o número da época em que só o Knight tinha habilidades.** Com 21
+conjuráveis no Druida, pedir que ele escolha 8 é escondê-lo do próprio
+personagem. São **duas fileiras de doze**: F1–F12 em cima, **Shift**+F1–F12
+embaixo.
+
+⚠️ **Por que 12+12 e não 16 ou 20:** a fileira tem de casar com uma linha de
+teclas de verdade. O teclado dá F1–F12, e Shift é o único modificador que não
+briga com o sistema — Ctrl+F4 fecha aba, Alt+F4 fecha janela.
+
+**As três regras de arraste, e o motivo de cada uma:**
+- **Janela → slot** substitui, e **esvazia o slot antigo** se a magia já
+  estivesse noutro. `spellSlots` é indexado por id: dois atalhos para a mesma
+  magia fariam o segundo sobrescrever o primeiro, e um deles pararia de acender
+  o cooldown sem nenhum erro.
+- **Slot → slot** TROCA os dois. Copiar deixaria a magia em dois lugares e um
+  buraco onde ela estava, obrigando o jogador a limpar a sobra na mão.
+- **Botão direito** esvazia. É o par natural do arraste: sem ele não há como
+  deixar um espaço em branco de propósito.
+
+🔴 **Passiva não entra na barra** — confirmado pelo dono: *"as passivas não
+precisa equipar para usar, elas ficam só dentro da árvore de habilidades"*. A
+regra vale em três pontos, e os três têm teste: fora da barra padrão, linha não
+arrastável, e `castSpell` recusando com "já está ativa".
+
+⚠️ **Guardado no cliente**, por personagem (`localStorage`), na mesma escolha
+que a POSIÇÃO da barra já fazia. Trocar de navegador devolve ao padrão — se um
+dia incomodar, o lugar certo passa a ser uma coluna no personagem.
+
+⚠️ **Duas armadilhas que morderam aqui:**
+1. Remontar a barra com `textContent = ''` levava junto o `#spellgrip`, o
+   pegador de arrastar — a barra ficaria presa no centro da tela para sempre,
+   sem erro nenhum.
+2. O regex das teclas era `F([1-9])`, que deixava **F10, F11 e F12 mudos** —
+   justamente onde as magias grandes ficam no padrão novo.
+
+### 🗡️ O Assassino: 14 habilidades, e a honestidade sobre elas
+
+🔴 **O cap. 68 é o menos fechado das cinco classes**, e os três ramos existem
+para tornar isso visível em vez de esconder:
+
+| Ramo | Estado |
+|---|---|
+| 🗡️ Lâminas (5) | **canônico** |
+| ⚔️ Espada Curta (4) | ⚠️ `DD-ASS-015` **PROPOSTA** |
+| 🎯 Arremesso (5) | ⚠️ `DD-ASS-014` **PROPOSTA** |
+
+⚠️ **A exceção de 30/07 não cobre estas.** "`PROPOSTA` não bloqueia" vale só
+para os Docs 3 e 4; o cap. 68 é do Doc 1. Entraram a pedido do dono, com a regra
+do projeto aplicada à risca: **estrutura sim, número inventado marcado**. E o
+aviso "PROPOSTA no doc" vai no **tooltip do jogador**, não só no código — há
+teste guardando o aviso, e o teste espelho garantindo que o ramo canônico
+**não** se anuncie como provisório (marcar o Ataque Duplo como provisório faria
+alguém "corrigir" a única tabela que o doc fecha).
+
+⚠️ **Um nome é invenção nossa: "Ocultar".** O doc trata furtividade como
+conceito e nunca nomeia a habilidade. Os outros treze são todos do documento.
+
+**O que é canônico e entrou de verdade:** a tabela do **Ataque Duplo**
+(35 %→80 %), escrita como TABELA e não como fórmula — `0,35 + 0,05×(n−1)` dá os
+mesmos dez valores, mas quando um degrau mudar (e o doc já mudou o do
+congelamento), a tabela aceita e a fórmula obriga a reescrever a regra.
+
+🔴 **A anti-cascata do `DD-ASS-007` é estrutural, não uma flag:** a função do
+Ataque Duplo **não chama a si mesma nem `playerAttack`**. Com 80 % de chance no
+Lv.10, uma versão recursiva daria cinco golpes com frequência.
+
+### 🔴 Empunhadura dupla não é equipável — e a regra dela está pronta
+
+`DD-ASS-004/005` (duas adagas, extra de 50 % cada) está implementada e testada.
+**Não tem como disparar em jogo:** `offhand` existe em `grip.ts` e **nenhum
+código do projeto o preenche** — `EquipSlot` tem nove slots e nenhum é segunda
+arma. O que funciona hoje é o `DD-ASS-003`: adaga com escudo, extra de 100 %.
+
+Deixar assim é melhor que fingir. O dia em que o slot existir, o Ataque Duplo já
+sabe o que fazer com ele. Está dito em `equippedForGrip`.
+
+### ✨🥷 Um par que estava pela metade fechou
+
+A **Chama de Revelação** do Feiticeiro nasceu ontem sem nada para revelar — a
+furtividade não existia. Com o Assassino ela arranca o oculto da sombra, e
+`70.42` fica de pé: *"não é detecção permanente — é **counter com
+counterplay**"*.
+
+⚠️ **Atacar quebra a furtividade, e essa regra é nossa** — o doc descreve o
+combo (*"aproxima furtivo → ataca → recua"*) mas não a escreve. Sem ela o
+Assassino atacaria para sempre de dentro da invisibilidade, e a Chama nunca
+teria alvo.
+
+### 🔴 A regra que este dia aprendeu: `magic` ≠ `damageType`
+
+Os dois campos respondem perguntas diferentes — **de qual ATAQUE o poder sai** e
+**contra qual DEFESA ele bate** — e o servidor roteava o dano pelo campo errado.
+A Kunai Envenenada é física na origem e de veneno no dano, e passava pela
+armadura física em vez da resistência a veneno.
+
+O erro só apareceu porque o **Lançamento Fantasma** nasceu com `magic: true`,
+o que o faria escalar com INT — e o Assassino tem **INT 3**. A habilidade
+nasceria inútil com cara de implementada. Foi um teste que pegou, e virou dois:
+um que proíbe habilidade mágica em classe física, outro específico do Fantasma.
+
+---
+
+## 2026-09-03 — As 41 magias entraram, e o motor que faltava embaixo delas
+
+**Onde mora:** `shared/src/skills.ts` (as 49 fichas) · `shared/src/effects.ts` e
+`shared/src/areas.ts` (**novos**) · `castSpell`/`executeSpell` e os quatro
+`tick*` em `server/src/index.ts` · barra por classe, barra de conjuração,
+chips de buff e os 41 ícones no cliente.
+
+**Etapas 14 e 15 do roadmap, juntas.** 579 testes (eram 499), typecheck limpo
+nos três pacotes.
+
+### O que o levantamento achou antes de escrever uma linha
+
+`castSpell` sabia fazer **uma** coisa: dano físico em criatura dentro do
+alcance. Tudo que o Druida é — curar aliado, buffar party, derrubar o ATK de um
+inimigo, plantar uma área que dura — não tinha caminho nenhum no código. Sete
+buracos, e nenhum deles era "mais uma habilidade":
+
+| Falta | Quem dependia |
+|---|---|
+| Dano mágico em skill (usava sempre `physAtk`) | o ramo Natureza e o Feiticeiro inteiro |
+| Mirar em JOGADOR (só varria `creatures`) | Cura, todos os buffs, Santuário |
+| Modificador temporário genérico | os 6 debuffs e os 6 buffs |
+| Tempo de conjuração | Cura, Meteoro, Chuva de Meteoros |
+| Área persistente no chão | 7 habilidades das duas classes |
+| Cura ao longo do tempo | Regeneração, Santuário |
+| Barra de atalhos por classe | 49 habilidades não cabem em 8 slots globais |
+
+🔴 **E uma boa notícia grande: `conditions.ts` estava pronto e parado.**
+Congelamento, Petrificação, Silêncio, Raiz, Veneno, Sangramento, Queimadura,
+Lentidão e Knockback já existiam com diminishing returns, anti-cadeia e
+imunidade — inclusive a regra que separa as duas classes (*dano quebra
+Congelamento, dano **não** quebra Petrificação*). Nenhuma habilidade aplicava
+nenhuma delas. Foi ligar fio, não construir sistema.
+
+### 🔴 Por que `effects.ts` não virou parte de `conditions.ts`
+
+Foi a decisão de arquitetura do dia, e a tentação era grande — os dois são
+"coisa temporária em cima de alguém".
+
+O GDD cap. 32 trata de CONDIÇÃO: estados que *impedem* ou *machucam*, com
+contramedidas próprias. O que o Druida faz na maior parte do tempo é outra
+coisa: *"não precisa causar dano se faz o inimigo causar menos e os aliados
+causarem mais"* (cap. 71) — **número na ficha por um tempo**.
+
+Juntá-los economizaria um arquivo e custaria a regra: a Pele de Carvalho
+entraria na fila de DR do Congelamento, e **o quarto buff seguido duraria
+metade**. Resistir a Congelamento passaria a proteger de −15 % de ataque.
+
+As duas regras de acúmulo ficaram travadas por teste:
+1. **Mesma habilidade renova, não soma** — vence a mais forte; empatou, a mais
+   longa. É o *"dois círculos não acumulam"* de `70.47`, generalizado.
+2. **Habilidades diferentes somam.** Enfraquecer + Praga = −25 % de ataque.
+
+E há piso (20 %) e teto (3×): sem o piso, três debuffs de −40 % dariam dano
+negativo e o "golpe" **curaria**.
+
+### 🔴 Por que área persistente virou sistema (`areas.ts`)
+
+Uma frase do doc decidiu: a Ira da Natureza *"ataca a região em ciclos
+**enquanto o Druida continua curando e debuffando**"*. Se fosse um laço dentro
+do lançamento, o Druida ficaria parado esperando — o contrário exato do texto.
+A área tinha de viver FORA do turno de quem lançou.
+
+⚠️ **Consequência deliberada:** a área sobrevive à morte do dono. O Druida cai e
+a Ira continua até o tempo acabar — a magia já saiu. É o que dá ao grupo a
+chance de terminar a luta que o healer não viu acabar.
+
+Sete habilidades usam: Muralha de Fogo, Muralha de Gelo, Nevasca, Círculo
+Arcano, Esporos, Santuário e a Ira. A Muralha de Gelo é a única que vira colisão
+de verdade (`blocks`), e o limite de 1→3 paredes do doc caiu na mesma peça — ao
+erguer a 4ª, a mais antiga cai.
+
+### 🔴 O Feiticeiro parou de atirar de graça (`DD-PROG-028`)
+
+A divergência anotada em 02/09 morreu aqui. Ele estava com `attackType: 'magic'`,
+alcance 5 e um `firebolt` de 6 de mana no golpe COMUM, contra
+*"ataque básico com cajado é FÍSICO (Sorcerer e Druid); dano mágico à distância
+exige gastar uma habilidade e mana"*.
+
+⚠️ **Este era o único momento em que a correção cabia**: antes de hoje, tirar o
+firebolt teria deixado a classe sem NADA. Agora ela tem 18 magias.
+
+A correção tem duas metades, e a segunda é a que quase passou batido: o **cajado**
+(`WEAPON_IDENTITY.staff`) tinha `range: 4` e `magic: true`, e `recompute` lê isso
+para decidir o tipo do ataque básico. Equipar um cajado devolveria o firebolt de
+graça. Entrou `basicPhysical` para separar as duas perguntas que até hoje tinham
+a mesma resposta: **"de onde sai o poder?"** (magia, `magicAtk`) e **"como é o
+golpe comum?"** (bastonada, físico, alcance 1).
+
+⚠️ Com STR 3, o golpe de cajado é quase simbólico. É a intenção: para causar
+dano, o mago gasta mana.
+
+### O que veio do documento e o que foi decidido aqui
+
+🔴 **Quase todo número das 41 é CITAÇÃO**, e há teste conferindo linha por
+linha — `shared/tests/druid.test.ts` (29 testes) e `sorcerer.test.ts` (27). A
+tabela inteira de debuffs do cap. 71, os 8–12 % de congelamento da Nevasca
+(`DD-SOR-012`), os 2→4 s do Círculo Arcano, as quatro resistências da Harmonia
+Natural, o pré-requisito triplo da Chuva de Meteoros.
+
+Dois travados por RELAÇÃO, não por valor:
+- **Regeneração é mais eficiente em mana que a Cura** — o doc promete, e agora
+  está medido nos três níveis.
+- **`DD-DRU-021`: a Ira (6,52 de poder por alvo) fica abaixo da Chuva de
+  Meteoros (10,4).** Mexeu num dos dois, o teste avisa.
+
+⚠️ **O que NÃO veio do doc, e está marcado `⚠️ REFERÊNCIA` no código:**
+- **As três últimas curas** (Cura em Área, Santuário e a 5ª de emergência). O
+  cap. 71 avisa: *"não têm detalhes recuperados — nomes e números não
+  confirmados"*. Entrou a ESTRUTURA, com números por proporção da Cura
+  individual. O nome "Sopro Vital" é escolha nossa e é o primeiro a mudar.
+- **Lv.7 como o "níveis altos"** em que as Raízes passam a petrificar. O doc diz
+  "níveis altos" sem número.
+- **O elemento das habilidades de Natureza.** O doc fala em "dano de natureza",
+  mas `DD-ELM-002` fecha a lista em SETE elementos e natureza não é um deles.
+  Tratamos "natureza" como o RAMO: estaca e lâmina ferem `physical`, esporo fere
+  `poison`, e a passiva soma sobre o ramo. **Nenhum oitavo elemento entrou.**
+
+### A regra que este dia aprendeu
+
+🔴 **Condição de DoT sem `power` é a pior classe de bug que existe aqui: parece
+funcionar.** Os Esporos Venenosos aplicavam "Veneno" no monstro — ícone certo,
+duração certa — e tiravam **zero** de vida, porque `tickConditions` só causa
+dano quando a parcela vem preenchida, e a área persistente passava `undefined`.
+
+Achado antes de o código ser jogado, e por sorte: nada na assinatura obrigava a
+copiar o campo. Virou teste (`skills.test.ts`) para a metade que é ficha, e
+aviso no campo `condition` de `areas.ts` para a metade que é servidor — que é
+onde o bug realmente estava.
+
+### O que a UI ganhou, e por quê
+
+- **Barra de atalhos POR CLASSE.** Era um array global de oito, de quando só o
+  Knight tinha habilidades. Com 23 e 18, deixa de fechar por aritmética.
+- **Janela de habilidades com a árvore inteira**, agrupada por ramo — varrer a
+  barra esconderia 15 das 23 do Druida. O rodapé com "Resetar skills" passou a
+  ficar parado: com 23 linhas ele subia para fora da vista.
+- **Barra de conjuração** e **chips de buff com o tempo restante**. O tempo é o
+  ponto: a Bênção da Natureza dura 90 s com 30 s de recarga, e sem ver quanto
+  falta não há como decidir se dá para entrar no MVP com ela.
+- **41 ícones**, por construtor de glifos (cor = ramo, silhueta = função) em vez
+  de 41 desenhos à mão. As 8 do Knight continuam desenhadas uma a uma.
+
+---
+
 ## 2026-08-13 (tarde) — O 3D foi explorado a fundo e ESTACIONADO
 
 **Onde mora:** quatro páginas descartáveis em `client/espeto-*.html` +

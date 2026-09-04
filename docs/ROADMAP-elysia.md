@@ -463,14 +463,14 @@ derivada de quem está conectado. Detalhes e o porquê de cada escolha em `SCHEM
 1. **Habilidades Gerais + linhas de maestria por família**, cada uma com 1H/2H.
 2. **As 7 skills que faltam ao Warrior.**
 3. **Magic Level e Fist** como proficiências.
-4. 🔴 **Assassin:** Ataque Duplo (35 % → **80 %** do Lv.1 ao 10) — **1 adaga = golpe extra
+4. ✅ **Assassin (feito em 2026-09-03 — 14 habilidades):** Ataque Duplo (35 % → **80 %** do Lv.1 ao 10) — **1 adaga = golpe extra
    integral (200 %)** · **2 adagas = golpe extra a 50 %** · **Katar sem Ataque Duplo**
    (crítico + Sonic Blow) · **anti-cascata**: Ataque Duplo não gera outro.
-5. 🔴 **Archer:** 5 configurações (Arco Curto+escudo · Arco Longo · Besta Leve+escudo ·
+5. ✅ **Archer (feito em 2026-09-04 — as 12 skills da V1):** 5 configurações (Arco Curto+escudo · Arco Longo · Besta Leve+escudo ·
    Besta Pesada · **Azagaia**+escudo). **Sem dash, sem backstep, sem teleporte.**
    Munição elemental é **item**, não skill. **Distance reduz a perda da azagaia.**
 
-### Etapa 14 — Sorcerer completo 🔮
+### Etapa 14 — Sorcerer completo 🔮 ✅ *(feita em 2026-09-03)*
 
 18 habilidades em 4 escolas: 🔥 Fogo (destrói) · ❄️ Gelo (controla) · ⚡ Raio (reage e
 explode) · ✨ Arcano (faz o Sorcerer funcionar).
@@ -478,7 +478,7 @@ explode) · ✨ Arcano (faz o Sorcerer funcionar).
 imunidade a dano FÍSICO** (magia passa normal), 4 s no Lv.10, CD 45 s.
 🔴 **Ataque básico com cajado é FÍSICO** — magia exige habilidade e mana.
 
-### Etapa 15 — Druid 🌿 *(a 5ª classe)*
+### Etapa 15 — Druid 🌿 *(a 5ª classe)* ✅ *(feita em 2026-09-03 — falta "cura como arma", ver HANDOFF)*
 
 23 habilidades em 4 ramos: 💚 Cura (5) · 🌟 Buff (6) · ☠️ Debuff (6) · 🌿 Natureza (6).
 🔴 **WIS é o atributo principal, não INT** — e **WIS escala o poder de cura**.
