@@ -1,3 +1,95 @@
+# Handoff — 2026-09-09 (noite) · PONTO DE RETOMADA
+
+> 🔴 **Esta sessão acabou por limite de contexto. Comece por este bloco.**
+> Typecheck limpo nos 3 pacotes, **634 testes**. `npm run dev:test` →
+> `localhost:5173`.
+
+## ⏸️ O QUE ESTÁ NO AR AGORA
+
+**Personagem universal** (autosprite.io) substituindo as cinco classes, com:
+
+| | |
+|---|---|
+| Caminhada | **8 direções**, 16 quadros de ciclo |
+| Golpe | `attack_sword`, 8 quadros — ⚠️ **só de perfil** |
+| Parado | `idle` / `pose` |
+| Escala | 1,0× (célula 80, conteúdo 67, sola em 74) |
+| Ferramenta | `tools/universal2strip.mjs` |
+
+⚠️ **Sem morte.** Morrer não tomba; atacar para cima/baixo mostra o personagem
+de lado.
+
+## 🎯 A PRÓXIMA COISA — três frentes abertas
+
+### 1. Folhas que faltam (o dono gera no autosprite.io)
+
+Ele tem conta e vai gerar. **Peça sempre só o lado DIREITO** — o conversor
+espelha o esquerdo.
+
+- ⚔️ **golpe:** frente, costas, frente-direita, costas-direita (4 folhas)
+- 💀 **morte:** as 5 direções
+- Padrão por personagem: **5 folhas por animação**
+
+⚠️ As folhas vêm em **128 px OU 256 px por célula** — o golpe veio em 256, o
+dobro das caminhadas. Medir antes de converter: a sola em 220 contra 110 é o
+sinal. Escalar do valor errado dobra o tamanho do personagem.
+
+### 2. 🔴 A DECISÃO QUE DESTRAVA TUDO: de onde vêm os modelos 3D
+
+O dono decidiu: **mundo estilo Ragnarok** — objetos, casas e mapas em 3D;
+personagens, NPCs, itens e monstros em 2D.
+
+Existe **uma casa** (`tools/blender/modelos/casa_enxaimel.py` → `.glb`). Terreno,
+vegetação e estruturas não existem.
+
+✅ **Blender dá conta** — ele CRIA o modelo, o Three DESENHA. Não são
+alternativas. E "sem realismo extremo" é o alvo fácil.
+
+🔴 **Novidade útil:** esta sessão tinha **ferramentas MCP de Blender**. Com o
+Blender aberto e o addon ligado, a assistência inspeciona a cena e roda `bpy`
+direto, em vez de escrever script no escuro.
+
+⚠️ **O limite honesto (lição de 13/08):** geometria e infraestrutura, sim;
+textura pintada e direção de arte, não. Foi por isso que o dono parou o 3D na
+época, e continua verdade.
+
+### 3. O renderizador 3D — plano apresentado, NÃO iniciado
+
+Princípio: **construir ao lado**, atrás de `?r3d=1`. O Pixi continua no ar até
+haver paridade — o jogo tem 634 testes de lógica e **zero** de renderização.
+
+- **A** Fundação: `three` sai de `devDependencies` (+600 KB), câmera
+  ortográfica fixa, `yaw = 0`, inclinação 52°, escala cravada 1 px = 2 px
+- **B** Chão e grade em 3D com os tiles atuais como textura
+- **C** Sprites em billboard que **deitam na câmera** (quaternion) — girar só em
+  Y achataria o personagem em `cos(52°) = 0,62`
+- **D** Estruturas `.glb`, HUD, paridade, cutover
+
+As armadilhas medidas estão no HISTORICO de 13/08. Três que mais custam:
+escurecer três vezes o mesmo pixel, misturar modelos de material, e telhado
+custando mais tela que parede em câmera inclinada.
+
+## ⚠️ DÍVIDA ACUMULADA — nada disto foi jogado por uma pessoa
+
+**Sete sessões.** Os caminhos mais novos e nunca vistos em jogo:
+
+- curar aliado · conjuração interrompível · Ataque Duplo · armadilhas do Arqueiro
+- trava de saída em combate (60 s / 180 s) · caveira de 60 s × 10 min
+- trocar personagem sem senha (token de sessão)
+- **a diagonal ficou ~33 % mais rápida** — conserto, se incomodar, é custo 1,41,
+  não remover de novo
+
+## Pendências menores
+
+- **Personagem no mundo após queda do socket** — faria a trava de saída valer
+  contra quem fecha a aba
+- Munição (shuriken, azagaia) · slot de segunda arma · esquiva no bestiário ·
+  "cura como arma" · sistema de GUARDA
+- ⚠️ **`login-bg.mp4` tem 76 MB** e o Chromium recusa cacheá-lo — baixa a cada
+  visita. Em 1080p seriam 13,1 MB. Decisão consciente do dono.
+
+---
+
 # Handoff — 2026-09-09 (noite) · MERGE com o trabalho do Max
 
 ## ⏸️ ONDE PARAMOS — os dois lados na mesma tela de entrada
