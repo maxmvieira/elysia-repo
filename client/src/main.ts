@@ -7202,13 +7202,52 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
       paridade = !paridade;
     }
     let bob = 0;
-    if (base === 'walk' && !oneShot && sprite.textures.length === 4) {
-      const contato = t >= 0.5;                       // pé batendo no chão
-      sprite.gotoAndStop((paridade ? 0 : 2) + (contato ? 1 : 0));
-      // O tronco sobe quando as pernas se cruzam e desce quando o pé bate. É 1
-      // px, e é o que separa "andando" de "recorte deslizando" — a escala é
-      // 1,0×, então 1 px de arte é 1 px de tela.
-      bob = contato ? 0 : 1;
+    /**
+     * 🔴 **Quantas poses cabem num tile depende de quantas a ARTE tem.**
+     *
+     * Com 4 quadros (packs antigos) o tile só comporta DUAS: passagem e
+     * contato. Era o que havia, e ficava picado — o dono viu jogando em 09/09:
+     * *"faça a movimentação mais fluida"*.
+     *
+     * Com uma tira de ciclo inteiro (o personagem universal traz 16), o mesmo
+     * `t` que move o sprite varre a metade do ciclo **continuamente**. A
+     * sincronia não muda em nada: continua sendo **meio ciclo por tile** e uma
+     * perna por `paridade`. O que muda é a resolução — de 2 poses por tile para
+     * `metade`.
+     *
+     * ⚠️ O caminho de 4 quadros ficou intacto de propósito: os packs antigos e
+     * as criaturas dependem dele, e generalizá-los sem arte nova só deixaria a
+     * animação igual com mais contas.
+     */
+    const nQuadros = sprite.textures.length;
+    if (base === 'walk' && !oneShot && nQuadros >= 4 && nQuadros % 2 === 0) {
+      const metade = nQuadros / 2;
+      if (metade === 2) {
+        // Ciclo curto (4 quadros): duas poses por tile, como sempre foi.
+        const contato = t >= 0.5;                     // pé batendo no chão
+        sprite.gotoAndStop((paridade ? 0 : 2) + (contato ? 1 : 0));
+        bob = contato ? 0 : 1;
+      } else {
+        /*
+         * Ciclo longo: o quadro sai direto de `t`.
+         *
+         * ⚠️ `Math.min` em vez de `%`: com `t` chegando a 1,0 exato no fim do
+         * tile, o módulo daria a volta para o quadro 0 da metade — um piscão de
+         * um quadro para trás bem na hora da pisada.
+         */
+        const dentro = Math.min(metade - 1, Math.floor(t * metade));
+        sprite.gotoAndStop((paridade ? 0 : metade) + dentro);
+        /*
+         * O tronco sobe quando as pernas se cruzam e desce quando o pé bate. É
+         * 1 px, e é o que separa "andando" de "recorte deslizando" — a escala é
+         * 1,0×, então 1 px de arte é 1 px de tela.
+         *
+         * 🔴 Aqui ele acompanha a CURVA, não o degrau: a metade do ciclo vai de
+         * contato a contato, com as pernas cruzadas no meio, então o seno bate
+         * exatamente onde o tronco deve estar mais alto.
+         */
+        bob = Math.round(Math.sin(t * Math.PI));
+      }
     }
 
     // Investida de ataque (pequeno salto pra frente da direção).

@@ -4,26 +4,19 @@
  * 🔴 **O que entra é MUITO diferente do que o jogo lê.** As folhas do
  * autosprite vêm com **uma direção por arquivo** e **56 quadros** de 128 px,
  * em 8 colunas × 7 linhas. O motor quer o contrário: **um arquivo** com uma
- * LINHA por direção e **exatamente 4 quadros** por linha.
+ * LINHA por direção.
  *
- * 🔴 **Os 4 quadros não são quatro quaisquer.** `main.ts` rege o passo pelo
- * CHÃO, não por um relógio:
+ * 🔴 **O passo é regido pelo CHÃO, não por um relógio** (`main.ts`): cada tile
+ * atravessado consome META DE do ciclo de passos, e a perna alterna a cada
+ * tile. É isso que impede o "deslize" que o dono relatou em agosto, e é a
+ * razão de a tira precisar conter um ciclo INTEIRO e fechado — começando e
+ * terminando no mesmo ponto da passada.
  *
- *     sprite.gotoAndStop((paridade ? 0 : 2) + (contato ? 1 : 0));
- *
- * ou seja, a tira tem de ser, nesta ordem:
- *
- *     [ passagem-A, contato-A, passagem-B, contato-B ]
- *
- * "Contato" é o pé batendo no chão (pernas ABERTAS); "passagem" é o meio do
- * passo (pernas JUNTAS). Pegar quatro quadros igualmente espaçados quebraria a
- * sincronia — o pé tocaria o chão num ritmo e o chão passaria em outro, que é o
- * "deslize" que o dono já relatou uma vez.
- *
- * ⚠️ **Os índices abaixo foram MEDIDOS, não escolhidos.** A abertura dos pés no
- * PERFIL (as 18 linhas de baixo do quadro) varia de 20 px a 57 px ao longo do
- * ciclo, e é o sinal mais limpo que existe: no de frente a altura varia só 3 px
- * e não serve para nada. Ver o bloco `QUADROS`.
+ * ⚠️ **Onde o ciclo começa e termina foi MEDIDO, não escolhido.** A abertura
+ * dos pés no PERFIL (as 18 linhas de baixo do quadro) varia de 20 px a 57 px:
+ * contato em 0 e 25, passagem em 9 e 18-19. No quadro de FRENTE a altura varia
+ * só 3 px em 93 e não serve para nada — de frente as pernas se movem em direção
+ * à câmera. Ver o bloco `QUADROS`.
  *
  * ## Uso
  *
@@ -45,23 +38,43 @@ const CELL = 80;
 const COLS = 8;
 
 /**
- * 🔴 Os quatro quadros do ciclo, na ORDEM QUE O MOTOR LÊ.
+ * 🔴 **A AMOSTRAGEM DO CICLO — e por que ela deixou de ser quatro.**
  *
- * Medição da abertura dos pés no perfil, ao longo dos 56 quadros:
+ * A primeira versão tirava 4 quadros: `[passagem-A, contato-A, passagem-B,
+ * contato-B]`. Funcionava e ficava PICADO, porque o motor só tinha **duas
+ * poses por tile** atravessado. O dono viu jogando: *"faça a movimentação mais
+ * fluida"*.
  *
- *   contato (pés abertos, ~57 px):  0 · 13 · 25 · 48
- *   passagem (pés juntos, ~20 px):  9 · 19 · 32 · 42
+ * Agora são `N` quadros de um ciclo INTEIRO, e o motor varre continuamente a
+ * metade que corresponde ao tile. A sincronia com o chão — o que matou o
+ * "deslize" em agosto — fica intacta: **um passo por tile continua sendo um
+ * passo por tile**; o que muda é quantas poses cabem dentro dele.
  *
- * Um ciclo inteiro tem ~24 quadros e contém DOIS contatos e DUAS passagens —
- * um par por perna. Estes quatro saem todos do primeiro ciclo, para as pernas
- * casarem entre si:
+ * ⚠️ **O ciclo da fonte tem 25 quadros.** Medido pela abertura dos pés no
+ * perfil: contato em 0 e em 25, passagem em 9 e em 18-19. As duas metades são
+ * `[0..12]` e `[13..24]`, cada uma indo de um contato ao contato seguinte.
+ *
+ * 🔴 **Cada metade termina em CONTATO, e é intencional:** a pisada cai na borda
+ * do tile, que é onde o olho a espera. No meio da metade as pernas se cruzam, e
+ * é lá que o `bob` de 1 px levanta o tronco.
  */
-const QUADROS = [
-  19, // 0 — passagem, perna A
-  0,  // 1 — contato,  perna A
-  9,  // 2 — passagem, perna B
-  13, // 3 — contato,  perna B
-];
+/** Quadros por ciclo na tira. METADE deles é consumida por tile atravessado. */
+const N = 16;
+/** Primeiro e último quadro do ciclo na FOLHA de origem (contato a contato). */
+const CICLO = [0, 25];
+
+/**
+ * Os `N` índices, amostrados uniformemente dentro do ciclo.
+ *
+ * ⚠️ **Amostragem uniforme é correta AQUI, e não era com quatro.** Com quatro
+ * quadros os índices tinham de cair exatamente em passagem e contato, senão a
+ * perna não casava com o chão. Com dezesseis a curva inteira é reproduzida, e
+ * cada quadro cai onde tem de cair sozinho.
+ */
+const QUADROS = Array.from(
+  { length: N },
+  (_, i) => Math.round(CICLO[0] + ((CICLO[1] - CICLO[0]) * i) / N) % 56,
+);
 
 /**
  * A linha em que a SOLA tem de cair dentro da célula.
@@ -256,7 +269,7 @@ mkdirSync(DESTINO, { recursive: true });
 writeFileSync(join(DESTINO, 'walk.png'), encode(tiraW, tiraH, tira));
 
 /**
- * O `idle` é o quadro de CONTATO da perna A — o índice 1 da tira.
+ * O `idle` é o quadro de CONTATO — o índice 0 do ciclo, onde o pé está no chão.
  *
  * 🔴 Sem `idle` o motor congela no quadro 0 do `walk`, que aqui é uma
  * PASSAGEM: o boneco ficaria parado com as pernas no ar, no meio de um passo.
@@ -267,7 +280,7 @@ const idle = Buffer.alloc(idleW * idleH * 4);
 for (let row = 0; row < LINHAS.length; row++) {
   const dir = LINHAS[row];
   const folha = dir === 'left' ? folhas.right : folhas[dir];
-  const q = dir === 'left' ? espelha(recorta(folha, QUADROS[1])) : recorta(folha, QUADROS[1]);
+  const q = dir === 'left' ? espelha(recorta(folha, QUADROS[0])) : recorta(folha, QUADROS[0]);
   cola(idle, idleW, q, 0, row);
 }
 writeFileSync(join(DESTINO, 'idle.png'), encode(idleW, idleH, idle));
