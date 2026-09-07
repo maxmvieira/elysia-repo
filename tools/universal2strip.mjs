@@ -191,6 +191,27 @@ function espelha(q) {
   return out;
 }
 
+/**
+ * Centro horizontal dos PÉS — as `alturaPes` linhas logo acima da sola.
+ *
+ * 🔴 Existe por causa do ataque. A caminhada podia ser alinhada só na vertical
+ * porque o corpo fica sempre no meio da célula; no golpe a ESPADA estende para
+ * um lado e desloca a caixa de alpha inteira. Alinhar pelo centro do conteúdo
+ * puxaria o corpo para trás toda vez que a lâmina saísse — o personagem
+ * "recuaria" ao atacar. Os pés não mentem: eles ficam onde o personagem está.
+ */
+function centroDosPes(q, alturaPes = 10) {
+  const chao = chaoDe(q);
+  if (chao < 0) return CELL / 2;
+  let x0 = 1e9, x1 = -1;
+  for (let y = Math.max(0, chao - alturaPes); y <= chao; y++) {
+    for (let x = 0; x < CELL; x++) {
+      if (q[(y * CELL + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+    }
+  }
+  return x1 < 0 ? CELL / 2 : (x0 + x1) / 2;
+}
+
 /** Última linha com massa — a sola. */
 function chaoDe(q) {
   for (let y = CELL - 1; y >= 0; y--) {
@@ -208,14 +229,22 @@ function chaoDe(q) {
  * sobe e desce alguns pixels; sem isto ele pisaria em alturas diferentes a cada
  * passo, que é o defeito que faz um sprite parecer "flutuando".
  */
-function cola(tira, tiraW, q, col, row) {
+function cola(tira, tiraW, q, col, row, dxPedido = 0) {
   const dy = GROUND_Y - chaoDe(q);
+  const dx = Math.round(dxPedido);
   for (let y = 0; y < CELL; y++) {
     const alvo = y + dy;
     if (alvo < 0 || alvo >= CELL) continue;
-    const de = y * CELL * 4;
-    const para = ((row * CELL + alvo) * tiraW + col * CELL) * 4;
-    q.copy(tira, para, de, de + CELL * 4);
+    // ⚠️ Com `dx` a cópia deixa de ser uma linha inteira: cada pixel pode cair
+    // fora da célula, e deixá-lo entrar arrastaria o desenho para a coluna
+    // vizinha da tira.
+    for (let x = 0; x < CELL; x++) {
+      const ax = x + dx;
+      if (ax < 0 || ax >= CELL) continue;
+      const de = (y * CELL + x) * 4;
+      const para = ((row * CELL + alvo) * tiraW + col * CELL + ax) * 4;
+      q.copy(tira, para, de, de + 4);
+    }
   }
 }
 
@@ -294,9 +323,95 @@ writeFileSync(join(DESTINO, 'idle.png'), encode(idleW, idleH, idle));
  */
 writeFileSync(join(DESTINO, 'pose.png'), encode(idleW, idleH, idle));
 
+// ---------------------------------------------------------------------------
+// ⚔️ GOLPE DE ESPADA
+// ---------------------------------------------------------------------------
+
+/**
+ * 🔴 **A folha do golpe vem em 256 px por célula — o DOBRO da caminhada.**
+ * Medido: a sola cai em 220 contra 110, e o corpo tem 186 px contra 93. É o
+ * mesmo personagem exportado com o dobro de resolução, provavelmente porque a
+ * espada estendida não caberia em 128.
+ *
+ * Por isso a redução para 80 px é de 256 (fator 0,3125) e não de 128 — e o
+ * corpo cai nos mesmos ~58 px da caminhada, que é o que faz o golpe não mudar
+ * de tamanho no meio da luta.
+ */
+const ATAQUE_COLS = 8;
+
+/**
+ * 🔴 **A janela do golpe, MEDIDA pela extensão horizontal.** Ao longo dos 64
+ * quadros a largura do conteúdo (a espada esticando) desenha o gesto:
+ *
+ *   0–9    ~126–161  parado e recuando para armar
+ *   10–25  ~163      espada erguida, PARADA (a folha segura a pose)
+ *   26–31  151→202   o golpe começa a descer
+ *   32–48  189–216   a lâmina estendida — o impacto
+ *   49–55  196→124   recolhendo
+ *   56–63  ~161      de volta ao repouso
+ *
+ * ⚠️ **Os quadros 10 a 25 são descartados de propósito.** São dezesseis quadros
+ * de espada parada no ar: no jogo isso seria meio segundo de personagem
+ * congelado antes de bater. O golpe útil é a janela abaixo.
+ */
+const ATAQUE_CICLO = [26, 54];
+/** Quantos quadros o golpe leva para a tira. */
+const ATAQUE_N = 8;
+const ATAQUE_QUADROS = Array.from(
+  { length: ATAQUE_N },
+  (_, i) => Math.round(ATAQUE_CICLO[0] + ((ATAQUE_CICLO[1] - ATAQUE_CICLO[0]) * i) / (ATAQUE_N - 1)),
+);
+
+const golpe = decode(join(ORIGEM, 'attack_sword.png'));
+
+/** Recorta da folha do golpe, que tem `ATAQUE_COLS` colunas. */
+function recortaGolpe(n) {
+  const cx = (n % ATAQUE_COLS) * CELL, cy = Math.floor(n / ATAQUE_COLS) * CELL;
+  const out = Buffer.alloc(CELL * CELL * 4);
+  for (let y = 0; y < CELL; y++) {
+    const de = ((cy + y) * golpe.w + cx) * 4;
+    golpe.px.copy(out, y * CELL * 4, de, de + CELL * 4);
+  }
+  return out;
+}
+
+/**
+ * O centro dos pés na CAMINHADA — a referência que o golpe tem de respeitar.
+ *
+ * 🔴 Sem isto o personagem dá um passo lateral ao atacar: as duas folhas foram
+ * exportadas com o corpo em posições um pouco diferentes dentro da moldura, e a
+ * diferença só aparece quando as duas animações se alternam.
+ */
+const REF_PES_X = centroDosPes(recorta(folhas.down, QUADROS[0]));
+
+const golpeW = CELL * ATAQUE_N;
+const golpeH = CELL * LINHAS.length;
+const tiraGolpe = Buffer.alloc(golpeW * golpeH * 4);
+
+for (let row = 0; row < LINHAS.length; row++) {
+  const dir = LINHAS[row];
+  ATAQUE_QUADROS.forEach((n, col) => {
+    const bruto = recortaGolpe(n);
+    /*
+     * ⚠️ **A folha do golpe só tem o PERFIL.** As quatro linhas saem dela: a
+     * direita como veio, a esquerda espelhada, e cima/baixo **também de
+     * perfil** — como placeholder.
+     *
+     * 🔴 Isto é visível e é a maior limitação deste pack: atacar para cima ou
+     * para baixo mostra o personagem de lado. Consertar exige as folhas de
+     * frente e de costas do golpe, que o autosprite ainda não gerou. Está no
+     * HANDOFF.
+     */
+    const q = dir === 'left' ? espelha(bruto) : bruto;
+    cola(tiraGolpe, golpeW, q, col, row, REF_PES_X - centroDosPes(q));
+  });
+}
+writeFileSync(join(DESTINO, 'attack_sword.png'), encode(golpeW, golpeH, tiraGolpe));
+
 const m = metricas(tira, tiraW, tiraH);
-console.log(`walk.png  ${tiraW}x${tiraH}  (${QUADROS.length} quadros x ${LINHAS.length} direcoes)`);
-console.log(`idle.png  ${idleW}x${idleH}`);
+console.log(`walk.png          ${tiraW}x${tiraH}  (${QUADROS.length} quadros x ${LINHAS.length} direcoes)`);
+console.log(`idle.png          ${idleW}x${idleH}`);
+console.log(`attack_sword.png  ${golpeW}x${golpeH}  (${ATAQUE_N} quadros, dos ${ATAQUE_CICLO[0]}-${ATAQUE_CICLO[1]} da folha)`);
 console.log('');
 console.log('Para o PACK em client/src/heroes.ts:');
 console.log(`  cell: ${CELL}, contentH: ${m.alturaConteudo}, feetY: ${GROUND_Y}, ` +
