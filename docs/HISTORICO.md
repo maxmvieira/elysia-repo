@@ -9,6 +9,61 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-09 (fim da tarde) — Dois escurecedores empilhados, e um título por cima do outro
+
+**Onde mora:** `#loginbg::after` e `#startmid` em `client/index.html`.
+
+Dois defeitos, **os dois causados pela refatoração da camada compartilhada** de
+minutos antes. Ficam registrados porque a causa é a mesma nos dois: quando um
+fundo que era POR TELA vira COMPARTILHADO, tudo que cada tela desenhava por cima
+dele passa a somar.
+
+### 🔴 A tela de criação ficou quase preta
+
+> *"o vídeo está escuro na tela de criação de personagem"*
+
+Cada tela tinha o próprio escurecedor, de quando cada uma desenhava o próprio
+fundo. Com a camada compartilhada, os dois passaram a **empilhar**:
+
+| Camada | Topo | Base |
+|---|---|---|
+| `#loginbg::after` (compartilhado) | 0,55 | 0,82 |
+| `#startbg::after` (da criação) | 0,62 | 0,86 |
+| **Composto** — `1−(1−a)(1−b)` | **0,83** | **0,97** |
+
+**0,97 é preto.** O `#startbg` inteiro saiu (o div já estava vazio depois da
+refatoração), e o aviso ficou escrito no `#loginbg::after`: **não crie um
+segundo escurecedor por tela.** Se uma tela precisar de mais contraste, o lugar
+é o painel dela.
+
+### 🔴 "CRIAR PERSONAGEM" saía por cima do "ELYSIA" do vídeo
+
+O segundo defeito só apareceu depois de clarear o primeiro — estava escondido
+pelo escuro.
+
+O vídeo traz **"ELYSIA ONLINE" desenhado nele**, no alto e ao centro, que é
+exatamente onde o cabeçalho da criação fica. Até hoje esta tela usava a arte
+ANTIGA, que não tinha título, e os dois nunca se encontraram.
+
+A correção foi uma **placa** atrás do `h2` e do subtítulo. Ela resolve dois
+problemas de uma vez: separa os títulos e dá contraste ao subtítulo, que antes
+se perdia no céu (e foi clareado de `#8a8272` para `#a89e8a`).
+
+⚠️ **O escurecimento foi para o PAINEL, não para outra camada sobre o fundo** —
+que é exatamente a armadilha do item anterior.
+
+### ⚠️ Um efeito colateral do tamanho, que não é bug e não tem conserto barato
+
+O console repete `net::ERR_CACHE_WRITE_FAILURE` a cada carregamento: o Chromium
+**recusa cachear** um arquivo de 76 MB. Na prática o vídeo é rebaixado a cada
+visita.
+
+Isso não é consequência da refatoração — é do tamanho, e reforça o que já estava
+anotado: quem quiser aliviar, o caminho é **1080p (13,1 MB)**, que caberia no
+cache.
+
+---
+
 ## 2026-09-09 (tarde) — O vídeo para de cortar, e passa a servir as três telas
 
 **Onde mora:** `#loginbg`, `#loginvid` e as regras das três telas em

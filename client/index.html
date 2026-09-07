@@ -686,6 +686,20 @@
         position: relative;
         z-index: 1;
       }
+      /*
+       * 🔴 **O ÚNICO escurecedor das três telas.** Ele passa por cima do vídeo e
+       * por baixo do conteúdo, para escurecer o fundo sem apagar as letras.
+       *
+       * ⚠️ **Não crie um segundo por tela.** A criação de personagem tinha o
+       * dela (, 0,62→0,86) de quando cada tela desenhava o
+       * próprio fundo. Quando a camada virou compartilhada, os dois passaram a
+       * EMPILHAR: 1−(1−0,55)(1−0,62) = **0,83** no topo e **0,97** na base —
+       * praticamente preto. O dono viu na hora (*"o vídeo está escuro na tela
+       * de criação"*).
+       *
+       * Se alguma tela precisar de mais contraste, o lugar é o painel dela, não
+       * outra camada sobre o fundo.
+       */
       #loginbg::after {
         content: '';
         position: absolute;
@@ -876,28 +890,6 @@
         padding: 0;
         background: transparent;
       }
-      /*
-       * 🔴 **Esvaziado em 2026-09-09.** Ele desenhava a arte parada com
-       * `center / cover` — exatamente o corte que o dono reclamou na tela de
-       * entrada (10 % das laterais numa tela 16:10). Agora o fundo das três
-       * telas é a camada compartilhada `#loginbg`, com o vídeo em `contain`.
-       *
-       * ⚠️ **O div continua no HTML de propósito:** o `::after` abaixo é o
-       * escurecedor DESTA tela, que é mais forte que o das outras duas porque
-       * a criação tem muito mais texto por cima. Apagar o div levaria junto o
-       * contraste do formulário.
-       */
-      #startbg {
-        position: absolute;
-        inset: 0;
-        z-index: 0;
-      }
-      #startbg::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(180deg, rgba(7, 6, 10, 0.62), rgba(7, 6, 10, 0.86));
-      }
       #startwrap {
         position: relative;
         z-index: 1;
@@ -956,10 +948,38 @@
         gap: 10px;
         min-width: 0;
       }
-      #startmid h2 {
+      /*
+       * 🔴 **A placa existe por causa do vídeo, não por estética.**
+       *
+       * O fundo compartilhado traz "ELYSIA ONLINE" DESENHADO nele, no alto e ao
+       * centro — exatamente onde este cabeçalho fica. Até 09/09 esta tela usava
+       * a arte antiga, que não tinha título, e os dois nunca se encontraram.
+       * Com o vídeo, "CRIAR PERSONAGEM" passou a sair por cima do "ELYSIA".
+       *
+       * A placa resolve as duas coisas de uma vez: separa os dois títulos e dá
+       * contraste ao subtítulo, que antes se perdia no céu.
+       *
+       * ⚠️ O escurecimento fica AQUI, no painel, e não numa camada sobre o
+       * fundo — foi empilhar camadas que deixou esta tela quase preta hoje de
+       * manhã. Ver o comentário do `#loginbg::after`.
+       */
+      #startmid > h2,
+      #startmid > #starttag {
+        position: relative;
+        z-index: 1;
+        align-self: stretch;
+        text-align: center;
+        background: rgba(10, 9, 14, 0.88);
+        backdrop-filter: blur(3px);
+      }
+      #startmid > h2 {
         margin: 4px 0 0;
         font-size: 26px;
         letter-spacing: 6px;
+        padding: 10px 16px 6px;
+        border-radius: 6px 6px 0 0;
+        border: 1px solid var(--border);
+        border-bottom: 0;
       }
       /*
        * 🔴 O palco do personagem. Vazio até o sprite universal existir.
@@ -1213,10 +1233,17 @@
         color: #e8d9b5;
       }
       #starttag {
-        margin: -6px 0 2px;
-        color: #8a8272;
+        /* Sem margem negativa: ele agora encosta na placa do h2 e forma um
+           bloco só com ela. A margem antiga o puxava para dentro do título. */
+        margin: 0 0 2px;
+        /* Clareado junto com a placa: no cinza antigo (#8a8272) ele sumia. */
+        color: #a89e8a;
         font-size: 12px;
         font-style: italic;
+        padding: 0 16px 10px;
+        border-radius: 0 0 6px 6px;
+        border: 1px solid var(--border);
+        border-top: 0;
       }
       .classcard {
         background: #16130f;
@@ -3432,7 +3459,6 @@
         tela de criação usava a IMAGEM parada com `cover`, e cortava igual.
         Agora as três telas de fora do jogo mostram a mesma cena, inteira.
       -->
-      <div id="startbg"></div>
       <div id="startwrap">
         <!-- Coluna 1: marca e classes -->
         <aside id="startleft">
