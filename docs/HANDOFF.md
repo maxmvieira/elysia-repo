@@ -1,3 +1,66 @@
+# Handoff — 2026-09-09 (noite) · MERGE com o trabalho do Max
+
+## ⏸️ ONDE PARAMOS — os dois lados na mesma tela de entrada
+
+> Typecheck limpo nos 3 pacotes, **634 testes**. `npm run dev:test` →
+> `localhost:5173`.
+
+**Segundo merge dos dois lados na mesma semana, e no mesmo arquivo.** O Max já
+tinha feito o primeiro (`c5726f5`), decidindo *"o vídeo é dele, a música é
+nossa"*. Este é a volta: o vídeo trocou de novo e o fundo virou camada
+compartilhada, então foi preciso reconciliar outra vez.
+
+### O que ficou de cada lado
+
+| | De quem | O quê |
+|---|---|---|
+| 🎬 Vídeo | **deste lado** | novo arquivo 4K, 76,3 MB, 9,44 s, vai-e-volta |
+| 🖼️ Poster | **deste lado** | quadro 0 do vídeo (antes era arte sem título) |
+| 📐 Layout | **deste lado** | `contain` em vez de `cover`, camada compartilhada nas 3 telas |
+| 🎵 Música | **do Max** | "The Old Forest", dois `<audio>` em travessia, botão e volume |
+
+🔴 **Nada da música foi tocado.** A maquinaria de travessia dele (dois elementos
+cruzando em `rAF`, potência em raiz, `preload` diferentes por causa de banda)
+entrou inteira. Os dois `<audio>` só **mudaram de lugar**: foram para dentro da
+camada compartilhada, junto do vídeo.
+
+### 🔴 A regra de quem toca o quê, que os dois lados definiram diferente
+
+| | Vídeo | Música |
+|---|---|---|
+| Entrada | toca | toca (se o jogador ligou) |
+| Seleção | **toca** (mudou) | toca — *"ainda é antessala"* (regra do Max) |
+| Criação | **toca** (mudou) | toca |
+| No mundo | pausa | cala |
+
+⚠️ O vídeo passou a tocar nas três telas; a música mantém a regra do Max de só
+calar ao entrar no mundo. `showScreen` chama `paraFundoDoLogin(true)` **só** no
+`none`.
+
+### ⚠️ O que herdei do Max e vale saber
+
+- A **faixa** é `login-music.mp3` (9,2 MB, 128 kbps) com `.m4a` de reserva. O
+  original de 320 kbps fica **fora do Git**.
+- `#loginmus` usa `preload="metadata"` e `#loginmus2` usa `none`, **de
+  propósito** — com `auto` nos dois o navegador puxaria 9,2 MB duas vezes.
+- Nenhum dos dois tem `loop`: quem reinicia é a travessia em `rAF`.
+
+### ⚠️ Herança minha que ele precisa saber
+
+- **`#startbg` não existe mais.** A tela de criação usava a arte parada com
+  `cover`; o fundo dela agora é a camada compartilhada.
+- **Não criar um segundo escurecedor por tela.** Os dois empilhavam e deixaram a
+  criação em 0,97 de preto. O único é o `#loginbg::after`.
+- O cabeçalho da criação ganhou uma **placa**, porque o "ELYSIA" do vídeo fica
+  no mesmo lugar que o "CRIAR PERSONAGEM".
+- O poster é o **quadro 0 do vídeo**: trocar um exige regerar o outro.
+
+⚠️ **`ERR_CACHE_WRITE_FAILURE` a cada carga:** o Chromium recusa cachear 76 MB,
+então o vídeo baixa toda visita. Não é bug, é o tamanho — em 1080p (13,1 MB)
+caberia. Decisão do dono.
+
+---
+
 # Handoff — estado do projeto em 2026-09-09 (tarde)
 
 ## ⏸️ ONDE PARAMOS — o fundo das três telas de fora do jogo
@@ -176,6 +239,31 @@ duração da branca). A contagem zera junto com a caveira.
 >
 > ⚠️ **Cinco sessões sem passada humana.** A lista completa está nos blocos
 > abaixo; o acumulado de habilidades é o que mais precisa.
+
+### 🔊 O botão de som VOLTOU no merge de 03/09
+
+⚠️ **Este bloco corrige o LOGO ABAIXO, e é a única coisa que o merge desfez.** Na
+mesma noite os dois lados atacaram a tela de entrada: um refez o vídeo em 4K e
+tirou a faixa de áudio; o outro tinha tirado a música do vídeo antes e posto
+num `<audio>` próprio, com alto-falante e volume.
+
+🔴 **O merge ficou com as duas metades.** O VÍDEO é o de 55,8 MB descrito
+abaixo; a MÚSICA é "The Old Forest" (10 min) em dois `<audio id="loginmus*">`,
+com travessia por dissolvência. O bloco abaixo diz que, se voltasse música, "o
+certo é um `<audio>` próprio" — era exatamente o que já existia do outro lado,
+então o botão não voltou por capricho: voltou na forma que o próprio bloco
+pediu.
+
+✅ **O acoplamento que derrubou o botão não existe mais.** Trocar o vídeo — ou
+encolher para 1080p — não encosta na trilha. E o vídeo continua mudo em duas
+camadas: sem faixa no arquivo E com `muted` no elemento, que o `autoplay` exige.
+
+🔴 **A música NÃO começa sozinha** (decisão do dono em 02/09): o vídeo entra
+mudo e a trilha só toca no clique do alto-falante. Padrão de volume: 10%.
+
+⚠️ **`ligaControlesDeSom()` roda no bootstrap**, antes do `NetClient`. As
+funções listadas abaixo como removidas (`querSom`, `CHAVE_SOM`,
+`atualizaBotaoSom`) estão vivas em `client/src/main.ts`.
 
 ### 🔇 O botão de som saiu
 

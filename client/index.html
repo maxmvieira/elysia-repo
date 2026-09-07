@@ -725,7 +725,7 @@
        * daqui ficava sobreposta em cima: dois títulos, um por baixo do outro.
        *
        * ⚠️ **Não foi apagado, e o motivo importa:** o `poster` é o que aparece
-       * enquanto os 27 MB carregam e é o que fica se o vídeo falhar. Se um dia
+       * enquanto os 55,8 MB carregam e é o que fica se o vídeo falhar. Se um dia
        * o vídeo mudar para um sem título — ou se o poster for trocado por uma
        * arte sem o nome —, a tela de login fica anônima, e a volta é tirar este
        * `display: none`.
@@ -866,6 +866,46 @@
       .srvstatus.off {
         color: #d98a7a;
       }
+      /*
+       * O canto do som: alto-falante + volume. O slider só aparece com a música
+       * ligada — desligada ele não teria o que controlar, e mais um controle
+       * morto no canto da tela só polui.
+       */
+      #loginaudio {
+        position: absolute;
+        top: 14px;
+        right: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 2;
+      }
+      #loginvol {
+        width: 0;
+        opacity: 0;
+        padding: 0;
+        transition: width 180ms ease, opacity 180ms ease;
+        accent-color: #c9a86a;
+        cursor: pointer;
+        /* Fechado ele tem largura zero, mas ainda pegaria o clique da borda. */
+        pointer-events: none;
+      }
+      #loginaudio.tocando #loginvol {
+        width: 92px;
+        opacity: 1;
+        pointer-events: auto;
+      }
+      #loginsom {
+        width: 34px;
+        height: 34px;
+        font-size: 15px;
+        background: rgba(10, 9, 14, 0.72);
+        border: 1px solid #3b3630;
+        border-radius: 4px;
+        color: #c9a86a;
+        cursor: pointer;
+      }
+      #loginsom:hover { background: rgba(201, 168, 106, 0.14); }
       #loginfoot {
         font-size: 11px;
         color: #6a6458;
@@ -3288,6 +3328,35 @@
       >
         <source src="/assets/ui/login-bg.mp4" type="video/mp4" />
       </video>
+        <!--
+          🔴 A MÚSICA saiu da trilha do vídeo e virou DOIS elementos.
+
+          Presa ao vídeo, ela era obrigada a cortar junto com a imagem. Solta num
+          elemento só, com `loop` nativo, ela ainda dava um talho na volta; com a
+          rampa descendo a zero, o talho virou um buraco de silêncio — que é o
+          que o dono continuou ouvindo.
+
+          Agora são dois, e a volta é uma DISSOLVÊNCIA: o segundo entra do zero
+          enquanto o primeiro toca a última ponta, e em nenhum instante o som cai
+          para o silêncio. Quem cruza os volumes é o `main.ts`.
+
+          ⚠️ **`src` é o `main.ts` quem põe** — ver `TRILHAS` lá e o LEIA-ME desta
+          pasta.
+
+          🔴 **Os `preload` são diferentes de propósito, e isso é sobre BANDA.**
+          A faixa tem 10 minutos e 9,2 MB. Com `auto` nos dois, o navegador
+          puxaria os 9,2 MB **duas vezes** só para ter a segunda volta pronta —
+          para uma volta que só acontece aos dez minutos, se alguém ficar tanto
+          tempo na tela. Então:
+
+          - o primeiro fica em `metadata`: pega a duração (que a travessia
+            precisa) e streama o resto conforme toca, gastando banda só pelo
+            tempo que o jogador realmente ouvir;
+          - o segundo fica em `none` e só é acordado pelo `main.ts`, vinte
+            segundos antes da volta.
+        -->
+        <audio id="loginmus" preload="metadata"></audio>
+        <audio id="loginmus2" preload="none"></audio>
     </div>
 
     <div id="login">
@@ -3311,11 +3380,17 @@
         primeiro quadro de propósito, e essa é a única forma de a transição
         poster→vídeo ser invisível.
 
-        🔴 **SEM SOM, em duas camadas — e as duas estão no lugar.** A faixa de
-        áudio foi REMOVIDA do arquivo (`ffmpeg -c:v copy -an`), então não há o
-        que tocar nem se alguém apagar o `muted` daqui. E o `muted` fica de
-        qualquer forma, porque é OBRIGATÓRIO para o `autoplay`: navegador
-        nenhum toca vídeo com som sozinho.
+        🔴 **O VÍDEO é mudo, mas a TELA não é — e a diferença é o ponto.** A
+        faixa de áudio foi REMOVIDA do arquivo (`ffmpeg -c:v copy -an`), então
+        não há o que tocar nem se alguém apagar o `muted` daqui. E o `muted`
+        fica de qualquer forma, porque é OBRIGATÓRIO para o `autoplay`:
+        navegador nenhum toca vídeo com som sozinho.
+
+        A música vive num `<audio>` PRÓPRIO, mais abaixo, e é assim de
+        propósito: presa ao vídeo ela era obrigada a cortar junto com a imagem,
+        e trocar o vídeo derrubava a trilha. Separada, o arquivo de fundo pode
+        ser trocado à vontade sem encostar nela. Ela também não começa sozinha
+        — só pelo alto-falante no canto (decisão do dono em 02/09).
 
         🔁 **O LOOP É VAI-E-VOLTA, e isso foi necessário.** Os dois vídeos que
         já passaram por aqui eram **zoom contínuo de câmera**: começam abertos e
@@ -3407,6 +3482,23 @@
           </aside>
         </div>
 
+        <!-- Alto-falante: a ÚNICA forma de a música começar.
+             🔴 O som NÃO se liga sozinho (decisão do dono em 02/09, depois de
+             ouvir). O vídeo toca mudo; quem quiser música clica aqui.
+             O volume ao lado só abre depois que a música está tocando. -->
+        <div id="loginaudio">
+          <input
+            id="loginvol"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value="10"
+            title="Volume da música"
+            aria-label="Volume da música"
+          />
+          <button id="loginsom" title="Ligar a música">🔇</button>
+        </div>
         <div id="loginfoot">
           <!-- ⚠️ Sem número de build inventado: a arte de referência trazia
                "Versão 1.0.0 – Build #1000", que não existe em lugar nenhum. -->

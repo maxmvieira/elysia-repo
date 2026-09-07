@@ -61,3 +61,28 @@ seguir só com o trabalho do irmão. Vale trazer.
 
 > Placeholders atuais (chão, muros, personagem) são arte original gerada por
 > código no próprio projeto — sem licença de terceiros.
+
+## Tela de entrada — 2026-09-02
+
+| Asset | Onde mora | Origem | Licença |
+|---|---|---|---|
+| `login-bg.png` / `login-bg.mp4` | `client/public/assets/ui/` | Trazidos pelo dono em 02/09 | **não registrada** |
+| `login-music.mp3` — *The Old Forest* | `client/public/assets/ui/` | Trazida pelo dono em 02/09 | **não registrada** |
+
+🔴 **As três não têm licença anotada, e a música é a mais séria delas.** Arte de
+fundo passa despercebida; trilha sonora não — é o que mais dispara reclamação
+automática, e ela toca na primeira tela que qualquer pessoa vê. **Só o dono sabe
+de onde ela veio**, então só ele pode preencher esta linha.
+
+⚠️ **O que já foi feito com os arquivos**, para o registro não se perder:
+
+- O vídeo foi **refeito em vai-e-volta** e recomprimido: 8,4 MB → 2,6 MB, 5,17 s
+  → 10,25 s, 2544 → 1920 de largura. É obra derivada do original.
+- A música foi **reamostrada de 320 para 128 kbps** (22,9 MB → 9,2 MB) e teve os
+  metadados removidos. O original de 320 kbps está em `assets/The Old Forest.mp3`
+  na máquina do dono, mas ⚠️ **ele é ignorado pelo Git** (ver `.gitignore`): 23 MB
+  de repositório por um arquivo que ninguém abre depois de convertido. **Quem
+  clonar não recebe o original** — guardá-lo em outro lugar é com o dono.
+- `login-music.m4a` são os 5,09 s de trilha **arrancados do próprio
+  `login-bg.mp4`**, de quando não havia faixa nenhuma. Hoje é só a reserva para
+  o caso de o `.mp3` faltar, e herda a licença do vídeo — seja ela qual for.
