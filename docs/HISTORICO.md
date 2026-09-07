@@ -9,6 +9,58 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-09 (noite) — As 8 direções voltam, e desta vez a causa foi consertada
+
+**Onde mora:** `DIRECTIONS`, `CARDINAL_OF` e `directionFromDelta` em
+`shared/src/constants.ts` · `DirAnim` em `client/src/miniworld.ts` · `framesFor`
+e `PASSOS_RETOS` em `client/src/main.ts` · `fatia` em `heroes.ts` · a tabela
+`FONTE` em `tools/universal2strip.mjs`.
+
+### 🔴 Elas já existiram, e foram removidas por um bug que não era delas
+
+Em agosto o dono relatou o personagem *"atravessando o mapa virado de lado"*, e
+a rota foi cortada para 4 direções. **O culpado não era a diagonal:** era o
+`dirFromDelta` do servidor decidindo por `Math.abs(dx) >= Math.abs(dy)` — num
+passo diagonal os dois são iguais, o empate caía sempre em `right`.
+
+Cortar a diagonal escondeu o sintoma por um mês. Agora a função mora no
+`shared`, tem nome por combinação de sinais e não empata, e a rota pôde voltar.
+
+### A decisão que evitou reescrever 51 pontos
+
+`DirAnim` ganhou as quatro diagonais como campos **OPCIONAIS**. Toda a arte
+anterior — 77 espécies do bestiário, MiniWorld, packs de classe — tem quatro
+linhas e continua válida; quem não traz diagonal cai na cardinal em `framesFor`.
+
+🔴 **A queda é para o eixo VERTICAL** (`up_right` → `up`), o oposto do que o
+código fazia em agosto. Num jogo visto de cima o que se lê primeiro é se o
+personagem vem ou vai, não para que lado — cair em `right` era exatamente o bug.
+
+⚠️ **`CARDINAL_OF` mora no `shared`** porque o servidor decide a direção e o
+cliente a desenha: se discordassem do que é "a cardinal de `up_right`", o sprite
+olharia para um lado e andaria para outro.
+
+### 4 linhas ou 8, decidido pela IMAGEM
+
+`fatia` lê a altura da folha: 4 linhas → cardinais; 8 → com diagonais. Um pack
+não declara nada, a imagem já diz o que tem.
+
+### As cinco folhas dão as oito direções
+
+O autosprite entrega só o lado direito, e é o suficiente: `left`, `up_left` e
+`down_left` são espelhos exatos. Cinco folhas, oito direções — a tabela `FONTE`
+no conversor.
+
+⚠️ **O golpe continua só de perfil**, então as oito linhas dele saem da mesma
+folha. Atacar para cima mostra o personagem de lado. Faltam as folhas de frente,
+costas e as duas diagonais do golpe.
+
+⚠️ **A diagonal ficou ~33 % mais rápida** que o caminho em L de antes (um passo
+em vez de dois). É o normal de MMO em grade; se incomodar, o conserto é custo
+1,41 na diagonal, não remover de novo.
+
+---
+
 ## 2026-09-09 (noite) — O personagem universal entra nas CINCO classes
 
 **Onde mora:** `tools/universal2strip.mjs` (novo) · `arte-fonte/universal/` ·

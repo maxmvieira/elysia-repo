@@ -271,12 +271,40 @@ const folhas = {
   down: decode(join(ORIGEM, 'walk_down.png')),
   up: decode(join(ORIGEM, 'walk_up.png')),
   right: decode(join(ORIGEM, 'walk_right.png')),
+  up_right: decode(join(ORIGEM, 'walk_up_right.png')),
+  down_right: decode(join(ORIGEM, 'walk_down_right.png')),
 };
 
-// 🔴 A ORDEM DAS LINHAS É CONTRATO com `heroes.ts`: down, up, right, left.
-// Trocar duas faz o personagem andar de costas para onde vai, e o motor não
-// tem como perceber.
-const LINHAS = ['down', 'up', 'right', 'left'];
+/**
+ * 🔴 **A ORDEM DAS LINHAS É CONTRATO com `heroes.ts`.** Trocar duas faz o
+ * personagem andar de costas para onde vai, e nada no motor tem como perceber.
+ *
+ * As quatro cardinais vêm primeiro: é o que uma tira de 4 linhas contém, e o
+ * `fatia` decide entre 4 e 8 pela ALTURA da folha. Assim a mesma ordem serve aos
+ * dois formatos.
+ */
+const LINHAS = [
+  'down', 'up', 'right', 'left',
+  'up_right', 'up_left', 'down_right', 'down_left',
+];
+
+/**
+ * De qual folha sai cada linha, e se ela é espelhada.
+ *
+ * 🔴 **O autosprite entrega só o lado DIREITO**, e é o suficiente: num conjunto
+ * de 8 direções o lado esquerdo é o espelho exato do direito. São cinco folhas
+ * para oito direções.
+ */
+const FONTE = {
+  down: ['down', false],
+  up: ['up', false],
+  right: ['right', false],
+  left: ['right', true],
+  up_right: ['up_right', false],
+  up_left: ['up_right', true],
+  down_right: ['down_right', false],
+  down_left: ['down_right', true],
+};
 
 const tiraW = CELL * QUADROS.length;
 const tiraH = CELL * LINHAS.length;
@@ -287,9 +315,10 @@ for (let row = 0; row < LINHAS.length; row++) {
   // ⚠️ A ESQUERDA é a direita espelhada. O autosprite entrega cinco direções
   // (as três daqui mais duas diagonais), e nenhuma delas é a esquerda — num
   // conjunto de 8 direções ela seria o espelho da direita, que é o que fazemos.
-  const folha = dir === 'left' ? folhas.right : folhas[dir];
+  const [fonte, espelhado] = FONTE[dir];
   QUADROS.forEach((n, col) => {
-    const q = dir === 'left' ? espelha(recorta(folha, n)) : recorta(folha, n);
+    const bruto = recorta(folhas[fonte], n);
+    const q = espelhado ? espelha(bruto) : bruto;
     cola(tira, tiraW, q, col, row);
   });
 }
@@ -308,8 +337,9 @@ const idleW = CELL, idleH = CELL * LINHAS.length;
 const idle = Buffer.alloc(idleW * idleH * 4);
 for (let row = 0; row < LINHAS.length; row++) {
   const dir = LINHAS[row];
-  const folha = dir === 'left' ? folhas.right : folhas[dir];
-  const q = dir === 'left' ? espelha(recorta(folha, QUADROS[0])) : recorta(folha, QUADROS[0]);
+  const [fonte, espelhado] = FONTE[dir];
+  const cru = recorta(folhas[fonte], QUADROS[0]);
+  const q = espelhado ? espelha(cru) : cru;
   cola(idle, idleW, q, 0, row);
 }
 writeFileSync(join(DESTINO, 'idle.png'), encode(idleW, idleH, idle));
@@ -402,7 +432,7 @@ for (let row = 0; row < LINHAS.length; row++) {
      * frente e de costas do golpe, que o autosprite ainda não gerou. Está no
      * HANDOFF.
      */
-    const q = dir === 'left' ? espelha(bruto) : bruto;
+    const q = FONTE[dir][1] ? espelha(bruto) : bruto;
     cola(tiraGolpe, golpeW, q, col, row, REF_PES_X - centroDosPes(q));
   });
 }

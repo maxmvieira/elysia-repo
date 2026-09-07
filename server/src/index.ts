@@ -106,6 +106,7 @@ import {
   type ActiveCondition,
   type ConditionId,
   type DamageType,
+  directionFromDelta,
   // --- Etapas 14 e 15: efeitos de ficha, áreas persistentes e as 41 magias
   type ActiveEffect,
   type Modifiers,
@@ -2025,16 +2026,17 @@ function stepToward(
   return null;
 }
 
-function dirFromDelta(dx: number, dy: number, fallback: Direction): Direction {
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    if (dx > 0) return 'right';
-    if (dx < 0) return 'left';
-  } else {
-    if (dy > 0) return 'down';
-    if (dy < 0) return 'up';
-  }
-  return fallback;
-}
+/**
+ * 🔴 **Delegado ao `shared` em 2026-09-09, e a mudança conserta um bug.**
+ *
+ * A versão que morava aqui decidia por `Math.abs(dx) >= Math.abs(dy)`, e num
+ * passo diagonal os dois são iguais — o empate caía sempre em
+ * `right`/`left`. Era essa a causa de o personagem *"atravessar o mapa virado
+ * de lado"*, e foi por causa dela que a rota diagonal foi removida em agosto.
+ *
+ * Com oito direções não há empate: cada combinação de sinais tem nome próprio.
+ */
+const dirFromDelta = directionFromDelta;
 
 // ---------------------------------------------------------------------------
 // Combate

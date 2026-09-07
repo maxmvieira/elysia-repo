@@ -68,6 +68,7 @@ import {
   TILE_TYPES,
   type AttributeKey,
   type Direction,
+  CARDINAL_OF,
   type EntitySnapshot,
   type EquipSlot,
   type Gender,
@@ -1654,8 +1655,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     return !tilesBloqueados.has(y * map.width + x);
   }
 
-  /** Vizinhos considerados pela rota: 4 direções, sem diagonal (ver `rotaAte`). */
-  const PASSOS_RETOS: Array<[number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+  /**
+   * Vizinhos considerados pela rota — **as OITO desde 2026-09-09**.
+   *
+   * 🔴 **Elas já estiveram aqui e foram removidas**, e a diferença agora é que
+   * a CAUSA foi consertada. O bug era o `dirFromDelta` do servidor empatar em
+   * `|dx| === |dy|` e devolver sempre `right`: o personagem atravessava o mapa
+   * virado de lado. Cortar a diagonal escondia o sintoma. Com oito direções de
+   * verdade não há empate, e a rota pode voltar a usá-las.
+   *
+   * ⚠️ **A diagonal fica ~33 % mais rápida** que o caminho em L de antes (um
+   * passo em vez de dois). É o comportamento normal de MMO em grade, e muda a
+   * sensação de andar — se incomodar, o conserto é custo 1,41 na diagonal, não
+   * remover de novo.
+   */
+  const PASSOS_RETOS: Array<[number, number]> = [
+    [0, -1], [0, 1], [-1, 0], [1, 0],
+    [1, -1], [-1, -1], [1, 1], [-1, 1],
+  ];
 
   /**
    * Menor caminho de (sx,sy) até (tx,ty), sem incluir a origem. `[]` se não há
@@ -7025,8 +7042,23 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   let paridade = false;
   let ultimoPasso = moveStart;
 
+  /**
+   * Os quadros de uma direção, com queda para a cardinal quando a arte não tem
+   * a diagonal.
+   *
+   * 🔴 **A queda é para o eixo VERTICAL** (`up_right` → `up`), e é o oposto do
+   * que o código fazia em agosto. Naquela versão a diagonal caía em
+   * `right`/`left`, e o resultado foi o bug que o dono relatou: o personagem
+   * atravessava o mapa **virado de lado**. Num jogo visto de cima, o que se lê
+   * primeiro é se ele vem ou vai — não para que lado.
+   *
+   * ⚠️ A tabela mora no `shared` (`CARDINAL_OF`) porque o servidor decide a
+   * direção e o cliente a desenha: se as duas pontas discordassem do que é
+   * "a cardinal de up_right", o sprite olharia para um lado e andaria para
+   * outro.
+   */
   function framesFor(d: Direction, set: DirAnim): Texture[] {
-    return d === 'up' ? set.up : d === 'left' ? set.left : d === 'right' ? set.right : set.down;
+    return set[d] ?? set[CARDINAL_OF[d]];
   }
   /**
    * Estado de DISPARO ÚNICO ativo, se houver. Tem precedência sobre andar/parado

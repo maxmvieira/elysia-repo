@@ -19,11 +19,27 @@ const CELL = 16;
 const CHARS = '/assets/MiniWorldSprites/Characters';
 
 /** Quadros de caminhada por direção (esquerda é uma linha própria, não espelho). */
+/**
+ * Uma animação, com uma lista de quadros por direção.
+ *
+ * 🔴 **As quatro cardinais são obrigatórias; as quatro diagonais, opcionais** —
+ * e essa assimetria é o que permitiu o mundo virar 8 direções sem reescrever
+ * nada. Toda a arte anterior (as criaturas do bestiário, o MiniWorld, os packs
+ * de classe) tem quatro linhas e continua válida: quem não traz diagonal cai na
+ * cardinal mais próxima em `framesFor`.
+ *
+ * Tornar as oito obrigatórias teria exigido tocar em 51 pontos e refazer a arte
+ * de 77 espécies para ganhar nada — monstro não anda em diagonal.
+ */
 export interface DirAnim {
   down: Texture[];
   up: Texture[];
   right: Texture[];
   left: Texture[];
+  up_right?: Texture[];
+  up_left?: Texture[];
+  down_right?: Texture[];
+  down_left?: Texture[];
 }
 
 export interface SheetCfg {

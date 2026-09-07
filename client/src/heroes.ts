@@ -263,7 +263,7 @@ const PACK_ANTIGO: Pack = {
 const PACK_UNIVERSAL: Pack = {
   base: '/assets/classes-universal',
   arteUnica: true,
-  cell: 80, contentH: 62, feetY: 74, centerX: 39.5, targetH: 62,
+  cell: 80, contentH: 67, feetY: 74, centerX: 39.5, targetH: 67,
 };
 
 /**
@@ -356,7 +356,26 @@ async function fatia(path: string, cell: number, pintar?: Pintor): Promise<DirAn
         frame: new Rectangle(i * cell, r * cell, cell, cell),
       }),
     );
-  return { down: linha(0), up: linha(1), right: linha(2), left: linha(3) };
+  /**
+   * 🔴 **A ORDEM DAS LINHAS É CONTRATO** com `tools/universal2strip.mjs` e com
+   * os conversores antigos. Trocar duas faz o personagem andar de costas para
+   * onde vai, e nada no código tem como perceber.
+   *
+   * 🔴 **Quatro linhas ou oito** — decidido pela ALTURA da folha, não por
+   * configuração. Toda a arte anterior tem quatro e continua servindo; quem
+   * traz oito ganha as diagonais. Um pack não precisa declarar nada: a imagem
+   * já diz o que tem.
+   */
+  const linhas = Math.max(1, Math.round(sheet.height / cell));
+  const base: DirAnim = { down: linha(0), up: linha(1), right: linha(2), left: linha(3) };
+  if (linhas < 8) return base;
+  return {
+    ...base,
+    up_right: linha(4),
+    up_left: linha(5),
+    down_right: linha(6),
+    down_left: linha(7),
+  };
 }
 
 /** Recolore uma folha carregada. `undefined` = sem outfit, caminho de sempre. */
