@@ -1,3 +1,53 @@
+# Handoff — estado do projeto em 2026-09-09 (tarde)
+
+## ⏸️ ONDE PARAMOS — o fundo das três telas de fora do jogo
+
+> Typecheck limpo nos 3 pacotes, **634 testes**. `npm run dev:test` →
+> `localhost:5173`.
+
+### 🎬 Um vídeo, três telas, sem corte
+
+O vídeo de fundo agora aparece **inteiro** (`object-fit: contain`) e serve
+**entrada, seleção e criação** a partir de uma camada única.
+
+| | |
+|---|---|
+| Corte anterior | **10 % das laterais** numa tela 16:10 (medido em 1440×900) |
+| Agora | 100 % visível em qualquer proporção |
+| Em 16:9 | preenche tudo, zero faixa |
+| Fora de 16:9 | o gradiente do `#loginbg` preenche a sobra |
+
+🔴 **A camada é UMA (`#loginbg`), fixa em `z-index: 19`,** e as três telas são
+`background: transparent` por cima. A primeira tentativa foi um `<video>` por
+tela e durou vinte minutos: gerava **três requisições de 76 MB por
+carregamento**, e o Chromium não consegue cachear um arquivo desse tamanho
+(`ERR_CACHE_WRITE_FAILURE`).
+
+⚠️ **`#startbg` continua no HTML mesmo esvaziado** — o `::after` dele é o
+escurecedor da tela de criação, mais forte que o das outras porque ali há muito
+mais texto por cima. Apagar o div levaria o contraste do formulário junto.
+
+⚠️ A camada some no jogo. Não é economia de rede, é de CPU/GPU.
+
+⚠️ **Quem trocar o vídeo por um de proporção diferente** deve reavaliar
+`contain` × `cover`, e **regerar o poster** (é o quadro 0 do vídeo):
+`ffmpeg -i login-bg.mp4 -vf "select=eq(n\,0),scale=1672:-2" -vframes 1 login-bg.png`
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **A passada humana.** Seis sessões de trabalho e o jogo nunca foi jogado.
+   Os caminhos mais novos são curar aliado, conjuração interrompível, Ataque
+   Duplo e as armadilhas do Arqueiro.
+2. ⏳ **Personagem permanecer no mundo após a queda do socket** — faria a trava
+   de saída valer contra quem fecha a aba.
+3. ⏳ **Munição** (shuriken, azagaia) · **slot de segunda arma** · **esquiva no
+   bestiário** · **"cura como arma"** · sprite do palco · sprites base M/F ·
+   sistema de GUARDA.
+
+---
+
 # Handoff — estado do projeto em 2026-09-09
 
 ## ⏸️ ONDE PARAMOS — vídeo novo na tela de login

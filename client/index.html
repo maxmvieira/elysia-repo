@@ -539,7 +539,15 @@
         justify-content: center;
         flex-direction: column;
         gap: 16px;
-        background: radial-gradient(circle at 50% 30%, #1c1a17, #0a0908);
+        /*
+         * 🔴 **TRANSPARENTES desde 2026-09-09.** O fundo das três telas passou a
+         * ser uma camada única (`#loginbg`), com o vídeo, logo atrás delas.
+         * Um gradiente opaco aqui esconderia o vídeo.
+         *
+         * ⚠️ Quem garante que nunca há tela sem fundo é o próprio `#loginbg`:
+         * ele tem o mesmo gradiente e aparece junto com qualquer uma das três.
+         */
+        background: transparent;
         z-index: 20;
         padding: 20px;
       }
@@ -602,7 +610,8 @@
       #login {
         display: none; /* o JS liga; o padrão continua escondido */
         padding: 0;
-        background: #07060a;
+        /* Transparente: o fundo é a camada compartilhada #loginbg, atrás. */
+        background: transparent;
       }
       /*
        * A arte fica numa camada PRÓPRIA, e não no `background` do `#login`.
@@ -611,8 +620,21 @@
        * ::after passa por cima da foto e por baixo do conteúdo. Com tudo na
        * mesma camada, escurecer o fundo apagaria as letras.
        */
+      /*
+       * 🎬 A camada de fundo COMPARTILHADA pelas três telas de fora do jogo.
+       *
+       * 🔴 `fixed` e `z-index: 19` — logo abaixo do 20 das telas. Era
+       * `absolute` dentro do `#login`; virou camada própria quando o vídeo
+       * passou a servir também a seleção e a criação.
+       *
+       * ⚠️ Nasce escondida (`display: none`): quem a mostra é o `showScreen`,
+       * junto com a tela. No jogo ela some — sem isso, um vídeo de 4K ficaria
+       * decodificando atrás do mundo.
+       */
       #loginbg {
-        position: absolute;
+        display: none;
+        position: fixed;
+        z-index: 19;
         inset: 0;
         /*
          * A imagem saiu daqui em 02/09: quem desenha o fundo agora é o
@@ -621,26 +643,48 @@
          */
         background: radial-gradient(circle at 50% 35%, #16151f, #07060a 70%);
         background-color: #07060a;
-        z-index: 0;
         overflow: hidden;
       }
       /*
-       * 🔴 `cover`, a pedido do dono: *"quero que ele seja mais estendido"*. O
-       * vídeo PREENCHE a tela, sem faixa escura em cima e embaixo.
+       * 🔴 `contain`, a pedido do dono em 2026-09-09: *"não está aparecendo ele
+       * todo, está cortando"*. O vídeo aparece **INTEIRO e centralizado**.
        *
-       * ⚠️ Isto reverte a escolha que a IMAGEM parada tinha feito minutos antes
-       * — lá o `cover` estourava. A diferença é a proporção: a imagem tinha
-       * 1672×941 e o vídeo tem 2544×1456 (bem mais largo), então o corte que o
-       * `cover` faz aqui é pequeno e cai nas bordas, não no meio da cena.
+       * ⚠️ **Isto reverte o `cover` de 02/09** (*"quero que ele seja mais
+       * estendido"*), e a reversão tem motivo medido: o vídeo antigo tinha
+       * 2544×1456 e o corte do `cover` era pequeno. O atual é **3840×2160
+       * (16:9 exato)**, e numa tela 16:10 — 1440×900, o formato de notebook
+       * mais comum — o `cover` cortava **10 % das laterais**, comendo o castelo
+       * da esquerda e as montanhas da direita.
+       *
+       * 🔴 **A sobra NÃO fica preta.** O `#loginbg` tem um gradiente radial
+       * embaixo, feito exatamente para isto — está escrito lá: *"preenche a
+       * sobra nas beiradas, sem ele seria barra preta chapada"*.
+       *
+       * ⚠️ Quem trocar o vídeo por um de proporção diferente deve conferir os
+       * dois modos de novo: `cover` só serve quando a proporção do vídeo é
+       * larga o bastante para o corte cair fora da cena.
        */
       #loginvid {
         position: absolute;
         inset: 0;
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: contain;
+        object-position: center center;
         /* Sem isto o vídeo captura o clique e a tela inteira vira um player. */
         pointer-events: none;
+      }
+      /*
+       * ⚠️ A seleção precisa de contexto de empilhamento próprio: o conteúdo
+       * dela não tinha `z-index` porque não havia fundo nenhum atrás. Sem isto,
+       * o vídeo cobriria a lista de personagens.
+       */
+      #charselect > h2,
+      #charselect > #charlist,
+      #charselect > .authrow,
+      #charselect > .authhint {
+        position: relative;
+        z-index: 1;
       }
       #loginbg::after {
         content: '';
@@ -830,15 +874,22 @@
       #start {
         display: none;
         padding: 0;
-        background: #07060a;
+        background: transparent;
       }
+      /*
+       * 🔴 **Esvaziado em 2026-09-09.** Ele desenhava a arte parada com
+       * `center / cover` — exatamente o corte que o dono reclamou na tela de
+       * entrada (10 % das laterais numa tela 16:10). Agora o fundo das três
+       * telas é a camada compartilhada `#loginbg`, com o vídeo em `contain`.
+       *
+       * ⚠️ **O div continua no HTML de propósito:** o `::after` abaixo é o
+       * escurecedor DESTA tela, que é mais forte que o das outras duas porque
+       * a criação tem muito mais texto por cima. Apagar o div levaria junto o
+       * contraste do formulário.
+       */
       #startbg {
         position: absolute;
         inset: 0;
-        /* A MESMA arte da tela de entrada: é o mesmo mundo, e economiza 2,5 MB
-           de download que já foram pagos. */
-        background: url('/assets/ui/login-bg.png') center / cover no-repeat,
-          radial-gradient(circle at 50% 35%, #16151f, #07060a 70%);
         z-index: 0;
       }
       #startbg::after {
@@ -3183,6 +3234,35 @@
       `client/public/assets/ui/login-bg.png` e ele aparece; sem o arquivo, o CSS
       cai num gradiente escuro e a tela continua utilizável.
     -->
+    <!--
+      🎬 **UM vídeo para as TRÊS telas** (entrada, seleção e criação).
+
+      🔴 **Era um por tela, e durou vinte minutos.** Três elementos <video>
+      apontando para o mesmo arquivo disparam TRÊS requisições de 76 MB no
+      carregamento — medido na aba de rede: duas eram abortadas, mas todas
+      abriam conexão. Com um arquivo grande o navegador ainda falha em
+      cacheá-lo (`ERR_CACHE_WRITE_FAILURE`), então nem o cache salvava.
+
+      Um elemento só, numa camada fixa ATRÁS das três telas, resolve os dois
+      problemas: uma requisição, um decodificador.
+
+      ⚠️ As três telas ficam TRANSPARENTES para esta camada aparecer. Quem a
+      mostra e esconde é o `showScreen` — no jogo ela some.
+    -->
+    <div id="loginbg">
+      <video
+        id="loginvid"
+        autoplay
+        muted
+        loop
+        playsinline
+        preload="auto"
+        poster="/assets/ui/login-bg.png"
+      >
+        <source src="/assets/ui/login-bg.mp4" type="video/mp4" />
+      </video>
+    </div>
+
     <div id="login">
       <!--
         🔴 O `poster` não é decoração: ele aparece enquanto os **76 MB** do
@@ -3244,19 +3324,6 @@
         `loop` faz o vídeo recomeçar sozinho — são 9,44 s por ciclo.
         `playsinline` impede o iOS de abrir em tela cheia por conta própria.
       -->
-      <div id="loginbg">
-        <video
-          id="loginvid"
-          autoplay
-          muted
-          loop
-          playsinline
-          preload="auto"
-          poster="/assets/ui/login-bg.png"
-        >
-          <source src="/assets/ui/login-bg.mp4" type="video/mp4" />
-        </video>
-      </div>
       <div id="loginwrap">
         <div id="loginmark">
           <h1>ELYSIA</h1>
@@ -3322,6 +3389,17 @@
     </div>
 
     <div id="charselect">
+      <!--
+        🎬 O MESMO vídeo da tela de entrada, a pedido do dono em 2026-09-09.
+
+        🔴 **Não custa download nenhum.** Quando esta tela aparece, o jogador já
+        passou pelo login e o navegador já tem os 76 MB em cache — é o mesmo
+        arquivo, com o mesmo `src`.
+
+        ⚠️ **Quem toca e quem pausa é o `showScreen`.** Três vídeos de 4K
+        decodificando ao mesmo tempo custariam três decodificadores; só o da
+        tela visível roda. Ver `tocaFundoDaTela` no `main.ts`.
+      -->
       <h2>SEUS PERSONAGENS</h2>
       <div id="charlist"></div>
       <div class="authrow">
@@ -3349,6 +3427,11 @@
       tocar na lógica de criação.
     -->
     <div id="start">
+      <!--
+        🎬 O vídeo entrou aqui em 2026-09-09 pelo mesmo motivo da seleção: a
+        tela de criação usava a IMAGEM parada com `cover`, e cortava igual.
+        Agora as três telas de fora do jogo mostram a mesma cena, inteira.
+      -->
       <div id="startbg"></div>
       <div id="startwrap">
         <!-- Coluna 1: marca e classes -->

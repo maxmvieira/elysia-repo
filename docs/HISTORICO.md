@@ -9,6 +9,76 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-09 (tarde) — O vídeo para de cortar, e passa a servir as três telas
+
+**Onde mora:** `#loginbg`, `#loginvid` e as regras das três telas em
+`client/index.html` · `tocaFundoDaTela` em `client/src/main.ts`.
+
+Dois pedidos do dono, e o segundo revelou um problema de rede.
+
+### 🔴 `cover` → `contain`: o corte tinha 10 %
+
+> *"não está aparecendo ele todo, está cortando"*
+
+O `object-fit: cover` foi escolha de 02/09 (*"quero que ele seja mais
+estendido"*), e na época era defensável: o vídeo tinha 2544×1456 e o corte caía
+fora da cena. O vídeo atual é **3840×2160 — 16:9 exato**, e a conta mudou.
+
+Medido numa tela **1440×900** (16:10, o formato de notebook mais comum):
+**cortava 10 % das laterais**, comendo o castelo da esquerda e as montanhas da
+direita.
+
+| Tela | Com `contain` |
+|---|---|
+| 1920×1080 (16:9) | preenche tudo, **zero faixa** |
+| 1440×900 (16:10) | vídeo inteiro, 45 px de gradiente em cima e embaixo |
+
+🔴 **A sobra não fica preta**: o `#loginbg` já tinha um gradiente radial embaixo,
+escrito em 02/09 exatamente para isto.
+
+⚠️ Quem trocar o vídeo por outro de proporção diferente deve reavaliar: `cover`
+só serve quando a proporção é larga o bastante para o corte cair fora da cena.
+
+### 🎬 O fundo virou camada compartilhada — e o motivo é medido
+
+O dono pediu o vídeo também na tela de SELEÇÃO, e apontou o mesmo corte na de
+CRIAÇÃO (que usava a imagem parada com `center / cover`).
+
+**A primeira tentativa foi um `<video>` por tela, e durou vinte minutos.** A aba
+de rede mostrou o custo na hora:
+
+```
+GET login-bg.mp4 → 206
+GET login-bg.mp4 → 206 [FAILED: net::ERR_ABORTED]
+GET login-bg.mp4 → 206 [FAILED: net::ERR_ABORTED]
+```
+
+🔴 **Três requisições do mesmo arquivo de 76 MB por carregamento.** Duas eram
+abortadas, mas todas abriam conexão. E o console trazia
+`net::ERR_CACHE_WRITE_FAILURE` — o Chromium **não consegue cachear** um arquivo
+desse tamanho, então nem o cache resolveria as visitas seguintes.
+
+A correção foi um **elemento único**, numa camada `position: fixed; z-index: 19`
+atrás das três telas, que passaram a ter `background: transparent`. Uma
+requisição, um decodificador.
+
+⚠️ **`#startbg` continua no HTML mesmo esvaziado**, e apagá-lo seria um erro: o
+`::after` dele é o escurecedor daquela tela, mais forte que o das outras porque
+a criação tem muito mais texto por cima.
+
+⚠️ A camada some no jogo (`showScreen('none')`). Não é economia de rede — o
+arquivo já baixou — é de CPU/GPU: um vídeo 4K decodificando atrás do mundo custa
+quadro a quadro para ninguém ver.
+
+### A lição
+
+🔴 **Reusar um `src` não é reusar um download.** A intuição de que "é o mesmo
+arquivo, o navegador serve do cache" falha justamente onde mais dói: em arquivos
+grandes, que são os que o cache recusa. Quando o mesmo recurso pesado precisa
+aparecer em vários lugares, o elemento é que tem de ser um só.
+
+---
+
 ## 2026-09-09 — Vídeo novo na tela de login, e o poster passa a ser o quadro 0
 
 **Onde mora:** `client/public/assets/ui/login-bg.mp4` e `login-bg.png` · o

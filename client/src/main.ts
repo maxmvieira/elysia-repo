@@ -284,21 +284,42 @@ const screens = {
  */
 
 /**
- * Dá o play no vídeo de fundo do login.
+ * 🎬 Mostra a camada de fundo (`#loginbg`) e toca o vídeo, ou esconde e pausa.
  *
- * ⚠️ **Continua existindo mesmo sem o botão de som**, e é preciso: `autoplay`
- * não pega em elemento escondido, e a tela de login nasce com `display: none`
- * até `showScreen('login')`. Sem esta chamada, o jogador veria só o poster.
+ * 🔴 **Um vídeo só para as três telas** de fora do jogo (entrada, seleção e
+ * criação). A primeira tentativa foi um `<video>` por tela, e durou vinte
+ * minutos: a aba de rede mostrou **três requisições do mesmo arquivo de 76 MB**
+ * no carregamento — duas abortadas, mas todas abrindo conexão —, e o navegador
+ * ainda falhava em cachear um arquivo desse tamanho
+ * (`ERR_CACHE_WRITE_FAILURE`), então nem o cache resolvia.
  *
- * O `.catch` não é decoração: `play()` devolve promessa que REJEITA quando a
- * aba está em segundo plano ou a mídia está bloqueada por política, e um erro
- * solto aqui era o que produzia a página preta e muda descrita acima.
+ * ⚠️ **Esconder no jogo não é economia de rede, é de CPU/GPU:** um vídeo 4K
+ * decodificando atrás do mundo custa quadro a quadro, para ninguém ver.
+ *
+ * ⚠️ Chamar isto é obrigatório, não conveniência: `autoplay` **não pega em
+ * elemento escondido**, e a camada nasce com `display: none`. Sem a chamada, o
+ * jogador veria só o poster parado.
+ *
+ * O `.catch` também não é decoração — `play()` devolve promessa que REJEITA
+ * quando a aba está em segundo plano ou a mídia está bloqueada por política, e
+ * um erro solto aqui era o que produzia a página preta e muda que o irmão do
+ * dono caçou em 02/09.
+ *
+ * @param tela Tela que acabou de aparecer, ou `null` ao entrar no jogo.
  */
-function tocaFundoDoLogin(): void {
+function tocaFundoDaTela(tela: HTMLElement | null): void {
+  const camada = document.getElementById('loginbg');
   const v = document.getElementById('loginvid') as HTMLVideoElement | null;
-  if (!v) return;
+  if (!camada || !v) return;
+  // A camada acompanha as telas: aparece com qualquer uma das três e some no
+  // jogo — sem isso um vídeo 4K ficaria decodificando atrás do mundo.
+  camada.style.display = tela ? 'block' : 'none';
+  if (!tela) {
+    if (!v.paused) v.pause();
+    return;
+  }
   v.play().catch(() => {
-    // Bloqueado: o poster continua no lugar e a tela segue utilizável.
+    // Bloqueado por política de mídia: o poster fica, e a tela funciona.
   });
 }
 
@@ -307,8 +328,9 @@ function showScreen(which: keyof typeof screens | 'none'): void {
     get().style.display = nome === which ? 'flex' : 'none';
   }
   // 🔴 O vídeo de fundo só toca depois de a tela existir na tela — autoplay
-  // não pega em elemento escondido. Ver tocaFundoDoLogin().
-  if (which === 'login') tocaFundoDoLogin();
+  // não pega em elemento escondido. E as três telas têm vídeo desde 09/09,
+  // então quem some também precisa PAUSAR. Ver `tocaFundoDaTela`.
+  tocaFundoDaTela(which === 'none' ? null : screens[which]());
 }
 
 /**
