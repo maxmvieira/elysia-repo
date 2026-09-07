@@ -1,4 +1,4 @@
-# Handoff — 2026-09-09 (noite) · PONTO DE RETOMADA
+# Handoff — 2026-09-07 (noite) · PONTO DE RETOMADA
 
 > 🔴 **Esta sessão acabou por limite de contexto. Comece por este bloco.**
 > Typecheck limpo nos 3 pacotes, **634 testes**. `npm run dev:test` →
@@ -69,6 +69,34 @@ As armadilhas medidas estão no HISTORICO de 13/08. Três que mais custam:
 escurecer três vezes o mesmo pixel, misturar modelos de material, e telhado
 custando mais tela que parede em câmera inclinada.
 
+## 🖥️ DECISÃO DO DONO — o cliente vai para DESKTOP
+
+Dita em **2026-09-07**, em resposta ao vídeo de 76 MB que o Chromium recusa
+cachear: *"a questão do Chrome vai ser temporário, vamos migrar o jogo para
+cliente desktop."*
+
+✅ **O que isso encerra:** o download por visita **morre sozinho** — no desktop
+os assets viajam dentro do aplicativo. Não gastar mais sessão discutindo
+reencodar o vídeo para 1080p, nem tratar o tamanho dele como bug. O `contain`, o
+poster do quadro 0 e a camada única `#loginbg` continuam valendo: são de
+enquadramento, não de rede.
+
+⚠️ **O que isso NÃO resolve — e é fácil confundir:**
+
+| | |
+|---|---|
+| ~190 MB de vídeo no **histórico do repositório público** | continua lá; é o item de LICENÇA, não de cache |
+| Servidor autoritativo (WebSocket + SQLite) | **não muda** — migra a casca do cliente, não a arquitetura |
+| Plano do renderizador 3D (`?r3d=1`, Three.js) | **sobrevive intacto**: Electron e webview são os dois WebGL |
+
+🔴 **Isto não é motivo para adiar a frente 3.** A fundação do renderizador pode
+começar antes de a casca existir — o código de jogo é o mesmo nos dois mundos.
+
+⚠️ **A casca NÃO foi escolhida.** Electron × Tauri segue em aberto, e o que ela
+decide de verdade é empacotamento, atualização automática, assinatura e tamanho
+do instalador (o Electron carrega o próprio Chromium; o Tauri usa o WebView2 que
+já vem no Windows). **Não assumir uma das duas.**
+
 ## ⚠️ DÍVIDA ACUMULADA — nada disto foi jogado por uma pessoa
 
 **Sete sessões.** Os caminhos mais novos e nunca vistos em jogo:
@@ -85,12 +113,13 @@ custando mais tela que parede em câmera inclinada.
   contra quem fecha a aba
 - Munição (shuriken, azagaia) · slot de segunda arma · esquiva no bestiário ·
   "cura como arma" · sistema de GUARDA
-- ⚠️ **`login-bg.mp4` tem 76 MB** e o Chromium recusa cacheá-lo — baixa a cada
-  visita. Em 1080p seriam 13,1 MB. Decisão consciente do dono.
+- ~~**`login-bg.mp4` tem 76 MB** e o Chromium recusa cacheá-lo — baixa a cada
+  visita.~~ ✅ **Encerrado pela decisão do cliente desktop** (ver o bloco acima).
+  Só continua a valer para quem rodar no navegador enquanto a migração não vem.
 
 ---
 
-# Handoff — 2026-09-09 (noite) · MERGE com o trabalho do Max
+# Handoff — 2026-09-07 (noite) · MERGE com o trabalho do Max
 
 ## ⏸️ ONDE PARAMOS — os dois lados na mesma tela de entrada
 
@@ -153,7 +182,7 @@ caberia. Decisão do dono.
 
 ---
 
-# Handoff — estado do projeto em 2026-09-09 (tarde)
+# Handoff — estado do projeto em 2026-09-07 (tarde)
 
 ## ⏸️ ONDE PARAMOS — o fundo das três telas de fora do jogo
 
@@ -203,7 +232,7 @@ mais texto por cima. Apagar o div levaria o contraste do formulário junto.
 
 ---
 
-# Handoff — estado do projeto em 2026-09-09
+# Handoff — estado do projeto em 2026-09-07
 
 ## ⏸️ ONDE PARAMOS — vídeo novo na tela de login
 
