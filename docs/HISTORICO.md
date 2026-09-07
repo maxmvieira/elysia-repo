@@ -9,6 +9,83 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-09 (noite) — O personagem universal entra nas CINCO classes
+
+**Onde mora:** `tools/universal2strip.mjs` (novo) · `arte-fonte/universal/` ·
+`client/public/assets/classes-universal/` · `PACK_UNIVERSAL` e
+`HERO_ART_CLASSES` em `client/src/heroes.ts`.
+
+O dono gerou um personagem base no autosprite.io e pediu para vê-lo no jogo
+substituindo todas as classes.
+
+### 🔴 O que entra é muito diferente do que o motor lê
+
+| | autosprite | motor |
+|---|---|---|
+| Arquivo | **um por direção** (5) | **um** com 4 direções |
+| Quadros | **56** de 128 px | **4** de 80 px |
+| Direções | up, up-dir, dir, baixo-dir, down | down, up, right, left |
+
+A ESQUERDA não vem no pacote: num conjunto de 8 direções ela é o espelho da
+direita, e é assim que o conversor a produz.
+
+### 🔴 Os 4 quadros não são quatro quaisquer — e isso quase passou batido
+
+`main.ts` rege o passo pelo CHÃO, não por um relógio:
+
+```js
+sprite.gotoAndStop((paridade ? 0 : 2) + (contato ? 1 : 0));
+```
+
+A tira tem de ser **[passagem-A, contato-A, passagem-B, contato-B]**. Pegar
+quatro quadros igualmente espaçados quebraria a sincronia — e o resultado é
+exatamente o "deslize" que o dono já relatou jogando, em agosto.
+
+⚠️ **Os índices foram MEDIDOS, não escolhidos.** A abertura dos pés no PERFIL
+varia de 20 px a 57 px ao longo do ciclo:
+
+```
+contato  (pés abertos): 0 · 13 · 25 · 48
+passagem (pés juntos):  9 · 19 · 32 · 42
+```
+
+Daí saem os quatro: **[19, 0, 9, 13]**, todos do primeiro ciclo para as pernas
+casarem. ⚠️ A primeira tentativa mediu a ALTURA no quadro de frente e não deu em
+nada: ela varia só 3 px em 93, porque de frente as pernas se movem em direção à
+câmera. O perfil é o único ângulo em que o sinal é limpo.
+
+### As três armadilhas que a implementação encontrou
+
+1. **`HERO_ART_CLASSES` tinha quatro nomes.** Definir o pack do Druida não
+   bastava: é essa lista que decide se a classe TEM arte, e sem o Druida nela
+   ele continuaria no boneco verde do MiniWorld — com o pack configurado e nunca
+   lido. Meia-implementação que não dá erro.
+2. **O caminho é `${base}/${cls}/${nome}.png`**, com subpasta por classe. Como
+   aqui a arte é uma só, entrou `arteUnica` no `Pack`. A alternativa era copiar
+   350 KB de binário idêntico em cinco pastas.
+3. **`heroIconCss` monta o retrato do cartão por CSS**, e imagem de CSS que
+   falta **não dá erro** — o cartão só fica vazio. Precisou do mesmo
+   `arteUnica` e de um `pose.png` no pack.
+
+### A escala
+
+As folhas foram reduzidas de 128 para 80 px por célula com ffmpeg
+(`flags=lanczos`), OFFLINE e uma vez só. Isso leva o conteúdo de 93 px para 62 —
+perto dos 58 das outras classes — e permite `targetH === contentH`, escala
+**1,0×**, sem serrilhado em tempo de desenho.
+
+### ⚠️ O que este pack NÃO tem
+
+Só `walk`, `idle` e `pose`. **Sem golpe e sem morte:** atacar cai no pulinho de
+investida e morrer não tomba. É pack de TESTE, e nada da arte antiga foi
+apagado — `PACK_ANTIGO` e `PACK_PIXELLAB` continuam de pé, e voltar é trocar as
+cinco linhas de `PACK_DA_CLASSE`.
+
+⚠️ O som de passo que o dono mandou junto (`.mp3`, 2,3 s) **não entrou**: o jogo
+não tem áudio no mundo, só a música da tela de entrada. É trabalho à parte.
+
+---
+
 ## 2026-09-09 (fim da tarde) — Dois escurecedores empilhados, e um título por cima do outro
 
 **Onde mora:** `#loginbg::after` e `#startmid` em `client/index.html`.

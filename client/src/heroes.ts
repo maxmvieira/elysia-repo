@@ -154,6 +154,16 @@ export function outfitDaUrl(): Outfit | null {
 interface Pack {
   /** Pasta em `client/public`. */
   base: string;
+  /**
+   * A arte é a MESMA para todas as classes, e mora direto em `base` — sem a
+   * subpasta por classe que os outros packs usam.
+   *
+   * 🔴 Entrou com o personagem universal (09/09). A alternativa era copiar a
+   * mesma tira em cinco subpastas: 350 KB de binário idêntico versionado num
+   * repositório que já carrega vídeo demais, e cinco arquivos para manter em
+   * sincronia à mão na próxima troca de arte.
+   */
+  arteUnica?: boolean;
   /** Lado da célula nas tiras. */
   cell: number;
   /** Altura do bounding box de ALPHA do conteúdo, medida — não a moldura. */
@@ -227,8 +237,50 @@ const PACK_ANTIGO: Pack = {
  * o que muda é a **densidade do desenho**: o Knight fica com o pixel duas vezes
  * maior que o das colegas. É o preço de ter os cinco golpes de volta.
  */
+/**
+ * 🔴 **O PERSONAGEM UNIVERSAL — entrou em 2026-09-09, a pedido do dono**, que
+ * o gerou no autosprite.io e pediu para vê-lo no jogo em TODAS as classes.
+ *
+ * Montado por `tools/universal2strip.mjs`. As folhas de origem vêm com uma
+ * direção por arquivo e **56 quadros** de 128 px; o conversor tira delas os
+ * quatro que o motor exige e monta a tira de sempre.
+ *
+ * 🔴 **`feetY: 74` é o mesmo número do `GROUND_Y` do conversor.** Estão em dois
+ * arquivos e têm de andar juntos — mudar um sem o outro enterra ou levita o
+ * boneco.
+ *
+ * 🔴 **`targetH === contentH`, escala 1,0×.** As folhas foram reduzidas de 128
+ * para 80 px por célula com ffmpeg (`flags=lanczos`), OFFLINE e uma vez só, o
+ * que leva o conteúdo de 93 px para 62 — perto dos 58 das outras classes. Não
+ * há escala em tempo de desenho, que é o melhor caso e o que evita o serrilhado
+ * que custou a sessão de 10/08.
+ *
+ * ⚠️ **É um pack de TESTE, e está incompleto de propósito:** só tem `walk` e
+ * `idle`. Não há golpe nem morte, então atacar não anima e morrer não tomba —
+ * o `attackPoseFallback` não tem o que escolher. É o bastante para ver o
+ * personagem andando no mundo, que é o que o dono pediu.
+ */
+const PACK_UNIVERSAL: Pack = {
+  base: '/assets/classes-universal',
+  arteUnica: true,
+  cell: 80, contentH: 62, feetY: 74, centerX: 39.5, targetH: 62,
+};
+
+/**
+ * ⚠️ **TODAS as classes apontam para o universal desde 2026-09-09.** Foi pedido
+ * explícito: *"faça a implementação dele para todas as classes, substituindo
+ * todas por esse"* — o dono quer ver como ele fica dentro do jogo.
+ *
+ * 🔴 **Nada foi apagado.** `PACK_ANTIGO` e `PACK_PIXELLAB` continuam aqui, e a
+ * arte das cinco classes continua no disco. Voltar atrás é trocar as cinco
+ * linhas abaixo por `knight: PACK_ANTIGO` e mais nada.
+ */
 const PACK_DA_CLASSE: Partial<Record<PlayerClass, Pack>> = {
-  knight: PACK_ANTIGO,
+  knight: PACK_UNIVERSAL,
+  sorcerer: PACK_UNIVERSAL,
+  archer: PACK_UNIVERSAL,
+  assassin: PACK_UNIVERSAL,
+  druid: PACK_UNIVERSAL,
 };
 
 const packDe = (cls: PlayerClass): Pack => PACK_DA_CLASSE[cls] ?? PACK_PIXELLAB;
@@ -260,8 +312,18 @@ export interface HeroArt {
  * de CSS não tem como cair para outro arquivo se o primeiro faltar. A promessa
  * que a sustenta é o commit — as tiras estão versionadas junto com o código.
  */
+/**
+ * 🔴 **O DRUIDA entrou aqui em 2026-09-09, e sem isso o pedido não se cumpria.**
+ *
+ * O pedido foi *"para todas as classes"*, e definir o pack dele em
+ * `PACK_DA_CLASSE` não bastava: quem decide **se a classe tem arte** é esta
+ * lista, e ela tinha quatro nomes desde que o Druida nasceu (02/09) sem arte
+ * própria. Faltando aqui, ele continuaria no boneco verde do MiniWorld — com o
+ * pack configurado e nunca lido, que é o tipo de meia-implementação que passa
+ * despercebida.
+ */
 export const HERO_ART_CLASSES: ReadonlySet<PlayerClass> = new Set<PlayerClass>([
-  'knight', 'sorcerer', 'archer', 'assassin',
+  'knight', 'sorcerer', 'archer', 'assassin', 'druid',
 ]);
 
 const COM_ARTE: PlayerClass[] = [...HERO_ART_CLASSES];
@@ -361,7 +423,10 @@ async function carregaClasse(cls: PlayerClass, outfit: Outfit | null): Promise<H
   // que ler o corpo desarmado, senão a arma seria desenhada duas vezes. Ele usa
   // as medidas do PixelLab porque saiu dele — mesma célula, mesmo chão.
   const pack = COM_CAMADA.has(cls) ? { ...PACK_PIXELLAB, base: BASE_LAYERED } : packDe(cls);
-  const p = (nome: string) => `${pack.base}/${cls}/${nome}.png`;
+  // 🔴 `arteUnica` dispensa a subpasta da classe: a mesma tira serve as cinco.
+  const p = (nome: string) => (pack.arteUnica
+    ? `${pack.base}/${nome}.png`
+    : `${pack.base}/${cls}/${nome}.png`);
 
   const grupos = outfit ? await carregaGrupos(cls, pack.base) : null;
   const pintar: Pintor | undefined = grupos && outfit
@@ -566,9 +631,15 @@ export function heroIconCss(cls: PlayerClass, boxPx: number): string {
   const pack = COM_CAMADA.has(cls) ? { ...PACK_PIXELLAB, base: BASE_LAYERED } : packDe(cls);
   const s = boxPx / pack.cell;
   const peca = COM_CAMADA.has(cls) ? ARMA_DO_RETRATO[cls] : undefined;
+  // 🔴 `arteUnica` também vale aqui. Sem isto o cartão da classe apontaria
+  // para uma subpasta que não existe, e a tela de criação ficaria com cinco
+  // retratos vazios — sem erro no console, porque imagem de CSS falha calada.
+  const posePng = pack.arteUnica
+    ? `${pack.base}/pose.png`
+    : `${pack.base}/${cls}/pose.png`;
   const urls = [
     ...(peca ? [`url('${pack.base}/${cls}/arma-${peca}-pose.png')`] : []),
-    `url('${pack.base}/${cls}/pose.png')`,
+    `url('${posePng}')`,
   ];
   const tamanho = `${pack.cell * s}px ${pack.cell * 4 * s}px`;
   return (
