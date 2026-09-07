@@ -9,6 +9,68 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-09 — Vídeo novo na tela de login, e o poster passa a ser o quadro 0
+
+**Onde mora:** `client/public/assets/ui/login-bg.mp4` e `login-bg.png` · o
+comentário do `<video>` em `client/index.html`.
+
+O dono trouxe um vídeo melhor e pediu o mesmo tratamento: trocar e deixar em
+loop.
+
+### O mesmo problema, medido de novo
+
+O vídeo novo é **outro zoom contínuo de câmera** — começa aberto e termina
+perto. A emenda do loop media **13,1** numa escala de 0–255 (o anterior media
+16,3). Mesma receita, e ela repetiu bem:
+
+| | Antes | Depois |
+|---|---|---|
+| Emenda do loop | 13,1 | **0,21** |
+| Emenda da virada | — | **0,46** |
+| Duração | 4,74 s | **9,44 s** |
+| Faixa de áudio | AAC 132 kbps | removida |
+
+🔴 **A metade de IDA continua bit a bit idêntica à fonte.** Só a volta passou
+por encoder, no bitrate da fonte (65 Mbps), e as duas foram unidas com
+`-c copy`. A normalização de timebase (`-video_track_timescale 12288`) foi
+aplicada desde o começo — foi a armadilha que custou uma tentativa da vez
+anterior, e desta vez o `concat` acertou a duração de primeira.
+
+### 🔴 O poster estava mentindo há cinco dias
+
+Ao trocar o vídeo, o `poster` (a arte estática que aparece durante o
+carregamento) ficou visivelmente errado — e a inspeção mostrou que ele **já
+estava errado desde 04/09**, só que ninguém tinha olhado:
+
+1. **A tela ficava ANÔNIMA durante o carregamento.** O poster velho não tinha o
+   "ELYSIA ONLINE", e o título HTML (`#loginmark`) está `display: none`
+   justamente porque o VÍDEO traz o dele. Com 76 MB, isso é cerca de um minuto
+   de tela sem o nome do jogo numa conexão de 10 Mbps.
+   ⚠️ O próprio comentário do CSS **previa este cenário** em 04/09 — *"se o
+   poster for trocado por uma arte sem o nome, a tela de login fica anônima"* —
+   e ninguém percebeu que ele já era o caso.
+2. **Havia um salto** quando o vídeo começava: enquadramento diferente.
+
+Agora o poster é o **quadro 0 do próprio vídeo**
+(`ffmpeg -vf select=eq(n\,0)`): tem o título, e a transição poster→vídeo é
+invisível. De quebra ficou menor (2,44 MB → 1,66 MB).
+
+⚠️ **Quem trocar o vídeo tem de regerar o poster junto.** Está dito no HTML.
+
+### ⚠️ 76,3 MB, e desta vez a alternativa foi medida antes
+
+O arquivo passou dos 55,8 MB anteriores para **76,3 MB** — acima do limite de
+50 MB que o GitHub avisa. Antes de instalar, o mesmo loop foi gerado em
+**1080p: 13,1 MB**, seis vezes menos.
+
+O argumento a favor do 1080p é forte e está registrado: é um vídeo de FUNDO
+atrás do painel de login, e num monitor 1080p (a maioria) o navegador já reduz
+o 4K de qualquer jeito. **O dono escolheu o 4K sabendo disso.**
+
+⚠️ O histórico do repositório público passa a carregar ~190 MB de vídeo.
+
+---
+
 ## 2026-09-05 (tarde) — Token de sessão, trava de saída e caveira por reincidência
 
 **Onde mora:** `sessionTokens` e `case 'leave'` em `server/src/index.ts` ·

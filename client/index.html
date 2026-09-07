@@ -3185,10 +3185,24 @@
     -->
     <div id="login">
       <!--
-        🔴 O `poster` é a MESMA imagem que era o fundo antes, e não decoração:
-        ele aparece enquanto os **27 MB** do vídeo carregam, e continua no lugar
-        se o vídeo falhar (formato não suportado, arquivo faltando, navegador
-        com mídia bloqueada). A tela nunca fica preta.
+        🔴 O `poster` não é decoração: ele aparece enquanto os **76 MB** do
+        vídeo carregam — o que numa conexão de 10 Mbps é **cerca de um minuto** —
+        e continua no lugar se o vídeo falhar (formato não suportado, arquivo
+        faltando, navegador com mídia bloqueada). A tela nunca fica preta.
+
+        🔴 **Desde 2026-09-09 ele é o QUADRO 0 do próprio vídeo**, gerado com
+        `ffmpeg -vf select=eq(n\,0)`. Antes era a arte antiga, e isso custava
+        duas coisas:
+
+        1. **A tela ficava anônima durante o carregamento.** O poster velho não
+           tinha o "ELYSIA ONLINE", e o título HTML (`#loginmark`) está
+           escondido justamente porque o VÍDEO traz o dele. Por um minuto
+           inteiro não havia nome nenhum na tela.
+        2. **Havia um salto** quando o vídeo começava: enquadramento diferente.
+
+        ⚠️ **Quem trocar o vídeo tem de regerar o poster junto.** São o mesmo
+        primeiro quadro de propósito, e essa é a única forma de a transição
+        poster→vídeo ser invisível.
 
         🔴 **SEM SOM, em duas camadas — e as duas estão no lugar.** A faixa de
         áudio foi REMOVIDA do arquivo (`ffmpeg -c:v copy -an`), então não há o
@@ -3196,15 +3210,16 @@
         qualquer forma, porque é OBRIGATÓRIO para o `autoplay`: navegador
         nenhum toca vídeo com som sozinho.
 
-        🔁 **O LOOP É VAI-E-VOLTA, e isso foi necessário.** O vídeo original é
-        um **zoom contínuo de câmera**: começa aberto e termina perto. Ao voltar
-        para o quadro 0 dava um salto seco — a diferença média entre o último e
-        o primeiro quadro media **16,3** numa escala de 0–255 (um loop perfeito
-        fica perto de zero).
+        🔁 **O LOOP É VAI-E-VOLTA, e isso foi necessário.** Os dois vídeos que
+        já passaram por aqui eram **zoom contínuo de câmera**: começam abertos e
+        terminam perto. Ao voltar para o quadro 0 dava um salto seco — a
+        diferença média entre o último e o primeiro quadro media **16,3** no
+        primeiro vídeo e **13,1** no atual, numa escala de 0–255 (um loop
+        perfeito fica perto de zero).
 
         A solução foi concatenar o vídeo com ele mesmo invertido: a câmera entra
         e sai, o que num zoom lê como respiração e não como rebobinar. Depois
-        disso a emenda mede **0,37** — e a virada mede 1,20, que é o movimento
+        disso a emenda mede **0,21** — e a virada mede 0,46, que é o movimento
         normal entre dois quadros vizinhos (nenhum quadro repetido).
 
         ⚠️ **A metade de IDA continua bit a bit idêntica ao original.** Só a de
@@ -3213,16 +3228,20 @@
         encoder — que era o jeito de honrar "qualidade máxima" sem abrir mão do
         loop.
 
-        ⚠️ **55,8 MB, e o número é alto de propósito.** Dobrar a duração dobra os
-        bytes; não há mágica. Numa conexão de 10 Mbps o jogador vê só o poster
-        por ~45 s. Quem um dia quiser aliviar, o caminho é **1080p**
-        (`-vf scale=1920:-2`), que corta ~75 % — nunca reencodar em 4K de novo,
-        porque cada passagem perde qualidade.
+        ⚠️ **76,3 MB, e o número é alto por ESCOLHA do dono.** Dobrar a duração
+        dobra os bytes; não há mágica. A alternativa foi medida e oferecida na
+        hora da troca: o mesmo loop em **1080p pesa 13,1 MB** — seis vezes menos,
+        e num monitor 1080p (a maioria) o navegador já reduz o 4K de qualquer
+        jeito. O dono escolheu o 4K sabendo disso.
+
+        ⚠️ Se um dia for preciso aliviar, o caminho é `-vf scale=1920:-2` a
+        partir DESTE arquivo — nunca reencodar em 4K de novo, porque cada
+        passagem perde qualidade.
 
         `+faststart` põe o índice do MP4 no começo do arquivo, então o navegador
         começa a tocar antes de baixar tudo. Não custa qualidade nenhuma.
 
-        `loop` faz o vídeo recomeçar sozinho — são 9,66 s por ciclo.
+        `loop` faz o vídeo recomeçar sozinho — são 9,44 s por ciclo.
         `playsinline` impede o iOS de abrir em tela cheia por conta própria.
       -->
       <div id="loginbg">

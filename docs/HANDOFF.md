@@ -1,3 +1,55 @@
+# Handoff — estado do projeto em 2026-09-09
+
+## ⏸️ ONDE PARAMOS — vídeo novo na tela de login
+
+> Typecheck limpo nos 3 pacotes, **634 testes**. `npm run dev:test` →
+> `localhost:5173`.
+>
+> 🔴 **Continua sem passada humana** — seis sessões de trabalho, e a lista de
+> teste dos blocos abaixo nunca foi executada.
+
+### 🎬 O vídeo trocou, e o poster junto
+
+O dono trouxe um vídeo melhor. Mesmo tratamento do anterior — sem áudio,
+vai-e-volta para o loop, `+faststart`:
+
+| | Valor |
+|---|---|
+| Emenda do loop | **0,21** (era 13,1 na fonte) |
+| Emenda da virada | **0,46** |
+| Duração | 9,44 s |
+| Tamanho | **76,3 MB** |
+
+🔴 **A metade de IDA é bit a bit idêntica à fonte.** Só a volta foi codificada.
+
+🔴 **O poster passou a ser o QUADRO 0 do vídeo**, e isso corrigiu um erro que
+existia desde 04/09 sem ninguém notar: o poster velho não tinha o "ELYSIA
+ONLINE", e o título HTML está escondido porque o vídeo traz o dele. Durante o
+carregamento — ~1 minuto a 10 Mbps — **a tela de login não tinha nome nenhum**.
+
+⚠️ **Quem trocar o vídeo tem de regerar o poster junto:**
+`ffmpeg -i login-bg.mp4 -vf "select=eq(n\,0),scale=1672:-2" -vframes 1 login-bg.png`
+
+⚠️ **76,3 MB é escolha consciente.** A alternativa foi medida e oferecida antes
+de instalar: o mesmo loop em **1080p pesa 13,1 MB**. O dono escolheu o 4K. O
+histórico do repositório público passa a ~190 MB de vídeo, e o GitHub avisa
+acima de 50 MB.
+
+---
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **A passada humana.** Seis sessões acumuladas. A lista está nos blocos de
+   05/09 e anteriores — os caminhos mais novos são curar aliado, conjuração
+   interrompível, Ataque Duplo e as armadilhas do Arqueiro.
+2. ⏳ **Personagem permanecer no mundo após a queda do socket** — é o que faria
+   a trava de saída valer contra quem fecha a aba.
+3. ⏳ **Munição** (shuriken, azagaia) · **slot de segunda arma** · **esquiva no
+   bestiário** · **"cura como arma"** · sprite do palco · sprites base M/F ·
+   sistema de GUARDA.
+
+---
+
 # Handoff — estado do projeto em 2026-09-05 (tarde)
 
 ## ⏸️ ONDE PARAMOS — três pedidos do teste em jogo
