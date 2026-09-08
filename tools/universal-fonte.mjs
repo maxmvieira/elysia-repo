@@ -59,6 +59,26 @@ const DIRECAO = {
   southeast: 'down_right',
 };
 
+/**
+ * Os lotes que a origem pode ter: a pasta, o nome que a animação recebe no
+ * jogo, e o padrão do nome de arquivo.
+ *
+ * 🔴 **O nome do arquivo muda de lote para lote, e não dá para deduzir.** Já
+ * apareceram três formas: `-iso_walk_<dir>`, `-iso_custom_bow_atack_<dir>` e
+ * `-iso_custom_casting_spell_<dir>`. É a mesma lição dos packs CraftPix
+ * registrada em 01/09 — a âncora é o nome INTEIRO, de lista fechada, nunca
+ * "casar por continha".
+ *
+ * ⚠️ A pasta do arco vem com **espaço** no nome (`bow atack`) e com a grafia do
+ * autosprite. Nomes de pasta são dados de entrada, não se corrigem aqui.
+ */
+const LOTES = [
+  { pasta: 'iddle', anim: 'idle', re: /-iso_idle_([a-z]+)\b/ },
+  { pasta: 'walk', anim: 'walk', re: /-iso_walk_([a-z]+)\b/ },
+  { pasta: 'bow atack', anim: 'bow', re: /-iso_custom_bow_atack_([a-z]+)\b/ },
+  { pasta: 'spellcasting', anim: 'cast', re: /-iso_custom_casting_spell_([a-z]+)\b/ },
+];
+
 /** Decodifica só o suficiente para medir: devolve um mapa de alpha. */
 function alphaDe(caminho) {
   const buf = readFileSync(caminho);
@@ -108,18 +128,56 @@ function alphaDe(caminho) {
   return { w, h, ct, alpha };
 }
 
+/** Onde começa cada faixa de conteúdo ao longo de um eixo. */
+function inicios(vazio) {
+  const out = [];
+  for (let i = 0; i < vazio.length; i++) if (!vazio[i] && (i === 0 || vazio[i - 1])) out.push(i);
+  return out;
+}
+
 /** Quantas faixas de conteúdo existem ao longo de um eixo. */
-function bandas(vazio) {
-  let n = 0;
-  for (let i = 0; i < vazio.length; i++) if (!vazio[i] && (i === 0 || vazio[i - 1])) n++;
-  return n;
+const bandas = (vazio) => inicios(vazio).length;
+
+/** Mediana de uma lista de números. */
+function mediana(xs) {
+  if (xs.length === 0) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
 /**
  * A grade REAL da folha: colunas, linhas e o lado da célula.
  *
- * 🔴 Conta as faixas de conteúdo, e só então divide. É a única leitura que
- * distingue "8 colunas de 256" de "16 colunas de 128" — as duas dividem 2048.
+ * 🔴 **CONTAR FAIXAS DE CONTEÚDO NÃO FUNCIONA, e as folhas de 22h provaram
+ * isso das duas maneiras possíveis:**
+ *
+ * - **Para MENOS:** o arco estendido encosta no quadro vizinho e as duas faixas
+ *   viram uma. Uma folha de 7 colunas foi lida como tendo menos.
+ * - **Para MAIS:** a flecha se separa do corpo e abre um vão DENTRO do quadro,
+ *   partindo uma faixa em duas. A mesma folha chegou a ler 10 colunas — número
+ *   que nem divide 5376.
+ *
+ * 🔴 **E "junta vazia" também não serve.** Foi a minha segunda tentativa: numa
+ * grade de célula `c`, as colunas onde um quadro acaba e o outro começa
+ * deveriam ser transparentes. Nas folhas de arco **nenhum tamanho passa de
+ * 50 %** — o arco estendido cruza a borda da célula, então a junta verdadeira
+ * tem conteúdo em cima. O teste rejeitava a grade certa.
+ *
+ * ✅ **O que funciona é o ESPAÇAMENTO entre os começos das faixas.** Cada
+ * quadro começa a desenhar a um passo fixo do anterior, mesmo que o desenho
+ * transborde a célula. Medido na folha do arco: começos em 237, 1006, 1775,
+ * 2542, 3309, 4077, 4845 — diferenças de 769, 769, 767, 767, 768, 768. A
+ * **mediana** dá 768, e é a célula.
+ *
+ * ⚠️ A mediana (não a média, nem o mínimo) porque as duas falhas da contagem
+ * ainda acontecem, só que agora são inofensivas: uma fusão de faixas dá uma
+ * diferença de ~2c e uma quebra dentro do quadro dá uma bem menor. Enquanto a
+ * maioria dos passos estiver certa, a mediana ignora as duas.
+ *
+ * ⚠️ **Isto importa porque a ambiguidade é real:** as folhas de arco e magia
+ * são 5376 × 5376, e **oito** tamanhos de célula dividem esse número
+ * (128, 192, 256, 384, 448, 672, 768, 896). Só o desenho decide.
  */
 function grade(img) {
   const colVazia = new Array(img.w).fill(true);
@@ -130,22 +188,37 @@ function grade(img) {
       if (img.alpha[base + x] > 8) { colVazia[x] = false; linVazia[y] = false; }
     }
   }
-  const cols = bandas(colVazia);
-  const lins = bandas(linVazia);
-  if (cols === 0 || lins === 0) throw new Error('folha vazia');
-  const cell = img.w / cols;
-  if (!Number.isInteger(cell)) {
-    throw new Error(`largura ${img.w} não divide por ${cols} colunas`);
+  if (colVazia.every(Boolean)) throw new Error('folha vazia');
+
+  const passos = [];
+  for (const eixo of [inicios(colVazia), inicios(linVazia)]) {
+    for (let i = 1; i < eixo.length; i++) passos.push(eixo[i] - eixo[i - 1]);
+  }
+  // Folha de uma coluna e uma linha: não há passo para medir, a célula é a folha.
+  const estimado = passos.length ? mediana(passos) : Math.min(img.w, img.h);
+
+  /*
+   * O passo medido é aproximado (767, 768, 769 na mesma folha), então a célula
+   * final é o divisor comum de largura e altura mais próximo dele. Isso
+   * arredonda para a grade que realmente fecha, em vez de confiar no pixel.
+   */
+  let cell = 0, erro = Infinity;
+  for (let c = 32; c <= Math.min(img.w, img.h); c++) {
+    if (img.w % c !== 0 || img.h % c !== 0) continue;
+    const e = Math.abs(c - estimado);
+    if (e < erro) { erro = e; cell = c; }
+  }
+  if (!cell) throw new Error(`nenhuma célula divide ${img.w}x${img.h}`);
+  if (erro > estimado * 0.15) {
+    throw new Error(
+      `passo medido ${estimado} não bate com nenhum divisor (mais perto: ${cell})`,
+    );
   }
   /*
    * ⚠️ A ÚLTIMA FILEIRA COSTUMA VIR INCOMPLETA (o autosprite corta onde a
-   * animação acaba), então `h / cell` é a contagem confiável de linhas —
-   * as faixas de conteúdo dariam o mesmo número só por sorte.
+   * animação acaba), então `h / cell` é a contagem confiável de linhas.
    */
-  if (img.h % cell !== 0) {
-    throw new Error(`altura ${img.h} não é múltipla da célula ${cell}`);
-  }
-  return { cols, linhas: img.h / cell, cell, lins };
+  return { cols: img.w / cell, linhas: img.h / cell, cell, lins: bandas(linVazia) };
 }
 
 // ---------------------------------------------------------------------------
@@ -157,17 +230,17 @@ if (!existsSync(ORIGEM)) {
 
 let feitas = 0, pulos = 0;
 for (const sexo of ['male', 'female']) {
-  for (const [pasta, anim] of [['iddle', 'idle'], ['walk', 'walk']]) {
+  for (const { pasta, anim, re } of LOTES) {
     const dir = join(ORIGEM, sexo, pasta);
     if (!existsSync(dir)) { console.warn(`[fonte] sem ${sexo}/${pasta}`); continue; }
 
     for (const arquivo of readdirSync(dir).filter((f) => f.endsWith('.png'))) {
-      const m = /-iso_(idle|walk)_([a-z]+)/.exec(arquivo);
+      const m = re.exec(arquivo);
       if (!m) { console.warn(`[fonte] nome fora do padrão, pulado: ${arquivo}`); pulos++; continue; }
-      const [, animArq, dirArq] = m;
+      const dirArq = m[1];
+      const animArq = anim;
       const destinoDir = DIRECAO[dirArq];
       if (!destinoDir) { console.warn(`[fonte] direção desconhecida: ${dirArq}`); pulos++; continue; }
-      if (animArq !== anim) console.warn(`[fonte] ${arquivo} está em ${pasta}/ mas diz ${animArq}`);
 
       const origem = join(dir, arquivo);
       const img = alphaDe(origem);

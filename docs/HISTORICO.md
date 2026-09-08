@@ -9,6 +9,63 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-07 (22h) — Arco e conjuração, e a terceira tentativa de ler a grade
+
+**Onde mora:** `LOTES` e `grade()` em `tools/universal-fonte.mjs` · `ACOES` em
+`tools/universal2strip.mjs` · `OneShot`, `castAnim` e `playAttack` em
+`client/src/main.ts`
+
+### As duas animações
+
+O dono trouxe `bow atack` e `spellcasting` da personagem feminina, cinco
+direções cada, e pediu: **arco equipado → gesto de arco; magia de ataque
+(fire bolt, cold bolt, área) → gesto de conjurar.**
+
+✅ **São as primeiras ações com AS CINCO DIREÇÕES.** O golpe de espada só tem
+perfil — atacar para cima mostra o personagem de lado. Arco e magia não têm esse
+defeito: cada direção vem da sua folha, a esquerda é o espelho, e saem 8.
+
+⚠️ São **um disparo, não um ciclo**, então a amostragem vai do primeiro ao
+**último** quadro: o fim do gesto (a flecha soltando) é o que importa. Ficaram
+em 8 quadros dos 49 disponíveis, o mesmo do golpe de espada — o motor toca o
+disparo em duração fixa, e mudar a contagem mudaria o ritmo do combate junto.
+
+### 🔴 A grade: errei duas vezes antes de acertar
+
+As folhas novas são **5376 × 5376**, e **oito** tamanhos de célula dividem esse
+número. Só o desenho decide qual é.
+
+1. **Contar faixas de conteúdo** (o método que funcionava até aqui) falhou **das
+   duas maneiras possíveis na mesma folha**: o arco estendido encosta no quadro
+   vizinho e funde duas faixas; a flecha se separa do corpo e abre um vão
+   *dentro* do quadro, partindo uma faixa em duas. Deu "10 colunas", número que
+   nem divide 5376.
+2. **Exigir juntas vazias** falhou porque o arco **cruza a borda da célula**:
+   nenhum tamanho passou de 50 % de juntas limpas, e o teste rejeitava a grade
+   certa.
+3. ✅ **O ESPAÇAMENTO entre os começos das faixas** funciona. Medido: 237, 1006,
+   1775, 2542, 3309, 4077, 4845 — diferenças de 769, 769, 767, 767, 768, 768. A
+   **mediana** dá 768, e as duas falhas de contagem viram ruído que ela ignora.
+
+### O gatilho da magia
+
+🔴 **`S2C_Hit.element` é o único sinal disponível.** O `hit` não diz qual
+habilidade foi usada, mas fire bolt chega como `fire` e cold bolt como `ice`,
+enquanto espadada chega como `physical` ou sem o campo. Projétil não serve: o
+`kind` sai da CLASSE (`player.cls.projectile`), não da magia.
+
+⚠️ **O gesto toca quando o dano CAI, não quando a conjuração começa.** Para
+magia instantânea é igual; para uma que viaja, o gesto atrasa o tempo do voo.
+Consertar de verdade exigiria o servidor dizer "fulano começou a conjurar" para
+todo mundo — hoje `S2C_Casting` vai só para quem conjura.
+
+⚠️ `castAnim` sai de `attacks.staff` **direto, sem `golpeDe`**: a cadeia de
+fallback terminaria no golpe de espada, e conjurar viraria uma espadada em quem
+está longe. Sem folha o campo fica `undefined` e o feitiço anima como golpe da
+arma.
+
+---
+
 ## 2026-09-07 (noite) — A personagem FEMININA entra, e o ciclo do passo deixa de ser constante
 
 **Onde mora:** `tools/universal-fonte.mjs` (novo) · `tools/universal2strip.mjs`

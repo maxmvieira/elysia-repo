@@ -2588,7 +2588,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           // Parcela de DoT não é golpe: ninguém desferiu nada, então nem a
           // animação de ataque nem a de dano devem tocar. Piscar o alvo a cada
           // tique de veneno viraria epilepsia.
-          if (!msg.dot) sprites.get(msg.attackerId)?.playAttack?.();
+          // 🔴 Elemento mágico = feitiço, e o gesto é o de conjurar. É o único
+          // sinal disponível: o `hit` não diz qual habilidade foi usada, mas
+          // fire bolt chega como `fire` e cold bolt como `ice`, enquanto uma
+          // espadada chega como `physical` (ou sem o campo).
+          if (!msg.dot) {
+            const magia = msg.element !== undefined && msg.element !== 'physical';
+            sprites.get(msg.attackerId)?.playAttack?.(magia);
+          }
           const view = sprites.get(msg.targetId);
           if (view) {
             const iAmTarget = msg.targetId === myId;
@@ -6307,7 +6314,7 @@ interface EntityView {
   setHp: (hp?: number, maxHp?: number) => void;
   update: () => void;
   /** Toca a animação de ataque uma vez (atores com sprite animado). */
-  playAttack?: () => void;
+  playAttack?: (magia?: boolean) => void;
   /** Toca a animação de dano uma vez. */
   playHurt?: () => void;
   /**
@@ -6859,6 +6866,11 @@ function makeEntity(
       anchorX: hero.anchorX, anchorY: hero.anchorY, labelTop: hero.labelTop,
       idleAnim: hero.idle,
       attackAnim: golpeDe(hero, attackPoseFor(e.weaponType)),
+      // 🔴 Direto de `attacks.staff`, NÃO por `golpeDe`: a cadeia de fallback
+      // terminaria no golpe de espada, e conjurar viraria uma espadada. Sem a
+      // folha de conjuração o campo fica `undefined`, que é o que faz o
+      // `playAttack` cair no golpe da arma.
+      castAnim: hero.attacks.staff,
       hurtAnim: hero.hurt,
       deathAnim: hero.death,
       layers,
@@ -6969,6 +6981,13 @@ interface MiniActorOpts {
    * não tem continua com o pulinho.
    */
   attackAnim?: DirAnim;
+  /**
+   * Gesto de CONJURAR, tocado quando o golpe traz elemento mágico.
+   *
+   * ⚠️ Ausente na maioria dos packs — só a universal feminina tem, por
+   * enquanto. Sem ele o feitiço anima como golpe da arma.
+   */
+  castAnim?: DirAnim;
   hurtAnim?: DirAnim;
   deathAnim?: DirAnim;
   onClick?: (id: string) => void;
@@ -7079,11 +7098,17 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
    * e volta sozinho ao terminar — exceto `death`, que é terminal: o bicho morreu,
    * não volta a andar.
    */
-  type OneShot = 'attack' | 'hurt' | 'death';
+  type OneShot = 'attack' | 'cast' | 'hurt' | 'death';
   let oneShot: OneShot | null = null;
 
   function oneShotAnim(k: OneShot): DirAnim | undefined {
-    return k === 'attack' ? opts.attackAnim : k === 'hurt' ? opts.hurtAnim : opts.deathAnim;
+    if (k === 'attack') return opts.attackAnim;
+    // 🔴 `cast` é o gesto de CONJURAR, e não segue a cadeia de fallback do
+    // golpe: sem folha própria ele não existe, e o chamador cai no golpe da
+    // arma. Cair no golpe de espada ao lançar uma bola de fogo seria pior que
+    // não animar — mostraria o personagem batendo em quem está longe.
+    if (k === 'cast') return opts.castAnim;
+    return k === 'hurt' ? opts.hurtAnim : opts.deathAnim;
   }
 
   /**
@@ -7123,7 +7148,11 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
         sprite.gotoAndPlay(0);
         // ⚠️ `hurt` usa a pose: levar dano não tem arte de arma própria, e a
         // alternativa (sumir com a espada ao apanhar) seria pior que repeti-la.
-        aplicaCamadas(oneShot === 'death' ? null : oneShot === 'attack' ? 'attack' : 'pose', speed, false, true);
+        aplicaCamadas(
+          oneShot === 'death' ? null
+            : oneShot === 'attack' || oneShot === 'cast' ? 'attack' : 'pose',
+          speed, false, true,
+        );
         return;
       }
     }
@@ -7167,7 +7196,7 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
    */
   function startOneShot(k: OneShot): void {
     if (oneShot === 'death') return;
-    if (k === 'hurt' && oneShot === 'attack') return;
+    if (k === 'hurt' && (oneShot === 'attack' || oneShot === 'cast')) return;
     if (!oneShotAnim(k)) return; // sem folha: o chamador cai no efeito antigo
     oneShot = k;
     applyState();
@@ -7349,9 +7378,19 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     // Com folha de ataque, toca a animação; sem ela, cai no pulinho de sempre.
     // Os dois efeitos coexistem de propósito: o pulinho continua dando peso ao
     // golpe mesmo quando há animação.
-    playAttack: () => {
+    /**
+     * 🔴 `magia` vem do ELEMENTO do golpe (`S2C_Hit.element`), que é o único
+     * sinal que o cliente tem para saber que aquilo foi feitiço e não pancada.
+     * Fire bolt chega como `fire`, cold bolt como `ice`; espada chega como
+     * `physical` ou sem campo.
+     *
+     * ⚠️ Sem folha de conjuração o gesto cai no golpe da arma — é o mesmo
+     * princípio do `attackPoseFallback`: animar errado é melhor que não animar,
+     * desde que o errado ainda seja um ataque.
+     */
+    playAttack: (magia?: boolean) => {
       attackUntil = performance.now() + 140;
-      startOneShot('attack');
+      startOneShot(magia && opts.castAnim ? 'cast' : 'attack');
     },
     playHurt: () => {
       hurtUntil = performance.now() + 220;
@@ -7506,7 +7545,7 @@ function makeSpriteActor(opts: SpriteActorOpts): EntityView {
     setTarget,
     setHp: hpbar.set,
     update,
-    playAttack: () => { if (oneShot !== 'attack') playOnce('attack'); },
+    playAttack: (_magia?: boolean) => { if (oneShot !== 'attack') playOnce('attack'); },
     playHurt: () => { if (!oneShot) playOnce('hurt'); },
   };
 }

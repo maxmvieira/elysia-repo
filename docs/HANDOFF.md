@@ -13,8 +13,16 @@
 |---|---|---|
 | Caminhada | 8 direções, 16 quadros | 8 direções, 16 quadros |
 | Parado | `idle` animado, 12 quadros | `idle` animado, 12 quadros |
-| Golpe | `attack_sword`, 8 quadros — ⚠️ só de perfil | 🔴 **não tem** |
+| Golpe de espada | `attack_sword`, 8 quadros — ⚠️ só de perfil | 🔴 **não tem** |
+| Arco | 🔴 não tem | ✅ `attack_bow`, 8 quadros, **8 direções** |
+| Conjuração | 🔴 não tem | ✅ `attack_staff`, 8 quadros, **8 direções** |
 | Morte | 🔴 não tem | 🔴 não tem |
+
+🔴 **Arco e conjuração são as primeiras ações com as cinco direções de origem** —
+o golpe de espada só tem perfil. Arco entra por arma equipada; a conjuração
+entra quando o `hit` traz **elemento mágico** (`fire`, `ice`…), que é o único
+sinal que o cliente tem de que aquilo foi feitiço. ⚠️ O gesto toca quando o dano
+**cai**, não quando a conjuração começa.
 
 Escala 1,0× nos dois (célula 80, conteúdo 67, sola em 74 — medidas idênticas).
 Ferramentas: **`tools/universal-fonte.mjs`** (reduz as folhas) e

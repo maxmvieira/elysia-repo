@@ -467,6 +467,58 @@ function monta(sexo) {
   }
   writeFileSync(join(destino, 'pose.png'), encode(poseW, poseH, pose));
 
+  // --- ações em 8 direções (arco, conjuração) -------------------------------
+  /**
+   * 🔴 **Estas são as primeiras ações com AS CINCO DIREÇÕES**, e é a diferença
+   * que mais importa em relação ao golpe de espada: ele só tem o perfil, então
+   * atacar para cima mostra o personagem de lado. Arco e magia não têm esse
+   * defeito — cada direção vem da sua folha, e a esquerda é o espelho.
+   *
+   * ⚠️ **São UM DISPARO, não um ciclo**, então a amostragem é diferente da
+   * caminhada: vai do primeiro ao ÚLTIMO quadro (inclusive), porque o fim do
+   * gesto — a flecha soltando, a magia estourando — é o quadro que importa.
+   * Amostrar como se fosse loop cortaria justamente esse.
+   *
+   * ⚠️ **8 quadros, o mesmo do golpe de espada**, embora as folhas tragam 49.
+   * É de propósito: o motor toca o disparo em duração fixa, e mudar a contagem
+   * mudaria o ritmo do ataque junto. Subir isto é um botão, mas é um botão que
+   * mexe no combate, não só na arte.
+   */
+  const ACOES = [
+    { fonte: 'bow', saida: 'attack_bow', n: 8 },
+    { fonte: 'cast', saida: 'attack_staff', n: 8 },
+  ];
+  const refPes = centroDosPes(recorta(walk.down, 0));
+  for (const acao of ACOES) {
+    if (!existsSync(join(dir, `${acao.fonte}_down.png`))) {
+      console.log(`        ${acao.saida}: AUSENTE (sem folhas ${acao.fonte}_*)`);
+      continue;
+    }
+    const folhas = {};
+    for (const d of DIRECOES) folhas[d] = abre(join(dir, `${acao.fonte}_${d}.png`));
+    const aW = CELL * acao.n, aH = CELL * LINHAS.length;
+    const tiraAcao = Buffer.alloc(aW * aH * 4);
+    for (let row = 0; row < LINHAS.length; row++) {
+      const [fonte, espelhado] = FONTE[LINHAS[row]];
+      const f = folhas[fonte];
+      for (let col = 0; col < acao.n; col++) {
+        const n = Math.round(((f.quadros - 1) * col) / (acao.n - 1));
+        const bruto = recorta(f, n);
+        const q = espelhado ? espelha(bruto) : bruto;
+        /*
+         * 🔴 Alinhado pelos PÉS, como o golpe de espada. O arco estendido
+         * desloca a caixa de alpha inteira para a frente; alinhar pelo centro
+         * do conteúdo faria o personagem recuar um passo a cada tiro.
+         */
+        cola(tiraAcao, aW, q, col, row, refPes - centroDosPes(q));
+      }
+    }
+    writeFileSync(join(destino, `${acao.saida}.png`), encode(aW, aH, tiraAcao));
+    console.log(
+      `        ${acao.saida}: ${acao.n} quadros de ${folhas.right.quadros}, 8 direções`,
+    );
+  }
+
   // --- golpe ----------------------------------------------------------------
   /*
    * ⚠️ **O GOLPE SÓ EXISTE PARA O MASCULINO, e é herança.** A folha
