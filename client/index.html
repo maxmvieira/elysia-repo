@@ -2444,9 +2444,54 @@
         margin-top: -2.5px;
         box-shadow: 0 0 0 1px #f0e0b0, 0 0 5px rgba(224, 192, 112, 0.6);
       }
-      /* A linha de números do nível escolhido, sob os tracinhos. */
+      /*
+       * A linha "usar − N +" com os números do nível escolhido.
+       *
+       * ⚠️ Os botões daqui NÃO são o `+` de subir a skill (aquele fica na linha
+       * do nome e gasta Skill Point). A palavra "usar" na frente é o que separa
+       * os dois — sem ela, dois `+` na mesma linha seriam adivinhação.
+       */
+      .skuse {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 4px;
+      }
+      .skuse .rot {
+        font-size: 10px;
+        color: #6f6a5e;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+      }
+      .skuse button {
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        line-height: 1;
+        font-size: 12px;
+        background: #1a1712;
+        color: #c9a86a;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      .skuse button:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .skuse b {
+        min-width: 14px;
+        text-align: center;
+        color: #c9a86a;
+        font-size: 12px;
+      }
+      /* Nível FIXO (não acompanha o aprendido) fica destacado. */
+      .skuse b.fixo {
+        color: #e0c070;
+        text-shadow: 0 0 5px rgba(224, 192, 112, 0.6);
+      }
+      /* A linha de números do nível escolhido, ao lado dos botões. */
       .sknum {
-        margin-top: 3px;
         font-size: 10.5px;
         color: #9a9384;
         letter-spacing: 0.2px;

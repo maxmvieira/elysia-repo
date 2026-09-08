@@ -1707,15 +1707,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   /**
    * Duração de uma queda inteira, do céu à dissipação.
    *
-   * ⚠️ Terceiro valor: 620 ms (rápido demais), 1000 (ainda rápido, jogando em
-   * 08/09), agora **1600**. Com a animação passando a ser uma por conjuração,
-   * ela é o efeito INTEIRO da magia — tem de dar tempo de ver a bola descer.
+   * ⚠️ Quarto valor: 620 ms (rápido demais), 1000, 1600, agora **2400** — o
+   * dono pediu mais lento em cada uma das três vezes que jogou. É o tempo de
+   * UMA bola, do céu ao chão.
+   *
+   * 🔴 A 2400 a bola dura bem mais que o intervalo de 140 ms entre uma e outra,
+   * então as dez do nível 10 ficam quase todas no ar ao mesmo tempo — que é o
+   * efeito de chuva de meteoros que a arte quer.
    *
    * 🔴 Isto **não** é a cadência dos bolts (`INTERVALO_BOLT_MS`, no `shared`).
    * Com a queda bem mais longa que o intervalo, as cópias se sobrepõem no ar —
    * chuva, não fila.
    */
-  const DUR_QUEDA = 1600;
+  const DUR_QUEDA = 2400;
 
   /*
    * ⚠️ Carregadas em paralelo, sem `await`: são enfeite, e travar a entrada no
@@ -1726,9 +1730,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * que o arquivo chegar, ela entra sem tocar em código. `catch` silencioso é o
    * que permite isso.
    */
+  /*
+   * 🔴 **A folha de 10 saiu da lista em 08/09 — o dono não gostou dela em
+   * tela.** *"Vamos manter igual estava antes."*
+   *
+   * ⚠️ **O arquivo e o conversor continuam**, de propósito: `firebolt10.png`
+   * está gerado e commitado, e voltar a usá-lo é acrescentar uma linha aqui.
+   * Apagar tudo faria a próxima tentativa recomeçar do zero — e a conversão
+   * dela custou três erros medidos (ver o HISTORICO de 08/09).
+   *
+   * Com só a folha de 1, o nível 10 volta a tocar dez cópias dela, que é
+   * exatamente o que estava no ar antes.
+   */
   for (const folha of [
     { arquivo: 'firebolt', bolts: 1 },
-    { arquivo: 'firebolt10', bolts: 10 },
   ]) {
     void Assets.load<Texture>(`/assets/fx/${folha.arquivo}.png`)
       .then((tex) => {
@@ -4369,7 +4384,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     (hud.manafill as HTMLElement).style.width = `${(s.mana / s.maxMana) * 100}%`;
     hud.manatext.textContent = `${s.mana} / ${s.maxMana}`;
     (hud.xpfill as HTMLElement).style.width = `${(s.xp / s.xpNext) * 100}%`;
-    hud.xptext.textContent = `XP ${s.xp} / ${s.xpNext}`;
+    /*
+     * 🔴 **Quanto FALTA, e não só quanto tem** (dono, 08/09). "XP 1.240 / 4.800"
+     * obriga a fazer a subtração de cabeça a cada monstro; o que o jogador quer
+     * saber é se dá para subir antes de dormir.
+     *
+     * ⚠️ **Não existe "job level" neste jogo.** No Ragnarok a segunda barra é a
+     * de classe/job, com XP e pontos próprios; aqui os Skill Points vêm do
+     * NÍVEL do personagem (`skillPointsAtLevel`), então há uma barra só. Criar
+     * a segunda é sistema novo — está anotado no HANDOFF.
+     */
+    const falta = Math.max(0, s.xpNext - s.xp);
+    hud.xptext.textContent =
+      `XP ${s.xp.toLocaleString('pt-BR')} / ${s.xpNext.toLocaleString('pt-BR')}` +
+      ` · faltam ${falta.toLocaleString('pt-BR')}`;
   }
 
   // Resumo dos stats derivados (ataque, defesa, VELOCIDADE de movimento/ataque…).
@@ -5267,6 +5295,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     bar: HTMLElement[];
     /** Números do nível escolhido (mana, dano, golpes…). */
     num: HTMLElement;
+    /** Botões − / + do nível a usar. `null` nas passivas, que não vão à barra. */
+    menos: HTMLButtonElement | null;
+    mais: HTMLButtonElement | null;
+    usarLv: HTMLElement | null;
     /**
      * 🔴 **O nível que será ARRASTADO para a barra.** `0` = o aprendido.
      *
@@ -5367,41 +5399,73 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       // Dez tracinhos = os dez níveis possíveis da habilidade.
       const bar = document.createElement('div');
       bar.className = 'skbar';
-      bar.title = 'Clique num nível para escolher qual arrastar para a barra';
       const pips: HTMLElement[] = [];
       for (let i = 0; i < MAX_SKILL_LEVEL; i++) {
         const pip = document.createElement('i');
-        /*
-         * 🔴 Clicar no tracinho ESCOLHE o nível que vai para o atalho.
-         *
-         * ⚠️ Clicar no já escolhido volta para "o aprendido" (0). Sem essa
-         * volta, quem fixasse um nível não teria como voltar a acompanhar a
-         * própria evolução — teria de arrastar de novo e adivinhar.
-         *
-         * ⚠️ Só até o nível aprendido: tracinho apagado é nível que o jogador
-         * ainda não tem, e escolher ali seria prometer o que o servidor vai
-         * limitar de qualquer jeito.
-         */
-        pip.addEventListener('click', () => {
-          const r = skillRows.get(id);
-          if (!r) return;
-          const alvo = i + 1;
-          if (alvo > (ultimoStats?.skillLevels[id] ?? 0)) return;
-          r.sel = r.sel === alvo ? 0 : alvo;
-          if (ultimoStats) updateSkillPanel(ultimoStats);
-        });
         bar.appendChild(pip);
         pips.push(pip);
       }
+
+      /*
+       * 🔴 **OS BOTÕES − / + DO NÍVEL A USAR** (dono, 08/09, no lugar do clique
+       * no tracinho: *"faça um botão de − e + das skills"*).
+       *
+       * ⚠️ **Não confundir com o `+` da linha de cima**, que é outro botão e
+       * gasta Skill Point: aquele SOBE a habilidade, estes só escolhem em que
+       * nível ela vai para o atalho. Por isso ficam noutra linha, com o número
+       * entre eles e a palavra "usar" na frente.
+       *
+       * ⚠️ **Passiva não tem.** Ela não vai para a barra — o bloco inteiro só
+       * é montado para quem é arrastável, a mesma regra do `draggable`.
+       */
       const num = document.createElement('div');
       num.className = 'sknum';
+      let menos: HTMLButtonElement | null = null;
+      let mais: HTMLButtonElement | null = null;
+      let usarLv: HTMLElement | null = null;
+      if (def.kind !== 'passive') {
+        const linha = document.createElement('div');
+        linha.className = 'skuse';
+        const rot = document.createElement('span');
+        rot.className = 'rot';
+        rot.textContent = 'usar';
+        menos = document.createElement('button');
+        menos.textContent = '−';
+        menos.title = 'Um nível abaixo';
+        usarLv = document.createElement('b');
+        mais = document.createElement('button');
+        mais.textContent = '+';
+        mais.title = 'Um nível acima';
+        /*
+         * 🔴 Chegar no topo volta a `0`, que quer dizer "acompanha o que eu
+         * aprender". Sem esse estado, quem subisse a skill continuaria preso no
+         * número velho e teria de mexer no botão a cada ponto gasto.
+         */
+        const mexe = (d: number) => {
+          const r = skillRows.get(id);
+          if (!r) return;
+          const aprendido = ultimoStats?.skillLevels[id] ?? 0;
+          if (aprendido <= 0) return;
+          const atual = r.sel > 0 ? r.sel : aprendido;
+          const alvo = atual + d;
+          r.sel = alvo >= aprendido || alvo < 1 ? 0 : alvo;
+          if (ultimoStats) updateSkillPanel(ultimoStats);
+        };
+        menos.onclick = () => mexe(-1);
+        mais.onclick = () => mexe(1);
+        linha.append(rot, menos, usarLv, mais, num);
+        row.append(linha);
+      }
 
       const why = document.createElement('div');
       why.className = 'why';
 
-      row.append(top, dsc, bar, num, why);
+      // ⚠️ A ordem importa: `skuse` já foi acrescentada acima para as ativas,
+      // então aqui entram só as partes que TODA linha tem.
+      row.prepend(top, dsc, bar);
+      row.append(why);
       skListEl.appendChild(row);
-      skillRows.set(id, { row, lv, btn, why, bar: pips, num, sel: 0 });
+      skillRows.set(id, { row, lv, btn, why, bar: pips, num, sel: 0, menos, mais, usarLv });
     }
   }
 
@@ -5424,12 +5488,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       const escolhido = r.sel > 0 ? Math.min(r.sel, nivel) : nivel;
       for (let i = 0; i < r.bar.length; i++) {
         r.bar[i]!.classList.toggle('on', i < nivel);
+        // O tracinho do nível escolhido continua marcado — é a leitura rápida.
         r.bar[i]!.classList.toggle('sel', r.sel > 0 && i === escolhido - 1);
       }
-      r.num.innerHTML = nivel > 0
-        ? numerosDoNivel(def, escolhido)
-          + (r.sel > 0 ? ' <span class="fix">· fixo</span>' : '')
-        : '';
+      if (r.usarLv) {
+        r.usarLv.textContent = nivel > 0 ? String(escolhido) : '—';
+        r.usarLv.classList.toggle('fixo', r.sel > 0);
+      }
+      // ⚠️ Desativados nas pontas: o `−` no 1 e o `+` no aprendido não têm
+      // para onde ir, e um botão que aceita o clique sem fazer nada é pior que
+      // um apagado.
+      if (r.menos) r.menos.disabled = nivel <= 0 || escolhido <= 1;
+      if (r.mais) r.mais.disabled = nivel <= 0 || escolhido >= nivel;
+      r.num.innerHTML = nivel > 0 ? numerosDoNivel(def, escolhido) : '';
 
       // Espelha a mesma regra do servidor para explicar o bloqueio na hora.
       const faltaNivel = s.level < def.reqLevel;
