@@ -85,6 +85,7 @@ import {
   skillCastRange,
   INTERVALO_BOLT_MS,
   skillMiraNoChao,
+  REGIONS,
   skillUpgradeCost,
   stanceDamagePenalty,
   stanceDamageReduction,
@@ -4448,18 +4449,112 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
     baseFloor = floor;
   }
+  /**
+   * 🔍 **NÍVEIS DE ZOOM, em tiles visíveis de lado.**
+   *
+   * 🔴 O último é o mapa INTEIRO, que era o ÚNICO modo até 08/09 — e num
+   * mundo de 300 tiles isso dava menos de meio pixel por tile. Os degraus
+   * abaixo é que tornam o mapa legível; o "tudo" virou o último passo, e não
+   * mais a única opção.
+   */
+  const ZOOMS = [40, 80, 150, MW];
+  let zoomMini = 1;
+  /** Última região desenhada, para não reescrever o nome a cada quadro. */
+  let regiaoMostrada = '';
+
+  function nomeDaRegiao(x: number, y: number): string {
+    /*
+     * ⚠️ Busca linear nas ~12 regiões, de propósito: um índice espacial para
+     * doze retângulos custaria mais para manter do que economiza. Roda uma vez
+     * por quadro do minimapa, não por tile.
+     */
+    for (const r of REGIONS) {
+      const b = r.bounds;
+      if (x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1) return r.name;
+    }
+    // 🔴 Tile que nenhuma região reivindica é MAR — a regra mora no regions.ts.
+    return 'Mar Aberto';
+  }
+
+  /**
+   * Desenha o minimapa na janela de zoom atual, centrada no jogador.
+   *
+   * ⚠️ A janela é PRESA às bordas do mundo: sem isso, andar perto da beirada
+   * mostraria metade do quadro em vazio, e o ponto do jogador sairia do centro
+   * sem explicação nenhuma.
+   */
   function drawMinimap(): void {
     if (baseFloor !== myFloor) renderMinimapBase(myFloor);
+    const lado = ZOOMS[zoomMini] ?? MW;
+    const x0 = Math.max(0, Math.min(MW - lado, Math.round(myTileX - lado / 2)));
+    const y0 = Math.max(0, Math.min(MH - lado, Math.round(myTileY - lado / 2)));
     miniCtx.imageSmoothingEnabled = false;
     miniCtx.clearRect(0, 0, miniCanvas.width, miniCanvas.height);
-    miniCtx.drawImage(baseCanvas, 0, 0, miniCanvas.width, miniCanvas.height);
-    const s = miniCanvas.width / MW;
-    // Ponto do jogador (com contorno).
+    miniCtx.drawImage(
+      baseCanvas, x0, y0, lado, lado, 0, 0, miniCanvas.width, miniCanvas.height,
+    );
+    const s = miniCanvas.width / lado;
+    const px = (myTileX - x0) * s;
+    const py = (myTileY - y0) * s;
     miniCtx.fillStyle = '#000';
-    miniCtx.fillRect(myTileX * s - 1, myTileY * s - 1, s + 2, s + 2);
+    miniCtx.fillRect(px - 1, py - 1, s + 2, s + 2);
     miniCtx.fillStyle = '#5fd15f';
-    miniCtx.fillRect(myTileX * s, myTileY * s, s, s);
+    miniCtx.fillRect(px, py, Math.max(1, s), Math.max(1, s));
+
+    const reg = nomeDaRegiao(myTileX, myTileY);
+    if (reg !== regiaoMostrada) {
+      regiaoMostrada = reg;
+      el('mmregiao').textContent = reg;
+      el('mgnome').textContent = reg;
+    }
+    el('mmpos').textContent = `${myTileX}, ${myTileY}`;
   }
+
+  /** Redesenha o mapa grande com o mundo inteiro do andar atual. */
+  function desenhaMapaGrande(): void {
+    if (baseFloor !== myFloor) renderMinimapBase(myFloor);
+    const c = el('mgcanvas') as HTMLCanvasElement;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.drawImage(baseCanvas, 0, 0, c.width, c.height);
+    const s = c.width / MW;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(myTileX * s - 2, myTileY * s - 2, s + 4, s + 4);
+    ctx.fillStyle = '#5fd15f';
+    ctx.fillRect(myTileX * s, myTileY * s, Math.max(2, s), Math.max(2, s));
+  }
+
+  function abreMapaGrande(abrir: boolean): void {
+    const g = el('mapagrande');
+    g.style.display = abrir ? 'flex' : 'none';
+    // ⚠️ Só desenha ao ABRIR. O mundo inteiro em 600 px a cada quadro seria
+    // desperdício por uma janela que passa quase todo o tempo fechada.
+    if (abrir) desenhaMapaGrande();
+  }
+
+  /** Liga zoom, mapa grande e o fechar. Chamado uma vez. */
+  function ligaMinimapa(): void {
+    const mais = el('mmmais') as HTMLButtonElement;
+    const menos = el('mmmenos') as HTMLButtonElement;
+    const pinta = () => {
+      mais.disabled = zoomMini <= 0;
+      menos.disabled = zoomMini >= ZOOMS.length - 1;
+      drawMinimap();
+    };
+    // Índice menor = janela menor = mais perto. O "+" aproxima.
+    mais.onclick = () => { zoomMini = Math.max(0, zoomMini - 1); pinta(); };
+    menos.onclick = () => { zoomMini = Math.min(ZOOMS.length - 1, zoomMini + 1); pinta(); };
+    el('mmgrande').onclick = () => abreMapaGrande(true);
+    el('mgfechar').onclick = () => abreMapaGrande(false);
+    // Clicar fora da caixa fecha — o padrão das outras sobreposições do jogo.
+    el('mapagrande').addEventListener('click', (ev) => {
+      if (ev.target === el('mapagrande')) abreMapaGrande(false);
+    });
+    pinta();
+  }
+  ligaMinimapa();
 
   function updateHud(s: S2C_Stats): void {
     hud.level.textContent = String(s.level);
@@ -4932,6 +5027,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         // O nível viaja junto: arrastar o Fire Bolt 4 para outro slot leva o 4.
         ev.dataTransfer?.setData(DND_NIVEL, String(item.nivel));
         ev.dataTransfer?.setData(DND_SLOT, String(i));
+        // Mesma regra da janela: o que segue o cursor é o ícone, não a célula
+        // inteira com tecla, cooldown e cadeado por cima.
+        const ic = cell.querySelector('img');
+        if (ic) ev.dataTransfer?.setDragImage(ic, 16, 16);
         cell.classList.add('dragging');
       });
       cell.addEventListener('dragend', () => cell.classList.remove('dragging'));
@@ -5484,8 +5583,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         row.title = 'Arraste para um slot da barra de atalhos';
         row.addEventListener('dragstart', (ev) => {
           ev.dataTransfer?.setData(DND_SKILL, id);
-          // 🔴 Leva o NÍVEL ESCOLHIDO nos tracinhos, não o aprendido.
+          // 🔴 Leva o NÍVEL ESCOLHIDO nos botões − / +, não o aprendido.
           ev.dataTransfer?.setData(DND_NIVEL, String(skillRows.get(id)?.sel ?? 0));
+          /*
+           * 🔴 **A imagem que segue o cursor é SÓ O ÍCONE** (dono, 08/09).
+           *
+           * O padrão do navegador é um fantasma da linha INTEIRA — nome,
+           * descrição, tracinhos e botões —, uma mancha de 300 px que tapa
+           * justamente os slots para onde se está arrastando.
+           *
+           * ⚠️ `setDragImage` exige um elemento JÁ NO DOM e VISÍVEL no
+           * instante da chamada; um `new Image()` solto sai em branco no
+           * Chromium. Por isso a fonte é o próprio `img` da linha, que já está
+           * na tela — e o deslocamento centra o ícone no ponteiro.
+           */
+          const icone = row.querySelector('img');
+          if (icone) ev.dataTransfer?.setDragImage(icone, 16, 16);
           row.classList.add('dragging');
         });
         row.addEventListener('dragend', () => row.classList.remove('dragging'));
@@ -6098,6 +6211,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (ev.code === 'KeyE') editor?.alterna();
     // R gira, mas só com o painel aberto: fora dele a tecla continua livre.
     if (ev.code === 'KeyR' && editor?.aberto()) editor.gira();
+    // 🗺️ M abre e fecha o mapa grande, como o botão do minimapa.
+    if (ev.code === 'KeyM') {
+      abreMapaGrande(el('mapagrande').style.display !== 'flex');
+    }
     if (ev.code === 'KeyB') {
       bestPanel.style.display = bestPanel.style.display === 'block' ? 'none' : 'block';
     }

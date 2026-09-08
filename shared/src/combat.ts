@@ -92,11 +92,11 @@ export function xpToNext(level: number): number {
  * visível e nada mais, o que o torna puramente ADITIVO — nenhum personagem que
  * já jogou fica diferente por causa dele.
  *
- * ⚠️ Teto em 50, e não 10 nem 99: 10 confundiria com o nível de HABILIDADE (que
- * vai a 10) e 99 pediria uma curva longa que ninguém desenhou. 50 é o teto do
- * Ragnarok clássico e cabe na curva abaixo.
+ * ⚠️ **Teto em 80** (dono, 08/09): "entre 70-80 para balancear as classes e
+ * escolher algumas magias". Começou em 50 e subiu — 50 fechava cedo demais
+ * para o job significar escolha de build.
  */
-export const JOB_MAX_LEVEL = 50;
+export const JOB_MAX_LEVEL = 80;
 
 /**
  * XP de job para o próximo nível.

@@ -5284,9 +5284,31 @@ function applyStoredCharacter(player: Player, c: ReturnType<typeof store.loadCha
   player.skill = parsed.skill;
   player.level = c.level;
   player.xp = c.xp;
-  // ⚒️ Job vem do banco. `?? ` cobre o personagem gravado antes da v11.
+  /*
+   * ⚒️ Job vem do banco. `?? ` cobre o personagem gravado antes da v11.
+   *
+   * 🔴 **E QUEM É VETERANO ENTRA COM O JOB QUE JÁ TERIA.** Os personagens que
+   * existiam antes da v11 acordaram em Job 1 com nível alto, e isso é falso: a
+   * XP de job vem da MESMA morte que a base, então quem chegou ao nível 150 já
+   * teria estourado o teto muitas vezes.
+   *
+   * ⚠️ A condição é precisa de propósito — job **1** E nível **> 1**.
+   * Personagem novo nasce nos dois em 1 e não é tocado; e depois da v11 é
+   * impossível subir de nível sem ganhar job junto, então só os antigos caem
+   * aqui.
+   *
+   * ⚠️ O conserto é no CÓDIGO, não numa migração de SQL, e o motivo é a regra
+   * da casa: migração se decide pelo SCHEMA, nunca pelo `user_version`. Aqui
+   * não há schema para inspecionar — a coluna já existe — e o `hasColumn` não
+   * teria como distinguir "já corrigido" de "ainda não". A própria condição é
+   * o portão, e ela se fecha sozinha na primeira gravação.
+   */
   player.jobLevel = c.jobLevel ?? 1;
   player.jobXp = c.jobXp ?? 0;
+  if (player.jobLevel <= 1 && player.level > 1) {
+    player.jobLevel = Math.min(JOB_MAX_LEVEL, player.level);
+    player.jobXp = 0;
+  }
   player.unspentPoints = c.unspentPoints;
   player.talentPoints = c.talentPoints;
   player.gold = c.gold;
