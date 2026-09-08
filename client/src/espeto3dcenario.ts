@@ -415,6 +415,72 @@ function cerca(comprimento: number): THREE.Group {
   return g;
 }
 
+/**
+ * Carrega um `.glb` de `tools/blender/` e o traz para as regras desta cena.
+ *
+ * 🔴 TROCA DE MATERIAL, e ela é uma CORREÇÃO — não gosto pessoal.
+ *
+ * O `GLTFLoader` cria `MeshStandardMaterial` (PBR), e todo o resto desta cena é
+ * `MeshLambertMaterial`. Sob as MESMAS luzes os dois dão brilhos diferentes — o
+ * PBR divide a energia e sai bem mais escuro. Na primeira carga a casa modelada
+ * apareceu quase preta ao lado das procedurais, e eu quase li isso como "o
+ * modelo ficou ruim".
+ *
+ * ⚠️ A lição para a versão de verdade: **um modelo de material só na cena
+ * inteira.** Misturar é comparar coisas sob regras diferentes.
+ *
+ * Devolve `null` quando o arquivo não existe — rode `npm run models:build`.
+ * Falhar aqui não pode derrubar a cena.
+ */
+async function carregaModelo(nome: string): Promise<THREE.Object3D | null> {
+  try {
+    const gltf = await new GLTFLoader().loadAsync(`/assets/models3d/${nome}.glb`);
+    const modelo = gltf.scene;
+    modelo.traverse((o) => {
+      const malha = o as THREE.Mesh;
+      if (!malha.isMesh) return;
+      malha.castShadow = true;
+      malha.receiveShadow = true;
+      const antigo = malha.material;
+      const lista = Array.isArray(antigo) ? antigo : [antigo];
+      const novos = lista.map((m) => {
+        const base = m as THREE.MeshStandardMaterial;
+        return new THREE.MeshLambertMaterial({
+          color: base.color ?? new THREE.Color(0xffffff),
+          map: base.map ?? null,
+          flatShading: true,
+        });
+      });
+      malha.material = Array.isArray(antigo) ? novos : (novos[0] as THREE.Material);
+    });
+    return modelo;
+  } catch (e) {
+    console.warn(`[espeto] ${nome}.glb ausente; rode npm run models:build.`, e);
+    return null;
+  }
+}
+
+/**
+ * Onde os afloramentos de rocha entram: `[x, z, escala, giro]`.
+ *
+ * 🔴 É UM MODELO SÓ, repetido — e o ponto é esse.
+ *
+ * Medido no vídeo do mundo do Ragnarok (07/09): a vila de Payon inteira sai de
+ * seis a oito modelos distintos. A variedade não vem de quantidade, vem de
+ * **girar, escalar e agrupar** a mesma peça. Aqui são quatro cópias da mesma
+ * `rocha.glb`, e nenhuma parece a outra.
+ *
+ * ⚠️ A primeira fica de propósito ao lado da casa modelada: é o par que mostra
+ * a sombra projetada de uma caindo perto da outra, que é o que amarra os dois
+ * ao mesmo chão.
+ */
+const AFLORAMENTOS: Array<[number, number, number, number]> = [
+  [TILES / 2 + 4, TILES / 2 - 3, 1.0, 0.4],
+  [TILES / 2 - 12, TILES / 2 - 7, 0.72, 2.1],
+  [TILES / 2 + 3, TILES / 2 + 11, 1.3, 3.9],
+  [TILES / 2 - 7, TILES / 2 + 13, 0.92, 5.2],
+];
+
 /** Põe um objeto no terreno, com giro e altura corretos. */
 function planta(obj: THREE.Object3D, x: number, z: number, giro = rnd() * Math.PI * 2): void {
   obj.position.set(x, altura(x, z), z);
@@ -499,47 +565,35 @@ async function monta(): Promise<void> {
    * `assenta()` garante no `comum.py`), então posicionar é só `set(x, altura, z)`
    * — sem correção de âncora, que é justamente o bug que a convenção previne.
    */
-  try {
-    const gltf = await new GLTFLoader().loadAsync('/assets/models3d/casa_enxaimel.glb');
-    const modelo = gltf.scene;
-    modelo.traverse((o) => {
-      const malha = o as THREE.Mesh;
-      if (!malha.isMesh) return;
-      malha.castShadow = true;
-      malha.receiveShadow = true;
-      /*
-       * 🔴 TROCA DE MATERIAL, e ela é uma CORREÇÃO — não gosto pessoal.
-       *
-       * O `GLTFLoader` cria `MeshStandardMaterial` (PBR), e todo o resto desta
-       * cena é `MeshLambertMaterial`. Sob as MESMAS luzes os dois dão brilhos
-       * diferentes — o PBR divide a energia e sai bem mais escuro. Na primeira
-       * carga a casa modelada apareceu quase preta ao lado das procedurais, e
-       * eu quase li isso como "o modelo ficou ruim".
-       *
-       * ⚠️ A lição para a versão de verdade: **um modelo de material só na
-       * cena inteira.** Misturar é comparar coisas sob regras diferentes.
-       */
-      const antigo = malha.material;
-      const lista = Array.isArray(antigo) ? antigo : [antigo];
-      const novos = lista.map((m) => {
-        const base = m as THREE.MeshStandardMaterial;
-        return new THREE.MeshLambertMaterial({
-          color: base.color ?? new THREE.Color(0xffffff),
-          map: base.map ?? null,
-          flatShading: true,
-        });
-      });
-      malha.material = Array.isArray(antigo) ? novos : (novos[0] as THREE.Material);
-    });
+  const modeloCasa = await carregaModelo('casa_enxaimel');
+  if (modeloCasa) {
     const mx = TILES / 2 - 1;
     const mz = TILES / 2 - 4;
-    modelo.position.set(mx, altura(mx, mz), mz);
-    cena.add(modelo);
+    modeloCasa.position.set(mx, altura(mx, mz), mz);
+    cena.add(modeloCasa);
     objetos++;
-  } catch (e) {
-    // Sem o `.glb` a página continua funcionando com as casas procedurais —
-    // rode `npm run models:build`. Falhar aqui não pode derrubar a cena.
-    console.warn('[espeto] casa_enxaimel.glb ausente; só as procedurais.', e);
+  }
+
+  /*
+   * 🔴 A ROCHA — o primeiro modelo que não depende de TEXTURA.
+   *
+   * A casa esbarrou no limite honesto de 13/08: o que faz a referência bonita é
+   * pintura, não forma. Pedra é a exceção da lista — silhueta irregular, face
+   * chapada e sombra projetada já leem como pedra. Por isso ela vem antes da
+   * árvore, que precisa de folhagem pintada com alfa.
+   *
+   * ⚠️ `clone()` de propósito: as quatro cópias compartilham geometria e
+   * material. Carregar o `.glb` quatro vezes daria quatro malhas iguais na
+   * memória para desenhar a mesma pedra.
+   */
+  const modeloRocha = await carregaModelo('rocha');
+  if (modeloRocha) {
+    for (const [x, z, escala, giro] of AFLORAMENTOS) {
+      const copia = modeloRocha.clone();
+      copia.scale.setScalar(escala);
+      planta(copia, x, z, giro);
+      objetos++;
+    }
   }
 
   // Praça: quatro casas em volta de um miolo livre, portas para o sul.
