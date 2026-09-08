@@ -954,6 +954,36 @@ function setupCharSelectScreen(): void {
     el('nameerr').textContent = '';
     showScreen('create');
   };
+
+  /**
+   * Voltar à tela de login — trocar de conta sem fechar a aba.
+   *
+   * 🔴 **NÃO recarrega a página, ao contrário do "Trocar personagem".** Aquele
+   * botão recarrega porque o mundo já está montado e não existe teardown para
+   * as ~3.300 linhas de `startGame`. Aqui o mundo **nunca foi montado**: só há
+   * a lista de personagens, então trocar de tela basta — e evita rebaixar os
+   * 76 MB do vídeo de fundo, que o Chromium se recusa a cachear.
+   *
+   * 🔴 **O token de sessão é esquecido.** Sem isso o token continuaria válido
+   * no `sessionStorage` e a próxima recarga reabriria a lista da conta antiga
+   * — o jogador teria pedido para sair e voltado ao mesmo lugar.
+   *
+   * ⚠️ Re-autenticar no MESMO socket é suportado: o servidor só sobrescreve o
+   * `player.accountId` e responde com um `charlist` novo (ver `case 'auth'` em
+   * `server/src/index.ts`). Não é preciso derrubar a conexão.
+   *
+   * ⚠️ A senha é limpa, o usuário não. O campo de usuário já nasce preenchido
+   * pelo `localStorage`, e apagá-lo obrigaria a redigitar mesmo quem só errou a
+   * senha.
+   */
+  (el('tologinbtn') as HTMLButtonElement).onclick = () => {
+    esqueceToken();
+    selectedChar = null;
+    (el('passin') as HTMLInputElement).value = '';
+    el('loginerr').textContent = '';
+    el('charhint').textContent = '';
+    showScreen('login');
+  };
 }
 
 /** Redesenha a lista de personagens da conta. */

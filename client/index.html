@@ -578,6 +578,20 @@
         display: flex;
         gap: 8px;
       }
+      /*
+       * O "voltar ao login" é DISCRETO de propósito: a ação principal desta tela
+       * é entrar no mundo, e um terceiro botão com o mesmo peso visual disputaria
+       * o olho com ela. Fundo transparente, letra apagada, contorno só no hover.
+       */
+      #tologinbtn {
+        background: transparent;
+        border: 1px solid transparent;
+        color: #7d7466;
+      }
+      #tologinbtn:hover {
+        color: var(--text);
+        border-color: var(--border);
+      }
       .autherr {
         color: #d98a7a;
         font-size: 12.5px;
@@ -3524,6 +3538,7 @@
       <div class="authrow">
         <button id="enterbtn" disabled>Entrar no mundo</button>
         <button id="newcharbtn">Novo personagem</button>
+        <button id="tologinbtn">← Voltar ao login</button>
       </div>
       <p class="authhint" id="charhint"></p>
     </div>

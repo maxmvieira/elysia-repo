@@ -9,6 +9,39 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-07 (23h) — "Voltar ao login" na seleção de personagem
+
+**Onde mora:** `#tologinbtn` em `client/index.html` · `setupCharSelectScreen`
+em `client/src/main.ts`
+
+Quem entrava na conta ficava preso na lista de personagens: para trocar de conta
+só fechando a aba. O botão resolve.
+
+### 🔴 Este NÃO recarrega a página — e o "Trocar personagem" recarrega
+
+Os dois parecem o mesmo botão e não são. O "Trocar personagem" vive **dentro do
+mundo**, onde as ~3.300 linhas de `startGame` já declararam o estado da partida
+e não existe teardown; recarregar é o que dá estado limpo de graça.
+
+Aqui o mundo **nunca foi montado** — só há a lista. Trocar de tela basta, e
+evita rebaixar os **76 MB** do vídeo de fundo, que o Chromium se recusa a
+cachear. Recarregar por simetria custaria um minuto de download por clique.
+
+### O token é esquecido, e é a metade que faltaria
+
+`esqueceToken()` antes de trocar de tela. Sem isso o token continuaria válido no
+`sessionStorage` e a próxima recarga reabriria a lista da **conta antiga** — o
+jogador teria pedido para sair e voltado ao mesmo lugar.
+
+⚠️ **Re-autenticar no mesmo socket é suportado:** o servidor só sobrescreve
+`player.accountId` e responde com um `charlist` novo (`case 'auth'`). Não é
+preciso derrubar a conexão, e foi isso que dispensou a recarga.
+
+⚠️ A senha é limpa, o usuário não — o campo já nasce preenchido pelo
+`localStorage`, e apagá-lo faria redigitar quem só errou a senha.
+
+---
+
 ## 2026-09-07 (22h30) — Os retratos ilustrados entram na tela de criação
 
 **Onde mora:** `tools/retratos2card.mjs` (novo) · `COM_RETRATO`,
