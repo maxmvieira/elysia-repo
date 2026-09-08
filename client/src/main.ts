@@ -1140,17 +1140,41 @@ function setupStartScreen(): void {
       // cinco classes apontam para o mesmo pack universal, então as cinco
       // mudam junto. Quem não tem pack HD segue no ícone MiniWorld.
       for (const [cls, card] of cards) {
-        const css = retratoDeClasseCss(cls, 48, g)
+        const css = retratoDeClasseCss(cls, 48, g, 'busto')
           ?? (HERO_ART_CLASSES.has(cls) ? heroIconCss(cls, 48, g) : null);
         if (css) card.querySelector('.cicon')?.setAttribute('style', css);
       }
       if (knightIcon) knightIcon.setAttribute('style', knightIconCss(gender, 48));
+      // O palco mostra o mesmo personagem, e o sexo o troca junto.
+      pintaPalco();
     };
     genderBar.appendChild(btn);
   });
   // O gênero é o passo 2 e tem lugar próprio na tela desde 02/09 — antes era
   // enfiado logo acima da grade de classes.
   (document.getElementById('ccgender') ?? classesEl).appendChild(genderBar);
+
+  /**
+   * O PALCO — o retrato inteiro no meio da tela, sem fundo.
+   *
+   * 🔴 O `#ccpalco` nasceu vazio em 02/09 com um comentário dizendo que era
+   * "lugar reservado, não esquecimento": o dono ainda estava fazendo o boneco.
+   * Desde 07/09 os retratos existem, e é isto que ocupa o espaço.
+   *
+   * ⚠️ **Sem classe escolhida o palco fica VAZIO, e é a escolha certa.** Pôr um
+   * retrato genérico ali daria a impressão de que uma classe já está
+   * selecionada — o botão `playbtn` diz "Escolha uma classe" justamente porque
+   * nada está.
+   *
+   * ⚠️ A imagem é `background`, não `<img>`: o palco é uma caixa elástica
+   * (`flex: 1`) e `contain` faz o retrato caber sozinho na altura que sobrar,
+   * sem esticar. Com `<img>` seria preciso calcular essa altura na mão.
+   */
+  function pintaPalco(): void {
+    const palco = document.getElementById('ccpalco');
+    if (!palco) return;
+    palco.style.cssText = chosen ? (retratoDeClasseCss(chosen, 0, gender, 'palco') ?? '') : '';
+  }
 
   // A ordem da arte de referência que o dono trouxe. As CINCO desde 02/09.
   const order: PlayerClass[] = ['knight', 'sorcerer', 'assassin', 'archer', 'druid'];
@@ -1167,7 +1191,7 @@ function setupStartScreen(): void {
     // mostra o desenho da classe, não o boneco top-down. Classe sem retrato cai
     // no sprite, e classe sem pack HD cai no ícone MiniWorld — a cadeia inteira
     // existe porque imagem de CSS que falta não dá erro, só cartão vazio.
-    const iconStyle = retratoDeClasseCss(id, 48, gender)
+    const iconStyle = retratoDeClasseCss(id, 48, gender, 'busto')
       ?? (HERO_ART_CLASSES.has(id) ? heroIconCss(id, 48, gender) : classIconCss(id, 48));
     card.innerHTML =
       `<div class="cicon" style="${iconStyle}"></div>` +
@@ -1177,6 +1201,7 @@ function setupStartScreen(): void {
       chosen = id;
       for (const c of cards.values()) c.classList.remove('sel');
       card.classList.add('sel');
+      pintaPalco();
       // Repinta em vez de so chamar refresh: a previa muda com a classe.
       pintaAtributos();
     };
@@ -1185,6 +1210,9 @@ function setupStartScreen(): void {
   }
   if (chosen && cards.has(chosen)) cards.get(chosen)!.classList.add('sel');
   genderBtns[gender].classList.add('sel');
+  // Estado inicial: quem volta à tela com uma classe já escolhida vê o palco
+  // preenchido de cara, sem precisar clicar de novo no cartão.
+  pintaPalco();
 
   const errEl = el('nameerr');
 

@@ -9,6 +9,41 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-07 (23h30) — O palco enche, e o cartão vira busto
+
+**Onde mora:** `ZOOM_BUSTO` e `retratoDeClasseCss` em `client/src/heroes.ts` ·
+`pintaPalco` em `client/src/main.ts`
+
+O `#ccpalco` nasceu vazio em 02/09 com um comentário dizendo que era *"lugar
+reservado, não esquecimento"* — o dono ainda estava fazendo o boneco. Desde
+hoje os retratos existem, e é isto que ocupa o espaço.
+
+### Dois enquadramentos do MESMO arquivo
+
+| | Onde | Como |
+|---|---|---|
+| **`palco`** | meio da tela de criação | figura inteira, `contain`, ancorada embaixo |
+| **`busto`** | cartão da lista de classes | cabeça e peito, ampliado 2,7×, ancorado em cima |
+
+🔴 **Por que o busto precisa de ampliação.** O retrato é uma figura de proporção
+~1:2. Numa caixa quadrada de 48 px, `contain` mostraria o corpo todo com **meia
+caixa de largura** — o rosto sairia com uns 10 px e não se leria nada. Ampliando
+2,7× a altura, a caixa passa a enquadrar o terço de cima.
+
+⚠️ **A ampliação é fixa para as cinco classes, embora as larguras variem** (110
+a 136 px). Fixar a AMPLIAÇÃO mantém as cinco cabeças do mesmo tamanho; fixar a
+largura faria a classe mais estreita ter a cabeça maior que as outras.
+
+⚠️ **Sem classe escolhida o palco fica vazio**, e é a escolha certa: um retrato
+genérico ali daria a impressão de que já há uma classe selecionada — e o botão
+diz "Escolha uma classe" justamente porque não há.
+
+⚠️ É `background`, não `<img>`: o palco é caixa elástica (`flex: 1`) e `contain`
+faz o retrato caber sozinho na altura que sobrar. Com `<img>` seria preciso
+calcular essa altura na mão.
+
+---
+
 ## 2026-09-07 (23h) — "Voltar ao login" na seleção de personagem
 
 **Onde mora:** `#tologinbtn` em `client/index.html` · `setupCharSelectScreen`

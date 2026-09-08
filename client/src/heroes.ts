@@ -718,28 +718,46 @@ export const temRetrato = (cls: PlayerClass, gender: Gender): boolean =>
   COM_RETRATO[gender].has(cls);
 
 /**
- * CSS do retrato ilustrado da classe, para o cartão da tela de criação.
+ * Quanto o retrato é ampliado no enquadramento de BUSTO, em alturas de caixa.
+ *
+ * 🔴 O retrato é uma figura inteira de proporção ~1:2. Numa caixa quadrada,
+ * `contain` mostraria o corpo todo com meia caixa de largura — o rosto sairia
+ * com uns 10 px e não se leria nada. Ampliando 2,7× a altura, a caixa passa a
+ * enquadrar o terço de cima da figura: cabeça, ombros e peito.
+ *
+ * ⚠️ Vale 2,7 para TODAS as classes, embora as larguras variem (110 a 136 px).
+ * É de propósito: fixar a AMPLIAÇÃO mantém as cinco cabeças no mesmo tamanho,
+ * enquanto fixar a largura faria a mais estreita ter a cabeça maior.
+ */
+const ZOOM_BUSTO = 2.7;
+
+/**
+ * CSS do retrato ilustrado da classe.
+ *
+ * - `'busto'` — cabeça e peito, para o cartão da lista de classes.
+ * - `'palco'` — a figura inteira, para o meio da tela de criação.
  *
  * ⚠️ **`image-rendering` fica no automático, ao contrário do resto.** Estes são
- * desenhos, não pixel art: `pixelated` numa ilustração reduzida de 256 px para
- * 48 px serrilha o contorno inteiro. A regra de escala inteira que vale para os
- * sprites não vale aqui, e confundir as duas é o que faria o cartão parecer
- * quebrado.
+ * desenhos, não pixel art: `pixelated` numa ilustração reduzida serrilha o
+ * contorno inteiro. A regra de escala inteira que vale para os sprites não vale
+ * aqui, e confundir as duas é o que faria a tela parecer quebrada.
  *
- * ⚠️ Ancorado embaixo (`center bottom`): os retratos têm alturas de conteúdo
- * um pouco diferentes, e alinhar pelo pé mantém as cinco cabeças na mesma faixa
- * — é a mesma ideia do `GROUND_Y` dos sprites, aplicada em CSS.
+ * ⚠️ Ancorado embaixo no palco (`center bottom`): os retratos têm alturas de
+ * conteúdo um pouco diferentes, e alinhar pelo pé mantém as cinco cabeças na
+ * mesma faixa — a mesma ideia do `GROUND_Y` dos sprites, feita em CSS. No busto
+ * a âncora é em cima, que é onde está o rosto.
  */
 export function retratoDeClasseCss(
   cls: PlayerClass, boxPx: number, gender: Gender,
+  enquadre: 'busto' | 'palco' = 'palco',
 ): string | null {
   if (!temRetrato(cls, gender)) return null;
-  return (
+  const comum =
     `background-image:url('/assets/retratos/${gender}/${cls}.png');` +
-    `image-rendering:auto;background-repeat:no-repeat;` +
-    `background-position:center bottom;background-size:contain;` +
-    `width:${boxPx}px;height:${boxPx}px;`
-  );
+    `image-rendering:auto;background-repeat:no-repeat;`;
+  return enquadre === 'busto'
+    ? `${comum}background-position:center top;background-size:auto ${Math.round(boxPx * ZOOM_BUSTO)}px;`
+    : `${comum}background-position:center bottom;background-size:contain;`;
 }
 
 export function heroIconCss(cls: PlayerClass, boxPx: number, gender: Gender = 'male'): string {
