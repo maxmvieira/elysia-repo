@@ -1,3 +1,64 @@
+# Handoff — 2026-09-08 (madrugada) · PONTO DE RETOMADA
+
+> Typecheck limpo nos 3 pacotes, **635 testes**. `npm run dev:test` →
+> `localhost:5173`. **14 commits subiram** para o `origin/main`.
+
+## ⏸️ O QUE ENTROU NESTA SESSÃO
+
+| | |
+|---|---|
+| 👩 **Personagem feminina** | caminhada e parado, 8 direções, os dois sexos no jogo |
+| 🏹 **Arco** e ✨ **conjuração** | primeiras ações com as CINCO direções de origem |
+| 🖼️ **Retratos de classe** | dez ilustrações; palco cheio na criação, busto no cartão |
+| 🔥 **Fire Bolt** | bolas caindo do céu, um bolt por nível, dano bolt a bolt |
+| 🎯 **Mira** | a magia cai onde o cursor aponta; anda até o alcance se estiver longe |
+| 🪨 **Rocha** | primeiro modelo 3D que não depende de textura |
+| 🚪 **Voltar ao login** | na seleção de personagem |
+| ⚔️ **Monstros × 2** | XP e status dobrados (`MULT_CRIATURA`) |
+
+## 🎯 A PRÓXIMA COISA
+
+### 1. 🔴 A animação de nível 10 do Fire Bolt — e a DECISÃO que ela força
+
+O dono mandou a folha do **nível 10** (várias bolas por quadro). Ela **não foi
+implementada**, e não é só porque o arquivo não chegou ao disco: ela conflita
+com o que já está no ar.
+
+🔴 **Hoje é UMA animação POR IMPACTO.** O servidor manda dez `hit` espaçados e o
+cliente solta uma bola em cada. A contagem já sai do nível — nível 10 já mostra
+dez bolas. Usar uma folha de três bolas por impacto mostraria **trinta**.
+
+São dois caminhos, e é decisão de dono:
+
+- **A) Ficar por impacto** (como está). A folha de nível 1 serve para todos os
+  níveis, e as folhas por nível não precisam existir. Zero trabalho.
+- **B) Passar a UMA animação por CONJURAÇÃO**, escolhendo a folha pelo nível.
+  Aí as folhas por nível fazem sentido — mas o cliente **não sabe o nível dos
+  outros jogadores**, então o servidor teria de mandar isso junto.
+
+⚠️ Vale decidir **antes** de o dono gastar geração nas folhas de níveis 2 a 9.
+
+### 2. Testar o que entrou hoje e não foi visto em jogo
+
+A mira foi aprovada jogando. **Não** foram vistos: o arco (equipar um), a
+conjuração feminina, os retratos na criação, o "voltar ao login" e o dobro dos
+monstros.
+
+### 3. As frentes que continuam abertas de ontem
+
+Modelos 3D (de onde vêm), renderizador `?r3d=1`, licença da arte num repositório
+público, e a passada humana que nunca aconteceu.
+
+## ⚠️ O QUE FICOU FALTANDO NA ARTE
+
+- **Morte**: nenhum dos dois sexos tomba.
+- **Golpe de espada**: o masculino herdou a folha antiga (só perfil); a feminina
+  não tem.
+- **Chefes**: o `MULT_CRIATURA` **não** escala `spell`/`slam`/`summon` — chefe
+  com o dobro de vida e o mesmo golpe fica mais demorado, não mais perigoso.
+
+---
+
 # Handoff — 2026-09-07 (noite) · PONTO DE RETOMADA
 
 > 🔴 **Esta sessão acabou por limite de contexto. Comece por este bloco.**
