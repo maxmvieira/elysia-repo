@@ -9,6 +9,44 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-07 (madrugada) — Fire Bolt: um bolt por nível
+
+**Onde mora:** `fire_bolt` em `shared/src/skills.ts`
+
+🔴 **Decisão do dono:** *"1 hit lvl 1 … 10 hits lvl 10, sendo cada hit um novo
+bolt que cai do céu."* Substitui o 2→4 que estava lá.
+
+⚠️ **Os números antigos eram NOSSOS, não do documento.** O Doc 1 só diz *"alvo
+único econômico, multi-hit"* (linha 629 do destilado) e não fixa contagem — não
+há conflito com a fonte de verdade.
+
+`porNivel` é linear entre `hits` e `hitsAtLv10`, e o intervalo 1..10 casa com os
+dez níveis, então o número de impactos **é** o nível. Conferido rodando
+`skillHits` de verdade, nível a nível:
+
+```
+Lv 1  bolts=1   power/impacto=0,55   total=0,55
+Lv 5  bolts=5   power/impacto=0,83   total=4,15
+Lv10  bolts=10  power/impacto=1,18   total=11,80
+```
+
+### 🔴 O dano total mudou muito, e o `power` NÃO foi mexido
+
+| | antes | agora |
+|---|---|---|
+| Lv. 1 | 2 × 0,55 = **1,10** | 1 × 0,55 = **0,55** |
+| Lv. 10 | 4 × 1,18 = **4,72** | 10 × 1,18 = **11,80** |
+
+**Metade no nível 1 e 2,5× no nível 10.** É consequência direta da regra pedida,
+não descuido. Nada foi compensado por conta própria: balancear o `power` é
+decisão de dono, e o pedido foi sobre a contagem de bolts.
+
+⚠️ **A ANIMAÇÃO ainda não entrou** — falta a tira crua de 16 quadros 64×64. Hoje
+o Fire Bolt é dois círculos de `Graphics` voando do conjurador ao alvo em 180 ms,
+e não existe tocador de FX de sprite para projétil. Ver o bloco do HANDOFF.
+
+---
+
 ## 2026-09-07 (23h30) — O palco enche, e o cartão vira busto
 
 **Onde mora:** `ZOOM_BUSTO` e `retratoDeClasseCss` em `client/src/heroes.ts` ·

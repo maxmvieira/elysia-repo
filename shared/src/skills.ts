@@ -1380,9 +1380,32 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     durationMs: 0,
     magic: true,
     damageType: 'fire',
-    // 2 impactos no Lv.1, 4 no Lv.10 — o "multi-hit" do doc, sem virar canhão.
-    hits: 2,
-    hitsAtLv10: 4,
+    /**
+     * 🔴 **UM BOLT POR NÍVEL — decisão do dono em 2026-09-07.** Nível 1 solta 1,
+     * nível 10 solta 10, e cada impacto é uma bola de fogo caindo do céu.
+     *
+     * `porNivel` é linear entre `hits` e `hitsAtLv10`, e o intervalo é
+     * exatamente 1..10 — então o número de impactos **é** o nível da
+     * habilidade, sem arredondamento no meio do caminho.
+     *
+     * ⚠️ Isto substitui o 2→4 que estava aqui, e aqueles números eram NOSSOS,
+     * não do documento: o Doc 1 só diz *"alvo único econômico, multi-hit"* e
+     * não fixa contagem. Não há conflito com a fonte de verdade.
+     *
+     * 🔴 **O dano total mudou muito, e o `power` NÃO foi mexido.** Com `power`
+     * valendo por impacto, o total por conjuração passa a ser:
+     *
+     * |        | antes | agora |
+     * |--------|-------|-------|
+     * | Lv. 1  | 2 × 0,55 = **1,10** | 1 × 0,55 = **0,55** |
+     * | Lv. 10 | 4 × 1,18 = **4,72** | 10 × 1,18 = **11,80** |
+     *
+     * Ou seja: **metade no nível 1 e 2,5× no nível 10.** É consequência direta
+     * da regra pedida, não descuido — e nada aqui foi compensado por conta
+     * própria porque balancear o `power` é decisão de dono, não de código.
+     */
+    hits: 1,
+    hitsAtLv10: 10,
     applies: {
       id: 'burn',
       chanceAtLv1: 0.10,
