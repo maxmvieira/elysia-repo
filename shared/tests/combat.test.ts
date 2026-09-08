@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CREATURES, chebyshev, rollDamage, xpToNext, xpTotalTo, XP_BASE, XP_REQ_MULT,
+  CREATURES, CREATURES_BASE, MULT_CRIATURA,
+  chebyshev, rollDamage, xpToNext, xpTotalTo, XP_BASE, XP_REQ_MULT,
 } from '../src/index.js';
 
 test('dano nunca é menor que 1, mesmo com defesa altíssima', () => {
@@ -92,7 +93,7 @@ test('o Zumbi é fraco a Sagrado — e a fraqueza vem do lore, não de gosto', (
 });
 
 test('DD-BAL-055: o Zumbi é Tier III — muito acima da âncora do Tier I', () => {
-  const z = CREATURES.zombie!;
+  const z = CREATURES_BASE.zombie!;
   assert.equal(z.maxHp, 340);
   assert.equal(z.defense, 8);
   assert.equal(z.magicDefense, 4);
@@ -108,7 +109,7 @@ test('DD-BAL-055: o Zumbi é Tier III — muito acima da âncora do Tier I', () 
     );
   }
   // O salto de Tier é real: quase 7x o HP e 9,5x a XP do Slime Verde.
-  const ancora = CREATURES.slime!;
+  const ancora = CREATURES_BASE.slime!;
   assert.equal(z.maxHp > ancora.maxHp * 5, true);
   assert.equal(z.xpReward > ancora.xpReward * 5, true);
 });
@@ -224,7 +225,7 @@ test('DD-BAL-027: o Slime Verde é a âncora canônica do bestiário', () => {
   // Valor APROVADO no Doc 3. Toda a curva de XP do jogo sai por comparação com
   // estes 10 — mudar aqui desalinha o bestiário inteiro, que é precisamente o
   // que a decisão existe para impedir. Se algum dia mudar, é decisão do dono.
-  const s = CREATURES.slime;
+  const s = CREATURES_BASE.slime;
   assert.ok(s);
   assert.equal(s!.name, 'Slime Verde');
   assert.equal(s!.xpReward, 10);
@@ -233,9 +234,9 @@ test('DD-BAL-027: o Slime Verde é a âncora canônica do bestiário', () => {
 });
 
 test('DD-BAL-033/034/035: a família Slime sobe em curva previsível', () => {
-  const verde = CREATURES.slime!;
-  const azul = CREATURES.slime_blue!;
-  const vermelho = CREATURES.slime_red!;
+  const verde = CREATURES_BASE.slime!;
+  const azul = CREATURES_BASE.slime_blue!;
+  const vermelho = CREATURES_BASE.slime_red!;
 
   // Fichas canônicas do Doc 3, na íntegra.
   assert.deepEqual(
@@ -264,8 +265,8 @@ test('DD-BAL-033/034/035: a família Slime sobe em curva previsível', () => {
 });
 
 test('DD-BAL-036: o Super Slime é MVP, não um Slime Vermelho inflado', () => {
-  const mvp = CREATURES.super_slime!;
-  const vermelho = CREATURES.slime_red!;
+  const mvp = CREATURES_BASE.super_slime!;
+  const vermelho = CREATURES_BASE.slime_red!;
   assert.equal(mvp.boss, true);
   assert.equal(mvp.maxHp, 500);
   assert.equal(mvp.xpReward, 250);
@@ -291,4 +292,23 @@ test('o Slime Verde ainda aguenta mais de um golpe no nível 1', () => {
   // O doc pede combate de 3–8 s. Com o dano de nível 1 (~28–39 por golpe), 50 HP
   // dá dois golpes. Se cair para um só, o combate deixou de existir.
   assert.equal(CREATURES.slime!.maxHp > 39, true);
+});
+
+test('MULT_CRIATURA dobra as fichas, e a tabela crua guarda o número do doc', () => {
+  // 🔴 Este teste existe por causa de uma armadilha real: as âncoras do
+  // documento (`DD-BAL-027` e companhia) passaram a ler `CREATURES_BASE`, e sem
+  // um teste do multiplicador ninguém perceberia se ele fosse mexido — a suíte
+  // inteira continuaria verde com o jogo duas vezes mais fácil ou mais difícil.
+  const base = CREATURES_BASE.slime;
+  const real = CREATURES.slime;
+  assert.ok(base && real);
+  assert.equal(MULT_CRIATURA, 2);
+  assert.equal(real!.maxHp, base!.maxHp * MULT_CRIATURA);
+  assert.equal(real!.xpReward, base!.xpReward * MULT_CRIATURA);
+  assert.equal(real!.strength, base!.strength * MULT_CRIATURA);
+  assert.equal(real!.defense, base!.defense * MULT_CRIATURA);
+  // O que NÃO escala: ouro e cadências. Velocidade não é força, e o pedido do
+  // dono falou de XP e status.
+  assert.equal(real!.goldMax, base!.goldMax);
+  assert.equal(real!.attackCooldownMs, base!.attackCooldownMs);
 });

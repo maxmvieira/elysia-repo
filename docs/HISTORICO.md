@@ -9,6 +9,63 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-08 — Quatro ajustes de quem jogou: andar para lançar, queda mais lenta e o dobro nos monstros
+
+**Onde mora:** `conjurarAoChegar` e `DUR_QUEDA` em `client/src/main.ts` ·
+`MULT_CRIATURA` e `CREATURES_BASE` em `shared/src/combat.ts` ·
+`shared/tests/combat.test.ts`
+
+O dono testou a mira, aprovou, e trouxe quatro correções.
+
+### 1. Longe demais? O herói anda até o alcance
+
+Vale para os dois casos: na de alvo único ele se aproxima do monstro, na de área
+do **ponto clicado**.
+
+🔴 **Ele para assim que ENTRA no alcance, não ao chegar em cima.** O
+`irParaPerto` traça a rota até o lado do alvo, mas o laço do tique interrompe no
+primeiro tile de onde já dá para lançar. Um mago que caminhasse até encostar
+perderia justamente a vantagem que a distância dá a ele.
+
+⚠️ Três saídas, como o "pegar ao chegar" que já existia: entrou no alcance →
+lança; rota acabou sem chegar → desiste calado; `Esc` ou clique para andar →
+cancela, senão a magia sairia sozinha no meio de um caminho que o jogador mudou.
+
+### 2. A queda ficou lenta
+
+620 ms → **1000 ms**. ⚠️ Não é a cadência dos bolts (essa é do servidor): com a
+queda mais longa que o intervalo de 140 ms, as bolas passam a se sobrepor no ar
+— que é como uma rajada de dez deve parecer, chuva e não fila.
+
+### 3. 🔴 O dobro de XP e status nos monstros
+
+*"Estão muito fracos para um lvl 150."* Um `MULT_CRIATURA = 2` aplicado sobre a
+tabela inteira.
+
+**Mora num lugar só, e não nas 97 fichas.** Multiplicar entrada por entrada
+daria 97 chances de errar uma, e desfazer exigiria as 97 de volta. Com a tabela
+crua preservada em `CREATURES_BASE`, voltar atrás é trocar o número por 1.
+
+Escala vida, força, defesa, defesa mágica e XP. **Não** escala ouro (o pedido
+falou de XP e status), cadências (velocidade não é força) nem os poderes de
+habilidade de CHEFE — um chefe com o dobro de vida e o mesmo golpe fica mais
+demorado, não mais perigoso, e isso merece decisão própria.
+
+### 4. ⚠️ E os testes de balanceamento, que quebraram na hora
+
+Quatro testes das âncoras do documento (`DD-BAL-027`, `033/034/035`, `036`,
+`055`) falharam no primeiro `npm test` — eles fixam os números canônicos do
+Doc 3. O comentário de um deles já previa isto: *"se algum dia mudar, é decisão
+do dono."*
+
+✅ **A saída preserva as duas coisas:** as âncoras passaram a ler
+`CREATURES_BASE`, então continuam guardando a curva do documento; o
+multiplicador é um botão de dificuldade por cima, com **teste próprio**. Sem
+esse teste novo, mexer no multiplicador deixaria a suíte inteira verde com o
+jogo duas vezes mais fácil.
+
+---
+
 ## 2026-09-08 — A MIRA: a magia passa a cair onde o cursor aponta
 
 **Onde mora:** `castRange`/`castRangeEvery`, `skillCastRange` e `skillMiraNoChao`

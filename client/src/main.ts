@@ -1684,8 +1684,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   const quedas: Array<{ node: AnimatedSprite; atraso: number; morto: boolean }> = [];
   let fireboltFrames: Texture[] | null = null;
-  /** Duração de uma queda inteira, do céu à dissipação. */
-  const DUR_QUEDA = 620;
+  /**
+   * Duração de uma queda inteira, do céu à dissipação.
+   *
+   * ⚠️ Era 620 ms e o dono achou rápido demais jogando (08/09). A 1000 ms a
+   * bola tem tempo de ser vista descendo — que é o ponto da animação.
+   *
+   * 🔴 Isto **não** é a cadência dos bolts: quem espaça um do outro é o
+   * servidor (`INTERVALO_BOLT_MS`). Com a queda mais longa que o intervalo, as
+   * bolas passam a se sobrepor no ar, e é assim que uma rajada de dez deve
+   * parecer — chuva, não fila.
+   */
+  const DUR_QUEDA = 1000;
 
   /*
    * ⚠️ Carregada em paralelo, sem `await`: a tira é enfeite, e travar a entrada
@@ -4893,11 +4903,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const precisaMira = (def: SkillDef): boolean =>
     def.shape !== 'self' && def.shape !== 'party';
 
+  /** Magia clicada longe demais, a lançar quando o herói chegar ao alcance. */
+  let conjurarAoChegar: { id: SkillId; tileX: number; tileY: number } | null = null;
+
   function desarmaMagia(): void {
     magiaArmada = null;
     miraLabel.style.display = 'none';
     miraMarca.visible = false;
     viewportEl.style.cursor = '';
+    // ⚠️ Esc cancela também a caminhada para conjurar. Sem isto o herói
+    // continuaria andando e soltaria a magia sozinho, depois de o jogador já
+    // ter desistido dela.
+    conjurarAoChegar = null;
   }
 
   /**
@@ -4962,6 +4979,27 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       miraLabel.textContent = def.name;
       viewportEl.style.cursor = 'crosshair';
       return;
+    }
+    /*
+     * 🔴 **LONGE DEMAIS: anda até o alcance e lança ao chegar** (dono, 08/09).
+     * Vale para os dois casos — na de alvo único o herói se aproxima do
+     * monstro, na de área se aproxima do PONTO clicado.
+     *
+     * ⚠️ Ele para assim que ENTRA no alcance, não ao chegar em cima: o
+     * `irParaPerto` traça a rota até o lado do alvo, mas o laço do tique
+     * interrompe no primeiro tile de onde já dá para lançar. Um mago que
+     * caminhasse até encostar perderia justamente a vantagem que a distância
+     * dá a ele.
+     */
+    if (mira) {
+      const nivel = Math.max(1, skillLevels[id] ?? 1);
+      const limite = skillCastRange(def, nivel);
+      if (distDoHeroi(mira.tileX, mira.tileY) > limite) {
+        conjurarAoChegar = { id, tileX: mira.tileX, tileY: mira.tileY };
+        irParaPerto(mira.tileX, mira.tileY);
+        return;
+      }
+      conjurarAoChegar = null;
     }
     net.send({ t: 'cast', spell: id, ...(mira ? { tileX: mira.tileX, tileY: mira.tileY } : {}) });
   }
@@ -5763,6 +5801,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       return;
     }
     if (tilesClicaveis.has(t.y * map.width + t.x)) return; // é interação, não caminhada
+    // ⚠️ Clicar para andar cancela a magia que esperava alcance: o jogador
+    // mudou de ideia, e a magia sairia sozinha no meio do caminho novo.
+    conjurarAoChegar = null;
     irPara(t.x, t.y);
   });
   // ---- Social: menu de contexto, grupo, amigos e PK ----------------------
@@ -6342,6 +6383,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         gatherNode(id);
       } else if (caminho.length === 0) {
         coletarAoChegar = null;
+      }
+    }
+
+    // Entrou no alcance da magia clicada de longe? Lança. Mesmas três saídas —
+    // e a do meio é por DISTÂNCIA, não por chegada: o mago para onde já dá.
+    if (conjurarAoChegar) {
+      const alvo = conjurarAoChegar;
+      const nivel = Math.max(1, skillLevels[alvo.id] ?? 1);
+      const limite = skillCastRange(SKILLS[alvo.id], nivel);
+      if (distDoHeroi(alvo.tileX, alvo.tileY) <= limite) {
+        conjurarAoChegar = null;
+        cancelarRota();
+        castSpellId(alvo.id, { tileX: alvo.tileX, tileY: alvo.tileY });
+      } else if (caminho.length === 0) {
+        conjurarAoChegar = null; // rota acabou sem chegar: desiste calado
       }
     }
 

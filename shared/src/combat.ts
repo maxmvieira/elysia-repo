@@ -555,7 +555,7 @@ export const SPEED = {
  */
 export const NIGHT_SPEED_MULT = 0.85;
 
-export const CREATURES: Record<string, CreatureDef> = {
+export const CREATURES_BASE: Record<string, CreatureDef> = {
   rabbit: {
     type: 'rabbit',
     name: 'Coelho',
@@ -2493,6 +2493,44 @@ export const CREATURES: Record<string, CreatureDef> = {
     enrage: { hpPct: 0.4, attackSpeedMult: 0.65, durationMs: 14000 },
   },
 };
+
+/**
+ * 🔴 **MULTIPLICADOR GLOBAL DAS CRIATURAS — pedido do dono em 08/09**, jogando
+ * de nível 150: *"quero que dobre a quantidade de XP e status dos monstros,
+ * estão muito fracos"*.
+ *
+ * 🔴 **Mora AQUI, num lugar só, e não nas 97 fichas.** Multiplicar entrada por
+ * entrada daria 97 chances de errar uma, e desfazer exigiria as 97 de volta.
+ * Com a tabela crua preservada em `CREATURES_BASE`, voltar atrás é trocar este
+ * número por 1 — e comparar o antes e o depois é ler uma linha.
+ *
+ * ⚠️ **O que escala:** vida, força, defesa, defesa mágica e XP. O que **não**
+ * escala: ouro (o pedido falou de XP e status), cooldowns de ataque e
+ * movimento (velocidade não é força), e os poderes de habilidade de CHEFE
+ * (`spell`, `slam`, `summon`) — um chefe com o dobro de vida e o mesmo golpe
+ * fica mais demorado, não mais perigoso, e isso merece decisão própria.
+ */
+export const MULT_CRIATURA = 2;
+
+/**
+ * As fichas já multiplicadas — é o que o servidor lê.
+ *
+ * ⚠️ `CREATURES_BASE` continua exportado por dentro do módulo para o
+ * multiplicador ter de onde partir; ninguém fora daqui deve usá-lo, senão
+ * passariam a existir dois números de vida para a mesma criatura.
+ */
+export const CREATURES: Record<string, CreatureDef> = Object.fromEntries(
+  Object.entries(CREATURES_BASE).map(([tipo, d]) => [tipo, {
+    ...d,
+    maxHp: Math.round(d.maxHp * MULT_CRIATURA),
+    strength: Math.round(d.strength * MULT_CRIATURA),
+    defense: Math.round(d.defense * MULT_CRIATURA),
+    ...(d.magicDefense === undefined
+      ? {}
+      : { magicDefense: Math.round(d.magicDefense * MULT_CRIATURA) }),
+    xpReward: Math.round(d.xpReward * MULT_CRIATURA),
+  }]),
+);
 
 /**
  * Cor da BOLHA de placeholder de cada criatura sem arte própria.
