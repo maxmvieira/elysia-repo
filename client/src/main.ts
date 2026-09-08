@@ -83,6 +83,7 @@ import {
   skillPower,
   skillRange,
   skillCastRange,
+  INTERVALO_BOLT_MS,
   skillMiraNoChao,
   skillUpgradeCost,
   stanceDamagePenalty,
@@ -1667,52 +1668,81 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * cai, estoura no chão e dissipa. Por isso ela nasce ACIMA do alvo e não tem
    * origem no conjurador.
    *
-   * 🔴 **Uma queda por IMPACTO.** O `fire_bolt` solta um bolt por nível
-   * (`hits: 1 → hitsAtLv10: 10`, ver `shared/src/skills.ts`), e o servidor
-   * manda um `hit` por impacto. Então a contagem sai de graça: o cliente não
-   * precisa saber o nível de ninguém.
+   * 🔴 **UMA animação por CONJURAÇÃO, não por impacto** — decisão do dono em
+   * 08/09 ("vamos de letra B"). A folha é escolhida pela QUANTIDADE de bolts,
+   * que o servidor manda no `fx` (`n`): o cliente não sabe o nível de
+   * habilidade dos outros jogadores, e sem esse campo o mago do lado apareceria
+   * sempre soltando um bolt só.
    *
-   * ⚠️ **O espaçamento entre as bolas é do SERVIDOR**, não daqui. Ele manda um
-   * `hit` por bolt, separados por `INTERVALO_BOLT_MS` — o dano cai junto com
-   * cada bola, que foi o pedido do dono. O cliente só desenha o que chega.
+   * 🔴 **A queda por impacto foi removida.** Ela vivia no `hit` com elemento de
+   * fogo; mantê-la junto com esta faria a bola aparecer duas vezes.
    *
-   * 🔴 Houve uma versão com defasagem no cliente, e ela ficou errada assim que
-   * o servidor passou a espaçar: os dois atrasos se somavam, e a última bola
-   * caía quase um segundo depois do próprio dano. O campo `atraso` continua
-   * existindo porque a estrutura serve para outros efeitos, mas o Fire Bolt
-   * passa zero.
+   * ⚠️ **O dano continua vindo dos `hit`, um por bolt, espaçados pelo
+   * servidor.** Este bloco só desenha. É por isso que `INTERVALO_BOLT_MS` mora
+   * no `shared`: o espaçamento das bolas na tela tem de ser o MESMO do
+   * espaçamento do dano, senão a última cai depois do próprio estrago.
    */
   const quedas: Array<{ node: AnimatedSprite; atraso: number; morto: boolean }> = [];
-  let fireboltFrames: Texture[] | null = null;
+
+  /**
+   * As folhas disponíveis, por quantos bolts cada uma DESENHA.
+   *
+   * 🔴 É o que faz a arte por nível encaixar sem regra especial: chega a folha
+   * de 10, entra na lista, e o nível 10 passa a usá-la sozinho. Enquanto ela
+   * não existe, o nível 10 toca dez cópias da folha de 1 — que é exatamente o
+   * que já estava no ar. **Degrada para o comportamento de ontem**, em vez de
+   * degradar para uma bola só.
+   */
+  const folhasQueda: Array<{ bolts: number; frames: Texture[] }> = [];
+
   /**
    * Duração de uma queda inteira, do céu à dissipação.
    *
-   * ⚠️ Era 620 ms e o dono achou rápido demais jogando (08/09). A 1000 ms a
-   * bola tem tempo de ser vista descendo — que é o ponto da animação.
+   * ⚠️ Terceiro valor: 620 ms (rápido demais), 1000 (ainda rápido, jogando em
+   * 08/09), agora **1600**. Com a animação passando a ser uma por conjuração,
+   * ela é o efeito INTEIRO da magia — tem de dar tempo de ver a bola descer.
    *
-   * 🔴 Isto **não** é a cadência dos bolts: quem espaça um do outro é o
-   * servidor (`INTERVALO_BOLT_MS`). Com a queda mais longa que o intervalo, as
-   * bolas passam a se sobrepor no ar, e é assim que uma rajada de dez deve
-   * parecer — chuva, não fila.
+   * 🔴 Isto **não** é a cadência dos bolts (`INTERVALO_BOLT_MS`, no `shared`).
+   * Com a queda bem mais longa que o intervalo, as cópias se sobrepõem no ar —
+   * chuva, não fila.
    */
-  const DUR_QUEDA = 1000;
+  const DUR_QUEDA = 1600;
 
   /*
-   * ⚠️ Carregada em paralelo, sem `await`: a tira é enfeite, e travar a entrada
-   * no mundo por causa dela seria trocar um efeito por um tempo de carga. Se
-   * faltar, `fireboltFrames` fica nulo e nada acontece — o dano continua
-   * igual, que é o que importa.
+   * ⚠️ Carregadas em paralelo, sem `await`: são enfeite, e travar a entrada no
+   * mundo por causa delas seria trocar efeito por tempo de carga. Faltando
+   * todas, nada anima e o dano continua igual — que é o que importa.
+   *
+   * ⚠️ A de 10 ainda NÃO EXISTE no disco. Está listada de propósito: o dia em
+   * que o arquivo chegar, ela entra sem tocar em código. `catch` silencioso é o
+   * que permite isso.
    */
-  void Assets.load<Texture>('/assets/fx/firebolt.png')
-    .then((tex) => {
-      tex.source.scaleMode = 'nearest';
-      const n = Math.max(1, Math.round(tex.width / 64));
-      fireboltFrames = Array.from({ length: n }, (_, i) => new Texture({
-        source: tex.source,
-        frame: new Rectangle(i * 64, 0, 64, 64),
-      }));
-    })
-    .catch(() => { /* sem a tira o Fire Bolt não anima; rode tools/fx2strip.mjs */ });
+  for (const folha of [
+    { arquivo: 'firebolt', bolts: 1 },
+    { arquivo: 'firebolt10', bolts: 10 },
+  ]) {
+    void Assets.load<Texture>(`/assets/fx/${folha.arquivo}.png`)
+      .then((tex) => {
+        tex.source.scaleMode = 'nearest';
+        const n = Math.max(1, Math.round(tex.width / 64));
+        folhasQueda.push({
+          bolts: folha.bolts,
+          frames: Array.from({ length: n }, (_, i) => new Texture({
+            source: tex.source,
+            frame: new Rectangle(i * 64, 0, 64, 64),
+          })),
+        });
+        // Maior primeiro: `folhaPara` pega a primeira que couber.
+        folhasQueda.sort((a, b) => b.bolts - a.bolts);
+      })
+      .catch(() => { /* folha ausente: o registro simplesmente não a tem */ });
+  }
+
+  /** A folha que melhor representa `n` bolts, ou a menor que existir. */
+  function folhaPara(n: number): { bolts: number; frames: Texture[] } | null {
+    if (folhasQueda.length === 0) return null;
+    return folhasQueda.find((f) => f.bolts <= n) ?? folhasQueda[folhasQueda.length - 1]!;
+  }
 
   /**
    * Solta uma bola de fogo caindo sobre um ponto do mundo.
@@ -1721,9 +1751,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * explosão fica na base da célula, e é ela que tem de cair no tile. Ancorar
    * no meio deixaria o estouro meio tile acima do alvo.
    */
-  function spawnQueda(wx: number, wy: number, atraso: number): void {
-    if (!fireboltFrames) return;
-    const node = new AnimatedSprite(fireboltFrames);
+  function spawnQueda(wx: number, wy: number, frames: Texture[], atraso: number): void {
+    const node = new AnimatedSprite(frames);
     node.loop = false;
     node.anchor.set(0.5, 1);
     node.x = wx;
@@ -1731,11 +1760,31 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     node.zIndex = 9999;
     node.visible = false;
     // Quadros por tique de 60 Hz para a animação inteira durar `DUR_QUEDA`.
-    node.animationSpeed = fireboltFrames.length / (DUR_QUEDA / (1000 / 60));
+    node.animationSpeed = frames.length / (DUR_QUEDA / (1000 / 60));
     fxLayer.addChild(node);
     const q = { node, atraso, morto: false };
     node.onComplete = () => { q.morto = true; };
     quedas.push(q);
+  }
+
+  /**
+   * A queda inteira de UMA conjuração de `n` bolts.
+   *
+   * 🔴 **Quantas cópias**: `ceil(n / bolts da folha)`. Com a folha de 1 e dez
+   * bolts, dez cópias — o comportamento de ontem. Com a folha de 10, uma só.
+   * A conta é a mesma nos dois casos, e é o que faz a arte por nível entrar sem
+   * caso especial.
+   *
+   * ⚠️ As cópias são espaçadas por `INTERVALO_BOLT_MS`, **o mesmo número que o
+   * servidor usa para espaçar o dano**. É o que mantém bola e estrago juntos.
+   */
+  function spawnQuedaDaConjuracao(wx: number, wy: number, n: number): void {
+    const folha = folhaPara(n);
+    if (!folha) return;
+    const copias = Math.max(1, Math.ceil(n / folha.bolts));
+    for (let i = 0; i < copias; i++) {
+      spawnQueda(wx, wy, folha.frames, i * INTERVALO_BOLT_MS);
+    }
   }
 
   let myId: string | null = null;
@@ -2707,7 +2756,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           onCastAccepted(msg.spell as SkillId, msg.cooldownMs);
           break;
         case 'fx':
-          if (msg.floor === myFloor) spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1);
+          if (msg.floor !== myFloor) break;
+          /*
+           * 🔥 O Fire Bolt tem folha própria e cai do céu; não é um `spellFx`
+           * geométrico como o giro do Vendaval. O `n` é a contagem de bolts,
+           * que decide a folha e quantas cópias tocam.
+           */
+          if (msg.kind === 'fire_bolt') {
+            spawnQuedaDaConjuracao(msg.x * TS + TS / 2, msg.y * TS + TS, msg.n ?? 1);
+            break;
+          }
+          spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1);
           break;
         case 'heal': {
           // Cura é número VERDE e para cima, nunca vermelho: o jogador tem de
@@ -2752,17 +2811,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
              * daí o contador de rajada, que zera quando passa tempo demais
              * entre dois golpes para serem a mesma.
              */
-            if (msg.element === 'fire') {
-              const alvo = sprites.get(msg.targetId);
-              /*
-               * 🔴 Sem atraso do lado do cliente: **quem espaça os bolts é o
-               * SERVIDOR** desde 08/09 — o Fire Bolt do nível 10 manda dez
-               * `hit` separados no tempo, um por bolt que desce. Somar um
-               * atraso aqui empilharia dois espaçamentos e a última bola cairia
-               * um segundo depois do próprio dano.
-               */
-              if (alvo) spawnQueda(alvo.container.x + TS / 2, alvo.container.y + TS, 0);
-            }
+            /*
+             * ⚠️ **A queda NÃO nasce mais aqui.** Até 08/09 cada `hit` de fogo
+             * soltava uma bola; agora a animação é uma por CONJURAÇÃO e vem
+             * pelo `fx`, que traz a contagem de bolts. Manter as duas faria a
+             * bola aparecer duas vezes por impacto.
+             */
           }
           const view = sprites.get(msg.targetId);
           if (view) {

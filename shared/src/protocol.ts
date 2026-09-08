@@ -874,6 +874,18 @@ export interface S2C_Effect {
   floor: number;
   /** Raio em tiles, quando o efeito é de área. */
   radius?: number;
+  /**
+   * 🔴 **Quantos golpes esta conjuração tem** — o Fire Bolt do nível 7 manda 7.
+   *
+   * Existe porque o cliente **não sabe o nível de habilidade dos outros
+   * jogadores**, e desde 08/09 a animação é UMA por conjuração, com a folha
+   * escolhida pela quantidade de bolts. Sem este campo, o mago do lado
+   * apareceria sempre soltando um bolt só.
+   *
+   * ⚠️ É contagem de IMPACTOS, não de dano. Quem aplica o dano continua sendo
+   * o `hit`, um por bolt, espaçado no tempo pelo servidor.
+   */
+  n?: number;
 }
 
 /**

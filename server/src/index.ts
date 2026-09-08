@@ -205,6 +205,7 @@ import {
   skillPower,
   skillRange,
   skillCastRange,
+  INTERVALO_BOLT_MS,
   skillMiraNoChao,
   skillResetCost,
   skillThreshold,
@@ -3259,9 +3260,6 @@ function playerAttackPlayer(player: Player, alvo: Player, now: number): void {
 /** Quanto tempo nenhuma outra MAGIA sai, depois de uma conjuração. */
 const GCD_MAGIA_MS = 1000;
 
-/** Intervalo entre um bolt e o seguinte, na mesma conjuração. */
-const INTERVALO_BOLT_MS = 140;
-
 /**
  * Golpes de magia que ainda vão cair.
  *
@@ -3804,6 +3802,27 @@ function executeSpell(
    * entre alvos diferentes, e espalhá-los também no tempo é outra conversa.
    */
   const emSerie = def.kind === 'multihit' && def.shape === 'target';
+
+  /*
+   * 🔴 **UM AVISO DE EFEITO POR CONJURAÇÃO, com a contagem de bolts** (08/09).
+   *
+   * Desde hoje a animação é **uma por conjuração**, e não uma por impacto: o
+   * cliente escolhe a folha pela quantidade de bolts. Mas ele **não sabe o
+   * nível de habilidade dos outros jogadores** — sem este aviso, o mago do lado
+   * apareceria sempre soltando um bolt só.
+   *
+   * ⚠️ É **avisar**, não aplicar. O dano continua vindo dos `hit`, um por bolt,
+   * espaçados no tempo. Este pacote só diz "caiu isto aqui, com esta força".
+   *
+   * ⚠️ Só para o multi-hit de ALVO ÚNICO: é o único que virou queda do céu.
+   */
+  const primeiro = targets[0];
+  if (emSerie && primeiro) {
+    broadcastFloor(player.floor, {
+      t: 'fx', kind: def.id, x: primeiro.tileX, y: primeiro.tileY,
+      floor: player.floor, n: golpes,
+    });
+  }
 
   for (let i = 0; i < golpes; i++) {
     const lista = sorteiaAlvo

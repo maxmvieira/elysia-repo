@@ -119,3 +119,16 @@ export function directionFromDelta(
   if (sy > 0) return sx > 0 ? 'down_right' : 'down_left';
   return sx > 0 ? 'up_right' : 'up_left';
 }
+
+/**
+ * 🔴 **Intervalo entre um bolt e o seguinte, na mesma conjuração.**
+ *
+ * Mora no `shared` porque **os dois lados precisam do mesmo número**: o
+ * servidor espaça os impactos por ele, e o cliente espaça as bolas que desenha
+ * pelo mesmo valor. Dois números diferentes fariam o dano e a bola andarem
+ * separados — a última cairia depois do próprio estrago.
+ *
+ * É o mesmo tipo de contrato do `GROUND_Y`/`feetY`: um valor, dois arquivos, e
+ * mudar um sem o outro quebra em silêncio.
+ */
+export const INTERVALO_BOLT_MS = 140;
