@@ -698,6 +698,50 @@ const ARMA_DO_RETRATO: Partial<Record<PlayerClass, EquipPiece>> = {
  * porque o herói ocupa quase toda a célula de 64 e já fica legível no tamanho
  * do cartão.
  */
+/**
+ * Quais RETRATOS DE CLASSE existem em `assets/retratos/<sexo>/<classe>.png`.
+ *
+ * 🔴 A lista é estática de propósito. Imagem de CSS que falta **não dá erro** —
+ * o cartão só fica vazio, sem nada no console. Perguntar ao disco exigiria
+ * carregar dez imagens antes de desenhar a tela; declarar aqui custa uma linha
+ * e falha alto quando alguém esquece de rodar `tools/retratos2card.mjs`.
+ *
+ * ⚠️ Gerados a partir das ilustrações do dono (07/09, 22h). Rodar o conversor
+ * de novo é o que mantém esta lista honesta.
+ */
+const COM_RETRATO: Record<Gender, ReadonlySet<PlayerClass>> = {
+  male: new Set<PlayerClass>(['knight', 'sorcerer', 'archer', 'assassin', 'druid']),
+  female: new Set<PlayerClass>(['knight', 'sorcerer', 'archer', 'assassin', 'druid']),
+};
+
+export const temRetrato = (cls: PlayerClass, gender: Gender): boolean =>
+  COM_RETRATO[gender].has(cls);
+
+/**
+ * CSS do retrato ilustrado da classe, para o cartão da tela de criação.
+ *
+ * ⚠️ **`image-rendering` fica no automático, ao contrário do resto.** Estes são
+ * desenhos, não pixel art: `pixelated` numa ilustração reduzida de 256 px para
+ * 48 px serrilha o contorno inteiro. A regra de escala inteira que vale para os
+ * sprites não vale aqui, e confundir as duas é o que faria o cartão parecer
+ * quebrado.
+ *
+ * ⚠️ Ancorado embaixo (`center bottom`): os retratos têm alturas de conteúdo
+ * um pouco diferentes, e alinhar pelo pé mantém as cinco cabeças na mesma faixa
+ * — é a mesma ideia do `GROUND_Y` dos sprites, aplicada em CSS.
+ */
+export function retratoDeClasseCss(
+  cls: PlayerClass, boxPx: number, gender: Gender,
+): string | null {
+  if (!temRetrato(cls, gender)) return null;
+  return (
+    `background-image:url('/assets/retratos/${gender}/${cls}.png');` +
+    `image-rendering:auto;background-repeat:no-repeat;` +
+    `background-position:center bottom;background-size:contain;` +
+    `width:${boxPx}px;height:${boxPx}px;`
+  );
+}
+
 export function heroIconCss(cls: PlayerClass, boxPx: number, gender: Gender = 'male'): string {
   // 🔴 A célula sai do PACK DA CLASSE, não de uma constante do módulo. Desde que
   // o Knight voltou ao pack antigo (60 px) e as outras três seguem no PixelLab

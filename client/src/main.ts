@@ -165,7 +165,8 @@ import {
 import { loadKnightSprites, knightIconCss, type KnightArt } from './knight.js';
 import { retratoUrl } from './bestiario.js';
 import {
-  loadHeroArt, loadEquipArt, golpeDe, heroIconCss, pecaDaArma, temCamada, HERO_ART_CLASSES,
+  loadHeroArt, loadEquipArt, golpeDe, heroIconCss, retratoDeClasseCss, pecaDaArma, temCamada,
+  HERO_ART_CLASSES,
   type HeroArt, type EquipArt, type EquipPiece, type ArtePorClasse,
 } from './heroes.js';
 import { loadTrees, treeTexFor, type ArvoreSprite } from './trees.js';
@@ -1109,8 +1110,9 @@ function setupStartScreen(): void {
       // cinco classes apontam para o mesmo pack universal, então as cinco
       // mudam junto. Quem não tem pack HD segue no ícone MiniWorld.
       for (const [cls, card] of cards) {
-        if (!HERO_ART_CLASSES.has(cls)) continue;
-        card.querySelector('.cicon')?.setAttribute('style', heroIconCss(cls, 48, g));
+        const css = retratoDeClasseCss(cls, 48, g)
+          ?? (HERO_ART_CLASSES.has(cls) ? heroIconCss(cls, 48, g) : null);
+        if (css) card.querySelector('.cicon')?.setAttribute('style', css);
       }
       if (knightIcon) knightIcon.setAttribute('style', knightIconCss(gender, 48));
     };
@@ -1131,7 +1133,12 @@ function setupStartScreen(): void {
     // O cartão mostra o MESMO boneco que vai andar no mundo — escolher a classe
     // por uma arte e receber outra em tela é o tipo de surpresa que não vale.
     // Classe sem pack HD cai no ícone MiniWorld, como antes.
-    const iconStyle = HERO_ART_CLASSES.has(id) ? heroIconCss(id, 48, gender) : classIconCss(id, 48);
+    // 🔴 O RETRATO ILUSTRADO ganha do sprite (07/09, pedido do dono): o cartão
+    // mostra o desenho da classe, não o boneco top-down. Classe sem retrato cai
+    // no sprite, e classe sem pack HD cai no ícone MiniWorld — a cadeia inteira
+    // existe porque imagem de CSS que falta não dá erro, só cartão vazio.
+    const iconStyle = retratoDeClasseCss(id, 48, gender)
+      ?? (HERO_ART_CLASSES.has(id) ? heroIconCss(id, 48, gender) : classIconCss(id, 48));
     card.innerHTML =
       `<div class="cicon" style="${iconStyle}"></div>` +
       `<div class="cinfo"><b>${def.name.toUpperCase()}</b><p>${def.blurb}</p></div>`;

@@ -9,6 +9,54 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-07 (22h30) — Os retratos ilustrados entram na tela de criação
+
+**Onde mora:** `tools/retratos2card.mjs` (novo) · `COM_RETRATO`,
+`temRetrato` e `retratoDeClasseCss` em `client/src/heroes.ts` · o cartão e o
+botão de sexo em `client/src/main.ts` · `client/public/assets/retratos/`
+
+O dono desenhou as cinco classes **nos dois sexos** e pediu que o cartão da tela
+de criação mostrasse o desenho, não o boneco top-down. São dez retratos.
+
+### 🔴 O fundo sai por ALAGAMENTO, não por cor
+
+As ilustrações vêm com fundo — parte em cinza chapado **sem canal alfa**
+(`colorType 2`), parte já em RGBA. Coladas como estão, cada cartão viraria um
+quadrado cinza.
+
+**Apagar "tudo que é cinza" comeria a cabeça do personagem:** o cabelo é
+prateado, quase da cor do fundo. O alagamento parte da borda e só alcança o que
+está ligado à moldura, então o cinza preso entre as mechas fica. Medido: 77 % a
+87 % da imagem apagada, e o cabelo intacto.
+
+⚠️ Tolerância folgada (32 por canal) porque o fundo tem gradiente e ruído de
+compressão. Apertar deixa auréola clara no contorno, que em tela lê como
+serrilhado sujo.
+
+### ⚠️ `image-rendering` fica no AUTOMÁTICO — ao contrário de todo o resto
+
+Estes são desenhos, não pixel art. `pixelated` numa ilustração reduzida de 256
+para 48 px serrilha o contorno inteiro. A regra de escala inteira que rege os
+sprites **não vale aqui**, e confundir as duas faria o cartão parecer quebrado.
+
+O retrato é ancorado em `center bottom`: as alturas de conteúdo diferem um
+pouco entre as cinco, e alinhar pelo pé mantém as cabeças na mesma faixa — a
+mesma ideia do `GROUND_Y` dos sprites, feita em CSS.
+
+### A cadeia de queda
+
+`retrato ilustrado → sprite da classe → ícone MiniWorld`. Ela existe porque
+**imagem de CSS que falta não dá erro**: sem a cadeia, um retrato ausente
+deixaria o cartão vazio e silencioso. Por isso `COM_RETRATO` é uma lista
+estática — declarar custa uma linha e falha alto; perguntar ao disco exigiria
+carregar dez imagens antes de desenhar a tela.
+
+⚠️ **O retrato do HUD (32 px) NÃO mudou.** Continua saindo da tira do sprite.
+O pedido foi sobre a tela de criação, e o HUD tem um encaixe alado com miolo
+vazado medido para o sprite — trocar a arte lá é outra conversa.
+
+---
+
 ## 2026-09-07 (22h) — Arco e conjuração, e a terceira tentativa de ler a grade
 
 **Onde mora:** `LOTES` e `grade()` em `tools/universal-fonte.mjs` · `ACOES` em
