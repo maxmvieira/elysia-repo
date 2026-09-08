@@ -344,165 +344,236 @@
         width: 0%;
         transition: width 0.15s ease-out;
       }
-      /* Identidade: retrato à esquerda, nome/classe/nível à direita. */
-      /*
-       * ---- O EMBLEMA ALADO ------------------------------------------------
+      /* =====================================================================
+       * ⚔️ PAINEL DO PERSONAGEM (08/09) — substitui o emblema alado.
        *
-       * Arte: CraftPix, recortada por `tools/hud/recortar.mjs` para
-       * `/assets/hud/`. A peça tem 248×43 e o encaixe redondo do meio está
-       * VAZADO no PNG — o retrato entra por baixo e o anel dourado o emoldura.
+       * 🔴 Ancorado no canto do VIEWPORT, não da janela: a coluna `#leftbar`
+       * ocupa a esquerda da tela, e prender na janela poria o painel por cima
+       * dela. No canto do mundo ele fica onde a referência pede sem brigar com
+       * o que já existe.
        *
-       * 🔴 **1×, e nada de escala fracionária.** É a mesma regra do `ZOOM` da
-       * câmera, e vale aqui pelo mesmo motivo: `pixelated` em escala quebrada
-       * faz um pixel virar 2 e o vizinho virar 3, em faixas. As asas ficam a
-       * 1×; a barra estica só pela FAIXA DO MEIO (`border-image`), que é lisa,
-       * então esticar não inventa nem perde pixel.
-       */
-      #emblema {
+       * ⚠️ **Sem `pointer-events: none`** — o emblema antigo tinha, porque era
+       * enfeite. Este tem botões; o `none` volta só no que é decorativo.
+       * ===================================================================== */
+      #charhud {
         position: absolute;
         top: 6px;
-        /*
-         * Canto SUPERIOR ESQUERDO do mundo, por decisão do dono em 31/08. Antes
-         * era centralizado; ele viu em tela e pediu no canto.
-         *
-         * ⚠️ `transform-origin: top left` anda junto com isso: com a origem no
-         * centro, aumentar a escala jogaria metade da peça para fora do
-         * `#viewport`, que tem `overflow: hidden` e a cortaria.
-         */
         left: 6px;
-        /*
-         * 🔴 **1×, DE VOLTA — e o caminho até aqui é a lição.**
-         *
-         * O tamanho foi ajustado em cinco voltas com o dono olhando a tela: 1×
-         * pareceu pequeno, 1,5× grande, e o valor desceu 1,35 → 1,25 → 1,15. Em
-         * 01/09 ele olhou de perto e o veredito foi *"vamos ter que consertar
-         * esse serrilhado da hud"*.
-         *
-         * ⚠️ **Não havia conserto que mantivesse 1,15×.** O serrilhado não é um
-         * defeito do desenho, é o que escala quebrada FAZ com `pixelated`: um
-         * pixel vira 1 e o vizinho vira 2, em faixas. Os únicos valores sem ele
-         * são 1 e 2 — e 2× (496 px) é quase o dobro do que ele tinha aprovado.
-         *
-         * 🔴 **Então a regra volta a valer inteira: só 1, 2 ou 3.** Quem quiser
-         * um tamanho intermediário de novo vai encontrar o mesmo serrilhado, e
-         * a saída não é mexer aqui — é arte redesenhada noutro tamanho.
-         *
-         * O preço: com `image-rendering: pixelated`, 1,5 faz um pixel do
-         * desenho virar 1 e o vizinho virar 2, em faixas alternadas — o
-         * serrilhado que o `ZOOM` da câmera evita por regra, e que o HANDOFF de
-         * 10/08 registra ter custado uma sessão inteira. Nas diagonais das asas
-         * é onde ele aparece.
-         *
-         * 🔴 **Os valores LIMPOS são 1, 2 e 3** — só eles não serrilham. A 1× a
-         * peça tem 248 px de largura; a 2×, 496. Se um dia o serrilhado
-         * incomodar, trocar para 2 é um caractere e não mexe em mais nada.
-         *
-         * Para afinar o tamanho, a largura sai de 248 × escala:
-         * **1 → 248 px** · 2 → 496 px · 3 → 744 px. (Os quebrados que passaram
-         * por aqui e saíram: 1,15 → 285 · 1,25 → 310 · 1,35 → 335 · 1,5 → 372.)
-         *
-         * O `transform` não mexe na caixa de layout, e como o emblema é
-         * posicionado, aumentar a escala não empurra nada — ele só cobre mais
-         * mundo.
-         */
-        --emblema-escala: 1;
-        transform: scale(var(--emblema-escala));
-        transform-origin: top left;
-        width: 248px;
-        z-index: 5;
-        /* 🔴 Sem isto o emblema come o clique de andar no topo da tela. */
-        pointer-events: none;
-        text-align: center;
-        /* O mundo passa por baixo: tudo aqui precisa de contorno para ler. */
-        text-shadow: 0 1px 2px #000, 0 0 3px #000;
-      }
-      #emblema-asas {
-        position: relative;
-        width: 248px;
-        height: 43px;
-      }
-      /* A moldura, por CIMA do retrato — ver o comentário no markup. */
-      #emblema-asas .asas-arte {
-        position: absolute;
-        inset: 0;
-        background: url('/assets/hud/asas.png') no-repeat 0 0;
-        image-rendering: pixelated;
-      }
-      /*
-       * Nome, classe e nível numa linha só, sob as asas. Antes eram três linhas
-       * empilhadas na coluna estreita do painel; aqui a largura é de 248 px, e
-       * empilhar deixaria o emblema alto demais sobre o mundo.
-       */
-      #emblema-nome {
+        z-index: 6;
         display: flex;
-        justify-content: center;
-        align-items: baseline;
-        gap: 8px;
-        margin: 1px 0 3px;
+        align-items: flex-start;
+        gap: 0;
+        font-size: 11px;
+        user-select: none;
+      }
+      /* O medalhão do retrato, com o nível pendurado embaixo. */
+      #chmedal {
+        position: relative;
+        width: 58px;
+        height: 58px;
+        flex: none;
+        border-radius: 50%;
+        background: #0c0a08;
+        border: 2px solid #6b5a33;
+        box-shadow: 0 0 0 1px #1a1710, 0 2px 8px rgba(0, 0, 0, 0.7);
+        overflow: hidden;
+        z-index: 2;
+      }
+      #portrait {
+        width: 100%;
+        height: 100%;
+        background-repeat: no-repeat;
+        background-position: center 2px;
       }
       /*
-       * O retrato agora mora DENTRO do encaixe da peça alada: 32×32, na posição
-       * medida do miolo vazado (x 108, y 6 dentro dos 248×43).
+       * O número do nível, no pé do medalhão.
        *
-       * ⚠️ Sem moldura e sem fundo próprios — quem emoldura é o anel dourado do
-       * PNG, que fica por cima da borda deste elemento. Uma borda aqui
-       * apareceria como um quadrado dentro do círculo.
+       * ⚠️ Fora do `overflow: hidden` do medalhão seria o ideal do desenho, mas
+       * custaria um wrapper a mais; aqui ele fica dentro, colado na base — lê
+       * igual e é um elemento a menos para posicionar em quatro resoluções.
        */
-      #portrait {
+      #chlv {
         position: absolute;
-        left: 108px;
-        top: 6px;
-        width: 32px;
-        height: 32px;
-        /* 🔴 `pixelated` é obrigatório: o retrato é um recorte de pixel art
-           ampliado, e a suavização do navegador o transformaria em borrão. */
-        image-rendering: pixelated;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        text-align: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: #f0d99a;
+        background: linear-gradient(rgba(10, 9, 8, 0), rgba(10, 9, 8, 0.92) 45%);
+        padding: 6px 0 1px;
+        text-shadow: 0 1px 2px #000;
+      }
+      /* O corpo: nome, barras e (no expandido) XP e botões. */
+      #chcorpo {
+        margin-left: -10px;
+        padding: 3px 8px 4px 16px;
+        min-width: 196px;
+        background: linear-gradient(#171410, #0d0b09);
+        border: 1px solid #6b5a33;
+        border-radius: 3px;
+        box-shadow: inset 0 0 0 1px #241f16, 0 2px 8px rgba(0, 0, 0, 0.6);
+      }
+      #chtopo {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        margin-bottom: 3px;
       }
       #charname {
-        color: #e8d9b5;
-        font-size: 13px;
-        /* nome longo não pode empurrar a barra de vida para fora do painel */
+        color: #f0e0b8;
+        font-size: 12.5px;
+        text-shadow: 0 1px 2px #000;
+      }
+      #charclass {
+        color: #8a8171;
+        font-size: 9.5px;
+        flex: 1;
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      #charclass,
-      #charlevel {
-        font-size: 11px;
-        color: var(--muted);
+      /* O botão − / +. É o único controle do painel. */
+      #chtoggle {
+        flex: none;
+        width: 17px;
+        height: 15px;
+        padding: 0;
+        line-height: 1;
+        font-size: 13px;
+        color: #c9a86a;
+        background: #1a1712;
+        border: 1px solid #6b5a33;
+        border-radius: 2px;
+        cursor: pointer;
+      }
+      #chtoggle:hover { background: #26211a; color: #f0d99a; }
+      #chtoggle:active { transform: scale(0.9); }
+
+      .chlinha {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 2px;
+      }
+      .chrot {
+        width: 18px;
+        flex: none;
+        color: #9a9384;
+        font-size: 9.5px;
+        font-weight: 700;
+      }
+      .chrot2 {
+        width: 74px;
+        flex: none;
+        color: #9a9384;
+        font-size: 9.5px;
+      }
+      .chrot2 b { color: #c9a86a; }
+      .chpct {
+        width: 38px;
+        flex: none;
+        text-align: right;
+        color: #8a8171;
+        font-size: 9px;
       }
       /*
-       * As três cores saem das TIRAS DE AMOSTRA do próprio pack (`Bars.png`,
-       * y 132..135), e não de chute: assim o preenchimento pertence à mesma
-       * paleta da moldura em vez de brigar com ela.
+       * As barras. `position: relative` porque o número mora dentro delas.
+       *
+       * ⚠️ A largura vem do `flex: 1`, não de um número fixo: é o que faz a
+       * HUD acompanhar a janela sem media query nenhuma.
        */
-      #hpfill {
-        background: linear-gradient(#d74427, #9f2a2f);
+      .chbar {
+        position: relative;
+        flex: 1;
+        min-width: 0;
+        height: 13px;
+        background: #08070a;
+        border: 1px solid #3a3226;
+        border-radius: 2px;
+        overflow: hidden;
       }
-      #manafill {
-        background: linear-gradient(#37a0df, #336cac);
+      .chbar.xp, .chbar.job { height: 9px; }
+      .chbar > i {
+        display: block;
+        height: 100%;
+        width: 0;
+        transition: width 0.18s ease;
       }
-      #xpfill {
-        background: linear-gradient(#44a13b, #327044);
-      }
-      /*
-       * ⚠️ Sobra negativa nas laterais de propósito: a caixa de conteúdo da
-       * barra exclui as 24 px de borda de cada lado, e sem isso o número ficaria
-       * centrado só na faixa do meio — visivelmente fora do centro da peça.
-       */
-      .bar > span {
+      .chbar > span {
         position: absolute;
-        top: 0;
-        bottom: 0;
-        left: -24px;
-        right: -24px;
+        inset: 0;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 9px;
         color: #fff;
         text-shadow: 0 1px 2px #000, 0 0 3px #000;
+        pointer-events: none;
       }
+      #hpfill { background: linear-gradient(#e5533a, #9f2a2f); }
+      #manafill { background: linear-gradient(#3fb0f0, #2a5f9e); }
+      #xpfill { background: linear-gradient(#7ad24a, #3f8a34); }
+      #jobfill { background: linear-gradient(#4ec3f0, #2a7ba8); }
+
+      /*
+       * 🔴 A LINHA DE BOTÕES. Pequenos de propósito — o pedido do dono foi
+       * explícito: "bem menores que os da primeira versão", numa linha só.
+       */
+      #chbtns {
+        display: flex;
+        gap: 3px;
+        margin-top: 4px;
+      }
+      #chbtns button {
+        position: relative;
+        width: 21px;
+        height: 21px;
+        padding: 0;
+        font-size: 12px;
+        line-height: 1;
+        background: linear-gradient(#221d16, #14110d);
+        border: 1px solid #5a4c2e;
+        border-radius: 2px;
+        cursor: pointer;
+      }
+      #chbtns button:hover {
+        background: linear-gradient(#332b20, #1d1913);
+        border-color: #9a824c;
+      }
+      #chbtns button:active { transform: scale(0.9); }
+      /* Marca de "ainda não existe": o botão funciona, o sistema é que falta. */
+      #chbtns button.futuro::after {
+        content: '';
+        position: absolute;
+        right: 1px;
+        bottom: 1px;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: #9a824c;
+      }
+
+      /* ---- MODO RECOLHIDO -------------------------------------------------
+       * 🔴 HP e SP CONTINUAM VISÍVEIS — foi condição explícita do dono. Some só
+       * o bloco de XP e os botões, que é o que ocupa altura.
+       */
+      #charhud .chexp {
+        overflow: hidden;
+        max-height: 90px;
+        opacity: 1;
+        transition: max-height 0.18s ease, opacity 0.18s ease;
+      }
+      #charhud.recolhido .chexp {
+        max-height: 0;
+        opacity: 0;
+        margin: 0;
+      }
+      #charhud.recolhido #chcorpo { min-width: 150px; }
+      #charhud.recolhido #charclass { display: none; }
+
       #topline {
         display: flex;
         justify-content: space-between;
@@ -3160,28 +3231,55 @@
             ⚠️ `pointer-events: none` no CSS é obrigatório: sem isso o emblema
             engoliria o clique de andar bem no meio do topo da tela.
           -->
-          <div id="emblema">
-            <!--
-              🔴 A ordem aqui é o desenho: o retrato PRIMEIRO, a arte DEPOIS.
+          <!--
+            ⚔️ PAINEL DO PERSONAGEM (08/09) — substitui o emblema alado central.
 
-              A arte não pode ser o fundo desta div. No empilhamento do DOM o
-              filho pinta por cima do fundo do pai, então o retrato — que é
-              filho — cobria o anel dourado e virava um quadrado marrom no meio
-              da peça. Com a arte como camada irmã, o anel volta para cima e o
-              miolo vazado deixa o retrato aparecer por dentro dele.
-            -->
-            <div id="emblema-asas">
+            🔴 **Os ids são os MESMOS de antes** (`portrait`, `charname`,
+            `level`, `hpfill`, `hptext`, `manafill`, `manatext`, `xpfill`,
+            `xptext`). O `updateHud` do `main.ts` continua valendo sem uma linha
+            de mudança — foi o pedido do dono: reusar o que existe, não refazer.
+
+            ⚠️ Fica no canto do VIEWPORT, não da janela: a coluna de painéis
+            (`#leftbar`) ocupa a esquerda da tela, e ancorar na janela poria o
+            painel por cima dela.
+
+            ⚠️ Sem `pointer-events: none`, ao contrário do emblema antigo —
+            aqui há botões. O CSS devolve o `none` só ao miolo decorativo.
+          -->
+          <div id="charhud" class="expandido">
+            <div id="chmedal">
               <div id="portrait"></div>
-              <i class="asas-arte"></i>
+              <span id="chlv"><b id="level">1</b></span>
             </div>
-            <div id="emblema-nome">
-              <b id="charname">—</b>
-              <span id="charclass">—</span>
-              <span id="charlevel">Nv <b id="level">1</b></span>
+            <div id="chcorpo">
+              <div id="chtopo">
+                <b id="charname">—</b>
+                <span id="charclass">—</span>
+                <button id="chtoggle" type="button" title="Recolher o painel">−</button>
+              </div>
+              <div class="chlinha">
+                <span class="chrot">HP</span>
+                <div class="chbar hp"><i id="hpfill"></i><span id="hptext">—</span></div>
+              </div>
+              <div class="chlinha">
+                <span class="chrot">SP</span>
+                <div class="chbar sp"><i id="manafill"></i><span id="manatext">—</span></div>
+              </div>
+              <!-- Só no modo expandido. Ver `#charhud.recolhido` no CSS. -->
+              <div class="chexp">
+                <div class="chlinha">
+                  <span class="chrot2">Base Lv. <b id="chbaselv">1</b></span>
+                  <div class="chbar xp"><i id="xpfill"></i></div>
+                  <span class="chpct" id="xptext">—</span>
+                </div>
+                <div class="chlinha">
+                  <span class="chrot2">Job Lv. <b id="chjoblv">—</b></span>
+                  <div class="chbar job"><i id="jobfill"></i></div>
+                  <span class="chpct" id="jobtext">—</span>
+                </div>
+                <div id="chbtns"></div>
+              </div>
             </div>
-            <div class="bar"><i id="hpfill"></i><span id="hptext">—</span></div>
-            <div class="bar"><i id="manafill"></i><span id="manatext">—</span></div>
-            <div class="bar"><i id="xpfill"></i><span id="xptext">—</span></div>
           </div>
         </div>
         <!--

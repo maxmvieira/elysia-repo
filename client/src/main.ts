@@ -227,8 +227,98 @@ const hud = {
   hpfill: el('hpfill'), hptext: el('hptext'),
   manafill: el('manafill'), manatext: el('manatext'),
   xpfill: el('xpfill'), xptext: el('xptext'),
+  // ⚔️ Painel do personagem (08/09): nível base, nível de job e a barra dele.
+  chbaselv: el('chbaselv'), chjoblv: el('chjoblv'),
+  jobfill: el('jobfill'), jobtext: el('jobtext'),
   death: el('death'), deathby: el('deathby'),
 };
+
+// ---------------------------------------------------------------------------
+// ⚔️ Painel do personagem: recolher/expandir e os atalhos
+//
+// 🔴 **Estado próprio, independente do resto da HUD** — foi pedido explícito.
+// Nenhum outro painel do jogo consulta isto, e recolher a ficha não encosta na
+// barra de magias, no mapa nem no chat.
+//
+// ⚠️ Guardado em `localStorage`, como a posição da barra de magias: quem
+// recolheu quer continuar recolhido na próxima sessão. É preferência de
+// interface, não estado de jogo — não vai para o servidor.
+// ---------------------------------------------------------------------------
+
+const CHAVE_HUD_ABERTA = 'elysia.charhud.expandida';
+
+function aplicaEstadoDoPainel(expandida: boolean): void {
+  const painel = el('charhud');
+  painel.classList.toggle('recolhido', !expandida);
+  painel.classList.toggle('expandido', expandida);
+  const b = el('chtoggle');
+  b.textContent = expandida ? '−' : '+';
+  b.title = expandida ? 'Recolher o painel' : 'Expandir o painel';
+}
+
+function ligaPainelDoPersonagem(): void {
+  let expandida = true;
+  try {
+    expandida = localStorage.getItem(CHAVE_HUD_ABERTA) !== '0';
+  } catch { /* armazenamento bloqueado: começa expandida */ }
+  aplicaEstadoDoPainel(expandida);
+  el('chtoggle').addEventListener('click', () => {
+    expandida = !expandida;
+    aplicaEstadoDoPainel(expandida);
+    try {
+      localStorage.setItem(CHAVE_HUD_ABERTA, expandida ? '1' : '0');
+    } catch { /* idem */ }
+  });
+
+  /**
+   * Os sete atalhos.
+   *
+   * 🔴 **Nenhum botão é enfeite.** Os que têm painel abrem o painel de verdade;
+   * os que ainda não têm sistema (Quests, Conquistas, Correio) chamam uma função
+   * nomeada que avisa no chat e fica pronta para receber a tela quando ela
+   * existir. Botão que aceita o clique e não faz nada é pior que botão ausente:
+   * o jogador clica de novo achando que errou a mira.
+   *
+   * ⚠️ Os que faltam ficam marcados com um ponto no canto (`futuro`), para a
+   * diferença ser visível antes do clique.
+   */
+  const alterna = (id: string, modo: 'block' | 'flex' = 'block') => () => {
+    const alvo = document.getElementById(id);
+    if (!alvo) return;
+    alvo.style.display = alvo.style.display === modo ? 'none' : modo;
+    // ⚠️ Painel de caixa (`.box`) mora na coluna lateral e pode estar fora da
+    // vista quando a lista é longa; rolar até ele evita o "não abriu nada".
+    if (alvo.style.display === modo) alvo.scrollIntoView({ block: 'nearest' });
+  };
+  const porVir = (nome: string) => () => {
+    logChat(`<b>${nome}</b> ainda não existe no jogo — o botão já está ligado e ` +
+      'espera o sistema.', 'sys');
+  };
+
+  const ATALHOS: Array<{
+    icone: string; nome: string; abre: () => void; futuro?: boolean;
+  }> = [
+    { icone: '🎒', nome: 'Inventário', abre: alterna('invbox') },
+    { icone: '📖', nome: 'Habilidades (K)', abre: alterna('skillpanel', 'flex') },
+    { icone: '👥', nome: 'Amigos', abre: alterna('friendsbox') },
+    { icone: '📜', nome: 'Missões', abre: porVir('O diário de missões'), futuro: true },
+    { icone: '🏆', nome: 'Conquistas', abre: porVir('A janela de conquistas'), futuro: true },
+    { icone: '⚙️', nome: 'Personagem (C)', abre: alterna('charpanel') },
+    { icone: '✉️', nome: 'Correio', abre: porVir('O correio'), futuro: true },
+  ];
+
+  const caixa = el('chbtns');
+  caixa.textContent = '';
+  for (const a of ATALHOS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = a.icone;
+    b.title = a.nome;
+    if (a.futuro) b.className = 'futuro';
+    b.addEventListener('click', a.abre);
+    caixa.appendChild(b);
+  }
+}
 
 function logChat(html: string, cls = ''): void {
   const line = document.createElement('div');
@@ -4394,10 +4484,30 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * NÍVEL do personagem (`skillPointsAtLevel`), então há uma barra só. Criar
      * a segunda é sistema novo — está anotado no HANDOFF.
      */
+    const pct = s.xpNext > 0 ? (s.xp / s.xpNext) * 100 : 0;
+    hud.chbaselv.textContent = String(s.level);
+    // ⚠️ Porcentagem no painel, e o "faltam" completo no tooltip da barra: a
+    // linha tem 38 px, e "faltam 3.560" não cabe sem espremer a barra.
+    hud.xptext.textContent = `${pct.toFixed(1)}%`;
     const falta = Math.max(0, s.xpNext - s.xp);
-    hud.xptext.textContent =
+    hud.xptext.title =
       `XP ${s.xp.toLocaleString('pt-BR')} / ${s.xpNext.toLocaleString('pt-BR')}` +
       ` · faltam ${falta.toLocaleString('pt-BR')}`;
+
+    /*
+     * 🔴 **NÍVEL DE JOB — o jogo ainda não tem.** Os Skill Points saem do NÍVEL
+     * do personagem (`skillPointsAtLevel`, no servidor), então não existe uma
+     * segunda barra de progresso como no Ragnarok.
+     *
+     * ⚠️ A linha fica no painel, apagada e explicada no tooltip, em vez de ser
+     * omitida: o dono pediu Job Lv. duas vezes, e um espaço vazio some com a
+     * pergunta. Quando o sistema existir, é preencher estes dois campos.
+     */
+    hud.chjoblv.textContent = '—';
+    hud.jobtext.textContent = '—';
+    (hud.jobfill as HTMLElement).style.width = '0%';
+    hud.jobtext.title = 'O jogo ainda não tem nível de Job: os Skill Points vêm '
+      + 'do nível do personagem.';
   }
 
   // Resumo dos stats derivados (ataque, defesa, VELOCIDADE de movimento/ataque…).
@@ -9382,4 +9492,7 @@ setupLoginScreen();
 setupCharSelectScreen();
 setupStartScreen();
 setupSwitchCharButton();
+// ⚔️ O painel do personagem vive fora da partida: ligar aqui faz o botão −/+
+// funcionar já na primeira tela, e não só depois de entrar no mundo.
+ligaPainelDoPersonagem();
 showScreen('login');
