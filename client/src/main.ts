@@ -166,7 +166,7 @@ import { loadKnightSprites, knightIconCss, type KnightArt } from './knight.js';
 import { retratoUrl } from './bestiario.js';
 import {
   loadHeroArt, loadEquipArt, golpeDe, heroIconCss, pecaDaArma, temCamada, HERO_ART_CLASSES,
-  type HeroArt, type EquipArt, type EquipPiece,
+  type HeroArt, type EquipArt, type EquipPiece, type ArtePorClasse,
 } from './heroes.js';
 import { loadTrees, treeTexFor, type ArvoreSprite } from './trees.js';
 import { loadCrystals, crystalNodeSprite, crystalIconImage } from './crystals.js';
@@ -1101,9 +1101,17 @@ function setupStartScreen(): void {
       gender = g;
       genderBtns.male.classList.toggle('sel', g === 'male');
       genderBtns.female.classList.toggle('sel', g === 'female');
-      // ⚠️ O ícone não muda mais com o sexo: a arte HD nova tem um corpo só por
-      // classe. A escolha continua valendo (é salva e viaja no snapshot) — o dia
-      // em que houver variante feminina, é aqui que ela volta a trocar o desenho.
+      // 🔴 O ÍCONE VOLTOU A MUDAR COM O SEXO (07/09). O comentário que estava
+      // aqui dizia "o dia em que houver variante feminina, é aqui que ela volta
+      // a trocar o desenho" — e é hoje: o universal tem os dois corpos.
+      //
+      // ⚠️ Todos os cartões com arte HD são repintados, não só o do Knight: as
+      // cinco classes apontam para o mesmo pack universal, então as cinco
+      // mudam junto. Quem não tem pack HD segue no ícone MiniWorld.
+      for (const [cls, card] of cards) {
+        if (!HERO_ART_CLASSES.has(cls)) continue;
+        card.querySelector('.cicon')?.setAttribute('style', heroIconCss(cls, 48, g));
+      }
       if (knightIcon) knightIcon.setAttribute('style', knightIconCss(gender, 48));
     };
     genderBar.appendChild(btn);
@@ -1123,7 +1131,7 @@ function setupStartScreen(): void {
     // O cartão mostra o MESMO boneco que vai andar no mundo — escolher a classe
     // por uma arte e receber outra em tela é o tipo de surpresa que não vale.
     // Classe sem pack HD cai no ícone MiniWorld, como antes.
-    const iconStyle = HERO_ART_CLASSES.has(id) ? heroIconCss(id, 48) : classIconCss(id, 48);
+    const iconStyle = HERO_ART_CLASSES.has(id) ? heroIconCss(id, 48, gender) : classIconCss(id, 48);
     card.innerHTML =
       `<div class="cicon" style="${iconStyle}"></div>` +
       `<div class="cinfo"><b>${def.name.toUpperCase()}</b><p>${def.blurb}</p></div>`;
@@ -1357,7 +1365,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // 🔴 32 px, e o número vem do PNG: é o miolo vazado do encaixe da peça
     // alada (medido em `tools/hud/recortar.mjs`). Era 44 quando o retrato
     // morava num quadrado do painel lateral.
-    ? heroIconCss(charClass, 32)
+    ? heroIconCss(charClass, 32, gender)
     : classIconCss(charClass, 32);
   hud.charname.textContent = playerName;
   hud.charname.title = playerName; // o nome é cortado por `ellipsis` se for longo
@@ -6737,10 +6745,13 @@ interface MiniAssets {
   creatureSheets: Map<string, CreatureSheets>;
   knightArt: Record<Gender, KnightArt> | null;
   /**
-   * Arte HD por classe (`tools/frames2strip.mjs`). Classe ausente do mapa cai no
-   * MiniWorld — é o que segura o jogo de pé enquanto uma classe não tem pack.
+   * Arte HD por SEXO e por classe. Classe ausente do mapa cai no MiniWorld — é
+   * o que segura o jogo de pé enquanto uma classe não tem pack.
+   *
+   * 🔴 O sexo é o de CADA ENTIDADE (`e.gender`), não o do jogador local: num
+   * mundo multijogador os dois corpos aparecem na mesma tela.
    */
-  heroArt: Partial<Record<PlayerClass, HeroArt>>;
+  heroArt: Record<Gender, ArtePorClasse>;
   /** Peças de equipamento desenhadas por cima do corpo desarmado. */
   equipArt: Partial<Record<EquipPiece, EquipArt>>;
   npcAnim: DirAnim | null;
@@ -6820,10 +6831,13 @@ function makeEntity(
   // desarmado, ou jogador de um servidor antigo — cai no golpe de espada, que
   // toda classe tem.
   //
-  // ⚠️ O sexo NÃO troca o sprite aqui: os packs vieram com um corpo só por
-  // classe. A escolha continua existindo, salva e viajando no snapshot, para o
-  // dia em que houver variante feminina — só não desenha diferente ainda.
-  const hero = mini.heroArt[cls];
+  // 🔴 O SEXO TROCA O SPRITE desde 07/09. O `gender` já vinha resolvido logo
+  // acima (do snapshot, ou o local quando é o próprio jogador) e só não era
+  // usado aqui — os packs antigos tinham um corpo só. O universal tem dois.
+  //
+  // ⚠️ É o sexo DA ENTIDADE, nunca `mini.selfGender`: numa tela com dois
+  // jogadores, usar o local desenharia o outro com o corpo errado.
+  const hero = mini.heroArt[gender][cls];
   if (hero) {
     // 🔴 EQUIPAMENTO EM CAMADA. Só para as classes cujo corpo vem DESARMADO —
     // desenhar a espada recortada sobre um corpo que já a tem pintada daria duas

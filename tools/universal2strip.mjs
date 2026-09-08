@@ -1,80 +1,63 @@
 /**
- * Monta a tira do PERSONAGEM UNIVERSAL a partir das folhas do autosprite.io.
+ * Monta as tiras do PERSONAGEM UNIVERSAL — **masculino e feminino** — a partir
+ * das folhas do autosprite.io.
  *
  * 🔴 **O que entra é MUITO diferente do que o jogo lê.** As folhas do
- * autosprite vêm com **uma direção por arquivo** e **56 quadros** de 128 px,
- * em 8 colunas × 7 linhas. O motor quer o contrário: **um arquivo** com uma
- * LINHA por direção.
+ * autosprite vêm com **uma direção por arquivo**; o motor quer o contrário:
+ * **um arquivo** com uma LINHA por direção.
  *
  * 🔴 **O passo é regido pelo CHÃO, não por um relógio** (`main.ts`): cada tile
- * atravessado consome META DE do ciclo de passos, e a perna alterna a cada
+ * atravessado consome METADE do ciclo de passos, e a perna alterna a cada
  * tile. É isso que impede o "deslize" que o dono relatou em agosto, e é a
- * razão de a tira precisar conter um ciclo INTEIRO e fechado — começando e
- * terminando no mesmo ponto da passada.
+ * razão de a tira precisar conter um ciclo INTEIRO e fechado.
  *
- * ⚠️ **Onde o ciclo começa e termina foi MEDIDO, não escolhido.** A abertura
- * dos pés no PERFIL (as 18 linhas de baixo do quadro) varia de 20 px a 57 px:
- * contato em 0 e 25, passagem em 9 e 18-19. No quadro de FRENTE a altura varia
- * só 3 px em 93 e não serve para nada — de frente as pernas se movem em direção
- * à câmera. Ver o bloco `QUADROS`.
+ * ---
+ *
+ * ## 🔴 O QUE MUDOU EM 2026-09-07, E POR QUE ERA OBRIGATÓRIO
+ *
+ * A versão anterior tinha o ciclo **cravado em constante**: `CICLO = [0, 25]`,
+ * medido à mão numa folha de 56 quadros. As folhas novas quebram essa premissa
+ * de três jeitos ao mesmo tempo, e cada um sozinho já daria arte errada em
+ * silêncio:
+ *
+ * | | |
+ * |---|---|
+ * | **Contagem de quadros varia por FOLHA** | 29 ou 55, e não pelo mesmo motivo |
+ * | **Varia entre os SEXOS na mesma direção** | `walk_down` tem 55 no masculino e 29 no feminino |
+ * | **Algumas folhas trazem DOIS ciclos** | 55 quadros = duas passadas completas |
+ *
+ * 🔴 **É o terceiro que mata.** Amostrar 16 quadros ao longo de uma folha de
+ * dois ciclos daria **dois passos por tile** atravessado, contra um passo do
+ * outro sexo — o personagem feminino andaria com as pernas no dobro da
+ * frequência, e o defeito não daria erro nenhum: sairia arte "quase certa".
+ *
+ * ✅ **A solução é MEDIR, não constar.** A abertura dos pés no perfil desenha a
+ * passada: fechada na passagem, aberta no contato. Contando as passagens
+ * sai o número de ciclos, e daí o comprimento de UM ciclo. Ver `ciclosDe()`.
+ *
+ * ⚠️ **Só o PERFIL serve para medir.** Medido nas folhas de 07/09: de lado a
+ * abertura vai de 42 a 110 px; **de frente varia 9 px** (31 a 40), porque as
+ * pernas se movem em direção à câmera. Por isso o período sai da folha `right`
+ * e as outras quatro direções o herdam.
  *
  * ## Uso
  *
- *   node tools/universal2strip.mjs
- *
- * Espera as folhas já reescalonadas em `arte-fonte/universal/` (128 → 80 px por
- * célula, com ffmpeg e `flags=lanczos`). O reescalonamento fica FORA daqui de
- * propósito: é offline, acontece uma vez, e ffmpeg reamostra melhor do que
- * qualquer coisa que se escreva à mão aqui.
+ *   node tools/universal-fonte.mjs     # 1. reduz as folhas para 80 px/célula
+ *   node tools/universal2strip.mjs     # 2. monta as tiras
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { inflateSync, deflateSync } from 'node:zlib';
 import { join } from 'node:path';
 
-/** Lado da célula depois do reescalonamento. */
+/** Lado da célula, depois do reescalonamento feito por `universal-fonte.mjs`. */
 const CELL = 80;
-/** Colunas da folha de origem (o autosprite entrega 8 × 7 = 56). */
-const COLS = 8;
 
-/**
- * 🔴 **A AMOSTRAGEM DO CICLO — e por que ela deixou de ser quatro.**
- *
- * A primeira versão tirava 4 quadros: `[passagem-A, contato-A, passagem-B,
- * contato-B]`. Funcionava e ficava PICADO, porque o motor só tinha **duas
- * poses por tile** atravessado. O dono viu jogando: *"faça a movimentação mais
- * fluida"*.
- *
- * Agora são `N` quadros de um ciclo INTEIRO, e o motor varre continuamente a
- * metade que corresponde ao tile. A sincronia com o chão — o que matou o
- * "deslize" em agosto — fica intacta: **um passo por tile continua sendo um
- * passo por tile**; o que muda é quantas poses cabem dentro dele.
- *
- * ⚠️ **O ciclo da fonte tem 25 quadros.** Medido pela abertura dos pés no
- * perfil: contato em 0 e em 25, passagem em 9 e em 18-19. As duas metades são
- * `[0..12]` e `[13..24]`, cada uma indo de um contato ao contato seguinte.
- *
- * 🔴 **Cada metade termina em CONTATO, e é intencional:** a pisada cai na borda
- * do tile, que é onde o olho a espera. No meio da metade as pernas se cruzam, e
- * é lá que o `bob` de 1 px levanta o tronco.
- */
-/** Quadros por ciclo na tira. METADE deles é consumida por tile atravessado. */
+/** Quadros por ciclo na tira de caminhada. METADE é consumida por tile. */
 const N = 16;
-/** Primeiro e último quadro do ciclo na FOLHA de origem (contato a contato). */
-const CICLO = [0, 25];
 
-/**
- * Os `N` índices, amostrados uniformemente dentro do ciclo.
- *
- * ⚠️ **Amostragem uniforme é correta AQUI, e não era com quatro.** Com quatro
- * quadros os índices tinham de cair exatamente em passagem e contato, senão a
- * perna não casava com o chão. Com dezesseis a curva inteira é reproduzida, e
- * cada quadro cai onde tem de cair sozinho.
- */
-const QUADROS = Array.from(
-  { length: N },
-  (_, i) => Math.round(CICLO[0] + ((CICLO[1] - CICLO[0]) * i) / N) % 56,
-);
+/** Quadros na tira de parado. O `idle` é sutil; não precisa da mesma densidade. */
+const N_IDLE = 12;
 
 /**
  * A linha em que a SOLA tem de cair dentro da célula.
@@ -125,7 +108,13 @@ function decode(path) {
     else if (t === 'IEND') break;
     off += 12 + len;
   }
-  if (ct !== 6) throw new Error(`${path}: esperado RGBA, veio colorType ${ct}`);
+  /*
+   * ⚠️ Uma das folhas de 07/09 (`male idle_up`) veio em PNG de PALETA, e este
+   * decodificador só lê RGBA. Não é caso de ensinar paleta aqui: o
+   * `universal-fonte.mjs` já normaliza tudo com `-pix_fmt rgba`. Se este erro
+   * aparecer, o passo 1 não foi rodado.
+   */
+  if (ct !== 6) throw new Error(`${path}: esperado RGBA, veio colorType ${ct} — rode tools/universal-fonte.mjs`);
   const raw = inflateSync(Buffer.concat(idat));
   const stride = w * 4; const px = Buffer.alloc(h * stride);
   let q = 0;
@@ -167,14 +156,42 @@ function encode(w, h, px) {
 }
 
 // ---------------------------------------------------------------------------
+// Folha: a grade e quantos quadros ela realmente tem
+// ---------------------------------------------------------------------------
 
-/** Recorta o quadro `n` da folha (leitura em linha, `COLS` por fileira). */
-function recorta(img, n) {
-  const cx = (n % COLS) * CELL, cy = Math.floor(n / COLS) * CELL;
+/**
+ * Abre uma folha e conta os quadros COM CONTEÚDO.
+ *
+ * ⚠️ **A última fileira quase sempre vem incompleta** — o autosprite corta onde
+ * a animação acaba, não onde a grade fecha. `cols × linhas` daria 56 numa folha
+ * de 51 quadros, e os cinco vazios entrariam na tira como buracos.
+ */
+function abre(caminho) {
+  const img = decode(caminho);
+  const cols = Math.max(1, Math.round(img.w / CELL));
+  const linhas = Math.max(1, Math.round(img.h / CELL));
+  let ultimo = -1;
+  for (let n = 0; n < cols * linhas; n++) {
+    const cx = (n % cols) * CELL, cy = Math.floor(n / cols) * CELL;
+    let tem = false;
+    for (let y = cy; y < cy + CELL && !tem; y++) {
+      for (let x = cx; x < cx + CELL; x++) {
+        if (img.px[(y * img.w + x) * 4 + 3] > 8) { tem = true; break; }
+      }
+    }
+    if (tem) ultimo = n;
+  }
+  if (ultimo < 0) throw new Error(`${caminho}: folha vazia`);
+  return { img, cols, linhas, quadros: ultimo + 1, caminho };
+}
+
+/** Recorta o quadro `n` da folha (leitura em linha, `f.cols` por fileira). */
+function recorta(f, n) {
+  const cx = (n % f.cols) * CELL, cy = Math.floor(n / f.cols) * CELL;
   const out = Buffer.alloc(CELL * CELL * 4);
   for (let y = 0; y < CELL; y++) {
-    const de = ((cy + y) * img.w + cx) * 4;
-    img.px.copy(out, y * CELL * 4, de, de + CELL * 4);
+    const de = ((cy + y) * f.img.w + cx) * 4;
+    f.img.px.copy(out, y * CELL * 4, de, de + CELL * 4);
   }
   return out;
 }
@@ -191,14 +208,23 @@ function espelha(q) {
   return out;
 }
 
+/** Última linha com massa — a sola. */
+function chaoDe(q) {
+  for (let y = CELL - 1; y >= 0; y--) {
+    let n = 0;
+    for (let x = 0; x < CELL; x++) if (q[(y * CELL + x) * 4 + 3] > 8) n++;
+    if (n >= MIN_PX_LINHA) return y;
+  }
+  return -1;
+}
+
 /**
  * Centro horizontal dos PÉS — as `alturaPes` linhas logo acima da sola.
  *
  * 🔴 Existe por causa do ataque. A caminhada podia ser alinhada só na vertical
  * porque o corpo fica sempre no meio da célula; no golpe a ESPADA estende para
- * um lado e desloca a caixa de alpha inteira. Alinhar pelo centro do conteúdo
- * puxaria o corpo para trás toda vez que a lâmina saísse — o personagem
- * "recuaria" ao atacar. Os pés não mentem: eles ficam onde o personagem está.
+ * um lado e desloca a caixa de alpha inteira. Os pés não mentem: eles ficam
+ * onde o personagem está.
  */
 function centroDosPes(q, alturaPes = 10) {
   const chao = chaoDe(q);
@@ -212,14 +238,50 @@ function centroDosPes(q, alturaPes = 10) {
   return x1 < 0 ? CELL / 2 : (x0 + x1) / 2;
 }
 
-/** Última linha com massa — a sola. */
-function chaoDe(q) {
-  for (let y = CELL - 1; y >= 0; y--) {
-    let n = 0;
-    for (let x = 0; x < CELL; x++) if (q[(y * CELL + x) * 4 + 3] > 8) n++;
-    if (n >= MIN_PX_LINHA) return y;
+/** Abertura dos pés: largura do conteúdo nas 18 linhas acima da sola. */
+function aberturaDosPes(q) {
+  const chao = chaoDe(q);
+  if (chao < 0) return null;
+  let x0 = 1e9, x1 = -1;
+  for (let y = Math.max(0, chao - 18); y <= chao; y++) {
+    for (let x = 0; x < CELL; x++) {
+      if (q[(y * CELL + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+    }
   }
-  return -1;
+  return x1 < 0 ? null : x1 - x0;
+}
+
+/**
+ * 🔴 **QUANTOS CICLOS DE PASSADA a folha contém.** É a medida que substituiu a
+ * constante `CICLO = [0, 25]`.
+ *
+ * Uma passada completa tem **duas passagens** — uma por perna, o instante em
+ * que os pés se cruzam e a abertura é mínima. Contar as passagens e dividir por
+ * dois dá o número de ciclos, e daí o comprimento de um.
+ *
+ * ⚠️ O corte em 35 % da faixa é o que separa "passagem" de "ruído de
+ * reamostragem": a abertura cai a menos da metade na passagem, então qualquer
+ * corte entre 25 % e 50 % dá o mesmo resultado nas folhas de 07/09. Fora dessa
+ * folga o número mudaria, e por isso a contagem é IMPRESSA — quem trocar as
+ * folhas confere no log em vez de descobrir em tela.
+ *
+ * ⚠️ A janela dá a volta: uma passagem pode começar no fim da folha e terminar
+ * no começo, porque a folha é um loop fechado.
+ */
+function ciclosDe(f) {
+  const serie = [];
+  for (let n = 0; n < f.quadros; n++) serie.push(aberturaDosPes(recorta(f, n)));
+  const vals = serie.filter((v) => v !== null);
+  if (vals.length < 6) return { ciclos: 1, serie };
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const corte = lo + (hi - lo) * 0.35;
+  const baixo = serie.map((v) => v !== null && v <= corte);
+  let passagens = 0;
+  for (let i = 0; i < baixo.length; i++) {
+    const anterior = baixo[(i - 1 + baixo.length) % baixo.length];
+    if (baixo[i] && !anterior) passagens++;
+  }
+  return { ciclos: Math.max(1, Math.round(passagens / 2)), passagens, serie, lo, hi };
 }
 
 /**
@@ -235,9 +297,6 @@ function cola(tira, tiraW, q, col, row, dxPedido = 0) {
   for (let y = 0; y < CELL; y++) {
     const alvo = y + dy;
     if (alvo < 0 || alvo >= CELL) continue;
-    // ⚠️ Com `dx` a cópia deixa de ser uma linha inteira: cada pixel pode cair
-    // fora da célula, e deixá-lo entrar arrastaria o desenho para a coluna
-    // vizinha da tira.
     for (let x = 0; x < CELL; x++) {
       const ax = x + dx;
       if (ax < 0 || ax >= CELL) continue;
@@ -263,25 +322,15 @@ function metricas(px, w, h) {
 }
 
 // ---------------------------------------------------------------------------
-
-const ORIGEM = 'arte-fonte/universal';
-const DESTINO = 'client/public/assets/classes-universal';
-
-const folhas = {
-  down: decode(join(ORIGEM, 'walk_down.png')),
-  up: decode(join(ORIGEM, 'walk_up.png')),
-  right: decode(join(ORIGEM, 'walk_right.png')),
-  up_right: decode(join(ORIGEM, 'walk_up_right.png')),
-  down_right: decode(join(ORIGEM, 'walk_down_right.png')),
-};
+// Contrato de linhas
+// ---------------------------------------------------------------------------
 
 /**
  * 🔴 **A ORDEM DAS LINHAS É CONTRATO com `heroes.ts`.** Trocar duas faz o
  * personagem andar de costas para onde vai, e nada no motor tem como perceber.
  *
  * As quatro cardinais vêm primeiro: é o que uma tira de 4 linhas contém, e o
- * `fatia` decide entre 4 e 8 pela ALTURA da folha. Assim a mesma ordem serve aos
- * dois formatos.
+ * `fatia` decide entre 4 e 8 pela ALTURA da folha.
  */
 const LINHAS = [
   'down', 'up', 'right', 'left',
@@ -306,145 +355,174 @@ const FONTE = {
   down_left: ['down_right', true],
 };
 
-const tiraW = CELL * QUADROS.length;
-const tiraH = CELL * LINHAS.length;
-const tira = Buffer.alloc(tiraW * tiraH * 4);
-
-for (let row = 0; row < LINHAS.length; row++) {
-  const dir = LINHAS[row];
-  // ⚠️ A ESQUERDA é a direita espelhada. O autosprite entrega cinco direções
-  // (as três daqui mais duas diagonais), e nenhuma delas é a esquerda — num
-  // conjunto de 8 direções ela seria o espelho da direita, que é o que fazemos.
-  const [fonte, espelhado] = FONTE[dir];
-  QUADROS.forEach((n, col) => {
-    const bruto = recorta(folhas[fonte], n);
-    const q = espelhado ? espelha(bruto) : bruto;
-    cola(tira, tiraW, q, col, row);
-  });
-}
-
-mkdirSync(DESTINO, { recursive: true });
-writeFileSync(join(DESTINO, 'walk.png'), encode(tiraW, tiraH, tira));
-
-/**
- * O `idle` é o quadro de CONTATO — o índice 0 do ciclo, onde o pé está no chão.
- *
- * 🔴 Sem `idle` o motor congela no quadro 0 do `walk`, que aqui é uma
- * PASSAGEM: o boneco ficaria parado com as pernas no ar, no meio de um passo.
- * Um quadro de contato é a pose de pé.
- */
-const idleW = CELL, idleH = CELL * LINHAS.length;
-const idle = Buffer.alloc(idleW * idleH * 4);
-for (let row = 0; row < LINHAS.length; row++) {
-  const dir = LINHAS[row];
-  const [fonte, espelhado] = FONTE[dir];
-  const cru = recorta(folhas[fonte], QUADROS[0]);
-  const q = espelhado ? espelha(cru) : cru;
-  cola(idle, idleW, q, 0, row);
-}
-writeFileSync(join(DESTINO, 'idle.png'), encode(idleW, idleH, idle));
-
-/**
- * `pose.png` é o MESMO conteúdo do `idle`, com outro nome.
- *
- * ⚠️ Não é redundância à toa: `heroIconCss` monta o retrato do cartão da tela
- * de criação por CSS, e imagem de CSS que falta **não dá erro** — o cartão só
- * fica vazio. Emitir os dois nomes é mais barato que descobrir isso na tela.
- */
-writeFileSync(join(DESTINO, 'pose.png'), encode(idleW, idleH, idle));
+const DIRECOES = ['down', 'up', 'right', 'up_right', 'down_right'];
 
 // ---------------------------------------------------------------------------
-// ⚔️ GOLPE DE ESPADA
+// Montagem
 // ---------------------------------------------------------------------------
 
-/**
- * 🔴 **A folha do golpe vem em 256 px por célula — o DOBRO da caminhada.**
- * Medido: a sola cai em 220 contra 110, e o corpo tem 186 px contra 93. É o
- * mesmo personagem exportado com o dobro de resolução, provavelmente porque a
- * espada estendida não caberia em 128.
- *
- * Por isso a redução para 80 px é de 256 (fator 0,3125) e não de 128 — e o
- * corpo cai nos mesmos ~58 px da caminhada, que é o que faz o golpe não mudar
- * de tamanho no meio da luta.
- */
-const ATAQUE_COLS = 8;
+const ORIGEM = 'arte-fonte/universal';
+const DESTINO_BASE = 'client/public/assets/classes-universal';
 
 /**
- * 🔴 **A janela do golpe, MEDIDA pela extensão horizontal.** Ao longo dos 64
- * quadros a largura do conteúdo (a espada esticando) desenha o gesto:
+ * Monta as tiras de um sexo.
  *
- *   0–9    ~126–161  parado e recuando para armar
- *   10–25  ~163      espada erguida, PARADA (a folha segura a pose)
- *   26–31  151→202   o golpe começa a descer
- *   32–48  189–216   a lâmina estendida — o impacto
- *   49–55  196→124   recolhendo
- *   56–63  ~161      de volta ao repouso
- *
- * ⚠️ **Os quadros 10 a 25 são descartados de propósito.** São dezesseis quadros
- * de espada parada no ar: no jogo isso seria meio segundo de personagem
- * congelado antes de bater. O golpe útil é a janela abaixo.
+ * 🔴 O período da passada sai do PERFIL e as outras direções o herdam. Medir
+ * cada direção por si daria números diferentes de propósito errado: de frente a
+ * abertura dos pés quase não varia, e o corte cairia em ruído.
  */
-const ATAQUE_CICLO = [26, 54];
-/** Quantos quadros o golpe leva para a tira. */
-const ATAQUE_N = 8;
-const ATAQUE_QUADROS = Array.from(
-  { length: ATAQUE_N },
-  (_, i) => Math.round(ATAQUE_CICLO[0] + ((ATAQUE_CICLO[1] - ATAQUE_CICLO[0]) * i) / (ATAQUE_N - 1)),
-);
+function monta(sexo) {
+  const dir = join(ORIGEM, sexo);
+  if (!existsSync(dir)) { console.warn(`[strip] sem folhas para ${sexo}, pulado`); return null; }
 
-const golpe = decode(join(ORIGEM, 'attack_sword.png'));
-
-/** Recorta da folha do golpe, que tem `ATAQUE_COLS` colunas. */
-function recortaGolpe(n) {
-  const cx = (n % ATAQUE_COLS) * CELL, cy = Math.floor(n / ATAQUE_COLS) * CELL;
-  const out = Buffer.alloc(CELL * CELL * 4);
-  for (let y = 0; y < CELL; y++) {
-    const de = ((cy + y) * golpe.w + cx) * 4;
-    golpe.px.copy(out, y * CELL * 4, de, de + CELL * 4);
+  const walk = {};
+  const idle = {};
+  for (const d of DIRECOES) {
+    walk[d] = abre(join(dir, `walk_${d}.png`));
+    idle[d] = abre(join(dir, `idle_${d}.png`));
   }
-  return out;
+
+  // --- o período da passada, medido no perfil -------------------------------
+  const medida = ciclosDe(walk.right);
+  const passoPerfil = walk.right.quadros / medida.ciclos;
+  console.log(
+    `\n[${sexo}] perfil: ${walk.right.quadros} quadros · abertura ${medida.lo}–${medida.hi}px · ` +
+      `${medida.passagens} passagens → ${medida.ciclos} ciclo(s) · passada = ${passoPerfil.toFixed(1)} quadros`,
+  );
+
+  /** Os `N` índices de UM ciclo desta folha, amostrados uniformemente. */
+  const indicesDe = (f, quantos) => {
+    const ciclos = Math.max(1, Math.round(f.quadros / passoPerfil));
+    const passo = f.quadros / ciclos;
+    return {
+      ciclos,
+      passo,
+      idx: Array.from({ length: quantos }, (_, i) => Math.round((passo * i) / quantos) % f.quadros),
+    };
+  };
+
+  const destino = join(DESTINO_BASE, sexo);
+  mkdirSync(destino, { recursive: true });
+
+  // --- caminhada ------------------------------------------------------------
+  const tiraW = CELL * N;
+  const tiraH = CELL * LINHAS.length;
+  const tira = Buffer.alloc(tiraW * tiraH * 4);
+  for (let row = 0; row < LINHAS.length; row++) {
+    const [fonte, espelhado] = FONTE[LINHAS[row]];
+    const f = walk[fonte];
+    const { idx } = indicesDe(f, N);
+    idx.forEach((n, col) => {
+      const bruto = recorta(f, n);
+      cola(tira, tiraW, espelhado ? espelha(bruto) : bruto, col, row);
+    });
+  }
+  writeFileSync(join(destino, 'walk.png'), encode(tiraW, tiraH, tira));
+
+  for (const d of DIRECOES) {
+    const { ciclos, passo } = indicesDe(walk[d], N);
+    console.log(
+      `        walk_${d.padEnd(10)} ${String(walk[d].quadros).padStart(3)} quadros ` +
+        `= ${ciclos} ciclo(s) de ${passo.toFixed(1)}`,
+    );
+  }
+
+  // --- parado ---------------------------------------------------------------
+  /*
+   * ⚠️ O `idle` é tratado como UM loop fechado ao longo da folha inteira: ele
+   * não tem passada para medir (a abertura dos pés é constante — medido 74 px
+   * em todos os 56 quadros do `male idle_up`). Se um dia uma folha de idle vier
+   * com dois ciclos, a respiração sai no dobro da velocidade — visível, não
+   * quebrado, e o log abaixo denuncia pela contagem de quadros.
+   */
+  const idleW = CELL * N_IDLE;
+  const idleH = CELL * LINHAS.length;
+  const tiraIdle = Buffer.alloc(idleW * idleH * 4);
+  for (let row = 0; row < LINHAS.length; row++) {
+    const [fonte, espelhado] = FONTE[LINHAS[row]];
+    const f = idle[fonte];
+    for (let col = 0; col < N_IDLE; col++) {
+      const n = Math.round((f.quadros * col) / N_IDLE) % f.quadros;
+      const bruto = recorta(f, n);
+      cola(tiraIdle, idleW, espelhado ? espelha(bruto) : bruto, col, row);
+    }
+  }
+  writeFileSync(join(destino, 'idle.png'), encode(idleW, idleH, tiraIdle));
+  console.log(`        idle: ${DIRECOES.map((d) => `${d}=${idle[d].quadros}`).join(' ')}`);
+
+  /**
+   * `pose.png` é o quadro 0 do `idle`, com uma coluna só.
+   *
+   * ⚠️ Não é redundância à toa: `heroIconCss` monta o retrato do cartão da tela
+   * de criação por CSS, e imagem de CSS que falta **não dá erro** — o cartão só
+   * fica vazio. E ele precisa de UMA célula: apontar para a tira animada
+   * mostraria os doze quadros lado a lado dentro do retrato.
+   */
+  const poseW = CELL, poseH = CELL * LINHAS.length;
+  const pose = Buffer.alloc(poseW * poseH * 4);
+  for (let row = 0; row < LINHAS.length; row++) {
+    const [fonte, espelhado] = FONTE[LINHAS[row]];
+    const bruto = recorta(idle[fonte], 0);
+    cola(pose, poseW, espelhado ? espelha(bruto) : bruto, 0, row);
+  }
+  writeFileSync(join(destino, 'pose.png'), encode(poseW, poseH, pose));
+
+  // --- golpe ----------------------------------------------------------------
+  /*
+   * ⚠️ **O GOLPE SÓ EXISTE PARA O MASCULINO, e é herança.** A folha
+   * `attack_sword.png` é a de 07/09 de manhã, do personagem antigo, e continua
+   * na raiz de `arte-fonte/universal/`. O autosprite ainda não gerou golpe
+   * para nenhum dos dois personagens novos.
+   *
+   * 🔴 Isso significa que o masculino ataca com uma arte que pode não ser
+   * exatamente o mesmo boneco da caminhada nova, e o feminino **não ataca**: o
+   * `attackPoseFallback` do `heroes.ts` não acha `attack_sword` e o motor cai
+   * no pulinho de investida. Está registrado no HANDOFF.
+   */
+  const golpePath = join(ORIGEM, 'attack_sword.png');
+  if (sexo === 'male' && existsSync(golpePath)) {
+    const ATAQUE_COLS = 8;
+    const ATAQUE_CICLO = [26, 54];
+    const ATAQUE_N = 8;
+    const idxGolpe = Array.from(
+      { length: ATAQUE_N },
+      (_, i) => Math.round(ATAQUE_CICLO[0] + ((ATAQUE_CICLO[1] - ATAQUE_CICLO[0]) * i) / (ATAQUE_N - 1)),
+    );
+    const golpe = decode(golpePath);
+    const fGolpe = { img: golpe, cols: ATAQUE_COLS };
+    const refPes = centroDosPes(recorta(walk.down, 0));
+    const golpeW = CELL * ATAQUE_N, golpeH = CELL * LINHAS.length;
+    const tiraGolpe = Buffer.alloc(golpeW * golpeH * 4);
+    for (let row = 0; row < LINHAS.length; row++) {
+      idxGolpe.forEach((n, col) => {
+        const bruto = recorta(fGolpe, n);
+        const q = FONTE[LINHAS[row]][1] ? espelha(bruto) : bruto;
+        cola(tiraGolpe, golpeW, q, col, row, refPes - centroDosPes(q));
+      });
+    }
+    writeFileSync(join(destino, 'attack_sword.png'), encode(golpeW, golpeH, tiraGolpe));
+    console.log(`        attack_sword: ${ATAQUE_N} quadros (herdado da folha antiga, só de perfil)`);
+  } else if (sexo === 'female') {
+    console.log('        attack_sword: AUSENTE — o autosprite ainda não gerou golpe feminino');
+  }
+
+  const m = metricas(tira, tiraW, tiraH);
+  console.log(
+    `        tiras: walk ${tiraW}x${tiraH} · idle ${idleW}x${idleH} · pose ${poseW}x${poseH}`,
+  );
+  return m;
 }
 
-/**
- * O centro dos pés na CAMINHADA — a referência que o golpe tem de respeitar.
- *
- * 🔴 Sem isto o personagem dá um passo lateral ao atacar: as duas folhas foram
- * exportadas com o corpo em posições um pouco diferentes dentro da moldura, e a
- * diferença só aparece quando as duas animações se alternam.
- */
-const REF_PES_X = centroDosPes(recorta(folhas.down, QUADROS[0]));
-
-const golpeW = CELL * ATAQUE_N;
-const golpeH = CELL * LINHAS.length;
-const tiraGolpe = Buffer.alloc(golpeW * golpeH * 4);
-
-for (let row = 0; row < LINHAS.length; row++) {
-  const dir = LINHAS[row];
-  ATAQUE_QUADROS.forEach((n, col) => {
-    const bruto = recortaGolpe(n);
-    /*
-     * ⚠️ **A folha do golpe só tem o PERFIL.** As quatro linhas saem dela: a
-     * direita como veio, a esquerda espelhada, e cima/baixo **também de
-     * perfil** — como placeholder.
-     *
-     * 🔴 Isto é visível e é a maior limitação deste pack: atacar para cima ou
-     * para baixo mostra o personagem de lado. Consertar exige as folhas de
-     * frente e de costas do golpe, que o autosprite ainda não gerou. Está no
-     * HANDOFF.
-     */
-    const q = FONTE[dir][1] ? espelha(bruto) : bruto;
-    cola(tiraGolpe, golpeW, q, col, row, REF_PES_X - centroDosPes(q));
-  });
+const medidas = {};
+for (const sexo of ['male', 'female']) {
+  const m = monta(sexo);
+  if (m) medidas[sexo] = m;
 }
-writeFileSync(join(DESTINO, 'attack_sword.png'), encode(golpeW, golpeH, tiraGolpe));
 
-const m = metricas(tira, tiraW, tiraH);
-console.log(`walk.png          ${tiraW}x${tiraH}  (${QUADROS.length} quadros x ${LINHAS.length} direcoes)`);
-console.log(`idle.png          ${idleW}x${idleH}`);
-console.log(`attack_sword.png  ${golpeW}x${golpeH}  (${ATAQUE_N} quadros, dos ${ATAQUE_CICLO[0]}-${ATAQUE_CICLO[1]} da folha)`);
-console.log('');
-console.log('Para o PACK em client/src/heroes.ts:');
-console.log(`  cell: ${CELL}, contentH: ${m.alturaConteudo}, feetY: ${GROUND_Y}, ` +
-  `centerX: ${m.centroX}, targetH: ${m.alturaConteudo},`);
-console.log('');
-console.log(`(topo do conteudo na celula: ${m.topo}; sola garantida em ${GROUND_Y})`);
+console.log('\nPara o PACK em client/src/heroes.ts:');
+for (const [sexo, m] of Object.entries(medidas)) {
+  console.log(
+    `  ${sexo.padEnd(7)} cell: ${CELL}, contentH: ${m.alturaConteudo}, feetY: ${GROUND_Y}, ` +
+      `centerX: ${m.centroX}, targetH: ${m.alturaConteudo},   (topo do conteudo: ${m.topo})`,
+  );
+}

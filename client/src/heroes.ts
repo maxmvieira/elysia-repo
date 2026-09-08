@@ -25,7 +25,10 @@
  */
 
 import { Assets, Rectangle, Texture } from 'pixi.js';
-import { attackPoseFallback, type AttackPose, type Hold, type PlayerClass } from '@dominion/shared';
+import {
+  attackPoseFallback, GENDERS,
+  type AttackPose, type Gender, type Hold, type PlayerClass,
+} from '@dominion/shared';
 import { loadImage, type DirAnim } from './miniworld.js';
 
 // ---- Outfit: recolorir por GRUPO -------------------------------------------
@@ -255,16 +258,32 @@ const PACK_ANTIGO: Pack = {
  * há escala em tempo de desenho, que é o melhor caso e o que evita o serrilhado
  * que custou a sessão de 10/08.
  *
- * ⚠️ **É um pack de TESTE, e está incompleto de propósito:** só tem `walk` e
- * `idle`. Não há golpe nem morte, então atacar não anima e morrer não tomba —
- * o `attackPoseFallback` não tem o que escolher. É o bastante para ver o
- * personagem andando no mundo, que é o que o dono pediu.
+ * ⚠️ **Está incompleto de propósito:** tem `walk`, `idle` e — só no masculino —
+ * `attack_sword`. Não há morte, então morrer não tomba.
+ *
+ * 🔴 **DUAS VARIANTES DE SEXO desde 2026-09-07.** O dono gerou o personagem
+ * feminino no autosprite e pediu os dois no jogo. A tira de cada um mora em
+ * `classes-universal/<sexo>/`, e o `base` é a ÚNICA coisa que muda: as medidas
+ * saíram idênticas nos dois (`contentH` 67, `centerX` 39,5, topo em 9), o que o
+ * `universal2strip.mjs` imprime a cada build para conferência.
  */
 const PACK_UNIVERSAL: Pack = {
-  base: '/assets/classes-universal',
+  base: '/assets/classes-universal/male',
   arteUnica: true,
   cell: 80, contentH: 67, feetY: 74, centerX: 39.5, targetH: 67,
 };
+
+/**
+ * O pack universal apontando para a pasta do sexo.
+ *
+ * ⚠️ Só o masculino tem `attack_sword`. A feminina cai no `fatiaOpcional`, que
+ * devolve `undefined` sem erro, e o motor volta ao pulinho de investida — o
+ * mesmo caminho de qualquer classe sem golpe.
+ */
+const universalDoSexo = (gender: Gender): Pack => ({
+  ...PACK_UNIVERSAL,
+  base: `/assets/classes-universal/${gender}`,
+});
 
 /**
  * ⚠️ **TODAS as classes apontam para o universal desde 2026-09-09.** Foi pedido
@@ -283,7 +302,19 @@ const PACK_DA_CLASSE: Partial<Record<PlayerClass, Pack>> = {
   druid: PACK_UNIVERSAL,
 };
 
-const packDe = (cls: PlayerClass): Pack => PACK_DA_CLASSE[cls] ?? PACK_PIXELLAB;
+/**
+ * O pack desta classe, na variante deste sexo.
+ *
+ * 🔴 Só o universal tem variante de sexo. Os packs antigos (PixelLab e o
+ * original) têm um corpo só, e receber `gender` não os muda — é de propósito:
+ * inventar uma pasta `female/` que não existe deixaria a classe sem arte, e
+ * imagem que falta cai calada no MiniWorld.
+ */
+const packDe = (cls: PlayerClass, gender: Gender = 'male'): Pack => {
+  const pack = PACK_DA_CLASSE[cls];
+  if (!pack) return PACK_PIXELLAB;
+  return pack === PACK_UNIVERSAL ? universalDoSexo(gender) : pack;
+};
 
 /** Uma classe com arte HD carregada. */
 export interface HeroArt {
@@ -437,11 +468,13 @@ const COM_CAMADA: ReadonlySet<PlayerClass> = new Set<PlayerClass>([]);
 
 export const temCamada = (cls: PlayerClass): boolean => COM_CAMADA.has(cls);
 
-async function carregaClasse(cls: PlayerClass, outfit: Outfit | null): Promise<HeroArt | null> {
+async function carregaClasse(
+  cls: PlayerClass, outfit: Outfit | null, gender: Gender = 'male',
+): Promise<HeroArt | null> {
   // ⚠️ O pack em camadas ganha do pack da classe: quem tem corpo desarmado tem
   // que ler o corpo desarmado, senão a arma seria desenhada duas vezes. Ele usa
   // as medidas do PixelLab porque saiu dele — mesma célula, mesmo chão.
-  const pack = COM_CAMADA.has(cls) ? { ...PACK_PIXELLAB, base: BASE_LAYERED } : packDe(cls);
+  const pack = COM_CAMADA.has(cls) ? { ...PACK_PIXELLAB, base: BASE_LAYERED } : packDe(cls, gender);
   // 🔴 `arteUnica` dispensa a subpasta da classe: a mesma tira serve as cinco.
   const p = (nome: string) => (pack.arteUnica
     ? `${pack.base}/${nome}.png`
@@ -572,22 +605,44 @@ export async function loadEquipArt(cls: PlayerClass): Promise<Partial<Record<Equ
   return fora;
 }
 
-/**
- * Carrega a arte HD de todas as classes que tiverem pack. Classe sem arte
- * simplesmente não aparece no mapa devolvido, e o chamador cai no MiniWorld.
- */
-export async function loadHeroArt(
-  outfit: Outfit | null = outfitDaUrl(),
-): Promise<Partial<Record<PlayerClass, HeroArt>>> {
-  const artes = await Promise.all(COM_ARTE.map((c) => carregaClasse(c, outfit).catch(() => null)));
-  const out: Partial<Record<PlayerClass, HeroArt>> = {};
+/** Arte HD por classe. Classe ausente do mapa cai no MiniWorld. */
+export type ArtePorClasse = Partial<Record<PlayerClass, HeroArt>>;
+
+async function carregaTodas(outfit: Outfit | null, gender: Gender): Promise<ArtePorClasse> {
+  const artes = await Promise.all(
+    COM_ARTE.map((c) => carregaClasse(c, outfit, gender).catch(() => null)),
+  );
+  const out: ArtePorClasse = {};
   COM_ARTE.forEach((c, i) => {
     const a = artes[i];
     if (a) out[c] = a;
   });
-  const nomes = Object.keys(out);
-  if (nomes.length) console.log(`[heroes] arte HD carregada: ${nomes.join(', ')}.`);
-  else console.warn('[heroes] nenhuma arte de classe encontrada — usando MiniWorld.');
+  return out;
+}
+
+/**
+ * Carrega a arte HD de todas as classes, **nos dois sexos**.
+ *
+ * 🔴 Os dois são carregados de uma vez, e não sob demanda, porque o mundo é
+ * MULTIJOGADOR: o sexo que importa não é o do jogador local, é o de cada
+ * entidade no snapshot. Carregar só o próprio deixaria o personagem do outro
+ * sem arte no instante em que ele aparecesse na tela — e imagem que falta cai
+ * calada no MiniWorld, sem erro para investigar.
+ *
+ * ⚠️ O custo é pequeno porque o pack é `arteUnica`: as cinco classes
+ * compartilham a mesma tira, então são **duas** tiras no total, não dez.
+ */
+export async function loadHeroArt(
+  outfit: Outfit | null = outfitDaUrl(),
+): Promise<Record<Gender, ArtePorClasse>> {
+  const porSexo = await Promise.all(GENDERS.map((g) => carregaTodas(outfit, g)));
+  const out = {} as Record<Gender, ArtePorClasse>;
+  GENDERS.forEach((g, i) => { out[g] = porSexo[i] ?? {}; });
+  for (const g of GENDERS) {
+    const nomes = Object.keys(out[g]);
+    if (nomes.length) console.log(`[heroes] arte HD (${g}) carregada: ${nomes.join(', ')}.`);
+    else console.warn(`[heroes] nenhuma arte de classe para ${g} — usando MiniWorld.`);
+  }
   return out;
 }
 
@@ -643,11 +698,11 @@ const ARMA_DO_RETRATO: Partial<Record<PlayerClass, EquipPiece>> = {
  * porque o herói ocupa quase toda a célula de 64 e já fica legível no tamanho
  * do cartão.
  */
-export function heroIconCss(cls: PlayerClass, boxPx: number): string {
+export function heroIconCss(cls: PlayerClass, boxPx: number, gender: Gender = 'male'): string {
   // 🔴 A célula sai do PACK DA CLASSE, não de uma constante do módulo. Desde que
   // o Knight voltou ao pack antigo (60 px) e as outras três seguem no PixelLab
   // (64), um número fixo aqui recortaria o retrato de alguém pela metade.
-  const pack = COM_CAMADA.has(cls) ? { ...PACK_PIXELLAB, base: BASE_LAYERED } : packDe(cls);
+  const pack = COM_CAMADA.has(cls) ? { ...PACK_PIXELLAB, base: BASE_LAYERED } : packDe(cls, gender);
   const s = boxPx / pack.cell;
   const peca = COM_CAMADA.has(cls) ? ARMA_DO_RETRATO[cls] : undefined;
   // 🔴 `arteUnica` também vale aqui. Sem isto o cartão da classe apontaria

@@ -6,29 +6,50 @@
 
 ## ⏸️ O QUE ESTÁ NO AR AGORA
 
-**Personagem universal** (autosprite.io) substituindo as cinco classes, com:
+**Personagem universal** (autosprite.io) substituindo as cinco classes, agora em
+**dois sexos** (07/09 à noite):
 
-| | |
-|---|---|
-| Caminhada | **8 direções**, 16 quadros de ciclo |
-| Golpe | `attack_sword`, 8 quadros — ⚠️ **só de perfil** |
-| Parado | `idle` / `pose` |
-| Escala | 1,0× (célula 80, conteúdo 67, sola em 74) |
-| Ferramenta | `tools/universal2strip.mjs` |
+| | masculino | feminino |
+|---|---|---|
+| Caminhada | 8 direções, 16 quadros | 8 direções, 16 quadros |
+| Parado | `idle` animado, 12 quadros | `idle` animado, 12 quadros |
+| Golpe | `attack_sword`, 8 quadros — ⚠️ só de perfil | 🔴 **não tem** |
+| Morte | 🔴 não tem | 🔴 não tem |
 
-⚠️ **Sem morte.** Morrer não tomba; atacar para cima/baixo mostra o personagem
-de lado.
+Escala 1,0× nos dois (célula 80, conteúdo 67, sola em 74 — medidas idênticas).
+Ferramentas: **`tools/universal-fonte.mjs`** (reduz as folhas) e
+**`tools/universal2strip.mjs`** (monta as tiras). Rodar nessa ordem.
+
+🔴 **O sexo troca o sprite de verdade**, e é o de cada entidade (`e.gender`), não
+o do jogador local — numa tela com dois jogadores os dois corpos aparecem.
+
+⚠️ **Sem morte nos dois.** Morrer não tomba; atacar para cima/baixo mostra o
+personagem de lado; e a **feminina não ataca** — cai no pulinho de investida.
+
+🔴 **O ciclo do passo deixou de ser constante e passou a ser MEDIDO.** As folhas
+novas vêm com 29 **ou** 55 quadros, e as de 55 trazem **duas passadas**. Amostrar
+a folha inteira daria dois passos por tile num sexo e um no outro. O conversor
+conta as passagens dos pés no perfil e deriva o período — imprime tudo a cada
+build. Detalhe no `HISTORICO`, bloco de 07/09 (noite).
 
 ## 🎯 A PRÓXIMA COISA — três frentes abertas
 
 ### 1. Folhas que faltam (o dono gera no autosprite.io)
 
-Ele tem conta e vai gerar. **Peça sempre só o lado DIREITO** — o conversor
-espelha o esquerdo.
+✅ **`walk` e `idle` chegaram nos dois sexos em 07/09 à noite** — 20 folhas, já
+convertidas e no jogo. Falta:
 
-- ⚔️ **golpe:** frente, costas, frente-direita, costas-direita (4 folhas)
-- 💀 **morte:** as 5 direções
-- Padrão por personagem: **5 folhas por animação**
+- ⚔️ **golpe:** frente, costas, frente-direita, costas-direita **nos dois**, e a
+  feminina não tem golpe nenhum (5 folhas dela + 4 dele)
+- 💀 **morte:** as 5 direções, nos dois
+
+**Peça sempre só o lado DIREITO** — o conversor espelha o esquerdo. Padrão por
+personagem: **5 folhas por animação**.
+
+⚠️ **Não precisa mais medir a célula na mão.** O `universal-fonte.mjs` mede a
+grade por arquivo e reduz para 80 px. Ele já engoliu, no mesmo lote, folhas de
+256 px, uma de **768** e uma em **PNG de paleta** — as três teriam quebrado o
+pipeline antigo, e a de 768 daria um personagem três vezes maior.
 
 ⚠️ As folhas vêm em **128 px OU 256 px por célula** — o golpe veio em 256, o
 dobro das caminhadas. Medir antes de converter: a sola em 220 contra 110 é o

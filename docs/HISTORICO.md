@@ -9,7 +9,91 @@ decisões de design ficaram travadas por teste.
 
 ---
 
-## 2026-09-09 (noite) — As 8 direções voltam, e desta vez a causa foi consertada
+## 2026-09-07 (noite) — A personagem FEMININA entra, e o ciclo do passo deixa de ser constante
+
+**Onde mora:** `tools/universal-fonte.mjs` (novo) · `tools/universal2strip.mjs`
+(reescrito) · `universalDoSexo`, `packDe` e `loadHeroArt` em
+`client/src/heroes.ts` · o sítio de desenho em `client/src/main.ts` ·
+`arte-fonte/universal/{male,female}/` · `client/public/assets/classes-universal/{male,female}/`
+
+### 🔴 O bug que quase entrou, e que não daria erro nenhum
+
+O dono trouxe vinte folhas novas do autosprite — `idle` e `walk`, cinco
+direções, **dois sexos**. O conversor tinha o ciclo do passo **cravado em
+constante** (`CICLO = [0, 25]`), medido à mão numa folha de 56 quadros. As
+folhas novas quebram essa premissa de três jeitos:
+
+| | |
+|---|---|
+| A contagem de quadros varia por FOLHA | 29 ou 55 |
+| Varia entre os SEXOS na mesma direção | `walk_down` tem 55 no masculino e 29 no feminino |
+| Algumas trazem DOIS ciclos | 55 quadros = duas passadas |
+
+🔴 **É o terceiro que mata.** Amostrar 16 quadros ao longo de uma folha de dois
+ciclos daria **dois passos por tile** contra um passo do outro sexo — a
+personagem feminina andaria com as pernas no dobro da frequência. Nada disso dá
+erro: sai arte "quase certa".
+
+### A medida que substituiu a constante
+
+Uma passada tem **duas passagens** — o instante em que os pés se cruzam e a
+abertura é mínima. Contando as passagens e dividindo por dois sai o número de
+ciclos. Medido:
+
+```
+[male]   perfil: 29 quadros · 2 passagens → 1 ciclo · passada = 29,0 quadros
+[female] perfil: 55 quadros · 4 passagens → 2 ciclos · passada = 27,5 quadros
+```
+
+⚠️ **Só o PERFIL serve para medir.** De lado a abertura vai de 42 a 110 px; **de
+frente varia 9 px** (31 a 40), porque as pernas se movem em direção à câmera. As
+outras quatro direções herdam o período do perfil, e cada folha calcula seus
+próprios ciclos por `quadros / passada`.
+
+### O passo de redução saiu da mão e virou ferramenta
+
+`universal-fonte.mjs` é novo e existe porque **as folhas não vinham todas na
+mesma célula**:
+
+| folha | célula | grade |
+|---|---|---|
+| dezoito delas | 256 | 8 × n |
+| `male idle_right` | **768** | 7 × 4 |
+| `male idle_up` | 256 | 8 × 7, e em **PNG de PALETA** |
+
+Escalar as vinte pelo mesmo fator deixaria uma com o personagem **três vezes
+maior** — a versão adulta da armadilha que o HANDOFF já registrava ("a sola em
+220 contra 110 é o sinal"). A grade agora é medida por arquivo, contando faixas
+vazias de alpha: `2048/8 = 256` e `2048/16 = 128` são os dois inteiros, e só o
+desenho diz qual é o certo.
+
+### O sexo volta a trocar o desenho
+
+O comentário que estava em `main.ts` dizia, desde agosto: *"o dia em que houver
+variante feminina, é aqui que ela volta a trocar o desenho"*. Era hoje.
+
+🔴 **É o sexo DA ENTIDADE (`e.gender`), nunca o do jogador local.** O campo já
+existia no `EntitySnapshot` e já vinha resolvido três linhas acima do sítio de
+desenho — só não era usado. Numa tela com dois jogadores, usar `selfGender`
+desenharia o outro com o corpo errado.
+
+⚠️ `loadHeroArt` passou a carregar **os dois sexos de uma vez**, e não sob
+demanda, pelo mesmo motivo. O custo é pequeno porque o pack é `arteUnica`: são
+duas tiras no total, não dez.
+
+### O que NÃO entrou
+
+- **A feminina não ataca.** O autosprite não gerou golpe para ela; o
+  `fatiaOpcional` devolve `undefined` sem erro e o motor cai no pulinho de
+  investida.
+- **Nenhum dos dois morre.** Continua sem folha de morte.
+- ✅ O golpe do masculino é herdado da folha de 07/09 de manhã, e **conferido em
+  tela: é o mesmo boneco** da caminhada nova — cabelo prateado, roupa marrom.
+  Era o risco que a reescrita deixou anotado, e não se confirmou.
+
+---
+
+## 2026-09-07 (noite) — As 8 direções voltam, e desta vez a causa foi consertada
 
 **Onde mora:** `DIRECTIONS`, `CARDINAL_OF` e `directionFromDelta` em
 `shared/src/constants.ts` · `DirAnim` em `client/src/miniworld.ts` · `framesFor`
