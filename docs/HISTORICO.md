@@ -9,6 +9,65 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-07 (madrugada) — A animação do Fire Bolt, e a folha que não é grade
+
+**Onde mora:** `tools/fx2strip.mjs` (novo) · `arte-fonte/fx/firebolt.png` ·
+`client/public/assets/fx/firebolt.png` · `quedas`, `spawnQueda` e o `case 'hit'`
+em `client/src/main.ts`
+
+### 🔴 A folha de origem NÃO é uma grade
+
+É desenho gerado por IA: os quadros ficam lado a lado, mas cada um tem a sua
+largura e o espaçamento muda ao longo da fita. Medido:
+
+```
+1774 x 887   larguras 38..131 px   espaçamento 88..151 px
+```
+
+Cortar por célula fixa — o que **todos** os outros conversores deste projeto
+fazem — daria meio quadro por célula a partir do quinto.
+
+### As três decisões que fazem a animação sobreviver ao corte
+
+🔴 **1. Uma ESCALA só para todos os quadros.** A bola cresce enquanto cai, e o
+impacto é largo. Normalizar cada quadro para preencher a célula apagaria
+exatamente isso: a bola ficaria do mesmo tamanho do começo ao fim.
+
+🔴 **2. Uma JANELA VERTICAL só, comum a todos.** A bola desce dentro do quadro —
+é o que faz ler como queda. Recortar cada um na própria caixa e centralizar
+mataria o movimento: a chama ficaria parada enquanto só a forma mudasse.
+
+⚠️ **3. Faixas quase coladas são o MESMO quadro.** Na dissipação as brasas se
+soltam da chama e abrem um vão DENTRO do quadro — o mesmo defeito que a flecha
+do arco causou horas antes. Medido: vãos entre quadros de **21 a 57 px**, vão
+interno de **2 px**. O corte ficou em 10, e a contagem fechou em 16.
+
+Saída: `1024 x 64`, dezesseis células de 64.
+
+### Uma queda por IMPACTO — a contagem sai de graça
+
+O servidor manda um `hit` por impacto, e o `fire_bolt` solta um bolt por nível.
+Então o cliente **não precisa saber o nível de ninguém**: golpe com
+`element: 'fire'` faz cair uma bola sobre o alvo, e dez impactos fazem dez.
+
+⚠️ Os impactos da mesma conjuração chegam no MESMO pacote. Sem defasagem as dez
+bolas cairiam empilhadas e pareceriam uma — daí o contador de rajada, com 90 ms
+entre bolas.
+
+⚠️ Ancorada em baixo e no centro: nos últimos quadros a explosão fica na base da
+célula, e é ela que tem de cair no tile. Ancorar no meio deixaria o estouro meio
+tile acima do alvo.
+
+⚠️ A tira é carregada **sem `await`**: é enfeite, e travar a entrada no mundo
+por causa dela seria trocar efeito por tempo de carga. Faltando, nada anima e o
+dano continua igual.
+
+⚠️ **Não foi visto em jogo ainda** — exige conjurar com um Feiticeiro contra uma
+criatura. O que está conferido é a tira (16 quadros, 1024×64) e que o cliente
+compila e serve o arquivo.
+
+---
+
 ## 2026-09-07 (madrugada) — Fire Bolt: um bolt por nível
 
 **Onde mora:** `fire_bolt` em `shared/src/skills.ts`

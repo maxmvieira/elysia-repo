@@ -12,7 +12,7 @@
  */
 
 import {
-  AnimatedSprite, Application, Container, Graphics, Rectangle, Sprite, Text, Texture,
+  AnimatedSprite, Application, Assets, Container, Graphics, Rectangle, Sprite, Text, Texture,
   type FederatedPointerEvent,
 } from 'pixi.js';
 import {
@@ -1656,6 +1656,74 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // Efeitos de magia (giro do Vendaval, corte do Dash): expandem e somem.
   const spellFx: Array<{ node: Container; t: number; dur: number; kind: string }> = [];
 
+  /**
+   * 🔥 **FIRE BOLT — bolas de fogo caindo do céu.**
+   *
+   * 🔴 **É queda, não projétil, e a diferença é de desenho de jogo.** Até
+   * 07/09 o Fire Bolt era um círculo voando da mão do conjurador até o alvo em
+   * 180 ms. A arte que o dono trouxe é a do Ragnarok: a bola aparece no céu,
+   * cai, estoura no chão e dissipa. Por isso ela nasce ACIMA do alvo e não tem
+   * origem no conjurador.
+   *
+   * 🔴 **Uma queda por IMPACTO.** O `fire_bolt` solta um bolt por nível
+   * (`hits: 1 → hitsAtLv10: 10`, ver `shared/src/skills.ts`), e o servidor
+   * manda um `hit` por impacto. Então a contagem sai de graça: o cliente não
+   * precisa saber o nível de ninguém.
+   *
+   * ⚠️ Os impactos chegam no MESMO pacote, então sem defasagem as dez bolas
+   * cairiam empilhadas e pareceriam uma. `ESPACO_QUEDA` abre o leque.
+   */
+  const quedas: Array<{ node: AnimatedSprite; atraso: number; morto: boolean }> = [];
+  let fireboltFrames: Texture[] | null = null;
+  /** Duração de uma queda inteira, do céu à dissipação. */
+  const DUR_QUEDA = 620;
+  /** Intervalo entre uma bola e a seguinte, na mesma conjuração. */
+  const ESPACO_QUEDA = 90;
+  /** Quantas bolas já caíram nesta rajada, para defasar as próximas. */
+  let quedasNaRajada = 0;
+  let tiqueDaRajada = 0;
+
+  /*
+   * ⚠️ Carregada em paralelo, sem `await`: a tira é enfeite, e travar a entrada
+   * no mundo por causa dela seria trocar um efeito por um tempo de carga. Se
+   * faltar, `fireboltFrames` fica nulo e nada acontece — o dano continua
+   * igual, que é o que importa.
+   */
+  void Assets.load<Texture>('/assets/fx/firebolt.png')
+    .then((tex) => {
+      tex.source.scaleMode = 'nearest';
+      const n = Math.max(1, Math.round(tex.width / 64));
+      fireboltFrames = Array.from({ length: n }, (_, i) => new Texture({
+        source: tex.source,
+        frame: new Rectangle(i * 64, 0, 64, 64),
+      }));
+    })
+    .catch(() => { /* sem a tira o Fire Bolt não anima; rode tools/fx2strip.mjs */ });
+
+  /**
+   * Solta uma bola de fogo caindo sobre um ponto do mundo.
+   *
+   * ⚠️ Ancorada em BAIXO e no centro (`anchor(0.5, 1)`): nos últimos quadros a
+   * explosão fica na base da célula, e é ela que tem de cair no tile. Ancorar
+   * no meio deixaria o estouro meio tile acima do alvo.
+   */
+  function spawnQueda(wx: number, wy: number, atraso: number): void {
+    if (!fireboltFrames) return;
+    const node = new AnimatedSprite(fireboltFrames);
+    node.loop = false;
+    node.anchor.set(0.5, 1);
+    node.x = wx;
+    node.y = wy;
+    node.zIndex = 9999;
+    node.visible = false;
+    // Quadros por tique de 60 Hz para a animação inteira durar `DUR_QUEDA`.
+    node.animationSpeed = fireboltFrames.length / (DUR_QUEDA / (1000 / 60));
+    fxLayer.addChild(node);
+    const q = { node, atraso, morto: false };
+    node.onComplete = () => { q.morto = true; };
+    quedas.push(q);
+  }
+
   let myId: string | null = null;
   let myFloor = map.spawn.floor;
   let myTileX = map.spawn.x;
@@ -2660,6 +2728,30 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           if (!msg.dot) {
             const magia = msg.element !== undefined && msg.element !== 'physical';
             sprites.get(msg.attackerId)?.playAttack?.(magia);
+            /*
+             * 🔥 Golpe de FOGO faz cair uma bola do céu sobre o alvo. Um `hit`
+             * = uma bola, então a contagem do Fire Bolt (um bolt por nível)
+             * sai sozinha, sem o cliente saber o nível de ninguém.
+             *
+             * ⚠️ Os impactos da mesma conjuração chegam no MESMO pacote. Sem
+             * defasagem as dez bolas cairiam empilhadas e pareceriam uma só —
+             * daí o contador de rajada, que zera quando passa tempo demais
+             * entre dois golpes para serem a mesma.
+             */
+            if (msg.element === 'fire') {
+              const alvo = sprites.get(msg.targetId);
+              if (alvo) {
+                const agora = performance.now();
+                if (agora - tiqueDaRajada > ESPACO_QUEDA * 2) quedasNaRajada = 0;
+                tiqueDaRajada = agora;
+                spawnQueda(
+                  alvo.container.x + TS / 2,
+                  alvo.container.y + TS,
+                  quedasNaRajada * ESPACO_QUEDA,
+                );
+                quedasNaRajada++;
+              }
+            }
           }
           const view = sprites.get(msg.targetId);
           if (view) {
@@ -6267,6 +6359,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       if (r >= 1) {
         p.node.destroy();
         projectiles.splice(i, 1);
+      }
+    }
+
+    // Bolas de fogo caindo. O atraso é o que abre o leque entre uma e outra.
+    for (let i = quedas.length - 1; i >= 0; i--) {
+      const q = quedas[i]!;
+      if (q.atraso > 0) {
+        q.atraso -= dt;
+        if (q.atraso <= 0) {
+          q.node.visible = true;
+          q.node.play();
+        }
+      }
+      if (q.morto) {
+        q.node.destroy();
+        quedas.splice(i, 1);
       }
     }
 
