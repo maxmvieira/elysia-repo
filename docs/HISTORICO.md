@@ -9,6 +9,63 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-08 — A MIRA: a magia passa a cair onde o cursor aponta
+
+**Onde mora:** `castRange`/`castRangeEvery`, `skillCastRange` e `skillMiraNoChao`
+em `shared/src/skills.ts` · `C2S_Cast` em `shared/src/protocol.ts` · `Mira`,
+`castSpell`, `executeSpell` e `plantaArea` em `server/src/index.ts` ·
+`magiaArmada`, `pintaMira` e `castSpellId` em `client/src/main.ts` ·
+`#spellcursor` em `client/index.html`
+
+Decisão do dono: *"o círculo seguindo o mouse"*. A tecla passa a **armar** a
+magia; o clique manda o ponto.
+
+### 🔴 O achado que mudou o desenho: `range` significa DUAS coisas
+
+Nas magias de alvo único, `range` é a **distância de lançamento**. Nas de área,
+é o **raio do estouro**. Enquanto a área saía centrada no mago os dois nunca se
+encontraram — mas mirar exige os dois números ao mesmo tempo.
+
+Sem um campo novo, uma Chuva de Meteoros de raio 2 só poderia ser mirada a 2
+tiles: praticamente em cima do próprio mago. Daí `castRange`, com padrão **6** e
++1 a cada 3 níveis — o mesmo ritmo das bolas.
+
+⚠️ O tooltip passou a mostrar **os dois**: *"raio 2 · lançar até 6"*. Mostrar só
+um deixaria o jogador achando que a magia só pega o que está colado nele.
+
+### A marca é um QUADRADO, não um círculo
+
+🔴 O jogo mede distância em **Chebyshev**: raio 2 pega um bloco 5×5, não um
+disco. O círculo que o pedido descreve mostraria cantos de fora que na verdade
+são atingidos, e bordas dentro que não são. A marca desenha os tiles reais.
+
+Alvo único continua com o círculo pequeno — lá é um tile só, e o círculo não
+mente.
+
+### As decisões de borda
+
+⚠️ **O tile mirado ganha do alvo travado.** Quem clicou num monstro com a magia
+armada apontou para ELE. E a busca do alvo é no SERVIDOR, pelo tile: o cliente
+manda a posição, não o id, e assim não dá para mirar algo que já morreu.
+
+⚠️ **A mira é guardada com a conjuração**, não relida no fim. Uma magia de 2 s
+apontada num ponto tem de cair NAQUELE ponto — reler o mouse no impacto deixaria
+mover o estouro depois de já ter começado.
+
+⚠️ **Os três campos do `cast` são opcionais.** Sem mira, o servidor volta ao
+comportamento antigo: alvo travado para alvo único, os próprios pés para área.
+Cliente desatualizado continua funcionando.
+
+⚠️ **`self` e `party` continuam saindo na tecla** — não há para onde mirar, e
+exigir um clique seria burocracia.
+
+⚠️ O clique com magia armada vem **antes** do construtor e dos tiles clicáveis:
+quem armou apontou para aquele ponto, e sair andando até lá seria o oposto. E
+desarma mesmo se o servidor recusar, senão o clique seguinte conjuraria sem
+querer.
+
+---
+
 ## 2026-09-08 — As regras de conjuração: alcance por nível, cooldown global e bolt a bolt
 
 **Onde mora:** `gcdUntil`, `GCD_MAGIA_MS`, `marcaConjuracao`, `golpesPendentes`,

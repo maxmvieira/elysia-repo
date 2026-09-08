@@ -204,6 +204,8 @@ import {
   skillPointsAtLevel,
   skillPower,
   skillRange,
+  skillCastRange,
+  skillMiraNoChao,
   skillResetCost,
   skillThreshold,
   skillTotalCost as skillTotalCostOf,
@@ -395,11 +397,30 @@ interface ActiveHot {
  * durante os 3 s da Chuva de Meteoros, a magia sai onde ele mandou sair. O
  * contrário faria a conjuração longa virar uma loteria.
  */
+/**
+ * Para onde o jogador apontou a magia.
+ *
+ * 🔴 Tudo opcional: sem mira o servidor volta ao comportamento antigo — alvo
+ * selecionado para alvo único, os próprios pés para área. É o que mantém um
+ * cliente desatualizado funcionando.
+ */
+interface Mira {
+  targetId?: string;
+  tileX?: number;
+  tileY?: number;
+}
+
 interface Casting {
   skillId: SkillId;
   endsAt: number;
   /** Alvo escolhido no início (criatura ou jogador). */
   targetId: string | null;
+  /**
+   * ⚠️ A mira é guardada com a conjuração, não relida no fim. Uma magia de 2 s
+   * apontada num ponto tem de cair NAQUELE ponto — reler o mouse no impacto
+   * deixaria o jogador mover o estouro depois de já ter começado a conjurar.
+   */
+  mira: Mira;
   /** Onde o personagem estava — sair do tile cancela. */
   fromX: number;
   fromY: number;
@@ -3340,7 +3361,7 @@ function marcaConjuracao(player: Player, def: SkillDef, now: number): void {
   if (def.magic) player.gcdUntil = now + GCD_MAGIA_MS;
 }
 
-function castSpell(player: Player, def: SkillDef, now: number): void {
+function castSpell(player: Player, def: SkillDef, now: number, mira: Mira = {}): void {
   const nivel = skillLevelOf(player.skillLevels, def.id);
   if (!isSkillUsable(def, player.cls.id, player.skillLevels)) {
     send(player, { t: 'denied', reason: `Você ainda não aprendeu ${def.name}.` });
@@ -3414,16 +3435,32 @@ function castSpell(player: Player, def: SkillDef, now: number): void {
    * ⚠️ A mana só é debitada no FIM. Cancelar uma conjuração não custa nada além
    * do tempo perdido — cobrar por uma magia que não saiu seria punir duas vezes.
    */
+  /*
+   * 🔴 **A DISTÂNCIA DA MIRA é validada aqui, antes de gastar qualquer coisa.**
+   *
+   * Vale para as magias apontadas no chão; as de alvo único já são conferidas
+   * mais adiante, contra a posição da criatura. O número vem de
+   * `skillCastRange` — que nas de área NÃO é o `range`, porque lá ele é o raio.
+   */
+  if (skillMiraNoChao(def) && mira.tileX !== undefined && mira.tileY !== undefined) {
+    const limite = skillCastRange(def, nivel);
+    if (chebyshev(player.tileX, player.tileY, mira.tileX, mira.tileY) > limite) {
+      send(player, { t: 'denied', reason: `Longe demais (alcance ${limite}).` });
+      return;
+    }
+  }
+
   const castMs = skillCastMs(def, nivel, skillLevelOf(player.skillLevels, 'cast_mastery'));
   if (castMs > 0) {
     player.casting = {
-      skillId: def.id, endsAt: now + castMs, targetId: player.targetId,
+      skillId: def.id, endsAt: now + castMs, targetId: mira.targetId ?? player.targetId,
+      mira,
       fromX: player.tileX, fromY: player.tileY,
     };
     send(player, { t: 'casting', spell: def.id, ms: castMs });
     return;
   }
-  executeSpell(player, def, now, player.targetId);
+  executeSpell(player, def, now, mira.targetId ?? player.targetId, mira);
 }
 
 /**
@@ -3456,10 +3493,10 @@ function tickCasting(now: number): void {
       continue;
     }
     if (now < p.casting.endsAt) continue;
-    const { skillId, targetId } = p.casting;
+    const { skillId, targetId, mira } = p.casting;
     p.casting = null;
     send(p, { t: 'casting', spell: null, ms: 0 });
-    executeSpell(p, SKILLS[skillId], now, targetId);
+    executeSpell(p, SKILLS[skillId], now, targetId, mira);
   }
 }
 
@@ -3474,7 +3511,9 @@ function tickCasting(now: number): void {
  * aliado, depois o chão, e por último as ofensivas — que são as únicas que
  * precisam juntar criaturas.
  */
-function executeSpell(player: Player, def: SkillDef, now: number, targetId: string | null): void {
+function executeSpell(
+  player: Player, def: SkillDef, now: number, targetId: string | null, mira: Mira = {},
+): void {
   const nivel = skillLevelOf(player.skillLevels, def.id);
   // 🥷 Lido AQUI, antes de qualquer coisa: o Ataque Oculto quebra a própria
   // furtividade que o bonifica, então perguntar depois daria sempre "não".
@@ -3566,7 +3605,7 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
 
   // --- Área persistente no chão --------------------------------------------
   if (def.shape === 'ground') {
-    plantaArea(player, def, nivel, now, custoMana);
+    plantaArea(player, def, nivel, now, custoMana, mira);
     return;
   }
 
@@ -3576,7 +3615,24 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
   // não sai (e o jogador não perde mana nem cooldown por um clique no vazio).
   const targets: Creature[] = [];
   if (def.shape === 'target') {
-    const target = targetId ? creatures.get(targetId) : undefined;
+    /*
+     * 🔴 **O TILE MIRADO GANHA do alvo selecionado.** Quem clicou num monstro
+     * com a magia armada apontou para ELE, mesmo tendo outro alvo travado — o
+     * contrário faria a magia sair para o lado, e o jogador não teria como
+     * saber por quê.
+     *
+     * ⚠️ A busca é no SERVIDOR de propósito: ele é dono das posições. O cliente
+     * manda o tile, não o id, e assim não dá para mirar uma criatura que já
+     * morreu ou que está noutro andar.
+     */
+    let target: Creature | undefined;
+    if (mira.tileX !== undefined && mira.tileY !== undefined) {
+      for (const c of creatures.values()) {
+        if (c.alive && c.floor === player.floor
+          && c.tileX === mira.tileX && c.tileY === mira.tileY) { target = c; break; }
+      }
+    }
+    if (!target) target = targetId ? creatures.get(targetId) : undefined;
     if (!target || !target.alive || target.floor !== player.floor) {
       send(player, { t: 'denied', reason: 'Escolha um alvo primeiro.' });
       return;
@@ -3587,9 +3643,19 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
     }
     targets.push(target);
   } else {
+    /*
+     * 🔴 **O CENTRO DA ÁREA É A MIRA, não mais o mago** (08/09). Até aqui toda
+     * magia de área estourava em volta de quem lançou; agora ela cai onde o
+     * jogador apontou, e o `alcance` volta a significar só o RAIO do estouro.
+     *
+     * ⚠️ Sem mira, o centro continua sendo o próprio jogador — é o caminho de
+     * um cliente antigo, e o comportamento de antes.
+     */
+    const cx = mira.tileX ?? player.tileX;
+    const cy = mira.tileY ?? player.tileY;
     for (const c of creatures.values()) {
       if (!c.alive || c.floor !== player.floor) continue;
-      if (chebyshev(player.tileX, player.tileY, c.tileX, c.tileY) <= alcance) targets.push(c);
+      if (chebyshev(cx, cy, c.tileX, c.tileY) <= alcance) targets.push(c);
     }
     if (targets.length === 0) {
       send(player, { t: 'denied', reason: 'Nenhum inimigo ao alcance.' });
@@ -3603,9 +3669,10 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
      * jogador veria dez monstros no raio e a flecha acertando os do outro lado.
      */
     if (def.maxTargets && targets.length > def.maxTargets) {
+      // ⚠️ Ordena pela distância ao CENTRO DA ÁREA, não ao mago: com a mira
+      // longe, os mais perto dele não são os que estão dentro do estouro.
       targets.sort((a, b) =>
-        chebyshev(player.tileX, player.tileY, a.tileX, a.tileY)
-        - chebyshev(player.tileX, player.tileY, b.tileX, b.tileY));
+        chebyshev(cx, cy, a.tileX, a.tileY) - chebyshev(cx, cy, b.tileX, b.tileY));
       targets.length = def.maxTargets;
     }
   }
@@ -3900,6 +3967,7 @@ function plantaArea(
   nivel: number,
   now: number,
   custoMana: number,
+  mira: Mira = {},
 ): void {
   const g = def.ground;
   if (!g) return;
@@ -3938,8 +4006,9 @@ function plantaArea(
     skillId: def.id,
     ownerId: player.id,
     kind: g.kind,
-    x: player.tileX,
-    y: player.tileY,
+    // 🔴 Plantada na MIRA (08/09). Sem mira, aos pés do jogador — o de antes.
+    x: mira.tileX ?? player.tileX,
+    y: mira.tileY ?? player.tileY,
     floor: player.floor,
     radius: raio,
     expiresAt: now + duracao,
@@ -5585,7 +5654,9 @@ function handleMessage(player: Player, msg: ClientMessage): void {
         send(player, { t: 'denied', reason: 'Habilidade desconhecida.' });
         return;
       }
-      castSpell(player, def, Date.now());
+      castSpell(player, def, Date.now(), {
+        targetId: msg.targetId, tileX: msg.tileX, tileY: msg.tileY,
+      });
       break;
     }
     case 'skillup': {

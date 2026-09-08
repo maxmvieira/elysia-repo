@@ -372,6 +372,24 @@ export interface C2S_Cast {
   t: 'cast';
   /** Id da habilidade (ver SKILLS em skills.ts). */
   spell: string;
+  /**
+   * 🔴 **A MIRA** — para onde o jogador apontou (08/09).
+   *
+   * Antes disso o `cast` só levava o id: o servidor usava o alvo já
+   * selecionado e as áreas estouravam **centradas no próprio mago**. Agora o
+   * cliente arma a magia, o círculo segue o mouse e o clique manda o ponto.
+   *
+   * ⚠️ **Os três são opcionais, e isso é compatibilidade, não descuido.** Um
+   * cliente antigo — ou um atalho que dispare sem mirar — continua mandando só
+   * o `spell`, e o servidor cai no comportamento de antes: alvo selecionado
+   * para alvo único, os próprios pés para área.
+   *
+   * ⚠️ O servidor **revalida tudo**: distância, andar e se o alvo existe. A
+   * mira é intenção do cliente, nunca autoridade.
+   */
+  targetId?: string;
+  tileX?: number;
+  tileY?: number;
 }
 
 /**

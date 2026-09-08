@@ -325,6 +325,20 @@ export interface SkillDef {
   range: number;
   /** A cada quantos níveis o raio cresce em 1 tile (só área). 0 = nunca. */
   rangeEvery: number;
+  /**
+   * 🔴 **A que DISTÂNCIA o jogador pode mirar** — só para as magias de área e
+   * de chão, e não confunda com `range`.
+   *
+   * Nas magias de alvo único `range` **é** a distância de lançamento. Nas de
+   * área ele é o **raio** do estouro, então a distância de mira precisa de um
+   * número próprio: sem ele, uma Chuva de Meteoros de raio 2 só poderia ser
+   * mirada a 2 tiles, o que é praticamente em cima do próprio mago.
+   *
+   * Ausente = `CAST_RANGE_PADRAO`, e cresce como as bolas: +1 a cada
+   * `castRangeEvery` níveis (3, se omitido).
+   */
+  castRange?: number;
+  castRangeEvery?: number;
   /** Duração do efeito em ms (debuffs/posturas). 0 quando não se aplica. */
   durationMs: number;
   /** Efeito visual disparado no cliente. */
@@ -3130,6 +3144,38 @@ export function skillManaCost(def: SkillDef, nivel: number): number {
 export function skillRange(def: SkillDef, nivel: number): number {
   if (def.rangeEvery <= 0) return def.range;
   return def.range + Math.floor(Math.max(0, nivel - 1) / def.rangeEvery);
+}
+
+/**
+ * Distância de mira padrão das magias de área e de chão, no Lv.1.
+ *
+ * ⚠️ É o mesmo 6 do Fire Bolt, e é escolha de projeto: a vantagem do mago é a
+ * distância, e ela vale para o arsenal inteiro, não só para as bolas. Cada
+ * magia pode sobrescrever com `castRange` quando merecer número próprio.
+ */
+export const CAST_RANGE_PADRAO = 6;
+/** A cada quantos níveis a distância de mira cresce 1 tile, se não declarado. */
+export const CAST_RANGE_EVERY_PADRAO = 3;
+
+/**
+ * 🔴 **A que distância esta magia pode ser MIRADA, no nível informado.**
+ *
+ * Nas de alvo único e de aliado, é o próprio `range` — lá ele já significa
+ * distância. Nas de área e de chão, `range` é o RAIO, e a distância sai de
+ * `castRange`. Misturar os dois foi o erro que este helper existe para
+ * impedir: são duas perguntas diferentes com a mesma unidade.
+ */
+export function skillCastRange(def: SkillDef, nivel: number): number {
+  if (def.shape === 'target' || def.shape === 'ally') return skillRange(def, nivel);
+  if (def.shape === 'self') return 0;
+  const base = def.castRange ?? CAST_RANGE_PADRAO;
+  const passo = def.castRangeEvery ?? CAST_RANGE_EVERY_PADRAO;
+  return passo <= 0 ? base : base + Math.floor(Math.max(0, nivel - 1) / passo);
+}
+
+/** A magia é MIRADA num ponto (área/chão) em vez de num alvo? */
+export function skillMiraNoChao(def: SkillDef): boolean {
+  return def.shape === 'area' || def.shape === 'ground';
 }
 
 /** Duração do efeito no nível informado. Fixa quando não há `durationAtLv10`. */

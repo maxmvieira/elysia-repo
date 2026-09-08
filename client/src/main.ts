@@ -82,6 +82,8 @@ import {
   skillManaCost,
   skillPower,
   skillRange,
+  skillCastRange,
+  skillMiraNoChao,
   skillUpgradeCost,
   stanceDamagePenalty,
   stanceDamageReduction,
@@ -4707,14 +4709,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const efetivo = Math.max(1, nivel);
     const alvo = def.shape === 'self'
       ? 'Em você mesmo'
+      // ⚠️ Área mostra os DOIS números, e eles são coisas diferentes: o raio é
+      // o tamanho do estouro, o alcance é até onde dá para mirar. Mostrar só um
+      // deixaria o jogador achando que a magia só pega o que está colado nele.
       : def.shape === 'area'
-        ? `Área · raio ${skillRange(def, efetivo)}`
+        ? `Área · raio ${skillRange(def, efetivo)} · lançar até ${skillCastRange(def, efetivo)}`
         : def.shape === 'ally'
           ? `Um aliado · alcance ${skillRange(def, efetivo)}`
           : def.shape === 'party'
             ? `Você e os aliados · raio ${skillRange(def, efetivo)}`
             : def.shape === 'ground'
-              ? `No chão sob você · raio ${skillRange(def, efetivo)}`
+              ? `No chão · raio ${skillRange(def, efetivo)} · lançar até ${skillCastRange(def, efetivo)}`
               : `Alvo único · alcance ${skillRange(def, efetivo)}`;
     const req: string[] = [];
     if (def.reqLevel > 1) req.push(`nível ${def.reqLevel}`);
@@ -4868,13 +4873,93 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     localStorage.setItem(SPELLBAR_POS_KEY, JSON.stringify({ left: r.left, top: r.top }));
   });
 
+  // ---- 🎯 MIRA DE MAGIA (08/09) -------------------------------------------
+  //
+  // 🔴 Antes, apertar a tecla CONJURAVA na hora: o servidor usava o alvo já
+  // travado e as áreas estouravam centradas no próprio mago. Agora a tecla
+  // ARMA a magia, o marcador segue o mouse, e o clique manda o ponto.
+  //
+  // ⚠️ Magia de si mesmo (`self`) e de grupo (`party`) continuam saindo na
+  // tecla: não há para onde mirar, e obrigar um clique seria burocracia.
+
+  /** Id da magia armada, esperando o clique. */
+  let magiaArmada: SkillId | null = null;
+  const miraLabel = el('spellcursor');
+  const miraMarca = new Graphics();
+  miraMarca.zIndex = 9998;
+  miraMarca.visible = false;
+  fxLayer.addChild(miraMarca);
+
+  const precisaMira = (def: SkillDef): boolean =>
+    def.shape !== 'self' && def.shape !== 'party';
+
+  function desarmaMagia(): void {
+    magiaArmada = null;
+    miraLabel.style.display = 'none';
+    miraMarca.visible = false;
+    viewportEl.style.cursor = '';
+  }
+
+  /**
+   * Redesenha a marca da mira no tile apontado.
+   *
+   * 🔴 **A área é um QUADRADO, e não um círculo, porque o jogo mede distância
+   * em Chebyshev** — o raio 2 pega um bloco 5×5, não um disco. Desenhar o
+   * círculo que o desenho pede mostraria cantos de fora que na verdade são
+   * atingidos, e bordas dentro que não são. A marca mostra os tiles reais.
+   */
+  function pintaMira(clientX: number, clientY: number, tx: number, ty: number): void {
+    if (!magiaArmada) return;
+    const def = SKILLS[magiaArmada];
+    const nivel = Math.max(1, skillLevels[magiaArmada] ?? 1);
+    const limite = skillCastRange(def, nivel);
+    const dist = Math.max(Math.abs(tx - myTileX), Math.abs(ty - myTileY));
+    const fora = dist > limite;
+
+    miraLabel.style.left = `${clientX + 14}px`;
+    miraLabel.style.top = `${clientY + 18}px`;
+    miraLabel.innerHTML = fora
+      ? `${def.name} <span class="fora">· longe demais</span>`
+      : `${def.name}`;
+
+    const raio = skillMiraNoChao(def) ? skillRange(def, nivel) : 0;
+    const cor = fora ? 0xd98a7a : 0xffc46b;
+    const px = tx * TS;
+    const py = ty * TS;
+    miraMarca.clear();
+    if (raio > 0) {
+      const lado = (raio * 2 + 1) * TS;
+      miraMarca
+        .rect(px - raio * TS, py - raio * TS, lado, lado)
+        .fill({ color: cor, alpha: 0.12 })
+        .stroke({ color: cor, width: 1.5, alpha: 0.85 });
+    } else {
+      // Alvo único: círculo pequeno no tile, como o dono pediu.
+      miraMarca
+        .circle(px + TS / 2, py + TS / 2, TS * 0.42)
+        .stroke({ color: cor, width: 2, alpha: 0.9 });
+    }
+    miraMarca.visible = true;
+  }
+
   /** Manda a intenção de usar. Quem valida (mana/cooldown/alvo) é o servidor. */
-  function castSpellId(id: SkillId): void {
+  function castSpellId(id: SkillId, mira?: { tileX: number; tileY: number }): void {
     if ((skillLevels[id] ?? 0) <= 0) {
       logChat(`Você ainda não aprendeu <b>${SKILLS[id].name}</b> — abra as Skills (tecla K).`, 'sys');
       return;
     }
-    net.send({ t: 'cast', spell: id });
+    const def = SKILLS[id];
+    if (!mira && precisaMira(def)) {
+      // Apertar a tecla da magia já armada desarma — é o jeito de desistir sem
+      // tirar a mão do teclado.
+      if (magiaArmada === id) { desarmaMagia(); return; }
+      magiaArmada = id;
+      miraLabel.style.display = 'block';
+      miraLabel.textContent = def.name;
+      viewportEl.style.cursor = 'crosshair';
+      return;
+    }
+    net.send({ t: 'cast', spell: id, ...(mira ? { tileX: mira.tileX, tileY: mira.tileY } : {}) });
   }
 
   /**
@@ -5533,7 +5618,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       chatInputEl.focus();
       ev.preventDefault();
     }
-    if (ev.key === 'Escape') clearTarget();
+    // ⚠️ Esc desarma a magia ANTES de largar o alvo: com uma magia na mão, o
+    // que o jogador quer cancelar é ela, não a mira de ataque básico.
+    if (ev.key === 'Escape') {
+      if (magiaArmada) desarmaMagia();
+      else clearTarget();
+    }
     if (ev.code === 'KeyC') cpEl.style.display = cpEl.style.display === 'block' ? 'none' : 'block';
     if (ev.code === 'KeyK') {
       // `flex`, não `block`: o painel virou coluna flex para o rodapé ficar
@@ -5605,6 +5695,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   viewportEl.addEventListener('mousemove', (ev) => {
     const t = tileDoEvento(ev);
     const dentro = t.x >= 0 && t.y >= 0 && t.x < map.width && t.y < map.height;
+    if (magiaArmada) {
+      // ⚠️ Com magia armada o contorno de caminhada some: dois marcadores no
+      // mesmo tile disputariam a leitura, e quem está mirando não vai andar.
+      hoverMark.visible = false;
+      if (dentro) pintaMira(ev.clientX, ev.clientY, t.x, t.y);
+      else miraMarca.visible = false;
+      return;
+    }
     // Só destaca onde clicar REALMENTE anda: o contorno prometendo caminhada num
     // tile de parede, de monstro ou de NPC seria mentira visual.
     hoverMark.visible = dentro
@@ -5630,6 +5728,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (performance.now() - fimDoArrasteDeChao < 250) return;
     const t = tileDoEvento(ev);
     if (t.x < 0 || t.y < 0 || t.x >= map.width || t.y >= map.height) return;
+    /*
+     * 🔴 **Magia armada: o clique CONJURA e não anda.** Tem de vir antes de
+     * tudo, inclusive do construtor e dos tiles clicáveis — quem armou a magia
+     * apontou para aquele ponto, e sair andando até lá seria o oposto.
+     *
+     * ⚠️ Desarma mesmo quando o servidor recusar (longe demais, sem mana): a
+     * recusa chega por `denied` e o jogador vê a mensagem. Manter a magia
+     * armada depois do clique faria o próximo clique conjurar sem querer.
+     */
+    if (magiaArmada) {
+      const id = magiaArmada;
+      desarmaMagia();
+      castSpellId(id, { tileX: t.x, tileY: t.y });
+      return;
+    }
     /*
      * 🔴 **Com o construtor ABERTO, o clique vira conta-gotas e não caminhada.**
      *
