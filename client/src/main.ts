@@ -1670,18 +1670,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * manda um `hit` por impacto. Então a contagem sai de graça: o cliente não
    * precisa saber o nível de ninguém.
    *
-   * ⚠️ Os impactos chegam no MESMO pacote, então sem defasagem as dez bolas
-   * cairiam empilhadas e pareceriam uma. `ESPACO_QUEDA` abre o leque.
+   * ⚠️ **O espaçamento entre as bolas é do SERVIDOR**, não daqui. Ele manda um
+   * `hit` por bolt, separados por `INTERVALO_BOLT_MS` — o dano cai junto com
+   * cada bola, que foi o pedido do dono. O cliente só desenha o que chega.
+   *
+   * 🔴 Houve uma versão com defasagem no cliente, e ela ficou errada assim que
+   * o servidor passou a espaçar: os dois atrasos se somavam, e a última bola
+   * caía quase um segundo depois do próprio dano. O campo `atraso` continua
+   * existindo porque a estrutura serve para outros efeitos, mas o Fire Bolt
+   * passa zero.
    */
   const quedas: Array<{ node: AnimatedSprite; atraso: number; morto: boolean }> = [];
   let fireboltFrames: Texture[] | null = null;
   /** Duração de uma queda inteira, do céu à dissipação. */
   const DUR_QUEDA = 620;
-  /** Intervalo entre uma bola e a seguinte, na mesma conjuração. */
-  const ESPACO_QUEDA = 90;
-  /** Quantas bolas já caíram nesta rajada, para defasar as próximas. */
-  let quedasNaRajada = 0;
-  let tiqueDaRajada = 0;
 
   /*
    * ⚠️ Carregada em paralelo, sem `await`: a tira é enfeite, e travar a entrada
@@ -2740,17 +2742,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
              */
             if (msg.element === 'fire') {
               const alvo = sprites.get(msg.targetId);
-              if (alvo) {
-                const agora = performance.now();
-                if (agora - tiqueDaRajada > ESPACO_QUEDA * 2) quedasNaRajada = 0;
-                tiqueDaRajada = agora;
-                spawnQueda(
-                  alvo.container.x + TS / 2,
-                  alvo.container.y + TS,
-                  quedasNaRajada * ESPACO_QUEDA,
-                );
-                quedasNaRajada++;
-              }
+              /*
+               * 🔴 Sem atraso do lado do cliente: **quem espaça os bolts é o
+               * SERVIDOR** desde 08/09 — o Fire Bolt do nível 10 manda dez
+               * `hit` separados no tempo, um por bolt que desce. Somar um
+               * atraso aqui empilharia dois espaçamentos e a última bola cairia
+               * um segundo depois do próprio dano.
+               */
+              if (alvo) spawnQueda(alvo.container.x + TS / 2, alvo.container.y + TS, 0);
             }
           }
           const view = sprites.get(msg.targetId);

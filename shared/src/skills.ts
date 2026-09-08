@@ -1376,7 +1376,10 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     powerPerLevel: 0.07,
     shape: 'target',
     range: 6,
-    rangeEvery: 0,
+    // 🔴 +1 tile a cada 3 níveis (dono, 08/09): a vantagem do mago é a
+    // distância, e ela precisa crescer junto com a habilidade. Lv.1 alcança 6,
+    // Lv.10 alcança 9 — "um pouco mais longe", não o dobro.
+    rangeEvery: 3,
     durationMs: 0,
     magic: true,
     damageType: 'fire',
@@ -1559,7 +1562,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     powerPerLevel: 0.14,
     shape: 'target',
     range: 6,
-    rangeEvery: 0,
+    // Cresce como o Fire Bolt: +1 tile a cada 3 níveis. Ver a nota lá.
+    rangeEvery: 3,
     durationMs: 0,
     magic: true,
     damageType: 'ice',
@@ -1728,7 +1732,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     powerPerLevel: 0.05,
     shape: 'target',
     range: 5,
-    rangeEvery: 0,
+    // Cresce como o Fire Bolt: +1 tile a cada 3 níveis. Ver a nota lá.
+    rangeEvery: 3,
     durationMs: 0,
     magic: true,
     damageType: 'electric',

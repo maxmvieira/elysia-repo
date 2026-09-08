@@ -489,6 +489,20 @@ interface Player {
   magicProtection: boolean;
   /** Cooldown das habilidades: id -> timestamp em que fica pronta de novo. */
   spellReadyAt: Record<string, number>;
+  /**
+   * 🔴 **Cooldown GLOBAL de conjuração** — até quando nenhuma MAGIA sai.
+   *
+   * Pedido do dono em 08/09: *"cooldown de 1 seg logo após lançar, para não
+   * jogar 2-3-4 magias ao mesmo tempo"*. O cooldown por habilidade não segura
+   * isso: cada magia tem o seu, então dava para encadear Fire Bolt + Cold Bolt
+   * + Bola de Raio no mesmo instante e despejar três rajadas de uma vez.
+   *
+   * ⚠️ Vale só para `magic: true`, de propósito. Um cooldown global de verdade
+   * atingiria também as habilidades do Knight e do Assassino, que ninguém pediu
+   * para mexer — e mudar o ritmo do corpo a corpo de carona seria alterar o
+   * combate de três classes por causa de um pedido sobre magia.
+   */
+  gcdUntil: number;
   /** Skill Points não gastos e nível de cada habilidade aprendida. */
   skillPoints: number;
   skillLevels: SkillLevels;
@@ -3221,6 +3235,111 @@ function playerAttackPlayer(player: Player, alvo: Player, now: number): void {
  * O dano das habilidades do Knight é FÍSICO (sai do `physAtk` e é reduzido
  * pela defesa do monstro) — o custo delas é a mana, não o tipo de dano.
  */
+/** Quanto tempo nenhuma outra MAGIA sai, depois de uma conjuração. */
+const GCD_MAGIA_MS = 1000;
+
+/** Intervalo entre um bolt e o seguinte, na mesma conjuração. */
+const INTERVALO_BOLT_MS = 140;
+
+/**
+ * Golpes de magia que ainda vão cair.
+ *
+ * 🔴 O Fire Bolt do nível 10 são **dez impactos separados no tempo**, um por
+ * bolt que desce. Só o primeiro sai no tique do lançamento; os outros esperam
+ * aqui e são resolvidos por `tickGolpesPendentes`.
+ *
+ * ⚠️ **Cada um revalida no momento de cair.** Entre o lançamento e o último
+ * bolt passa mais de um segundo: a criatura pode morrer, o jogador pode morrer
+ * ou trocar de andar. Nada disso pode virar dano fantasma.
+ */
+interface GolpePendente {
+  playerId: string;
+  creatureId: string;
+  skillId: SkillId;
+  nivel: number;
+  poderBase: number;
+  critChance: number;
+  critMult: number;
+  quando: number;
+}
+const golpesPendentes: GolpePendente[] = [];
+
+/**
+ * Um golpe de magia caindo numa criatura. Extraído do laço de `executeSpell`
+ * para o impacto adiado usar EXATAMENTE o mesmo cálculo do imediato — duas
+ * cópias divergiriam no primeiro ajuste de fórmula.
+ */
+function aplicaGolpeDeMagia(
+  player: Player, def: SkillDef, nivel: number, c: Creature,
+  poderBase: number, critChance: number, critMult: number, now: number,
+): void {
+  if (!c.alive) return;
+  // Execução escala com o quanto o alvo já está ferido.
+  const poder = def.kind === 'execution'
+    ? poderBase * executionMultiplier(nivel, c.hp / c.maxHp)
+    : poderBase;
+  const { amount, crit } = computeHit(poder, critChance, critMult);
+  // A Ruptura abre a defesa ANTES do próprio golpe entrar.
+  if (def.kind === 'rupture') {
+    c.defBreakUntil = now + def.durationMs;
+    c.defBreakPct = ruptureDefReduction(nivel);
+  }
+  /**
+   * 🔴 **Quem decide a rota do dano é o `damageType`, não o `magic`.**
+   *
+   * Os dois campos respondem perguntas diferentes — `magic` diz de qual ATAQUE
+   * o poder sai, `damageType` diz contra qual DEFESA ele bate.
+   */
+  const tipo = def.damageType ?? 'physical';
+  const dano = def.magic || tipo !== 'physical'
+    ? Math.max(1, Math.round(resolveDamage(
+      amount, tipo, creatureDefenseProfile(c, now, player, tipo !== 'physical'),
+    ).amount))
+    : Math.max(1, Math.round(amount - creatureDefense(c, now, player)));
+  applyLifeSteal(player, dano);
+  // 🔴 `tipo` viaja até o cliente: é o que faz o gesto de conjurar tocar e as
+  // bolas do Fire Bolt caírem. Sem ele o golpe chega "físico" e o cliente
+  // anima uma espadada.
+  damageCreature(player, c, dano, crit, now, tipo);
+}
+
+/** Resolve os bolts cuja hora chegou. Roda no tique do mundo. */
+function tickGolpesPendentes(now: number): void {
+  if (golpesPendentes.length === 0) return;
+  // Separa em vez de remover no meio do laço: assim os impactos saem na ORDEM
+  // em que foram agendados, mesmo quando dois vencem no mesmo tique.
+  const prontos = golpesPendentes.filter((g) => now >= g.quando);
+  if (prontos.length === 0) return;
+  for (let i = golpesPendentes.length - 1; i >= 0; i--) {
+    if (now >= golpesPendentes[i]!.quando) golpesPendentes.splice(i, 1);
+  }
+  for (const g of prontos) {
+    const player = players.get(g.playerId);
+    const c = creatures.get(g.creatureId);
+    if (!player || !player.alive || !c || !c.alive || c.floor !== player.floor) continue;
+    aplicaGolpeDeMagia(
+      player, SKILLS[g.skillId], g.nivel, c, g.poderBase, g.critChance, g.critMult, now,
+    );
+  }
+}
+
+/**
+ * Marca os dois cooldowns de uma conjuração que DEU CERTO.
+ *
+ * 🔴 Existe para os dois andarem juntos. Havia cinco pontos no arquivo
+ * gravando o cooldown da habilidade — um por tipo de magia (buff, chão, área,
+ * alvo…) — e acrescentar o global à mão em cinco lugares é o tipo de coisa que
+ * fica certa em quatro e errada no quinto, sem dar erro.
+ *
+ * ⚠️ Só é chamada depois de a magia sair. Marcar antes puniria quem apertou a
+ * tecla sem alvo válido: a habilidade nem sai, e o jogador ficaria um segundo
+ * sem poder conjurar por causa de um clique no vazio.
+ */
+function marcaConjuracao(player: Player, def: SkillDef, now: number): void {
+  player.spellReadyAt[def.id] = now + def.cooldownMs;
+  if (def.magic) player.gcdUntil = now + GCD_MAGIA_MS;
+}
+
 function castSpell(player: Player, def: SkillDef, now: number): void {
   const nivel = skillLevelOf(player.skillLevels, def.id);
   if (!isSkillUsable(def, player.cls.id, player.skillLevels)) {
@@ -3247,6 +3366,19 @@ function castSpell(player: Player, def: SkillDef, now: number): void {
   const readyAt = player.spellReadyAt[def.id] ?? 0;
   if (now < readyAt) {
     send(player, { t: 'denied', reason: `${def.name} recarregando (${((readyAt - now) / 1000).toFixed(1)}s).` });
+    return;
+  }
+  /*
+   * 🔴 O cooldown GLOBAL de magia. Vem depois do cooldown da própria
+   * habilidade de propósito: a mensagem mais útil é a da magia que o jogador
+   * apertou, e só quando ELA está pronta é que o limite global explica por que
+   * ainda não saiu.
+   */
+  if (def.magic && now < player.gcdUntil) {
+    send(player, {
+      t: 'denied',
+      reason: `Conjurando rápido demais (${((player.gcdUntil - now) / 1000).toFixed(1)}s).`,
+    });
     return;
   }
   if (player.mana < skillManaCost(def, nivel)) {
@@ -3359,7 +3491,7 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
   // --- Habilidades que agem sobre o próprio personagem -----------------------
   if (def.kind === 'stance') {
     player.stance = !player.stance;
-    player.spellReadyAt[def.id] = now + def.cooldownMs;
+    marcaConjuracao(player, def, now);
     recompute(player);
     send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
     send(player, {
@@ -3373,7 +3505,7 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
     // ✨ Proteção Mágica: liga e desliga, sem duração. Quem a desliga é o
     // jogador ou a falta de mana (ver `absorveComProtecaoMagica`).
     player.magicProtection = !player.magicProtection;
-    player.spellReadyAt[def.id] = now + def.cooldownMs;
+    marcaConjuracao(player, def, now);
     send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
     send(player, {
       t: 'chat', from: 'Sistema',
@@ -3479,7 +3611,7 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
   }
 
   player.mana -= custoMana;
-  player.spellReadyAt[def.id] = now + def.cooldownMs;
+  marcaConjuracao(player, def, now);
   send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
   // 🥷 Qualquer habilidade OFENSIVA quebra a furtividade — o bônus do Ataque
   // Oculto já foi lido em `estavaOculto`, no topo da função.
@@ -3595,46 +3727,37 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
    */
   const golpes = skillHits(def, nivel);
   const sorteiaAlvo = def.kind === 'multihit' && def.shape === 'area';
+  /**
+   * 🔴 **BOLT A BOLT, NÃO TUDO DE UMA VEZ** — decisão do dono em 08/09: *"o
+   * dano é à medida que vão descendo os bolts do céu, ou seja nível 10 serão
+   * 10 hits diferentes, não todos acumulados de uma vez."*
+   *
+   * Vale para o multi-hit de ALVO ÚNICO (Fire Bolt, Cold Bolt). O de área
+   * (Chuva de Meteoros) continua num tique só — lá os impactos já se espalham
+   * entre alvos diferentes, e espalhá-los também no tempo é outra conversa.
+   */
+  const emSerie = def.kind === 'multihit' && def.shape === 'target';
 
   for (let i = 0; i < golpes; i++) {
     const lista = sorteiaAlvo
       ? [targets[Math.floor(Math.random() * targets.length)]!]
       : targets;
     for (const c of lista) {
-      if (!c.alive) continue;
-      // Execução escala com o quanto o alvo já está ferido.
-      const poder = def.kind === 'execution'
-        ? poderBase * executionMultiplier(nivel, c.hp / c.maxHp)
-        : poderBase;
-      const { amount, crit } = computeHit(poder, d.critChance, d.critMult);
-      // A Ruptura abre a defesa ANTES do próprio golpe entrar.
-      if (def.kind === 'rupture') {
-        c.defBreakUntil = now + def.durationMs;
-        c.defBreakPct = ruptureDefReduction(nivel);
+      if (i > 0 && emSerie) {
+        /*
+         * ⚠️ O poder e o crítico são capturados AGORA, no lançamento, e não
+         * relidos no impacto. Se um buff caísse no meio da rajada, os bolts da
+         * mesma conjuração passariam a bater diferente uns dos outros — e o
+         * jogador não teria como entender por quê.
+         */
+        golpesPendentes.push({
+          playerId: player.id, creatureId: c.id, skillId: def.id, nivel,
+          poderBase, critChance: d.critChance, critMult: d.critMult,
+          quando: now + i * INTERVALO_BOLT_MS,
+        });
+        continue;
       }
-      /**
-       * 🔴 **Quem decide a rota do dano é o `damageType`, não o `magic`.**
-       *
-       * Os dois campos respondem perguntas diferentes — `magic` diz de qual
-       * ATAQUE o poder sai, `damageType` diz contra qual DEFESA ele bate — e
-       * até aqui a rota olhava o campo errado. A consequência aparecia numa
-       * habilidade só: a Kunai Envenenada é física na origem e de VENENO no
-       * dano, e passava pela armadura física em vez da resistência a veneno.
-       *
-       * Agora qualquer golpe não-físico vai pela resolução elemental, venha o
-       * poder de onde vier.
-       */
-      const tipo = def.damageType ?? 'physical';
-      const dano = def.magic || tipo !== 'physical'
-        ? Math.max(1, Math.round(resolveDamage(
-          amount, tipo, creatureDefenseProfile(c, now, player, tipo !== 'physical'),
-        ).amount))
-        : Math.max(1, Math.round(amount - creatureDefense(c, now, player)));
-      applyLifeSteal(player, dano);
-      // 🔴 `tipo` viaja até o cliente: é o que faz o gesto de conjurar tocar e
-      // as bolas do Fire Bolt caírem. Sem ele o golpe chega "físico" e o
-      // cliente anima uma espadada.
-      damageCreature(player, c, dano, crit, now, tipo);
+      aplicaGolpeDeMagia(player, def, nivel, c, poderBase, d.critChance, d.critMult, now);
     }
   }
   // A condição vem DEPOIS do dano, e num sorteio só por lançamento: dez
@@ -3726,7 +3849,7 @@ function lancaEmAliados(
   if (alvos.length === 0) alvos.push(player);
 
   player.mana -= custoMana;
-  player.spellReadyAt[def.id] = now + def.cooldownMs;
+  marcaConjuracao(player, def, now);
   send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
 
   if (def.kind === 'heal') {
@@ -3796,7 +3919,7 @@ function plantaArea(
   }
 
   player.mana -= custoMana;
-  player.spellReadyAt[def.id] = now + def.cooldownMs;
+  marcaConjuracao(player, def, now);
   send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
 
   const duracao = skillGroundDuration(def, nivel);
@@ -6785,6 +6908,9 @@ function gameTick(): void {
   // efeitos vencem antes das áreas e do HoT porque um buff de cura que acabou
   // não pode inflar o pulso deste mesmo tique.
   tickCasting(now);
+  // Os bolts adiados caem aqui: depois da conjuração (que pode soltar novos) e
+  // antes das áreas, para o dano do tique sair todo na mesma ordem de sempre.
+  tickGolpesPendentes(now);
   tickEffectsAll(now);
   tickGroundAreas(now);
   tickHots(now);
@@ -6855,7 +6981,7 @@ wss.on('connection', (socket) => {
     alive: true, deadUntil: 0, targetId: null, lastAttackAt: 0, lastMoveAt: 0, lastAckSeq: 0, joined: false,
     conditions: [], cc: emptyCcState(), effects: [], hots: [],
     casting: null, magicProtection: false,
-    spellReadyAt: {}, skillPoints: 0, skillLevels: {}, skillResets: 0,
+    spellReadyAt: {}, gcdUntil: 0, skillPoints: 0, skillLevels: {}, skillResets: 0,
     fury: null, stance: false, proficiencies: {}, professions: {}, bestiary: {},
     lastGatherAt: 0,
     wasAtDepot: false, wasNearVendor: false, wasNearBank: false,

@@ -9,6 +9,75 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-08 — As regras de conjuração: alcance por nível, cooldown global e bolt a bolt
+
+**Onde mora:** `gcdUntil`, `GCD_MAGIA_MS`, `marcaConjuracao`, `golpesPendentes`,
+`aplicaGolpeDeMagia` e `tickGolpesPendentes` em `server/src/index.ts` ·
+`rangeEvery` das três magias de alvo em `shared/src/skills.ts` · `spawnQueda`
+em `client/src/main.ts`
+
+Três pedidos do dono, todos sobre a mesma coisa: o mago tem a distância como
+vantagem, e ela precisa de limite e de ritmo.
+
+### 1. O alcance cresce com o nível
+
+**Nenhuma magia de alvo crescia.** As três tinham `rangeEvery: 0` — alcance
+travado do nível 1 ao 10, enquanto as de área já cresciam (`every` 4, 5 e 6).
+
+| | Lv.1 | Lv.5 | Lv.10 |
+|---|---|---|---|
+| Fire Bolt | 6 | 7 | **9** |
+| Cold Bolt | 6 | 7 | **9** |
+| Bola de Raio | 5 | 6 | **8** |
+
++1 tile a cada 3 níveis. O servidor **já recusava** alvo fora de alcance
+(*"Alvo longe demais"*), então o limite não é novo — o que era novo é ele
+acompanhar a habilidade.
+
+### 2. 🔴 Cooldown GLOBAL de magia — 1 segundo
+
+Não existia. Só havia cooldown **por habilidade**, então dava para encadear Fire
+Bolt + Cold Bolt + Bola de Raio no mesmo instante e despejar três rajadas de uma
+vez. Agora qualquer `magic: true` tranca as outras por 1 s.
+
+⚠️ **Vale só para magia**, de propósito. Um cooldown global de verdade atingiria
+o Knight e o Assassino, que ninguém pediu para mexer.
+
+⚠️ **Marcado só depois de a magia SAIR.** Marcar antes puniria quem apertou a
+tecla sem alvo válido: a habilidade nem sai, e o jogador ficaria um segundo
+travado por um clique no vazio. Por isso os cinco pontos que gravavam cooldown
+viraram um `marcaConjuracao()` só — acrescentar o global à mão em cinco lugares
+fica certo em quatro e errado no quinto, sem dar erro.
+
+### 3. 🔴 Bolt a bolt: dez impactos separados, não um acumulado
+
+*"O dano é à medida que vão descendo os bolts do céu."* O multi-hit de alvo
+único resolve **um impacto a cada 140 ms**; só o primeiro sai no tique do
+lançamento, os outros esperam em `golpesPendentes`.
+
+⚠️ **Cada bolt revalida ao cair.** Entre o lançamento e o décimo passa mais de
+um segundo: a criatura pode morrer, o jogador pode morrer ou trocar de andar.
+Nada disso pode virar dano fantasma.
+
+⚠️ **Poder e crítico são capturados no LANÇAMENTO.** Se um buff caísse no meio
+da rajada, os bolts da mesma conjuração bateriam diferente uns dos outros — e o
+jogador não teria como entender por quê.
+
+⚠️ Dez bolts levam **1,26 s**, dentro do cooldown de 1,5 s do Fire Bolt. Se
+algum dia a contagem passar de dez, os dois números precisam ser revistos
+juntos.
+
+⚠️ O de ÁREA (Chuva de Meteoros) continua num tique só: lá os impactos já se
+espalham entre alvos diferentes.
+
+### E o cliente parou de espaçar
+
+Havia defasagem dos dois lados por um momento, e os atrasos **se somavam** — a
+última bola cairia quase um segundo depois do próprio dano. Quem espaça agora é
+só o servidor; o cliente desenha o que chega.
+
+---
+
 ## 2026-09-07 (madrugada) — A animação do Fire Bolt, e a folha que não é grade
 
 **Onde mora:** `tools/fx2strip.mjs` (novo) · `arte-fonte/fx/firebolt.png` ·
