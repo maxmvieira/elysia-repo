@@ -51,7 +51,24 @@ const ORIGEM = 'arte-fonte/fx';
 const DESTINO = 'client/public/assets/fx';
 
 /** Os efeitos a montar. `quadros` é conferência, não entrada: o corte é medido. */
-const EFEITOS = [{ nome: 'firebolt', quadros: 16 }];
+const EFEITOS = [
+  { nome: 'firebolt', quadros: 16 },
+  /**
+   * 🔴 **A folha do NÍVEL 10 desenha VÁRIAS BOLAS POR QUADRO**, e é por isso
+   * que ela tem `cola` própria.
+   *
+   * O corte de 10 px funciona na de 1 bola: lá o único vão interno é o das
+   * brasas se soltando (2 px). Aqui as bolas de um mesmo quadro ficam lado a
+   * lado com vão entre elas — se esse vão for maior que a `cola`, cada quadro
+   * se parte em três e o conversor "acha" 48 quadros num arquivo de 16.
+   *
+   * ⚠️ **O valor abaixo é um CHUTE até o arquivo existir.** Quando ele chegar,
+   * o log imprime os vãos medidos (`vãos entre quadros` × `vãos internos`) e a
+   * contagem encontrada — é por ali que se acerta, não no olho. O aviso de
+   * contagem diferente do esperado existe exatamente para isto.
+   */
+  { nome: 'firebolt10', quadros: 16, cola: 40 },
+];
 
 // ---------------------------------------------------------------------------
 // PNG
@@ -170,8 +187,23 @@ for (const efeito of EFEITOS) {
     }
   }
 
-  const quadros = faixas(colVazia, COLA);
-  const linhas = faixas(linVazia, COLA);
+  const cola = efeito.cola ?? COLA;
+
+  /*
+   * 🔴 **OS VÃOS, MEDIDOS E IMPRESSOS.** Acertar a `cola` no olho é adivinhar;
+   * esta lista mostra a distribuição real e o corte fica sendo uma leitura.
+   *
+   * O que se procura é um DEGRAU: um punhado de vãos pequenos (as bolas de um
+   * mesmo quadro, ou as brasas se soltando) e outro de vãos grandes (a
+   * separação entre quadros). A `cola` vai entre os dois.
+   */
+  const cruas = faixas(colVazia, 0);
+  const vaos = [];
+  for (let i = 1; i < cruas.length; i++) vaos.push(cruas[i][0] - cruas[i - 1][1] - 1);
+  const ordenados = [...vaos].sort((a, b) => a - b);
+
+  const quadros = faixas(colVazia, cola);
+  const linhas = faixas(linVazia, cola);
   if (linhas.length === 0) throw new Error(`${efeito.nome}: folha vazia`);
 
   // 🔴 A janela vertical é COMUM: é o que preserva a queda.
@@ -190,10 +222,18 @@ for (const efeito of EFEITOS) {
       `larguras ${Math.min(...quadros.map((q) => q[1] - q[0] + 1))}..` +
       `${Math.max(...quadros.map((q) => q[1] - q[0] + 1))}px`,
   );
+  console.log(
+    `     ${cruas.length} faixas cruas · cola ${cola}px · ` +
+      `vãos: ${ordenados.slice(0, 6).join(',')}` +
+      `${ordenados.length > 12 ? ' … ' : ordenados.length > 6 ? ',' : ''}` +
+      `${ordenados.length > 6 ? ordenados.slice(-6).join(',') : ''}`,
+  );
   if (quadros.length !== efeito.quadros) {
     console.warn(
-      `     ⚠️ contagem DIFERENTE do esperado — confira a folha antes de usar. ` +
-        `O corte de colagem é ${COLA}px.`,
+      `     ⚠️ contagem DIFERENTE do esperado (${quadros.length} ≠ ${efeito.quadros}).\n` +
+        `        A lista de vãos acima é o mapa: procure o DEGRAU entre os\n` +
+        `        pequenos (bolas do mesmo quadro) e os grandes (entre quadros),\n` +
+        `        e ponha a \`cola\` no meio. Hoje ela está em ${cola}px.`,
     );
   }
 
