@@ -6365,7 +6365,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // Bolas de fogo caindo. O atraso é o que abre o leque entre uma e outra.
     for (let i = quedas.length - 1; i >= 0; i--) {
       const q = quedas[i]!;
-      if (q.atraso > 0) {
+      /*
+       * 🔴 A guarda é `!visible`, NÃO `atraso > 0`, e a diferença apagou a
+       * animação inteira no primeiro teste: a PRIMEIRA bola de cada rajada
+       * nasce com atraso ZERO, então `atraso > 0` era falso já na entrada, o
+       * `play()` nunca era chamado e ela ficava invisível para sempre. Com
+       * Fire Bolt nível 1 — uma bola só — não aparecia nada.
+       */
+      if (!q.node.visible) {
         q.atraso -= dt;
         if (q.atraso <= 0) {
           q.node.visible = true;

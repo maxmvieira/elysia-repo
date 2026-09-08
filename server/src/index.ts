@@ -2881,12 +2881,22 @@ function grantKillXp(killer: Player, creature: Creature, baseXp: number): void {
   }
 }
 
+/**
+ * @param element Elemento do golpe. 🔴 **O cliente escolhe a ANIMAÇÃO por este
+ *   campo** — é como ele sabe que aquilo foi feitiço e não pancada, já que o
+ *   `hit` não diz qual habilidade foi usada. Sem ele, conjurar animava como
+ *   espadada e o Fire Bolt não fazia bola nenhuma cair.
+ * @param dot Parcela de dano contínuo. Não é golpe: ninguém desferiu nada, e o
+ *   cliente não deve tocar animação de ataque a cada tique de veneno.
+ */
 function damageCreature(
   player: Player,
   creature: Creature,
   dmg: number,
   crit: boolean,
   now: number,
+  element: DamageType = 'physical',
+  dot = false,
 ): void {
   creature.hp = Math.max(0, creature.hp - dmg);
   // Contribuição acumulada, para `DD-PARTY-008` (participação válida) e
@@ -2905,7 +2915,8 @@ function damageCreature(
   const fatal = creature.hp <= 0;
   broadcastFloor(creature.floor, {
     t: 'hit', attackerId: player.id, targetId: creature.id, amount: dmg, crit, dodged: false,
-    hp: creature.hp, maxHp: creature.maxHp, fatal,
+    hp: creature.hp, maxHp: creature.maxHp, fatal, element,
+    ...(dot ? { dot: true } : {}),
     // No golpe fatal manda a XP concedida para o cliente exibir "+XP" sobre a criatura.
     ...(fatal ? { xp: creature.def.xpReward } : {}),
   });
@@ -3062,7 +3073,7 @@ function ataqueDuplo(player: Player, creature: Creature, powerBase: number, now:
       amount, tipo, creatureDefenseProfile(creature, now, player, tipo !== 'physical'),
     ).amount;
     applyLifeSteal(player, dano);
-    damageCreature(player, creature, dano, crit, now);
+    damageCreature(player, creature, dano, crit, now, tipo);
   }
   broadcastFloor(player.floor, {
     t: 'fx', kind: 'double_attack', x: creature.tileX, y: creature.tileY, floor: player.floor,
@@ -3620,7 +3631,10 @@ function executeSpell(player: Player, def: SkillDef, now: number, targetId: stri
         ).amount))
         : Math.max(1, Math.round(amount - creatureDefense(c, now, player)));
       applyLifeSteal(player, dano);
-      damageCreature(player, c, dano, crit, now);
+      // 🔴 `tipo` viaja até o cliente: é o que faz o gesto de conjurar tocar e
+      // as bolas do Fire Bolt caírem. Sem ele o golpe chega "físico" e o
+      // cliente anima uma espadada.
+      damageCreature(player, c, dano, crit, now, tipo);
     }
   }
   // A condição vem DEPOIS do dano, e num sorteio só por lançamento: dez
@@ -4102,7 +4116,7 @@ function golpeDeArea(dono: Player, a: GroundArea, c: Creature, now: number): voi
   const perfil = creatureDefenseProfile(c, now, dono, a.damageType !== 'physical');
   const bruto = resolveDamage(a.power, a.damageType ?? 'physical', perfil).amount;
   const dano = Math.max(1, Math.round(bruto));
-  damageCreature(dono, c, dano, false, now);
+  damageCreature(dono, c, dano, false, now, a.damageType ?? 'physical');
   if (a.condition) {
     applyConditionTo(c, a.condition.id, a.condition.chance, a.condition.durationMs, now, a.condition.power, dono.id);
   }
@@ -6555,7 +6569,9 @@ function tickConditionsAll(now: number): void {
         d.type,
         creatureDefenseProfile(c, now, dono, d.type !== 'physical'),
       ).amount;
-      if (dono) damageCreature(dono, c, dmg, false, now);
+      // ⚠️ `dot: true` — tique de veneno/queimadura não é golpe. Antes ia sem a
+      // marca e o cliente tocava a animação de ataque a cada tique.
+      if (dono) damageCreature(dono, c, dmg, false, now, d.type, true);
       else c.hp = Math.max(0, c.hp - dmg);
       if (!c.alive) break;
     }
