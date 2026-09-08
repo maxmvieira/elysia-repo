@@ -26,6 +26,9 @@ export interface Persistable {
   skill: SkillState;
   level: number;
   xp: number;
+  /** Nível e XP de JOB (v11). Não concede Skill Point. */
+  jobLevel: number;
+  jobXp: number;
   unspentPoints: number;
   talentPoints: number;
   hp: number;
@@ -153,6 +156,8 @@ export function toStored(
     gender: p.gender,
     level: p.level,
     xp: p.xp,
+    jobLevel: p.jobLevel,
+    jobXp: p.jobXp,
     unspentPoints: p.unspentPoints,
     talentPoints: p.talentPoints,
     attributes: JSON.stringify(p.attributes),

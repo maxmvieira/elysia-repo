@@ -20,7 +20,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { nameKey, type WorldEdit, type WorldDecal } from '@dominion/shared';
-import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8, SCHEMA_V9, SCHEMA_V10, SCHEMA_VERSION } from './schema.js';
+import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8, SCHEMA_V9, SCHEMA_V10, SCHEMA_V11, SCHEMA_VERSION } from './schema.js';
 
 // --------------------------------------------------------------- Tipos ----
 
@@ -44,6 +44,9 @@ export interface StoredCharacter {
   gender: string;
   level: number;
   xp: number;
+  /** Nível e XP de JOB (v11). Não concede Skill Point — ver `JOB_MAX_LEVEL`. */
+  jobLevel: number;
+  jobXp: number;
   unspentPoints: number;
   talentPoints: number;
   attributes: string;
@@ -187,6 +190,10 @@ export class Store {
     // v10 (exclusão com prazo): mesmo portão auto-verificável das anteriores.
     if (!this.hasColumn('character', 'delete_at')) {
       this.db.exec(SCHEMA_V10);
+    }
+    // v11 (nível de job), mesmo portão: quem decide é o schema, nunca o número.
+    if (!this.hasColumn('character', 'job_level')) {
+      this.db.exec(SCHEMA_V11);
     }
     if (current !== SCHEMA_VERSION) {
       this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
@@ -342,9 +349,9 @@ export class Store {
            skill_kind, skill_level, skill_progress,
            hp, mana, gold, bank_gold, tile_x, tile_y, floor, respawn_town,
            skill_points, skill_resets, skill_levels, proficiencies, bestiary,
-           professions, outfit,
+           professions, outfit, job_level, job_xp,
            created_at, last_played_at
-         ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?, ?,?, ?,?)`,
+         ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?)`,
       )
       .run(
         c.accountId, c.name, nameKey(c.name), c.cls, c.gender,
@@ -352,7 +359,11 @@ export class Store {
         c.skillKind, c.skillLevel, c.skillProgress,
         c.hp, c.mana, c.gold, c.bankGold, c.tileX, c.tileY, c.floor, c.respawnTown,
         c.skillPoints, c.skillResets, c.skillLevels, c.proficiencies, c.bestiary,
-        c.professions, c.outfit ?? '[]',
+        // ⚠️ `?? ` nos dois: a coluna é NOT NULL, e um chamador que monte a
+        // ficha sem os campos novos (um teste antigo, por exemplo) faria o
+        // SQLite recusar o INSERT inteiro com um erro de parâmetro, não de
+        // campo — dificílimo de ler.
+        c.professions, c.outfit ?? '[]', c.jobLevel ?? 1, c.jobXp ?? 0,
         now, now,
       );
     const id = Number(info.lastInsertRowid);
@@ -374,6 +385,9 @@ export class Store {
       gender: r.gender as string,
       level: r.level as number,
       xp: r.xp as number,
+      // `?? ` cobre a linha gravada antes da v11, que não tem as colunas.
+      jobLevel: (r.job_level as number | null) ?? 1,
+      jobXp: (r.job_xp as number | null) ?? 0,
       unspentPoints: r.unspent_points as number,
       talentPoints: r.talent_points as number,
       attributes: r.attributes as string,
@@ -415,7 +429,7 @@ export class Store {
              skill_kind=?, skill_level=?, skill_progress=?,
              hp=?, mana=?, gold=?, bank_gold=?, tile_x=?, tile_y=?, floor=?, respawn_town=?,
              skill_points=?, skill_resets=?, skill_levels=?, proficiencies=?, bestiary=?,
-             professions=?,
+             professions=?, job_level=?, job_xp=?,
              last_played_at=?
            WHERE id=?`,
         )
@@ -424,7 +438,7 @@ export class Store {
           c.skillKind, c.skillLevel, c.skillProgress,
           c.hp, c.mana, c.gold, c.bankGold, c.tileX, c.tileY, c.floor, c.respawnTown,
           c.skillPoints, c.skillResets, c.skillLevels, c.proficiencies, c.bestiary,
-          c.professions,
+          c.professions, c.jobLevel ?? 1, c.jobXp ?? 0,
           Date.now(), c.id,
         );
       this.replaceItems(c.id, c.items);

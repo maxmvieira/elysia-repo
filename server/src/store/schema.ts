@@ -15,7 +15,7 @@
  * Migrações: `user_version` do SQLite. Cada versão é um passo idempotente.
  */
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 /**
  * v2 — Profissões (`DD-PROF-023`).
@@ -205,6 +205,17 @@ ALTER TABLE world_decal ADD COLUMN colisao TEXT;
  */
 export const SCHEMA_V10 = `
 ALTER TABLE character ADD COLUMN delete_at INTEGER;
+`;
+
+/**
+ * v11 — nível e XP de JOB (08/09).
+ *
+ * ⚠️ `DEFAULT` nos dois: personagem antigo entra com Job 1 e zero de XP, sem
+ * `NULL` para o servidor tratar. É o mesmo cuidado das outras colunas novas.
+ */
+export const SCHEMA_V11 = `
+ALTER TABLE character ADD COLUMN job_level INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE character ADD COLUMN job_xp    INTEGER NOT NULL DEFAULT 0;
 `;
 
 export const SCHEMA_V1 = `

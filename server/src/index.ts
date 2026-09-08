@@ -204,6 +204,8 @@ import {
   skillPointsAtLevel,
   skillPower,
   skillRange,
+  JOB_MAX_LEVEL,
+  jobXpToNext,
   skillCastRange,
   INTERVALO_BOLT_MS,
   skillMiraNoChao,
@@ -454,6 +456,16 @@ interface Player {
   derived: DerivedStats;
   level: number;
   xp: number;
+  /**
+   * 🔴 **Nível e XP de JOB** (08/09), a segunda barra de progresso.
+   *
+   * ⚠️ **Não concede Skill Point** — decisão do dono ("letra B"): o SP continua
+   * saindo de `skillPointsAtLevel(classe, nível)`. Isto é progresso visível e
+   * nada mais, o que torna o recurso puramente ADITIVO: nenhum personagem que
+   * já jogou fica diferente por causa dele.
+   */
+  jobLevel: number;
+  jobXp: number;
   unspentPoints: number;
   talentPoints: number;
   hp: number;
@@ -1535,6 +1547,9 @@ function sendStats(player: Player): void {
     level: player.level,
     xp: player.xp,
     xpNext: xpToNext(player.level),
+    jobLevel: player.jobLevel,
+    jobXp: player.jobXp,
+    jobXpNext: jobXpToNext(player.jobLevel),
     gold: player.gold,
     bankGold: player.bankGold,
     alive: player.alive,
@@ -2330,8 +2345,31 @@ const EQUIP_DROP_CHANCE = 0.08;
  */
 const PICKUP_RANGE = 1;
 
+/**
+ * XP de JOB — sobe junto com a base, da mesma morte.
+ *
+ * 🔴 Ganha o MESMO tanto da base, e a diferença de ritmo vem da CURVA
+ * (`jobXpToNext` é mais rasa que `xpToNext`). Dar uma fração aqui e usar a
+ * mesma curva daria o mesmo efeito com dois números para manter em vez de um.
+ *
+ * ⚠️ Para no teto (`JOB_MAX_LEVEL`) e **zera a XP acumulada ali**: barra cheia
+ * parada no máximo é mais honesta que uma barra que continua enchendo para
+ * nada.
+ */
+function grantJobXp(player: Player, amount: number): void {
+  if (player.jobLevel >= JOB_MAX_LEVEL) { player.jobXp = 0; return; }
+  player.jobXp += amount;
+  while (player.jobLevel < JOB_MAX_LEVEL && player.jobXp >= jobXpToNext(player.jobLevel)) {
+    player.jobXp -= jobXpToNext(player.jobLevel);
+    player.jobLevel += 1;
+    send(player, { t: 'chat', from: '', text: `⚒️ Job Level ${player.jobLevel}!` });
+  }
+  if (player.jobLevel >= JOB_MAX_LEVEL) player.jobXp = 0;
+}
+
 function grantXp(player: Player, amount: number): void {
   player.xp += amount;
+  grantJobXp(player, amount);
   while (player.xp >= xpToNext(player.level)) {
     player.xp -= xpToNext(player.level);
     player.level += 1;
@@ -5209,6 +5247,8 @@ function createCharacterFor(
     proficiencies: {} as Proficiencies,
     professions: {} as Professions,
     bestiary: {} as BestiaryState,
+    // ⚒️ Personagem novo nasce em Job 1.
+    jobLevel: 1, jobXp: 0,
   };
   // Kit inicial: poções + ouro, como era no fluxo antigo.
   addStackTo(ficha.backpack, 'health_potion', 5);
@@ -5244,6 +5284,9 @@ function applyStoredCharacter(player: Player, c: ReturnType<typeof store.loadCha
   player.skill = parsed.skill;
   player.level = c.level;
   player.xp = c.xp;
+  // ⚒️ Job vem do banco. `?? ` cobre o personagem gravado antes da v11.
+  player.jobLevel = c.jobLevel ?? 1;
+  player.jobXp = c.jobXp ?? 0;
   player.unspentPoints = c.unspentPoints;
   player.talentPoints = c.talentPoints;
   player.gold = c.gold;
@@ -7106,6 +7149,9 @@ wss.on('connection', (socket) => {
     wasAtDepot: false, wasNearVendor: false, wasNearBank: false,
     pkEnabled: false, pkLockedUntil: 0, whiteSkullUntil: 0, partyId: null,
     aggressions: 0, logoutLockUntil: 0, logoutLockByPlayer: false,
+    // ⚒️ Job começa em 1 com zero de XP — inclusive para quem foi criado antes
+    // da v11: o banco devolve esse mesmo padrão para as colunas ausentes.
+    jobLevel: 1, jobXp: 0,
   };
   addToBackpack(player, 'mana_potion', 5);
   setGold(player, 50);

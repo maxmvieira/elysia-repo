@@ -9,6 +9,67 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-08 (noite) — A HUD do personagem, e o NÍVEL DE JOB
+
+**Onde mora:** `#charhud` em `client/index.html` · `ligaPainelDoPersonagem` e
+`updateHud` em `client/src/main.ts` · `JOB_MAX_LEVEL`/`jobXpToNext` em
+`shared/src/combat.ts` · `grantJobXp` em `server/src/index.ts` · `SCHEMA_V11`
+
+### O painel do personagem
+
+🔴 **Reusa o emblema alado em vez de refazer.** Os ids são os MESMOS —
+`portrait`, `charname`, `level`, `hpfill`, `hptext`, `manafill`, `manatext`,
+`xpfill`, `xptext` — então o `updateHud` continuou valendo sem uma linha de
+mudança. O emblema saiu do alto do mundo; o painel entrou no lugar dele.
+
+⚠️ Ancorado no canto do **viewport**, não da janela: a coluna `#leftbar` ocupa a
+esquerda da tela, e prender na janela poria o painel por cima dela.
+
+⚠️ **HP e SP continuam visíveis no modo recolhido** — condição explícita do
+dono. Some só o bloco de XP e os botões, que é o que ocupa altura. O estado vai
+para o `localStorage`, como a posição da barra de magias.
+
+⚠️ Dos sete atalhos, quatro abrem painel de verdade e três (Missões,
+Conquistas, Correio) chamam uma função nomeada que avisa no chat, com um ponto
+no canto do botão. **Botão que aceita o clique e não faz nada é pior que botão
+ausente:** o jogador clica de novo achando que errou a mira.
+
+### ⚒️ Nível de Job — e por que ele é seguro
+
+Não existia. Decisão do dono: **"letra B" — o SP continua vindo do nível do
+personagem.** Isso torna o Job puramente **aditivo**: nenhum personagem que já
+jogou fica diferente por causa dele, e nenhum número de balanceamento muda.
+
+| | |
+|---|---|
+| Teto | 50 (o do Ragnarok clássico) |
+| XP | o **mesmo** tanto da base, da mesma morte |
+| Curva | mais rasa que a de personagem |
+
+🔴 **A diferença de ritmo vem da CURVA, não da quantidade.** Dar uma fração da
+XP e usar a mesma curva daria o mesmo efeito com dois números para manter em vez
+de um. Medido: Lv.1 custa 80 contra 150 da base; empatam perto do Lv.10; no
+Lv.50 o job custa 13.114 contra 9.227. O job dispara na frente e a base o
+alcança — que é como o Ragnarok se comporta.
+
+⚠️ **Teto zera a XP acumulada.** Barra cheia parada no máximo é mais honesta que
+uma barra que continua enchendo para nada. E o cliente trata `jobXpNext <= 0`:
+sem a guarda, a divisão daria `Infinity` e a barra sumiria em vez de encher.
+
+### ⚠️ A migração, e a armadilha que ela quase repetiu
+
+`SCHEMA_V11` entra pelo mesmo portão das outras — `hasColumn`, nunca
+`user_version`. É a regra que este projeto já pagou uma vez.
+
+🔴 **Os testes do servidor quebraram na hora, e o erro era ilegível:**
+*"Provided value cannot be bound to SQLite parameter 29"*. Os testes montam
+personagem sem os campos novos, e a coluna é `NOT NULL`. O conserto foi no
+STORE (`c.jobLevel ?? 1`), não nos testes: um chamador que esqueça o campo deve
+gravar o padrão, não derrubar o INSERT inteiro com um erro que aponta para um
+número de parâmetro em vez de um nome de campo.
+
+---
+
 ## 2026-09-08 (tarde) — Nível por SLOT: o Fire Bolt 4 e o 10 em teclas diferentes
 
 **Onde mora:** `C2S_Cast.level` em `shared/src/protocol.ts` · `castSpell` e

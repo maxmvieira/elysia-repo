@@ -4495,19 +4495,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       ` · faltam ${falta.toLocaleString('pt-BR')}`;
 
     /*
-     * 🔴 **NÍVEL DE JOB — o jogo ainda não tem.** Os Skill Points saem do NÍVEL
-     * do personagem (`skillPointsAtLevel`, no servidor), então não existe uma
-     * segunda barra de progresso como no Ragnarok.
+     * ⚒️ **NÍVEL DE JOB** — a segunda barra, entregue em 08/09.
      *
-     * ⚠️ A linha fica no painel, apagada e explicada no tooltip, em vez de ser
-     * omitida: o dono pediu Job Lv. duas vezes, e um espaço vazio some com a
-     * pergunta. Quando o sistema existir, é preencher estes dois campos.
+     * ⚠️ **Não dá Skill Point** (decisão do dono, "letra B"): o SP continua
+     * vindo do nível do personagem. Esta barra é progresso visível, e é o que
+     * a torna aditiva — nada do que já existia mudou de comportamento.
+     *
+     * ⚠️ No teto o servidor manda `jobXpNext` zerado; sem a guarda, a divisão
+     * daria `Infinity` e a barra sumiria em vez de ficar cheia.
      */
-    hud.chjoblv.textContent = '—';
-    hud.jobtext.textContent = '—';
-    (hud.jobfill as HTMLElement).style.width = '0%';
-    hud.jobtext.title = 'O jogo ainda não tem nível de Job: os Skill Points vêm '
-      + 'do nível do personagem.';
+    const noTeto = s.jobXpNext <= 0;
+    const pctJob = noTeto ? 100 : (s.jobXp / s.jobXpNext) * 100;
+    hud.chjoblv.textContent = String(s.jobLevel);
+    (hud.jobfill as HTMLElement).style.width = `${Math.min(100, pctJob)}%`;
+    hud.jobtext.textContent = noTeto ? 'MAX' : `${pctJob.toFixed(1)}%`;
+    hud.jobtext.title = noTeto
+      ? 'Job no máximo.'
+      : `Job ${s.jobXp.toLocaleString('pt-BR')} / ${s.jobXpNext.toLocaleString('pt-BR')}`;
   }
 
   // Resumo dos stats derivados (ataque, defesa, VELOCIDADE de movimento/ataque…).

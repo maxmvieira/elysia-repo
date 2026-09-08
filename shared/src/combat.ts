@@ -83,6 +83,39 @@ export function xpToNext(level: number): number {
   return Math.round(XP_REQ_MULT * (XP_BASE + XP_LINEAR * n + XP_QUADRATIC * n * n));
 }
 
+/**
+ * 🔴 **NÍVEL DE JOB (08/09)** — a segunda barra de progresso, no modelo do
+ * Ragnarok.
+ *
+ * ⚠️ **Ele NÃO dá Skill Point.** Decisão do dono ("letra B"): o SP continua
+ * saindo do nível do personagem (`skillPointsAtLevel`). O Job é progresso
+ * visível e nada mais, o que o torna puramente ADITIVO — nenhum personagem que
+ * já jogou fica diferente por causa dele.
+ *
+ * ⚠️ Teto em 50, e não 10 nem 99: 10 confundiria com o nível de HABILIDADE (que
+ * vai a 10) e 99 pediria uma curva longa que ninguém desenhou. 50 é o teto do
+ * Ragnarok clássico e cabe na curva abaixo.
+ */
+export const JOB_MAX_LEVEL = 50;
+
+/**
+ * XP de job para o próximo nível.
+ *
+ * 🔴 A curva é MAIS RASA que a de personagem de propósito. As duas comem da
+ * mesma morte (o job ganha o mesmo tanto da base), então uma curva igual faria
+ * as duas barras andarem coladas e a segunda não diria nada de novo. Rasa no
+ * começo, ela sobe rápido nos primeiros níveis — que é como o job se comporta
+ * no Ragnarok — e o teto de 50 segura o resto.
+ */
+export const JOB_XP_BASE = 80;
+export const JOB_XP_LINEAR = 70;
+export const JOB_XP_QUADRATIC = 4;
+
+export function jobXpToNext(jobLevel: number): number {
+  const n = Math.max(1, jobLevel) - 1;
+  return Math.round(JOB_XP_BASE + JOB_XP_LINEAR * n + JOB_XP_QUADRATIC * n * n);
+}
+
 /** XP acumulada do nível 1 até `level`. Útil para conferir a curva e para testes. */
 export function xpTotalTo(level: number): number {
   let total = 0;

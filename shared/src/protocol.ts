@@ -777,6 +777,15 @@ export interface S2C_Stats {
   level: number;
   xp: number;
   xpNext: number;
+  /**
+   * 🔴 **Nível e XP de JOB** (08/09) — a segunda barra da HUD.
+   *
+   * ⚠️ Não concede Skill Point: o SP continua vindo do nível do personagem.
+   * Ver `JOB_MAX_LEVEL` em `combat.ts`.
+   */
+  jobLevel: number;
+  jobXp: number;
+  jobXpNext: number;
   gold: number;
   /** Ouro guardado no Banco (só ouro; itens ficam no Depósito). */
   bankGold: number;
