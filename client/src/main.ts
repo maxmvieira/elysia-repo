@@ -1696,6 +1696,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const folhasQueda: Array<{ bolts: number; frames: Texture[] }> = [];
 
   /**
+   * Quantas colunas toda tira de FX tem.
+   *
+   * ⚠️ **É contrato com `tools/fx2strip.mjs`**, que emite `quadros: 16` para os
+   * dois efeitos. A célula pode mudar de tamanho entre folhas (64×64 e 64×256
+   * hoje); o que não muda é a CONTAGEM, e é dela que sai a largura da célula.
+   */
+  const QUADROS_FX = 16;
+
+  /**
    * Duração de uma queda inteira, do céu à dissipação.
    *
    * ⚠️ Terceiro valor: 620 ms (rápido demais), 1000 (ainda rápido, jogando em
@@ -1724,12 +1733,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     void Assets.load<Texture>(`/assets/fx/${folha.arquivo}.png`)
       .then((tex) => {
         tex.source.scaleMode = 'nearest';
-        const n = Math.max(1, Math.round(tex.width / 64));
+        /*
+         * 🔴 **A CÉLULA NÃO É 64×64 EM TODAS.** A folha do nível 10 é 64×256:
+         * o quadro de origem é alto e estreito, e espremê-lo num quadrado
+         * transformava as três bolas num borrão de 5 px (ver `fx2strip.mjs`).
+         *
+         * 🔴 Por isso a leitura é **pela contagem, não pelo tamanho**: toda
+         * tira de FX tem `QUADROS_FX` colunas, então a largura da célula sai de
+         * uma divisão e a altura é a da imagem. É o contrato entre o conversor
+         * e este bloco — dividir por 64 aqui cortaria a folha alta em quatro
+         * fatias horizontais de personagem nenhum.
+         */
+        const cw = Math.max(1, Math.round(tex.width / QUADROS_FX));
+        const ch = tex.height;
         folhasQueda.push({
           bolts: folha.bolts,
-          frames: Array.from({ length: n }, (_, i) => new Texture({
+          frames: Array.from({ length: QUADROS_FX }, (_, i) => new Texture({
             source: tex.source,
-            frame: new Rectangle(i * 64, 0, 64, 64),
+            frame: new Rectangle(i * cw, 0, cw, ch),
           })),
         });
         // Maior primeiro: `folhaPara` pega a primeira que couber.

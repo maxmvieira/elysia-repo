@@ -62,12 +62,31 @@ const EFEITOS = [
    * lado com vão entre elas — se esse vão for maior que a `cola`, cada quadro
    * se parte em três e o conversor "acha" 48 quadros num arquivo de 16.
    *
-   * ⚠️ **O valor abaixo é um CHUTE até o arquivo existir.** Quando ele chegar,
-   * o log imprime os vãos medidos (`vãos entre quadros` × `vãos internos`) e a
-   * contagem encontrada — é por ali que se acerta, não no olho. O aviso de
-   * contagem diferente do esperado existe exatamente para isto.
+   * 🔴 **E NENHUMA COLA RESOLVEU — por isso ela usa `corte: 'igual'`.** Medido
+   * quando o arquivo chegou: **13 faixas cruas para 16 quadros**, com uma delas
+   * de 708 px. Os quadros se TOCAM; não há vão para achar.
+   *
+   * ⚠️ Cortar no vale de massa (a segunda tentativa) também falhou, e falhou de
+   * um jeito que só a tela mostra: os cortes caíram **entre as bolas do mesmo
+   * quadro**, não entre quadros — a tira saiu com uma bola por célula, virando
+   * uma animação de nível 1 com outro nome. `divideNosVales` continua no
+   * arquivo porque serve a folhas com poucos quadros colados; aqui não serve.
+   *
+   * ✅ O que serve é **fatiar o conteúdo em partes iguais**: a folha é gerada,
+   * os quadros são regulares, e 1968 px de conteúdo dividem em 16 fatias de
+   * 123. Nenhuma leitura de vão, nenhum chute.
+   *
+   * 🔴 **E a célula dela é 64 × 256, não 64 × 64** — foi o terceiro erro, e o
+   * mais instrutivo. Com o corte certo a tira AINDA saía com uma bola por
+   * célula, e a causa não era o corte: era a ESCALA. O quadro é alto e estreito
+   * (123 × 525), então enfiá-lo num quadrado de 64 espreme os 123 px de largura
+   * em **15** — as três bolas viram um borrão de 5 px cada.
+   *
+   * Com 256 px de altura a escala sobe para 0,49, o quadro fica com 60 px de
+   * largura, e cada bola volta a ter ~20. A queda passa a ocupar **oito tiles**
+   * de altura, que é o que "cair do céu" quer dizer.
    */
-  { nome: 'firebolt10', quadros: 16, cola: 40 },
+  { nome: 'firebolt10', quadros: 16, corte: 'igual', celula: { w: 64, h: 256 } },
 ];
 
 // ---------------------------------------------------------------------------
@@ -170,6 +189,49 @@ function faixas(vazio, cola) {
   return out;
 }
 
+/**
+ * 🔴 **CORTE PELO VALE DE MASSA — quando os quadros se TOCAM.**
+ *
+ * A folha do nível 10 mostrou o limite do corte por vão: ela tem **13 faixas
+ * para 16 quadros**, e uma delas mede 708 px porque quatro quadros encostam uns
+ * nos outros. Não existe `cola` que resolva — não há vão nenhum para achar.
+ *
+ * ✅ O que ainda existe é um **vale**: mesmo encostando, a coluna onde um quadro
+ * acaba e o outro começa tem MENOS pixels acesos que o miolo dos dois. Então,
+ * enquanto faltarem quadros, parte-se a faixa mais larga na coluna de menor
+ * massa.
+ *
+ * ⚠️ O corte é procurado no **miolo** da faixa (25 % a 75 %): perto da borda a
+ * massa também é baixa, e o menor valor absoluto cairia na ponta, produzindo
+ * uma fatia vazia em vez de dois quadros.
+ *
+ * ⚠️ Isto usa `efeito.quadros` como ENTRADA, e não só como conferência. É a
+ * única informação que a imagem não dá: quantas poses o desenhista fez.
+ */
+function divideNosVales(faixas, massa, alvo) {
+  const out = faixas.map((f) => [...f]);
+  let cortes = 0;
+  while (out.length < alvo) {
+    let maior = 0;
+    for (let i = 1; i < out.length; i++) {
+      if (out[i][1] - out[i][0] > out[maior][1] - out[maior][0]) maior = i;
+    }
+    const [x0, x1] = out[maior];
+    const larg = x1 - x0 + 1;
+    if (larg < 8) break; // não há o que partir
+    const de = x0 + Math.floor(larg * 0.25);
+    const ate = x0 + Math.ceil(larg * 0.75);
+    let corte = de, min = Infinity;
+    for (let x = de; x <= ate; x++) {
+      if (massa[x] < min) { min = massa[x]; corte = x; }
+    }
+    out.splice(maior, 1, [x0, corte - 1], [corte, x1]);
+    cortes++;
+    if (cortes > alvo * 2) break; // trava de segurança
+  }
+  return { faixas: out, cortes };
+}
+
 mkdirSync(DESTINO, { recursive: true });
 
 for (const efeito of EFEITOS) {
@@ -179,11 +241,15 @@ for (const efeito of EFEITOS) {
 
   const colVazia = new Array(img.w).fill(true);
   const linVazia = new Array(img.h).fill(true);
+  /** Pixels acesos por coluna. É o que revela o VALE entre quadros colados. */
+  const massa = new Array(img.w).fill(0);
   for (let y = 0; y < img.h; y++) {
     for (let x = 0; x < img.w; x++) {
       // ⚠️ Corte de alpha em 16, não em 8: a folha tem franja de antisserrilhado
       // quase invisível, e um corte baixo demais junta os quadros pela franja.
-      if (img.px[(y * img.w + x) * 4 + 3] > 16) { colVazia[x] = false; linVazia[y] = false; }
+      if (img.px[(y * img.w + x) * 4 + 3] > 16) {
+        colVazia[x] = false; linVazia[y] = false; massa[x]++;
+      }
     }
   }
 
@@ -202,7 +268,27 @@ for (const efeito of EFEITOS) {
   for (let i = 1; i < cruas.length; i++) vaos.push(cruas[i][0] - cruas[i - 1][1] - 1);
   const ordenados = [...vaos].sort((a, b) => a - b);
 
-  const quadros = faixas(colVazia, cola);
+  const porVao = faixas(colVazia, cola);
+  /**
+   * 🔴 **`corte: 'igual'` fatia o conteúdo em partes iguais**, ignorando vãos.
+   *
+   * É para folha gerada com quadros regulares que se TOCAM — onde não há vão
+   * para ler nem vale confiável para cortar. Ver a nota da `firebolt10`.
+   */
+  let quadros;
+  let cortes = 0;
+  if (efeito.corte === 'igual') {
+    const x0 = colVazia.findIndex((v) => !v);
+    let x1 = colVazia.length - 1;
+    while (x1 > x0 && colVazia[x1]) x1--;
+    const passo = (x1 - x0 + 1) / efeito.quadros;
+    quadros = Array.from({ length: efeito.quadros }, (_, i) => [
+      Math.round(x0 + i * passo),
+      Math.round(x0 + (i + 1) * passo) - 1,
+    ]);
+  } else {
+    ({ faixas: quadros, cortes } = divideNosVales(porVao, massa, efeito.quadros));
+  }
   const linhas = faixas(linVazia, cola);
   if (linhas.length === 0) throw new Error(`${efeito.nome}: folha vazia`);
 
@@ -211,7 +297,14 @@ for (const efeito of EFEITOS) {
   const base = Math.min(img.h - 1, linhas[linhas.length - 1][1] + FOLGA);
   const janela = base - topo + 1;
   // 🔴 A escala é ÚNICA: é o que preserva o crescimento da bola.
-  const escala = CELL / janela;
+  /**
+   * 🔴 A célula pode ser MAIOR que um tile, e a `firebolt10` provou por quê:
+   * quadro alto e estreito espremido num quadrado perde a largura, e as bolas
+   * viram borrão. A altura da célula é o que define a escala.
+   */
+  const celW = efeito.celula?.w ?? CELL;
+  const celH = efeito.celula?.h ?? CELL;
+  const escala = celH / janela;
 
   console.log(
     `\n[fx] ${efeito.nome}: ${img.w}x${img.h} → ${quadros.length} quadros ` +
@@ -224,6 +317,7 @@ for (const efeito of EFEITOS) {
   );
   console.log(
     `     ${cruas.length} faixas cruas · cola ${cola}px · ` +
+      `${porVao.length} por vão${cortes ? ` · +${cortes} corte(s) no vale de massa` : ''} · ` +
       `vãos: ${ordenados.slice(0, 6).join(',')}` +
       `${ordenados.length > 12 ? ' … ' : ordenados.length > 6 ? ',' : ''}` +
       `${ordenados.length > 6 ? ordenados.slice(-6).join(',') : ''}`,
@@ -239,12 +333,12 @@ for (const efeito of EFEITOS) {
 
   const tmp = join(DESTINO, '_tmp');
   mkdirSync(tmp, { recursive: true });
-  const tira = Buffer.alloc(CELL * quadros.length * CELL * 4);
+  const tira = Buffer.alloc(celW * quadros.length * celH * 4);
 
   quadros.forEach(([x0, x1], i) => {
     const larg = x1 - x0 + 1;
     const destW = Math.max(1, Math.round(larg * escala));
-    const destH = CELL;
+    const destH = celH;
     const saidaTmp = join(tmp, `${i}.png`);
     const r = spawnSync(
       FFMPEG,
@@ -253,22 +347,22 @@ for (const efeito of EFEITOS) {
         `crop=${larg}:${janela}:${x0}:${topo},` +
         `scale=${destW}:${destH}:flags=lanczos,` +
         // Centrado na horizontal: a bola cai no meio da célula.
-        `pad=${CELL}:${CELL}:${Math.round((CELL - destW) / 2)}:0:color=0x00000000`,
+        `pad=${celW}:${celH}:${Math.round((celW - destW) / 2)}:0:color=0x00000000`,
         '-pix_fmt', 'rgba', saidaTmp],
       { encoding: 'utf8' },
     );
     if (r.status !== 0) throw new Error(`ffmpeg falhou no quadro ${i}: ${r.stderr ?? ''}`);
     const cel = decode(saidaTmp);
-    const tiraW = CELL * quadros.length;
-    for (let y = 0; y < CELL; y++) {
-      const de = y * CELL * 4;
-      const para = (y * tiraW + i * CELL) * 4;
-      cel.px.copy(tira, para, de, de + CELL * 4);
+    const tiraW = celW * quadros.length;
+    for (let y = 0; y < celH; y++) {
+      const de = y * celW * 4;
+      const para = (y * tiraW + i * celW) * 4;
+      cel.px.copy(tira, para, de, de + celW * 4);
     }
   });
 
   rmSync(tmp, { recursive: true, force: true });
   const saida = join(DESTINO, `${efeito.nome}.png`);
-  writeFileSync(saida, encode(CELL * quadros.length, CELL, tira));
-  console.log(`     ✓ ${saida}  ${CELL * quadros.length}x${CELL}`);
+  writeFileSync(saida, encode(celW * quadros.length, celH, tira));
+  console.log(`     ✓ ${saida}  ${celW * quadros.length}x${celH}  (célula ${celW}x${celH})`);
 }
