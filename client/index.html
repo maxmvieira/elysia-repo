@@ -2427,6 +2427,37 @@
       .skbar i.on {
         background: linear-gradient(#e0c070, #9a7d3f);
       }
+      /*
+       * O tracinho CLICADO — o nível que vai para a barra ao arrastar.
+       *
+       * ⚠️ Marca por CONTORNO e altura, não por outra cor de preenchimento: o
+       * `on` já usa a cor, e dois preenchimentos diferentes na mesma fileira
+       * ficariam ambíguos — "aprendido" e "escolhido" são coisas distintas e
+       * podem estar no mesmo tracinho.
+       */
+      .skbar i {
+        cursor: pointer;
+        transition: height 0.08s ease;
+      }
+      .skbar i.sel {
+        height: 9px;
+        margin-top: -2.5px;
+        box-shadow: 0 0 0 1px #f0e0b0, 0 0 5px rgba(224, 192, 112, 0.6);
+      }
+      /* A linha de números do nível escolhido, sob os tracinhos. */
+      .sknum {
+        margin-top: 3px;
+        font-size: 10.5px;
+        color: #9a9384;
+        letter-spacing: 0.2px;
+      }
+      .sknum b { color: #c9a86a; }
+      .sknum .fix { color: #e0c070; }
+      /* Slot da barra preso num nível abaixo do aprendido. */
+      .sslot.travado .lv {
+        color: #e0c070;
+        text-shadow: 0 0 4px rgba(224, 192, 112, 0.7);
+      }
       #sp-foot {
         margin-top: 10px;
         padding-top: 8px;

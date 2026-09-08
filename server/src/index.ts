@@ -416,6 +416,8 @@ interface Casting {
   endsAt: number;
   /** Alvo escolhido no início (criatura ou jogador). */
   targetId: string | null;
+  /** O nível escolhido no slot, já limitado ao aprendido. */
+  nivel: number;
   /**
    * ⚠️ A mira é guardada com a conjuração, não relida no fim. Uma magia de 2 s
    * apontada num ponto tem de cair NAQUELE ponto — reler o mouse no impacto
@@ -3359,8 +3361,28 @@ function marcaConjuracao(player: Player, def: SkillDef, now: number): void {
   if (def.magic) player.gcdUntil = now + GCD_MAGIA_MS;
 }
 
-function castSpell(player: Player, def: SkillDef, now: number, mira: Mira = {}): void {
-  const nivel = skillLevelOf(player.skillLevels, def.id);
+function castSpell(
+  player: Player, def: SkillDef, now: number, mira: Mira = {}, nivelPedido?: number,
+): void {
+  const aprendido = skillLevelOf(player.skillLevels, def.id);
+  /**
+   * 🔴 **O NÍVEL PEDIDO, limitado ao aprendido** (08/09).
+   *
+   * Cada slot da barra guarda magia **e** nível, no modelo do Ragnarok: dá para
+   * ter Fire Bolt 4 num atalho e Fire Bolt 10 noutro, e o de nível baixo custa
+   * menos mana.
+   *
+   * ⚠️ **Limita, não recusa.** Pedir 10 com 4 aprendidos lança em 4. Recusar
+   * seria pior: a barra pode ter sido montada antes de um reset de skills, e o
+   * jogador não tem como saber que aquele slot ficou inválido — ele só veria a
+   * magia parar de sair.
+   *
+   * ⚠️ O piso é 1, e não 0: nível 0 é "não aprendida", e quem decide isso é o
+   * `isSkillUsable` logo abaixo, com a mensagem certa.
+   */
+  const nivel = nivelPedido === undefined
+    ? aprendido
+    : Math.max(1, Math.min(aprendido, Math.floor(nivelPedido)));
   if (!isSkillUsable(def, player.cls.id, player.skillLevels)) {
     send(player, { t: 'denied', reason: `Você ainda não aprendeu ${def.name}.` });
     return;
@@ -3452,13 +3474,13 @@ function castSpell(player: Player, def: SkillDef, now: number, mira: Mira = {}):
   if (castMs > 0) {
     player.casting = {
       skillId: def.id, endsAt: now + castMs, targetId: mira.targetId ?? player.targetId,
-      mira,
+      mira, nivel,
       fromX: player.tileX, fromY: player.tileY,
     };
     send(player, { t: 'casting', spell: def.id, ms: castMs });
     return;
   }
-  executeSpell(player, def, now, mira.targetId ?? player.targetId, mira);
+  executeSpell(player, def, now, mira.targetId ?? player.targetId, mira, nivel);
 }
 
 /**
@@ -3491,10 +3513,10 @@ function tickCasting(now: number): void {
       continue;
     }
     if (now < p.casting.endsAt) continue;
-    const { skillId, targetId, mira } = p.casting;
+    const { skillId, targetId, mira, nivel } = p.casting;
     p.casting = null;
     send(p, { t: 'casting', spell: null, ms: 0 });
-    executeSpell(p, SKILLS[skillId], now, targetId, mira);
+    executeSpell(p, SKILLS[skillId], now, targetId, mira, nivel);
   }
 }
 
@@ -3511,8 +3533,15 @@ function tickCasting(now: number): void {
  */
 function executeSpell(
   player: Player, def: SkillDef, now: number, targetId: string | null, mira: Mira = {},
+  nivelPedido?: number,
 ): void {
-  const nivel = skillLevelOf(player.skillLevels, def.id);
+  // ⚠️ Mesmo limite do `castSpell`: o nível escolhido no slot da barra vale,
+  // mas nunca acima do aprendido. Reconferido AQUI porque uma conjuração de
+  // 3 s pode terminar depois de um reset de skills.
+  const aprendido = skillLevelOf(player.skillLevels, def.id);
+  const nivel = nivelPedido === undefined
+    ? aprendido
+    : Math.max(1, Math.min(aprendido, Math.floor(nivelPedido)));
   // 🥷 Lido AQUI, antes de qualquer coisa: o Ataque Oculto quebra a própria
   // furtividade que o bonifica, então perguntar depois daria sempre "não".
   const estavaOculto = estaOculto(player);
@@ -5675,7 +5704,7 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       }
       castSpell(player, def, Date.now(), {
         targetId: msg.targetId, tileX: msg.tileX, tileY: msg.tileY,
-      });
+      }, msg.level);
       break;
     }
     case 'skillup': {

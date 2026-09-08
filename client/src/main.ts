@@ -4569,13 +4569,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const spellGripEl = el('spellgrip');
   interface SpellSlot {
     id: SkillId;
+    /** Nível escolhido PARA ESTE SLOT. Ver `barraAtual`. */
+    nivel: number;
     cell: HTMLElement;
     cd: HTMLElement;
     cdText: HTMLElement;
     lvl: HTMLElement;
     tip: HTMLElement;
   }
-  const spellSlots = new Map<SkillId, SpellSlot>();
+  /**
+   * 🔴 **Indexado pelo ÍNDICE DO SLOT, não pela magia** (08/09).
+   *
+   * Enquanto cada magia só podia estar num lugar, indexar por id bastava. Com o
+   * nível por slot — Fire Bolt 4 num atalho e Fire Bolt 10 noutro — a mesma
+   * magia ocupa dois slots de propósito, e a chave por id faria o segundo
+   * sobrescrever o primeiro: um dos dois pararia de acender o cooldown, sem
+   * erro nenhum.
+   */
+  const spellSlots = new Map<number, SpellSlot>();
   /** Fim do cooldown (performance.now) e duração, por habilidade. */
   const spellCooldowns = new Map<SkillId, { until: number; dur: number }>();
   let skillLevels: Record<string, number> = {};
@@ -4592,7 +4603,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * Feiticeiro isso deixa de fechar por aritmética, e o Druida ficaria com a
    * barra do Knight quase toda vazia.
    */
-  let barraAtual: (SkillId | null)[] = [];
+  /**
+   * A barra: magia **e nível** por slot.
+   *
+   * 🔴 O nível vale **só para aquele slot** — decisão do dono em 08/09, no
+   * modelo do Ragnarok. Fire Bolt 4 gasta menos mana e serve para limpar bicho
+   * fraco; Fire Bolt 10 fica noutra tecla para o que interessa.
+   */
+  interface SlotDaBarra { id: SkillId; nivel: number }
+  let barraAtual: (SlotDaBarra | null)[] = [];
   /** Classe cuja barra está montada agora. `null` = ainda não montou nenhuma. */
   let classeDaBarra: S2C_Stats['charClass'] | null = null;
   /**
@@ -4640,24 +4659,53 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * inválido viraria `SKILLS[id]` indefinido e derrubaria a montagem inteira da
    * barra, deixando o jogador sem nenhuma tecla.
    */
-  function carregaBarra(cls: S2C_Stats['charClass']): (SkillId | null)[] | null {
+  function carregaBarra(cls: S2C_Stats['charClass']): (SlotDaBarra | null)[] | null {
     let bruto: unknown;
     try {
       bruto = JSON.parse(localStorage.getItem(chaveDaBarra(cls)) ?? 'null');
     } catch { return null; }
     if (!Array.isArray(bruto)) return null;
-    const out: (SkillId | null)[] = [];
+    const out: (SlotDaBarra | null)[] = [];
     for (let i = 0; i < SKILL_BAR_SLOTS; i++) {
-      const id = bruto[i];
-      const def = typeof id === 'string' ? SKILLS[id as SkillId] : undefined;
-      out.push(def && def.classes.includes(cls) && def.kind !== 'passive' ? (id as SkillId) : null);
+      const item = bruto[i];
+      /*
+       * ⚠️ **Lê os DOIS formatos.** Antes de 08/09 cada posição era só o id
+       * (`"fire_bolt"`); agora é `{id, nivel}`. Uma barra salva ontem tem de
+       * continuar valendo — ler só o formato novo esvaziaria a barra de quem
+       * já jogava, sem aviso nenhum.
+       */
+      const id = typeof item === 'string'
+        ? item
+        : (item && typeof item === 'object' && typeof (item as SlotDaBarra).id === 'string'
+          ? (item as SlotDaBarra).id
+          : null);
+      const def = id ? SKILLS[id as SkillId] : undefined;
+      if (!def || !def.classes.includes(cls) || def.kind === 'passive') { out.push(null); continue; }
+      const n = typeof item === 'object' && item ? (item as SlotDaBarra).nivel : undefined;
+      // Nível 0 ou ausente = "o que estiver aprendido", resolvido no desenho.
+      out.push({ id: id as SkillId, nivel: typeof n === 'number' && n > 0 ? n : 0 });
     }
     return out;
   }
 
   function buildSpellBar(cls: S2C_Stats['charClass']): void {
-    barraAtual = carregaBarra(cls) ?? skillBarFor(cls).slice();
+    barraAtual = carregaBarra(cls)
+      ?? skillBarFor(cls).map((id) => (id ? { id, nivel: 0 } : null));
     desenhaSpellBar(cls);
+  }
+
+  /**
+   * O nível que este slot realmente usa.
+   *
+   * ⚠️ `0` no slot quer dizer "o aprendido", e é o padrão de quem nunca
+   * escolheu — inclusive das barras salvas no formato antigo. Guardar o número
+   * aprendido na hora de montar seria pior: ele congelaria, e subir a skill não
+   * mudaria o atalho.
+   */
+  function nivelDoSlot(s: SlotDaBarra): number {
+    const aprendido = skillLevels[s.id] ?? 0;
+    if (s.nivel <= 0) return aprendido;
+    return Math.max(1, Math.min(aprendido, s.nivel));
   }
 
   function desenhaSpellBar(cls: S2C_Stats['charClass']): void {
@@ -4671,7 +4719,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const grid = document.createElement('div');
     grid.className = 'sgrid';
 
-    barraAtual.forEach((id, i) => {
+    barraAtual.forEach((item, i) => {
+      const id = item?.id;
       const cell = document.createElement('div');
       cell.className = id ? 'sslot' : 'sslot free';
       cell.dataset.slot = String(i);
@@ -4679,7 +4728,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       label.className = 'sk';
       label.textContent = teclaDoSlot(i);
       cell.appendChild(label);
-      if (id) {
+      if (id && item) {
         const def = SKILLS[id];
         const img = document.createElement('img');
         img.src = spellIconUrl(id);
@@ -4698,8 +4747,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         const tip = document.createElement('span');
         tip.className = 'tip';
         cell.append(img, lock, cd, cdText, lvl, tip);
-        cell.onclick = () => castSpellId(id);
-        spellSlots.set(id, { id, cell, cd, cdText, lvl, tip });
+        // O clique lança NO NÍVEL DO SLOT, não no aprendido.
+        cell.onclick = () => castSpellId(id, undefined, nivelDoSlot(item));
+        spellSlots.set(i, { id, nivel: item.nivel, cell, cd, cdText, lvl, tip });
       }
       ligaArrastarNoSlot(cell, i, cls);
       grid.appendChild(cell);
@@ -4722,13 +4772,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   const DND_SKILL = 'application/x-elysia-skill';
   const DND_SLOT = 'application/x-elysia-slot';
+  /**
+   * O NÍVEL que vem junto na arrastada.
+   *
+   * ⚠️ Canal separado, e não `id@nivel` dentro do `DND_SKILL`: o tipo do
+   * `DND_SKILL` é lido como `SkillId` em mais de um lugar, e enfiar um sufixo
+   * ali faria `SKILLS[novo]` virar indefinido no primeiro esquecimento.
+   */
+  const DND_NIVEL = 'application/x-elysia-nivel';
 
   function ligaArrastarNoSlot(cell: HTMLElement, i: number, cls: S2C_Stats['charClass']): void {
-    const id = barraAtual[i];
-    if (id) {
+    const item = barraAtual[i];
+    if (item) {
       cell.draggable = true;
       cell.addEventListener('dragstart', (ev) => {
-        ev.dataTransfer?.setData(DND_SKILL, id);
+        ev.dataTransfer?.setData(DND_SKILL, item.id);
+        // O nível viaja junto: arrastar o Fire Bolt 4 para outro slot leva o 4.
+        ev.dataTransfer?.setData(DND_NIVEL, String(item.nivel));
         ev.dataTransfer?.setData(DND_SLOT, String(i));
         cell.classList.add('dragging');
       });
@@ -4744,6 +4804,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       cell.classList.remove('dropok');
       const novo = ev.dataTransfer?.getData(DND_SKILL) as SkillId | undefined;
       if (!novo || !SKILLS[novo]) return;
+      // Ausente ou 0 = "o nível aprendido", que é o padrão de sempre.
+      const nivel = Number(ev.dataTransfer?.getData(DND_NIVEL) ?? '0') || 0;
       ev.preventDefault();
       const origem = ev.dataTransfer?.getData(DND_SLOT);
       if (origem !== undefined && origem !== '') {
@@ -4755,19 +4817,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         const de = Number(origem);
         if (de === i) return;
         const antes = barraAtual[i] ?? null;
-        barraAtual[i] = novo;
+        barraAtual[i] = { id: novo, nivel };
         barraAtual[de] = antes;
       } else {
         /*
          * Veio da janela: SUBSTITUI o que estava no slot. E se a habilidade já
          * estivesse noutro slot, o antigo é esvaziado — dois atalhos para a
-         * mesma magia é quase sempre engano, e o `spellSlots` é indexado por id,
-         * então o segundo sobrescreveria o primeiro e um deles pararia de
-         * acender o cooldown.
+         * mesma magia era quase sempre engano.
+         *
+         * 🔴 **Deixou de ser engano em 08/09**: com nível por slot, ter Fire
+         * Bolt 4 e Fire Bolt 10 em teclas diferentes é o ponto do recurso. Só
+         * some o slot antigo quando o NÍVEL também é o mesmo — aí sim é
+         * duplicata.
          */
-        const jaEstava = barraAtual.indexOf(novo);
+        const jaEstava = barraAtual.findIndex((b) => b?.id === novo && b.nivel === nivel);
         if (jaEstava >= 0) barraAtual[jaEstava] = null;
-        barraAtual[i] = novo;
+        barraAtual[i] = { id: novo, nivel };
       }
       salvaBarra(cls);
       desenhaSpellBar(cls);
@@ -4979,7 +5044,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     def.shape !== 'self' && def.shape !== 'party';
 
   /** Magia clicada longe demais, a lançar quando o herói chegar ao alcance. */
-  let conjurarAoChegar: { id: SkillId; tileX: number; tileY: number } | null = null;
+  let conjurarAoChegar:
+    { id: SkillId; tileX: number; tileY: number; nivel?: number } | null = null;
+  /** Nível pedido pela magia armada — vem do slot da barra que a armou. */
+  let nivelArmado: number | undefined;
 
   function desarmaMagia(): void {
     magiaArmada = null;
@@ -4990,6 +5058,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // continuaria andando e soltaria a magia sozinho, depois de o jogador já
     // ter desistido dela.
     conjurarAoChegar = null;
+    nivelArmado = undefined;
   }
 
   /**
@@ -5039,7 +5108,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   /** Manda a intenção de usar. Quem valida (mana/cooldown/alvo) é o servidor. */
-  function castSpellId(id: SkillId, mira?: { tileX: number; tileY: number }): void {
+  function castSpellId(
+    id: SkillId, mira?: { tileX: number; tileY: number }, nivel?: number,
+  ): void {
     if ((skillLevels[id] ?? 0) <= 0) {
       logChat(`Você ainda não aprendeu <b>${SKILLS[id].name}</b> — abra as Skills (tecla K).`, 'sys');
       return;
@@ -5050,6 +5121,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       // tirar a mão do teclado.
       if (magiaArmada === id) { desarmaMagia(); return; }
       magiaArmada = id;
+      // ⚠️ O nível vem do SLOT que armou, e tem de sobreviver até o clique:
+      // sem isto, mirar com o Fire Bolt 4 lançaria o 10 ao soltar o mouse.
+      nivelArmado = nivel;
       miraLabel.style.display = 'block';
       miraLabel.textContent = def.name;
       viewportEl.style.cursor = 'crosshair';
@@ -5070,13 +5144,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       const nivel = Math.max(1, skillLevels[id] ?? 1);
       const limite = skillCastRange(def, nivel);
       if (distDoHeroi(mira.tileX, mira.tileY) > limite) {
-        conjurarAoChegar = { id, tileX: mira.tileX, tileY: mira.tileY };
+        conjurarAoChegar = { id, tileX: mira.tileX, tileY: mira.tileY, nivel };
         irParaPerto(mira.tileX, mira.tileY);
         return;
       }
       conjurarAoChegar = null;
     }
-    net.send({ t: 'cast', spell: id, ...(mira ? { tileX: mira.tileX, tileY: mira.tileY } : {}) });
+    net.send({
+      t: 'cast', spell: id,
+      ...(mira ? { tileX: mira.tileX, tileY: mira.tileY } : {}),
+      ...(nivel === undefined ? {} : { level: nivel }),
+    });
   }
 
   /**
@@ -5105,34 +5183,42 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // A barra só existe para quem tem alguma habilidade na classe (o Arqueiro e
     // o Assassino ainda não têm árvore — Etapa 13).
     atualizaEfeitos(s.effects);
-    const usable = barraAtual.some((id) => id !== null);
+    const usable = barraAtual.some((item) => item !== null);
     spellBarEl.style.display = usable ? 'flex' : 'none';
-    for (const [id, slot] of spellSlots) {
-      const nivel = skillLevels[id] ?? 0;
-      const naoAprendida = nivel <= 0;
+    for (const [i, slot] of spellSlots) {
+      const id = slot.id;
+      const aprendido = skillLevels[id] ?? 0;
+      // O nível DESTE slot, limitado ao aprendido. 0 no slot = usa o aprendido.
+      const nivel = slot.nivel <= 0 ? aprendido : Math.max(1, Math.min(aprendido, slot.nivel));
+      const naoAprendida = aprendido <= 0;
       slot.cell.classList.toggle('locked', naoAprendida);
       slot.cell.classList.toggle(
         'nomana',
         !naoAprendida && currentMana < skillManaCost(SKILLS[id], nivel),
       );
       slot.lvl.textContent = naoAprendida ? '' : String(nivel);
+      // ⚠️ Marca o slot que NÃO usa o nível cheio: sem isto, dois atalhos da
+      // mesma magia ficariam idênticos e o jogador teria de adivinhar qual é
+      // o barato.
+      slot.cell.classList.toggle('travado', !naoAprendida && slot.nivel > 0 && nivel < aprendido);
       // Fúria e Postura ficam ACESAS enquanto estão em efeito.
       const ligada =
         (id === 'battle_fury' && s.furyActive) || (id === 'defensive_stance' && s.stanceActive);
       slot.cell.classList.toggle('active', ligada);
-      const tecla = `F${barraAtual.indexOf(id) + 1}`;
-      slot.tip.innerHTML = skillTipHtml(id, nivel, tecla);
+      slot.tip.innerHTML = skillTipHtml(id, nivel, teclaDoSlot(i));
     }
   }
 
   /** Anima o cooldown do slot: setor escuro girando + segundos restantes. */
   function tickSpellCooldowns(now: number): void {
-    for (const [id, slot] of spellSlots) {
-      const cd = spellCooldowns.get(id);
+    for (const slot of spellSlots.values()) {
+      // ⚠️ O cooldown é da MAGIA, não do slot: dois atalhos do mesmo Fire Bolt
+      // recarregam juntos, porque o servidor guarda um tempo por habilidade.
+      const cd = spellCooldowns.get(slot.id);
       if (!cd) continue;
       const left = cd.until - now;
       if (left <= 0) {
-        spellCooldowns.delete(id);
+        spellCooldowns.delete(slot.id);
         slot.cell.classList.remove('cooling');
         continue;
       }
@@ -5145,11 +5231,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   function onCastAccepted(id: SkillId, cooldownMs: number): void {
-    const slot = spellSlots.get(id);
-    if (!slot) return;
+    // ⚠️ Acende TODOS os slots dessa magia: com nível por slot, ela pode estar
+    // em mais de um, e os dois recarregam juntos.
+    const slots = [...spellSlots.values()].filter((s) => s.id === id);
+    if (slots.length === 0) return;
     spellCooldowns.set(id, { until: performance.now() + cooldownMs, dur: cooldownMs });
-    slot.cell.classList.add('cooling', 'cast');
-    setTimeout(() => slot.cell.classList.remove('cast'), 400);
+    for (const s of slots) {
+      s.cell.classList.add('cooling', 'cast');
+      setTimeout(() => s.cell.classList.remove('cast'), 400);
+    }
   }
 
   // ---- Painel de habilidades (tecla K) ------------------------------------
@@ -5175,6 +5265,41 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     btn: HTMLButtonElement;
     why: HTMLElement;
     bar: HTMLElement[];
+    /** Números do nível escolhido (mana, dano, golpes…). */
+    num: HTMLElement;
+    /**
+     * 🔴 **O nível que será ARRASTADO para a barra.** `0` = o aprendido.
+     *
+     * É o recurso do Ragnarok que o dono pediu em 08/09: clicar no tracinho 4
+     * e arrastar leva o Fire Bolt **4** para o atalho, com a mana e o dano do
+     * nível 4. Zero é o padrão e quer dizer "acompanha o que eu aprender" — um
+     * número fixo congelaria o atalho quando a skill subisse.
+     */
+    sel: number;
+  }
+
+  /**
+   * Linha compacta com o que muda de nível para nível.
+   *
+   * ⚠️ Cada tipo mostra o que importa para ELE. "Dano 0%" numa Postura
+   * Defensiva não ajuda ninguém, e é o mesmo critério do tooltip da barra.
+   */
+  function numerosDoNivel(def: SkillDef, n: number): string {
+    const p: string[] = [`<b>Lv.${n}</b>`];
+    const mana = skillManaCost(def, n);
+    if (mana > 0) p.push(`${mana} MP`);
+    if (def.power > 0) p.push(`dano ${(skillPower(def, n) * 100).toFixed(0)}%`);
+    const golpes = skillHits(def, n);
+    if (golpes > 1) p.push(`${golpes} golpes`);
+    if (def.shape !== 'self') {
+      p.push(skillMiraNoChao(def)
+        ? `raio ${skillRange(def, n)} · até ${skillCastRange(def, n)}`
+        : `alcance ${skillRange(def, n)}`);
+    }
+    const dur = skillDuration(def, n);
+    if (dur > 0) p.push(`${(dur / 1000).toFixed(1)}s`);
+    if (def.cooldownMs > 0) p.push(`recarga ${(def.cooldownMs / 1000).toFixed(1)}s`);
+    return p.join(' · ');
   }
   const skillRows = new Map<SkillId, SkillRow>();
 
@@ -5213,6 +5338,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         row.title = 'Arraste para um slot da barra de atalhos';
         row.addEventListener('dragstart', (ev) => {
           ev.dataTransfer?.setData(DND_SKILL, id);
+          // 🔴 Leva o NÍVEL ESCOLHIDO nos tracinhos, não o aprendido.
+          ev.dataTransfer?.setData(DND_NIVEL, String(skillRows.get(id)?.sel ?? 0));
           row.classList.add('dragging');
         });
         row.addEventListener('dragend', () => row.classList.remove('dragging'));
@@ -5240,19 +5367,41 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       // Dez tracinhos = os dez níveis possíveis da habilidade.
       const bar = document.createElement('div');
       bar.className = 'skbar';
+      bar.title = 'Clique num nível para escolher qual arrastar para a barra';
       const pips: HTMLElement[] = [];
       for (let i = 0; i < MAX_SKILL_LEVEL; i++) {
         const pip = document.createElement('i');
+        /*
+         * 🔴 Clicar no tracinho ESCOLHE o nível que vai para o atalho.
+         *
+         * ⚠️ Clicar no já escolhido volta para "o aprendido" (0). Sem essa
+         * volta, quem fixasse um nível não teria como voltar a acompanhar a
+         * própria evolução — teria de arrastar de novo e adivinhar.
+         *
+         * ⚠️ Só até o nível aprendido: tracinho apagado é nível que o jogador
+         * ainda não tem, e escolher ali seria prometer o que o servidor vai
+         * limitar de qualquer jeito.
+         */
+        pip.addEventListener('click', () => {
+          const r = skillRows.get(id);
+          if (!r) return;
+          const alvo = i + 1;
+          if (alvo > (ultimoStats?.skillLevels[id] ?? 0)) return;
+          r.sel = r.sel === alvo ? 0 : alvo;
+          if (ultimoStats) updateSkillPanel(ultimoStats);
+        });
         bar.appendChild(pip);
         pips.push(pip);
       }
+      const num = document.createElement('div');
+      num.className = 'sknum';
 
       const why = document.createElement('div');
       why.className = 'why';
 
-      row.append(top, dsc, bar, why);
+      row.append(top, dsc, bar, num, why);
       skListEl.appendChild(row);
-      skillRows.set(id, { row, lv, btn, why, bar: pips });
+      skillRows.set(id, { row, lv, btn, why, bar: pips, num, sel: 0 });
     }
   }
 
@@ -5266,7 +5415,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       const custo = noMaximo ? 0 : skillUpgradeCost(nivel);
       r.lv.textContent = noMaximo ? 'MAX' : `Lv.${nivel} → ${custo} SP`;
       r.row.classList.toggle('locked', nivel <= 0);
-      for (let i = 0; i < r.bar.length; i++) r.bar[i]!.classList.toggle('on', i < nivel);
+      /*
+       * 🔴 Os tracinhos passaram a dizer DUAS coisas: `on` é o que já foi
+       * aprendido, `sel` é o nível escolhido para arrastar. Sem a segunda
+       * marca, clicar num tracinho não daria retorno visual nenhum e o jogador
+       * não saberia o que está prestes a levar para a barra.
+       */
+      const escolhido = r.sel > 0 ? Math.min(r.sel, nivel) : nivel;
+      for (let i = 0; i < r.bar.length; i++) {
+        r.bar[i]!.classList.toggle('on', i < nivel);
+        r.bar[i]!.classList.toggle('sel', r.sel > 0 && i === escolhido - 1);
+      }
+      r.num.innerHTML = nivel > 0
+        ? numerosDoNivel(def, escolhido)
+          + (r.sel > 0 ? ' <span class="fix">· fixo</span>' : '')
+        : '';
 
       // Espelha a mesma regra do servidor para explicar o bloqueio na hora.
       const faltaNivel = s.level < def.reqLevel;
@@ -5768,7 +5931,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         // navegador e F11 põe em tela cheia, e ambos no meio de uma luta são
         // pior do que não fazer nada.
         ev.preventDefault();
-        if (id) castSpellId(id);
+        if (id) castSpellId(id.id, undefined, nivelDoSlot(id));
       }
     }
   });
@@ -5856,8 +6019,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     if (magiaArmada) {
       const id = magiaArmada;
+      // ⚠️ O nível do slot que armou tem de sobreviver ao `desarmaMagia`, que
+      // o zera — daí a cópia antes.
+      const nivel = nivelArmado;
       desarmaMagia();
-      castSpellId(id, { tileX: t.x, tileY: t.y });
+      castSpellId(id, { tileX: t.x, tileY: t.y }, nivel);
       return;
     }
     /*
@@ -6470,7 +6636,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       if (distDoHeroi(alvo.tileX, alvo.tileY) <= limite) {
         conjurarAoChegar = null;
         cancelarRota();
-        castSpellId(alvo.id, { tileX: alvo.tileX, tileY: alvo.tileY });
+        castSpellId(alvo.id, { tileX: alvo.tileX, tileY: alvo.tileY }, alvo.nivel);
       } else if (caminho.length === 0) {
         conjurarAoChegar = null; // rota acabou sem chegar: desiste calado
       }

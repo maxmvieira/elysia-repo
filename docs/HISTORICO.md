@@ -9,6 +9,56 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-08 (tarde) — Nível por SLOT: o Fire Bolt 4 e o 10 em teclas diferentes
+
+**Onde mora:** `C2S_Cast.level` em `shared/src/protocol.ts` · `castSpell` e
+`executeSpell` em `server/src/index.ts` · `SlotDaBarra`, `nivelDoSlot`,
+`spellSlots`, `numerosDoNivel` e o clique nos tracinhos em `client/src/main.ts`
+
+Pedido do dono: o painel do Ragnarok — escolher **qual nível** da magia usar, ver
+MP, dano, golpes e duração por nível, e arrastar aquele nível para a barra. E o
+nível vale **só para aquele slot**.
+
+### 🔴 O que quebrou a premissa antiga
+
+O `spellSlots` era indexado **pela magia**, com um comentário dizendo que dois
+atalhos da mesma magia eram "quase sempre engano". Com nível por slot isso deixa
+de ser engano e passa a ser o ponto: Fire Bolt 4 para limpar bicho fraco sem
+gastar mana, Fire Bolt 10 para o que interessa.
+
+Indexado por id, o segundo slot sobrescreveria o primeiro e **um dos dois
+pararia de acender o cooldown, sem erro nenhum**. Passou a ser indexado pelo
+índice do slot, e o cooldown acende em todos os slots da mesma magia.
+
+### As decisões
+
+⚠️ **`0` no slot quer dizer "o aprendido"**, não "nível zero". Guardar o número
+aprendido na hora de montar congelaria o atalho: subir a skill não mudaria nada.
+
+⚠️ **O servidor LIMITA, não recusa.** Pedir 10 com 4 aprendidos lança em 4.
+Recusar seria pior — a barra pode ter sido montada antes de um reset de skills,
+e o jogador só veria a magia parar de sair.
+
+⚠️ **A barra salva lê os DOIS formatos.** Antes cada posição era só o id
+(`"fire_bolt"`), agora é `{id, nivel}`. Ler só o novo esvaziaria a barra de quem
+já jogava, sem aviso.
+
+⚠️ **O nível viaja num canal de arrasto separado** (`DND_NIVEL`), e não como
+`id@nivel` dentro do `DND_SKILL`: aquele dado é lido como `SkillId` em mais de um
+lugar, e um sufixo faria `SKILLS[novo]` virar indefinido no primeiro
+esquecimento.
+
+⚠️ **Clicar no tracinho já escolhido volta para "o aprendido".** Sem essa volta,
+quem fixasse um nível não teria como voltar a acompanhar a própria evolução.
+
+### Um defeito meu, pego antes de commitar
+
+`nivelArmado` era gravado ao armar a magia e **nunca lido** no clique: mirar com
+o Fire Bolt 4 lançaria o 10. É o mesmo tipo de furo do `atraso > 0` de ontem —
+código que compila, roda e faz a coisa errada em silêncio.
+
+---
+
 ## 2026-09-08 — Quatro ajustes de quem jogou: andar para lançar, queda mais lenta e o dobro nos monstros
 
 **Onde mora:** `conjurarAoChegar` e `DUR_QUEDA` em `client/src/main.ts` ·

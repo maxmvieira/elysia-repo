@@ -390,6 +390,22 @@ export interface C2S_Cast {
   targetId?: string;
   tileX?: number;
   tileY?: number;
+  /**
+   * 🔴 **Em que NÍVEL lançar** — o Fire Bolt 4 em vez do 10 (08/09).
+   *
+   * É o modelo do Ragnarok: cada slot da barra guarda a magia **e** o nível,
+   * então dá para ter Fire Bolt 4 num atalho e Fire Bolt 10 noutro. Nível
+   * baixo custa menos mana e bate menos — serve para limpar bicho fraco sem
+   * gastar o pote.
+   *
+   * ⚠️ Ausente = o nível APRENDIDO, que era o comportamento de sempre.
+   *
+   * ⚠️ O servidor limita ao que o jogador realmente tem: pedir 10 com 4
+   * aprendidos lança em 4, sem recusar. Recusar seria pior — a barra pode ter
+   * sido montada antes de um reset de skills, e o jogador não tem como saber
+   * que aquele slot ficou inválido.
+   */
+  level?: number;
 }
 
 /**
