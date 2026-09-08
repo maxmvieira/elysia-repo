@@ -33,14 +33,18 @@ tiles: praticamente em cima do próprio mago. Daí `castRange`, com padrão **6*
 ⚠️ O tooltip passou a mostrar **os dois**: *"raio 2 · lançar até 6"*. Mostrar só
 um deixaria o jogador achando que a magia só pega o que está colado nele.
 
-### A marca é um QUADRADO, não um círculo
+### A marca é um CÍRCULO, e o que isso custa
 
 🔴 O jogo mede distância em **Chebyshev**: raio 2 pega um bloco 5×5, não um
-disco. O círculo que o pedido descreve mostraria cantos de fora que na verdade
-são atingidos, e bordas dentro que não são. A marca desenha os tiles reais.
+disco. Desenhei o quadrado real primeiro e o dono preferiu o círculo mesmo
+assim — decisão dele, registrada.
 
-Alvo único continua com o círculo pequeno — lá é um tile só, e o círculo não
-mente.
+⚠️ **O custo, para quem for mexer:** os quatro CANTOS do bloco ficam de fora do
+círculo e mesmo assim levam dano. O raio desenhado é `(raio + 0,5)` tiles — a
+circunferência inscrita no quadrado, que toca o meio dos lados. É o desenho
+mais próximo da verdade dentro da forma pedida.
+
+Alvo único sempre foi círculo — lá é um tile só, e ele não mente.
 
 ### As decisões de borda
 

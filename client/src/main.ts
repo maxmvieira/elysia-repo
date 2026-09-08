@@ -4903,10 +4903,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   /**
    * Redesenha a marca da mira no tile apontado.
    *
-   * 🔴 **A área é um QUADRADO, e não um círculo, porque o jogo mede distância
-   * em Chebyshev** — o raio 2 pega um bloco 5×5, não um disco. Desenhar o
-   * círculo que o desenho pede mostraria cantos de fora que na verdade são
-   * atingidos, e bordas dentro que não são. A marca mostra os tiles reais.
+   * 🔴 **CÍRCULO também na área — decisão do dono (08/09)**, depois de eu
+   * apontar que o jogo mede distância em **Chebyshev**: raio 2 pega um bloco
+   * 5×5, não um disco.
+   *
+   * ⚠️ O que isso custa, para quem for mexer aqui: os **quatro cantos** do
+   * bloco ficam de fora do círculo e mesmo assim levam dano. O raio desenhado é
+   * `(raio + 0,5)` tiles — a circunferência inscrita no quadrado real, que toca
+   * o meio dos lados. É o desenho mais próximo da verdade dentro da forma
+   * pedida; a versão fiel seria o quadrado, e está no histórico de 08/09.
    */
   function pintaMira(clientX: number, clientY: number, tx: number, ty: number): void {
     if (!magiaArmada) return;
@@ -4928,9 +4933,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const py = ty * TS;
     miraMarca.clear();
     if (raio > 0) {
-      const lado = (raio * 2 + 1) * TS;
       miraMarca
-        .rect(px - raio * TS, py - raio * TS, lado, lado)
+        .circle(px + TS / 2, py + TS / 2, (raio + 0.5) * TS)
         .fill({ color: cor, alpha: 0.12 })
         .stroke({ color: cor, width: 1.5, alpha: 0.85 });
     } else {
