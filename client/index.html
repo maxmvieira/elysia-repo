@@ -357,10 +357,13 @@
        * ===================================================================== */
       #charhud {
         position: absolute;
-        /* ⚠️ 10 e não 6: o anel do retrato transborda 6 px para cima do medalhão
-           (as pontas do ornamento), e a 6 elas encostavam na beirada do mundo. */
-        top: 10px;
-        left: 10px;
+        /*
+         * ⚠️ Foi 10 enquanto existia o anel do retrato, cujas pontas
+         * transbordavam para cima do medalhão. Sem ele, o painel encosta na
+         * beirada como qualquer outro canto da HUD.
+         */
+        top: 6px;
+        left: 6px;
         z-index: 6;
         display: flex;
         align-items: flex-start;
@@ -377,27 +380,6 @@
        * o `#portrait`, que ganhou o próprio `border-radius` — a máscara desceu
        * uma camada para o anel poder transbordar.
        */
-      #chmedal {
-        position: relative;
-        width: 66px;
-        height: 66px;
-        flex: none;
-        z-index: 2;
-      }
-      /* A moldura, por cima do retrato e sem roubar o clique. */
-      #chmedal::after {
-        content: '';
-        position: absolute;
-        /*
-         * ⚠️ -9 px, e não -6: o anel remontado é um círculo fechado cujo vão
-         * interno vale ≈71% da arte. Com essa folga o vão fica um pouco menor
-         * que o retrato e a peça encosta na borda dele, que é como o desenho
-         * original monta o medalhão.
-         */
-        inset: -9px;
-        background: url('/assets/hud/icones/anel_retrato.png') center/contain no-repeat;
-        pointer-events: none;
-      }
 
       /*
        * O número do nível, no pé do medalhão.
@@ -474,8 +456,13 @@
        * amostra tirada da própria arte (21,22,20). Com gradiente aparecia a
        * emenda entre o escuro pintado da moldura e o escuro do CSS.
        */
+      /*
+       * ⚠️ Sem `margin-left` negativa: ela existia para o painel escorregar por
+       * baixo do medalhão do retrato, que sobrepunha a borda esquerda dele como
+       * no desenho da folha. Com o medalhão fora, a margem só empurraria o
+       * painel para fora da tela.
+       */
       #chcorpo {
-        margin-left: -14px;
         padding: 2px 4px 4px 8px;
         /*
          * ⚠️ 250 e não 210: com os rótulos de 66 px e o vão de 42 à direita, a
@@ -3584,19 +3571,6 @@
             aqui há botões. O CSS devolve o `none` só ao miolo decorativo.
           -->
           <div id="charhud" class="expandido">
-            <!--
-              O medalhão é só o ANEL, e o miolo fica vazio de propósito (09/09).
-
-              🔴 Havia um retrato ali: o sprite do herói a 32 px, herdado de
-              quando o retrato morava num quadrado de 44 px no painel lateral.
-              Dentro do anel de 66 ele virou uma figurinha perdida no meio de um
-              vão escuro, e foi o dono quem pediu para tirar.
-
-              ⚠️ Não sobrou `<div>` nenhum dentro: o anel é desenhado pelo
-              `::after` do próprio medalhão, então um filho vazio só existiria
-              para pintar o fundo que agora não deve existir.
-            -->
-            <div id="chmedal"></div>
             <div id="chcorpo">
               <div id="chtopo">
                 <b id="charname">—</b>

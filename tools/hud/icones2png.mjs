@@ -197,26 +197,6 @@ const MOLDURAS = [
   /* Mesma história: a arte do minimapa traz bússola, botões e rótulo dentro. */
   { nome: 'painel_mapa', folha: 'folha1', x0: 1119, y0: 12, x1: 1525, y1: 335, tapa: { x0: 16, y0: 14, x1: 390, y1: 309, amostra: [200, 150] } },
   /*
-   * 🔴 **O ANEL DO RETRATO SÓ EXISTE PELA METADE NA ARTE.**
-   *
-   * O primeiro recorte saiu errado e o erro só apareceu no jogo: dentro do
-   * medalhão iam as barras vermelha, azul e verde do painel. É que na folha o
-   * anel não é uma peça solta — ele fica POR BAIXO do painel, que cobre o lado
-   * direito dele, e ainda tem colados embaixo um disco menor (o nível) e um
-   * escudo azul. Recortar um quadrado em volta traz tudo isso junto.
-   *
-   * ✅ O anel é simétrico, então **basta um quadrante**: pega-se o de cima à
-   * esquerda — o único limpo, porque o painel está à direita e o disco e o
-   * escudo estão embaixo — e espelha-se nos outros três. Sai um anel inteiro
-   * de uma arte que nunca esteve inteira.
-   *
-   * ⚠️ O quadrado é MEDIDO pelo círculo, não pela caixa do desenho: o anel tem
-   * centro em (114,120) e raio externo ≈106 na folha (a borda esquerda dele
-   * encosta em x=9, e a ponta de cima em x=114). O recorte é esse centro ±112,
-   * que é o raio com folga para a ponta de cima, em y=8.
-   */
-  { nome: 'anel_retrato', folha: 'folha1', x0: 2, y0: 8, x1: 227, y1: 233, espelhaQuadrante: true, vazaCentro: 28 },
-  /*
    * A calha VAZIA das barras, com as pontas ornamentais. Medida em
    * x=23..262, y=850..885 da folha 1 — logo abaixo dela estão as versões já
    * preenchidas em verde e vermelho, que não servem: a cor tem de vir do
@@ -378,23 +358,6 @@ for (const m of MOLDURAS) {
     const area = (t.x1 - t.x0 + 1) * (t.y1 - t.y0 + 1);
     console.log(`     (miolo tapado: ${area} px na cor ${cor.slice(0, 3).join(',')})`);
   }
-  if (m.circular) {
-    /*
-     * ⚠️ Raio com 1 px de folga sobre a metade do lado: cravado na metade
-     * exata, a máscara comeria o contorno dourado do próprio disco.
-     */
-    const cx = (w - 1) / 2, cy = (h - 1) / 2;
-    const raio = Math.min(w, h) / 2 + 1;
-    let cortados = 0;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        if (Math.hypot(x - cx, y - cy) <= raio) continue;
-        const o = (y * w + x) * 4;
-        if (out[o + 3] !== 0) { out[o + 3] = 0; cortados++; }
-      }
-    }
-    console.log(`     (máscara circular: ${cortados} px fora do disco apagados)`);
-  }
   if (m.espelhaEsquerda) {
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < m.espelhaEsquerda; x++) {
@@ -403,22 +366,6 @@ for (const m of MOLDURAS) {
       }
     }
     console.log(`     (borda esquerda espelhada da direita: ${m.espelhaEsquerda} colunas)`);
-  }
-  if (m.espelhaQuadrante) {
-    /*
-     * ⚠️ Espelha nos DOIS eixos a partir do quadrante de cima à esquerda. Vale
-     * porque a peça é um ornamento de simetria quádrupla: a ponta de cima cai
-     * em cima do eixo e continua centrada, e os cravos das diagonais aparecem
-     * nos quatro cantos, como já aparecem no desenho.
-     */
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const fx = x < w / 2 ? x : w - 1 - x;
-        const fy = y < h / 2 ? y : h - 1 - y;
-        if (fx === x && fy === y) continue;
-        out.copy(out, (y * w + x) * 4, (fy * w + fx) * 4, (fy * w + fx) * 4 + 4);
-      }
-    }
   }
   if (m.vazaCentro) {
     /*
