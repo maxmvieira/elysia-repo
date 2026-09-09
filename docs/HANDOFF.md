@@ -44,9 +44,36 @@ Nos painéis ele fica FORA (o miolo traz conteúdo desenhado, que duplicaria o
 do jogo); na calha das barras ele fica DENTRO (o miolo é calha lisa, que é
 exatamente o fundo que a barra precisa).
 
-**Ainda de fora:** os itens rápidos do canto inferior direito (não existem),
-a moldura da barra de skills, os estados de hover/press dos botões e os
-ícones de magia, que continuam vindo de `spellIconUrl()`.
+## 🖼️ SEGUNDA PASSADA NA HUD (09/09)
+
+O dono testou e a palavra foi "ainda está bem estranho". Três causas, e as três
+estavam na MESMA armadilha vista de ângulos diferentes.
+
+🔴 **A fatia do `border-image` tem de caber o CANTO, não a espessura da faixa.**
+A primeira correção mediu a barra dourada lado a lado (18/28/9/34) e encolheu a
+borda para acompanhar — mas nesta arte a faixa é fina (uns 8 px) e o ornamento
+todo mora nos cantos, que têm uns 44. A moldura virou um fio.
+
+✅ Para a fatia poder voltar a 44, `vazar` virou **`tapa`**: em vez de apagar o
+miolo, ele é coberto com o próprio fundo do painel, amostrado de um ponto da
+arte. Os desenhos somem, o escuro fica, e o canto cabe inteiro. O fundo do CSS
+deixou de ser gradiente e virou essa mesma cor chata — com gradiente aparecia a
+emenda entre o escuro pintado e o escuro do CSS.
+
+**Viraram arte também:** o disco do nível (era `border-radius` + borda de 1 px),
+os slots da barra de magias (eram o "card arredondado moderno" que o dono pediu
+para não ter, em três estados: vazio, aro dourado, apagado) e a placa de nome da
+região no minimapa. Da placa saiu o "Prontera" que a folha escreve dentro dela.
+
+**Três desalinhamentos** que faziam o painel parecer torto: rótulos de larguras
+diferentes (as quatro barras começavam em dois lugares), HP/SP acabando 42 px
+depois de Base/Job, e os sete atalhos com vão morto à direita.
+
+**Ainda de fora:** os itens rápidos do canto inferior direito (não existem), os
+estados de hover/press dos botões, os ícones de magia (continuam vindo de
+`spellIconUrl()`) e o pegador da barra, que ainda é gradiente de CSS. A folha 5
+tem "Slot Bloqueado" e "Cooldown" prontos, mas são ilustrações de estado — o
+jogo já desenha os dois por cima com o dado de verdade.
 
 ## 🎯 A PRÓXIMA COISA
 
