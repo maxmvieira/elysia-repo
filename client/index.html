@@ -734,8 +734,28 @@
         opacity: 0;
         margin: 0;
       }
-      #charhud.recolhido #chcorpo { min-width: 150px; }
       #charhud.recolhido #charclass { display: none; }
+      /*
+       * 🔴 **RECOLHIDO, A BARRA FICA COM O ESPAÇO TODO** (09/09).
+       *
+       * As duas medidas que apertavam a barra existem por causa das linhas de
+       * experiência — e são justamente elas que somem ao recolher:
+       *
+       *   - o rótulo de 66 px é a largura de "Base Lv. 149", e serve para as
+       *     quatro barras começarem no mesmo x. Sem as linhas de Base e Job
+       *     não há com o que alinhar, e 66 px viram vão morto ao lado de "HP".
+       *   - o vão de 42 px à direita reserva a coluna de porcentagem, que mora
+       *     dentro do bloco escondido.
+       *
+       * Somadas, sobravam 60 px de barra num painel de 150 — e "1360 / 1360"
+       * transbordava por cima das pontas ornamentais, que foi o que o dono viu.
+       *
+       * ⚠️ A largura mínima deixou de encolher junto: recolher tira LINHAS, não
+       * largura. Com 150 px não havia distribuição que salvasse.
+       */
+      #charhud.recolhido .chrot { width: 22px; }
+      #charhud.recolhido .chbar.hp,
+      #charhud.recolhido .chbar.sp { margin-right: 0; }
 
       /* =====================================================================
        * 🧪 ITENS RÁPIDOS — canto inferior direito do mundo.
