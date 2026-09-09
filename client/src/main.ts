@@ -257,18 +257,30 @@ const CHAVE_HUD_ABERTA = 'elysia.charhud.expandida';
 // o mundo e abrem por um botão da HUD.
 // ---------------------------------------------------------------------------
 
+/**
+ * Traz uma janela para a frente das outras.
+ *
+ * 🔴 **Por `z-index`, e NUNCA reanexando o elemento.** A primeira versão fazia
+ * `appendChild` no `pointerdown`, e isso quebrou o botão de fechar: mover um nó
+ * no DOM entre o `pointerdown` e o `click` cancela o clique, porque o navegador
+ * exige que os dois caiam na mesma cadeia de elementos. O sintoma era o ✕ não
+ * responder — e só na janela que acabara de receber o clique, que é a que tinha
+ * sido movida.
+ */
+let zDaJanela = 10;
+function janelaAoFrente(j: HTMLElement): void {
+  j.style.zIndex = String((zDaJanela += 1));
+}
+
 /** Abre/fecha uma janela pelo id. */
 function alternaJanela(id: string): () => void {
   return () => {
     const j = document.getElementById(id);
     if (!j) return;
     j.classList.toggle('aberta');
-    /*
-     * ⚠️ Ao abrir, a janela vai para a FRENTE das outras. Sem isto, duas
-     * abertas ficariam na ordem do HTML para sempre, e a de trás só voltaria ao
-     * topo fechando a da frente — que é o oposto do que clicar nela sugere.
-     */
-    if (j.classList.contains('aberta')) j.parentElement?.appendChild(j);
+    // ⚠️ Sem isto, duas abertas ficariam na ordem do HTML para sempre, e a de
+    // trás só voltaria ao topo fechando a da frente.
+    if (j.classList.contains('aberta')) janelaAoFrente(j);
   };
 }
 
@@ -297,7 +309,7 @@ function ligaJanelas(): void {
      * ⚠️ Clicar em qualquer lugar da janela a traz para a frente — não só a
      * barra de título. É o que se espera de janela, e sai de graça aqui.
      */
-    j.addEventListener('pointerdown', () => j.parentElement?.appendChild(j));
+    j.addEventListener('pointerdown', () => janelaAoFrente(j));
 
     const topo = j.querySelector<HTMLElement>('.jtopo');
     topo?.addEventListener('pointerdown', (ev) => {
@@ -4558,7 +4570,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   el('bank-depot').onclick = () => {
     janDeposito.classList.add('aberta');
-    janDeposito.parentElement?.appendChild(janDeposito);
+    janelaAoFrente(janDeposito);
   };
   shopTabBuy.onclick = () => { shopTab = 'buy'; renderShop(); };
   shopTabSell.onclick = () => { shopTab = 'sell'; renderShop(); };
