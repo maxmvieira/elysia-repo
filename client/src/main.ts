@@ -296,16 +296,24 @@ function ligaPainelDoPersonagem(): void {
       'espera o sistema.', 'sys');
   };
 
+  /*
+   * 🔴 **Os ícones saíram do EMOJI e viraram arte** (08/09). Recortados das
+   * folhas do dono por `tools/hud/icones2png.mjs`, que mede a fileira em vez de
+   * cortar por célula fixa — as folhas são desenho gerado, não grade.
+   *
+   * ⚠️ O emoji ficava com a cara do SISTEMA OPERACIONAL: 🎒 no Windows não é o
+   * mesmo desenho que no macOS, e nenhum dos dois combina com moldura dourada.
+   */
   const ATALHOS: Array<{
-    icone: string; nome: string; abre: () => void; futuro?: boolean;
+    arte: string; nome: string; abre: () => void; futuro?: boolean;
   }> = [
-    { icone: '🎒', nome: 'Inventário', abre: alterna('invbox') },
-    { icone: '📖', nome: 'Habilidades (K)', abre: alterna('skillpanel', 'flex') },
-    { icone: '👥', nome: 'Amigos', abre: alterna('friendsbox') },
-    { icone: '📜', nome: 'Missões', abre: porVir('O diário de missões'), futuro: true },
-    { icone: '🏆', nome: 'Conquistas', abre: porVir('A janela de conquistas'), futuro: true },
-    { icone: '⚙️', nome: 'Personagem (C)', abre: alterna('charpanel') },
-    { icone: '✉️', nome: 'Correio', abre: porVir('O correio'), futuro: true },
+    { arte: 'inventario', nome: 'Inventário', abre: alterna('invbox') },
+    { arte: 'skills', nome: 'Habilidades (K)', abre: alterna('skillpanel', 'flex') },
+    { arte: 'amigos', nome: 'Amigos', abre: alterna('friendsbox') },
+    { arte: 'quests', nome: 'Missões', abre: porVir('O diário de missões'), futuro: true },
+    { arte: 'conquistas', nome: 'Conquistas', abre: porVir('A janela de conquistas'), futuro: true },
+    { arte: 'config', nome: 'Personagem (C)', abre: alterna('charpanel') },
+    { arte: 'correio', nome: 'Correio', abre: porVir('O correio'), futuro: true },
   ];
 
   const caixa = el('chbtns');
@@ -313,9 +321,18 @@ function ligaPainelDoPersonagem(): void {
   for (const a of ATALHOS) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = a.icone;
     b.title = a.nome;
     if (a.futuro) b.className = 'futuro';
+    /*
+     * ⚠️ `<img>` e não `background-image`: com fundo o ícone não teria como
+     * ganhar o estado desabilitado por `filter`, e o `alt` some — que é o que
+     * um leitor de tela e o modo "imagem quebrada" mostram.
+     */
+    const img = document.createElement('img');
+    img.src = `/assets/hud/icones/${a.arte}.png`;
+    img.alt = a.nome;
+    img.draggable = false;
+    b.appendChild(img);
     b.addEventListener('click', a.abre);
     caixa.appendChild(b);
   }
