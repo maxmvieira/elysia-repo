@@ -15,6 +15,38 @@
 | 🪨 **Rocha** | primeiro modelo 3D que não depende de textura |
 | 🚪 **Voltar ao login** | na seleção de personagem |
 | ⚔️ **Monstros × 2** | XP e status dobrados (`MULT_CRIATURA`) |
+| 🖼️ **HUD de arte** | ícones, molduras, anel do retrato e barras saíram das folhas |
+
+## 🖼️ A HUD DEIXOU DE SER CSS (08/09, noite)
+
+As cinco folhas ilustradas viraram PNGs por `tools/hud/icones2png.mjs`: os
+sete atalhos, os botões pequenos, o painel do personagem, o do minimapa, o
+anel do retrato e a **calha das barras com pontas ornamentais**.
+
+🔴 **A lição que custou dois consertos: a arte das molduras JÁ TRAZ o
+conteúdo desenhado dentro.** O painel do personagem vem com barras e slots
+pintados; o do minimapa, com bússola e botões. Como a fatia do `border-image`
+alcança para dentro, esses desenhos apareciam colados na borda — quatro tocos
+coloridos ao lado das barras de verdade. O conversor passou a **vazar o
+miolo** na fonte (`vazar`), e a fatia passou a ser a espessura MEDIDA da
+faixa dourada, não um número redondo.
+
+🔴 **O anel do retrato só existe pela metade na folha.** Ele fica por baixo do
+painel, que cobre o lado direito dele, e tem colados embaixo um disco menor (o
+nível) e um escudo azul. O primeiro recorte levou tudo isso junto — era daí
+que vinham as barras dentro do medalhão. Agora o conversor pega **um
+quadrante** (o de cima à esquerda, o único limpo) e espelha nos outros três:
+sai um anel inteiro de uma arte que nunca esteve inteira. O miolo é vazado por
+alagamento, como nos retratos de classe, senão ele taparia o retrato.
+
+⚠️ **`fill` no `border-image` não tem regra fixa — depende do miolo da peça.**
+Nos painéis ele fica FORA (o miolo traz conteúdo desenhado, que duplicaria o
+do jogo); na calha das barras ele fica DENTRO (o miolo é calha lisa, que é
+exatamente o fundo que a barra precisa).
+
+**Ainda de fora:** os itens rápidos do canto inferior direito (não existem),
+a moldura da barra de skills, os estados de hover/press dos botões e os
+ícones de magia, que continuam vindo de `spellIconUrl()`.
 
 ## 🎯 A PRÓXIMA COISA
 

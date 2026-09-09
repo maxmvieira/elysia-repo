@@ -233,25 +233,52 @@ if (arg[0] === '--mapa') {
 const MOLDURAS = [
   /*
    * ⚠️ O painel do personagem começa em x=200, e não na borda esquerda da
-   * arte (x=9): à esquerda fica o ANEL DO RETRATO, que é peça própria e não
-   * pode entrar na fatia. No jogo o medalhão cobre essa borda de qualquer
-   * forma — é a mesma sobreposição do desenho original.
+   * arte: à esquerda fica o MEDALHÃO DO RETRATO, que é peça própria.
+   *
+   * ⚠️ **`vazar` existe porque a arte do painel JÁ TRAZ barras e slots
+   * desenhados dentro dela** — e a fatia de 44 px do `border-image` alcança
+   * esses desenhos. O resultado eram quatro tocos coloridos grudados na borda
+   * esquerda do painel, restos das barras da ilustração espremidos junto com a
+   * moldura, ao lado das barras de verdade.
+   *
+   * ✅ Apagar o miolo resolve na FONTE: sobra o anel da moldura, e o que a
+   * fatia alcança para dentro fica transparente. O `fill` continua fora, e o
+   * fundo do painel segue sendo o gradiente do CSS.
+   *
+   * ⚠️ O retângulo é MEDIDO: as barras da ilustração vão de x=36 a x=420 num
+   * PNG de 449, e os slots ocupam de y≈220 a y≈283 num de 293. O vão para em
+   * 34 e 18 para não comer a faixa dourada.
    */
-  { nome: 'painel_char', folha: 'folha1', x0: 200, y0: 28, x1: 648, y1: 320 },
-  { nome: 'painel_mapa', folha: 'folha1', x0: 1119, y0: 12, x1: 1525, y1: 335 },
+  { nome: 'painel_char', folha: 'folha1', x0: 200, y0: 28, x1: 648, y1: 320, vazar: { x0: 34, y0: 18, x1: 420, y1: 283 } },
+  /* Mesma história: a arte do minimapa traz bússola, botões e rótulo dentro. */
+  { nome: 'painel_mapa', folha: 'folha1', x0: 1119, y0: 12, x1: 1525, y1: 335, vazar: { x0: 18, y0: 16, x1: 388, y1: 307 } },
   /*
-   * 🔴 **O ANEL DO RETRATO precisa de MÁSCARA CIRCULAR.**
+   * 🔴 **O ANEL DO RETRATO SÓ EXISTE PELA METADE NA ARTE.**
    *
-   * Na arte ele ENCOSTA no painel — a `--cols` na altura do meio devolve uma
-   * faixa só, de x=9 a 642, porque os dois se tocam. Não há espaço vazio para
-   * separar, então o recorte quadrado leva junto um naco da borda do painel
-   * nos cantos.
+   * O primeiro recorte saiu errado e o erro só apareceu no jogo: dentro do
+   * medalhão iam as barras vermelha, azul e verde do painel. É que na folha o
+   * anel não é uma peça solta — ele fica POR BAIXO do painel, que cobre o lado
+   * direito dele, e ainda tem colados embaixo um disco menor (o nível) e um
+   * escudo azul. Recortar um quadrado em volta traz tudo isso junto.
    *
-   * ✅ Como o anel É um círculo, a máscara resolve: o que cai fora do raio
-   * vira transparente, e com ele some exatamente o pedaço de painel que
-   * sobrou nos cantos.
+   * ✅ O anel é simétrico, então **basta um quadrante**: pega-se o de cima à
+   * esquerda — o único limpo, porque o painel está à direita e o disco e o
+   * escudo estão embaixo — e espelha-se nos outros três. Sai um anel inteiro
+   * de uma arte que nunca esteve inteira.
+   *
+   * ⚠️ O quadrado é MEDIDO pelo círculo, não pela caixa do desenho: o anel tem
+   * centro em (114,120) e raio externo ≈106 na folha (a borda esquerda dele
+   * encosta em x=9, e a ponta de cima em x=114). O recorte é esse centro ±112,
+   * que é o raio com folga para a ponta de cima, em y=8.
    */
-  { nome: 'anel_retrato', folha: 'folha1', x0: 118, y0: 26, x1: 330, y1: 238, circular: true },
+  { nome: 'anel_retrato', folha: 'folha1', x0: 2, y0: 8, x1: 227, y1: 233, espelhaQuadrante: true, vazaCentro: true },
+  /*
+   * A calha VAZIA das barras, com as pontas ornamentais. Medida em
+   * x=23..262, y=850..885 da folha 1 — logo abaixo dela estão as versões já
+   * preenchidas em verde e vermelho, que não servem: a cor tem de vir do
+   * preenchimento do jogo, não da arte.
+   */
+  { nome: 'barra_calha', folha: 'folha1', x0: 23, y0: 850, x1: 262, y1: 885 },
 ];
 
 mkdirSync(DESTINO, { recursive: true });
@@ -264,23 +291,58 @@ for (const m of MOLDURAS) {
     const de2 = ((m.y0 + y) * img.w + m.x0) * 4;
     img.px.copy(out, y * w * 4, de2, de2 + w * 4);
   }
-  if (m.circular) {
-    /*
-     * ⚠️ Raio com 2 px de folga sobre a metade do lado: cravado na metade
-     * exata, a máscara comeria a linha de fora do anel, que é justamente o
-     * contorno dourado.
-     */
-    const cx = (w - 1) / 2, cy = (h - 1) / 2;
-    const raio = Math.min(w, h) / 2 + 2;
-    let cortados = 0;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        if (Math.hypot(x - cx, y - cy) <= raio) continue;
+  if (m.vazar) {
+    const v = m.vazar;
+    let limpos = 0;
+    for (let y = v.y0; y <= v.y1; y++) {
+      for (let x = v.x0; x <= v.x1; x++) {
         const o = (y * w + x) * 4;
-        if (out[o + 3] !== 0) { out[o + 3] = 0; cortados++; }
+        if (out[o + 3] !== 0) { out[o + 3] = 0; limpos++; }
       }
     }
-    console.log(`     (máscara circular: ${cortados} px fora do anel apagados)`);
+    console.log(`     (miolo vazado: ${limpos} px apagados)`);
+  }
+  if (m.espelhaQuadrante) {
+    /*
+     * ⚠️ Espelha nos DOIS eixos a partir do quadrante de cima à esquerda. Vale
+     * porque a peça é um ornamento de simetria quádrupla: a ponta de cima cai
+     * em cima do eixo e continua centrada, e os cravos das diagonais aparecem
+     * nos quatro cantos, como já aparecem no desenho.
+     */
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const fx = x < w / 2 ? x : w - 1 - x;
+        const fy = y < h / 2 ? y : h - 1 - y;
+        if (fx === x && fy === y) continue;
+        out.copy(out, (y * w + x) * 4, (fy * w + fx) * 4, (fy * w + fx) * 4 + 4);
+      }
+    }
+  }
+  if (m.vazaCentro) {
+    /*
+     * 🔴 **O miolo do anel TEM de ficar vazado**, senão ele tapa o retrato: no
+     * CSS o anel vem por cima, e na arte o meio dele é fundo escuro opaco.
+     *
+     * ✅ É o mesmo alagamento do `retratos2card.mjs`: sai do centro e come o
+     * escuro contíguo, parando no dourado. Não dá para usar um raio fixo — a
+     * borda de dentro do anel tem cravos que entram, e um círculo cortaria
+     * justamente eles.
+     */
+    const escuro = (o) => out[o + 3] !== 0 && (out[o] + out[o + 1] + out[o + 2]) / 3 < 28;
+    const pilha = [[w >> 1, h >> 1]];
+    const visto = new Uint8Array(w * h);
+    let limpos = 0;
+    while (pilha.length) {
+      const [x, y] = pilha.pop();
+      if (x < 0 || y < 0 || x >= w || y >= h || visto[y * w + x]) continue;
+      const o = (y * w + x) * 4;
+      if (!escuro(o)) continue;
+      visto[y * w + x] = 1;
+      out[o + 3] = 0;
+      limpos++;
+      pilha.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+    }
+    console.log(`     (centro vazado: ${limpos} px alagados)`);
   }
   writeFileSync(join(DESTINO, `${m.nome}.png`), encode(w, h, out));
   console.log(`\n[hud] moldura ${m.nome}.png  ${w}x${h}`);

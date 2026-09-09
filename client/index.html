@@ -388,7 +388,13 @@
       #chmedal::after {
         content: '';
         position: absolute;
-        inset: -6px;
+        /*
+         * ⚠️ -9 px, e não -6: o anel remontado é um círculo fechado cujo vão
+         * interno vale ≈71% da arte. Com essa folga o vão fica um pouco menor
+         * que o retrato e a peça encosta na borda dele, que é como o desenho
+         * original monta o medalhão.
+         */
+        inset: -9px;
         background: url('/assets/hud/icones/anel_retrato.png') center/contain no-repeat;
         pointer-events: none;
       }
@@ -460,8 +466,21 @@
         padding: 0 2px 2px 8px;
         min-width: 210px;
         background: linear-gradient(#15120e, #0b0a08);
-        border: 12px solid transparent;
-        border-image: url('/assets/hud/icones/painel_char.png') 44 / 12px / 0 stretch;
+        /*
+         * ⚠️ **A fatia acompanha o vazamento do conversor.** O miolo da arte
+         * foi apagado em x=34..420 e y=18..283, então é até ali que existe
+         * faixa dourada — 18 em cima, 28 à direita, 9 embaixo, 34 à esquerda.
+         * Uma fatia maior traria transparência para dentro da borda e a
+         * moldura viraria um fio fino, que foi o que aconteceu antes de os
+         * quatro números serem medidos.
+         *
+         * ⚠️ A largura na tela é a mesma redução aplicada aos quatro (≈0,35),
+         * senão um lado estica e o outro espreme.
+         */
+        border-style: solid;
+        border-color: transparent;
+        border-width: 6px 10px 3px 12px;
+        border-image: url('/assets/hud/icones/painel_char.png') 18 28 9 34 / 6px 10px 3px 12px / 0 stretch;
       }
       #chtopo {
         display: flex;
@@ -533,25 +552,58 @@
         font-size: 9px;
       }
       /*
-       * As barras. `position: relative` porque o número mora dentro delas.
+       * 🖼️ **A CALHA DAS BARRAS É ARTE**, em três fatias horizontais (08/09).
        *
-       * ⚠️ A largura vem do `flex: 1`, não de um número fixo: é o que faz a
-       * HUD acompanhar a janela sem media query nenhuma.
+       * 🔴 **Aqui o `fill` É o certo — ao contrário do painel.** A diferença é o
+       * que cada peça tem no miolo: o painel traz calhas e slots já desenhados, e
+       * pintá-los dava conteúdo duplicado; esta traz uma calha LISA, que é
+       * exatamente o fundo que a barra precisa. Mesma propriedade, decisão
+       * oposta, e o motivo está na arte, não na regra.
+       *
+       * ⚠️ `position: relative` porque o número mora dentro da barra; a largura
+       * vem do `flex: 1`, não de um número fixo — é o que faz a HUD acompanhar a
+       * janela sem media query nenhuma.
        */
       .chbar {
         position: relative;
         flex: 1;
         min-width: 0;
-        height: 13px;
-        background: #08070a;
-        border: 1px solid #3a3226;
-        border-radius: 2px;
-        overflow: hidden;
+        height: 17px;
+        /*
+         * ⚠️ **A fatia é medida na ARTE; a largura, na TELA.** A ponta
+         * ornamental ocupa 20 px do PNG de 240 (medido: o miolo escuro começa
+         * em x=20 e acaba em x=220). Na tela ela vale 9 px, que é o mesmo 20
+         * reduzido junto com a altura — 17/36 da arte. Mexer só num dos dois
+         * números espreme ou estica a ponta.
+         *
+         * ⚠️ Fatia vertical ZERO de propósito: a barra não tem canto a
+         * preservar em cima e embaixo, e com 0 o trilho dourado das duas
+         * bordas vai junto no pedaço do meio, esticando na horizontal.
+         */
+        border: 0 solid transparent;
+        border-width: 0 9px;
+        border-image: url('/assets/hud/icones/barra_calha.png') 0 20 fill / 0 9px / 0 stretch;
       }
-      .chbar.xp, .chbar.job { height: 9px; }
+      /* As de experiência são mais baixas; a ponta encolhe junto para não deformar. */
+      .chbar.xp,
+      .chbar.job {
+        height: 12px;
+        border-width: 0 7px;
+      }
+      /*
+       * ⚠️ O preenchimento é ABSOLUTO e recuado em PORCENTAGEM.
+       *
+       * A calha da arte tem parede própria: o vão escuro vai de y=7 a y=27 num
+       * PNG de 36 (medido). Em porcentagem esse recuo acompanha sozinho a barra
+       * de 17 px e a de 12 px, que é justamente o que um número em pixel não
+       * faria. Na horizontal não há recuo nenhum: a borda de 9 px já é a ponta,
+       * então a caixa de conteúdo começa exatamente onde o vão começa.
+       */
       .chbar > i {
-        display: block;
-        height: 100%;
+        position: absolute;
+        left: 0;
+        top: 19%;
+        bottom: 22%;
         width: 0;
         transition: width 0.18s ease;
       }
@@ -648,8 +700,11 @@
         z-index: 6;
         width: 172px;
         background: linear-gradient(#15120e, #0b0a08);
-        border: 13px solid transparent;
-        border-image: url('/assets/hud/icones/painel_mapa.png') 46 / 13px / 0 stretch;
+        /* Mesma medida do vazamento: 16 em cima e embaixo, 18 nos lados. */
+        border-style: solid;
+        border-color: transparent;
+        border-width: 10px 12px 10px 12px;
+        border-image: url('/assets/hud/icones/painel_mapa.png') 16 18 16 18 / 10px 12px 10px 12px / 0 stretch;
         font-size: 10px;
         user-select: none;
       }
