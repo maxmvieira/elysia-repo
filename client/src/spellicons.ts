@@ -629,9 +629,84 @@ function drawGenerico(g: CanvasRenderingContext2D, id: SkillId): void {
   }
 }
 
+/**
+ * 🖼️ **AS MAGIAS SAEM DA FOLHA** (09/09) — folha 4, treze quadros ilustrados.
+ *
+ * 🔴 **Treze ícones para 75 habilidades: o mapa é por RAMO, não por magia.** E
+ * a consequência precisa ficar dita: dentro de um ramo as habilidades DIVIDEM o
+ * ícone — as cinco de cura mostram a mesma cruz verde. O nome está no tooltip e
+ * o nível no canto do slot, mas duas magias do mesmo ramo lado a lado na barra
+ * ficam parecidas. Arrumar é uma linha aqui por habilidade, no dia em que
+ * houver arte para ela.
+ *
+ * ⚠️ **Só os ramos MÁGICOS.** Knight, Assassino e Arqueiro continuam com os
+ * ícones desenhados por código: a folha não desenhou espada, kunai nem flecha,
+ * e mapear "arremesso" para a caveira roxa seria inventar um significado que o
+ * desenho não tem.
+ *
+ * ⚠️ A folha 2 traz os mesmos ícones montados como barra pronta, e foi
+ * descartada: lá cada quadro tem a TECLA desenhada dentro ("1", "2", … "0"),
+ * bem onde o jogo escreve a própria.
+ */
+const ARTE_POR_RAMO: Record<string, string | { alvo: string; area: string }> = {
+  fogo: { alvo: 'mag_fogo', area: 'mag_fogo_area' },
+  gelo: { alvo: 'mag_gelo', area: 'mag_gelo_area' },
+  raio: 'mag_raio',
+  arcano: 'mag_arcano',
+  cura: 'mag_cura',
+  buff: 'mag_buff',
+  debuff: 'mag_debuff',
+  natureza: 'mag_natureza',
+};
+
+/**
+ * Exceções, uma habilidade por linha.
+ *
+ * ⚠️ Existe para os dois quadros que a folha desenhou e que NENHUM ramo cobre:
+ * a caveira roxa é veneno e o estouro dourado é sagrado, e nem "veneno" nem
+ * "sagrado" são ramos no jogo. Sem estas quatro linhas os dois ficariam
+ * recortados e sem uso, e os grupos de `cura` e `debuff` — os dois maiores —
+ * continuariam com cinco e seis magias mostrando o mesmo ícone.
+ */
+const ARTE_DA_MAGIA: Partial<Record<SkillId, string>> = {
+  poison_spores: 'mag_veneno',
+  nature_plague: 'mag_veneno',
+  sanctuary: 'mag_sagrado',
+  area_heal: 'mag_sagrado',
+};
+
+/**
+ * A arte da magia, ou `null` quando não há — e aí vale o ícone desenhado.
+ */
+function arteDaMagia(id: SkillId): string | null {
+  const def = SKILLS[id];
+  /*
+   * 🔴 **Passiva NÃO recebe arte, de propósito.** O ícone desenhado põe um anel
+   * tracejado nela, e esse anel é a única coisa que avisa "isto não vai para a
+   * barra" ANTES de o jogador tentar arrastar. Trocar por um quadro ilustrado
+   * bonito apagaria o aviso — e as passivas de `arcano` e `natureza` cairiam
+   * justamente nos ramos que ganharam arte.
+   */
+  if (def.kind === 'passive') return null;
+  const excecao = ARTE_DA_MAGIA[id];
+  if (excecao) return excecao;
+  const regra = ARTE_POR_RAMO[def.branch ?? ''];
+  if (!regra) return null;
+  if (typeof regra === 'string') return regra;
+  /*
+   * ⚠️ Separa por `shape`, e não por `kind`: o que a arte distingue é a FORMA
+   * (um raio que vai num alvo × um estouro que cobre chão), não o efeito. Fire
+   * Bolt é `multihit` em alvo único e é a seta; a Chuva de Meteoros é
+   * `multihit` em área e é o estouro.
+   */
+  return def.shape === 'target' ? regra.alvo : regra.area;
+}
+
 const cache = new Map<string, string>();
 
 export function spellIconUrl(id: SkillId): string {
+  const arte = arteDaMagia(id);
+  if (arte) return `/assets/hud/icones/${arte}.png`;
   const hit = cache.get(id);
   if (hit) return hit;
   const cv = document.createElement('canvas');

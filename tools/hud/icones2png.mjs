@@ -416,7 +416,61 @@ function aplicaEstado(px, w, h, regra) {
   return out;
 }
 
+/**
+ * 🔴 **TIRAS: peças ENCOSTADAS, cortadas em partes iguais.**
+ *
+ * Os ícones de magia da folha 2 estão numa barra montada, um colado no outro —
+ * não há vão entre eles, e por isso a medição por faixa devolve uma coluna só
+ * de 1.323 px. É o oposto do caso dos ícones soltos, onde o vão é justamente o
+ * que separa.
+ *
+ * ✅ Quando as peças se tocam mas são do mesmo tamanho, dividir em partes
+ * iguais é mais confiável que qualquer detecção: dez de 132,3. Foi a mesma
+ * saída do `fx2strip.mjs` para a folha do Fire Bolt nível 10.
+ *
+ * ⚠️ A ordem dos nomes é o contrato, como nos lotes.
+ */
+const TIRAS = [
+  /*
+   * ⚠️ **A fonte é a FOLHA 4, e não a folha 2.** As duas trazem os ícones de
+   * magia, mas a da folha 2 vem montada como barra pronta e com a TECLA
+   * desenhada dentro de cada quadro — "1", "2", … "0" no canto de cima. O jogo
+   * escreve a própria tecla exatamente ali, e a do desenho ficaria por baixo,
+   * permanente e errada assim que alguém remontasse a barra. Espelhar o canto
+   * limpo por cima foi tentado e deixa emenda visível, porque o campo tem
+   * gradiente e o motivo atravessa o canto em vários deles.
+   *
+   * ✅ A folha 4 traz os mesmos treze sem número nenhum.
+   */
+  {
+    folha: 'folha4', x0: 49, y0: 443, x1: 1899, y1: 583,
+    nomes: [
+      'mag_fogo', 'mag_gelo', 'mag_raio', 'mag_fogo_area', 'mag_gelo_area',
+      'mag_arcano', 'mag_cura', 'mag_debuff', 'mag_buff', 'mag_natureza',
+      'mag_veneno', 'mag_sagrado', 'mag_travada',
+    ],
+  },
+];
+
 mkdirSync(DESTINO, { recursive: true });
+for (const tira of TIRAS) {
+  const img = decode(join(ORIGEM, `${tira.folha}.png`));
+  const larg = (tira.x1 - tira.x0 + 1) / tira.nomes.length;
+  const h = tira.y1 - tira.y0 + 1;
+  tira.nomes.forEach((nome, i) => {
+    const ax = Math.round(tira.x0 + i * larg);
+    const w = Math.round(tira.x0 + (i + 1) * larg) - ax;
+    const out = Buffer.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const de = ((tira.y0 + y) * img.w + ax) * 4;
+      img.px.copy(out, y * w * 4, de, de + w * 4);
+    }
+    writeFileSync(join(DESTINO, `${nome}.png`), encode(w, h, out));
+  });
+  console.log(`
+[hud] tira ${tira.folha} → ${tira.nomes.length} peças de ${Math.round(larg)}x${h}`);
+}
+
 for (const m of MOLDURAS) {
   const img = decode(join(ORIGEM, `${m.folha}.png`));
   const w = m.x1 - m.x0 + 1;
