@@ -5080,6 +5080,35 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     desenhaEfeitos(agora);
   }
 
+  /**
+   * 🖼️ O medalhão da ficha, do pacote de buffs.
+   *
+   * 🔴 **O mapa é por SIGNIFICADO, não por cor nem por ramo.** São cinco
+   * desenhos para uma vintena de efeitos, então a pergunta não é "de que magia
+   * veio" e sim "o que isto está fazendo comigo agora":
+   *
+   *   - a cruz verde é VIDA, e por isso veste a Pele de Carvalho, que é o único
+   *     buff do jogo que dá vida máxima;
+   *   - o escudo é PROTEÇÃO, e veste as três que absorvem dano em vez de somar
+   *     poder — Bênção Espiritual, Proteção Mágica e Postura Defensiva;
+   *   - a gema é MANA, e veste a Amplificação Mágica;
+   *   - o halter é PODER, e é para onde cai todo o resto que é bom.
+   *
+   * ⚠️ O ruim cai todo no mesmo desenho de propósito. É a mesma regra que já
+   * governa as famílias de efeito visual: o jogador não precisa distinguir
+   * Enfraquecer de Vulnerabilidade pelo ícone — precisa ver, de relance, que
+   * tem coisa ruim em cima dele. O nome está escrito ao lado.
+   */
+  function medalhaoDoEfeito(id: string, bom: boolean): string {
+    if (!bom) return 'debuff';
+    if (id === 'oak_skin') return 'life_recovery';
+    if (id === 'spirit_blessing' || id === 'magic_protection' || id === 'defensive_stance') {
+      return 'immunity';
+    }
+    if (id === 'magic_amplify') return 'mana_recovery';
+    return 'strength_buff';
+  }
+
   function desenhaEfeitos(agora: number): void {
     buffBarEl.textContent = '';
     for (const e of meusEfeitos) {
@@ -5087,6 +5116,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       if (falta <= 0) continue;
       const chip = document.createElement('div');
       chip.className = `buffchip ${e.bom ? 'good' : 'bad'}`;
+      const ico = document.createElement('img');
+      ico.src = `/assets/hud/buffs/${medalhaoDoEfeito(e.id, e.bom)}.png`;
+      /*
+       * ⚠️ `alt` vazio e não o nome do efeito: o nome já vem escrito no `<span>`
+       * ao lado, e repeti-lo faria o leitor de tela dizer tudo duas vezes.
+       */
+      ico.alt = '';
+      ico.draggable = false;
+      chip.appendChild(ico);
       const nome = document.createElement('span');
       nome.textContent = e.nome;
       const tempo = document.createElement('span');

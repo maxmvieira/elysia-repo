@@ -65,6 +65,30 @@ const EFEITOS = [
   { nome: 'strength_buff', pasta: 'Strength Buff', quadros: 12 },
 ];
 
+/**
+ * Os MEDALHÕES do pacote, para as fichas de efeito ativo (`#buffbar`).
+ *
+ * ⚠️ São peça diferente das animações, e não um quadro delas: redondos, chapados
+ * e com contorno grosso — feitos para serem lidos a 16 px, que é o tamanho da
+ * ficha. Um quadro da animação encolhido até ali viraria um borrão claro.
+ *
+ * ⚠️ **A Revival não entra.** As outras cinco nomeiam um ESTADO em que o
+ * personagem está ("estou protegido", "estou enfraquecido"); reviver é um
+ * acontecimento, e ninguém fica "sob efeito de revival". O desenho dela já
+ * trabalha, como animação de subir de nível.
+ */
+const MEDALHOES = [
+  { nome: 'debuff', arquivo: 'Icons_Debuff' },
+  { nome: 'immunity', arquivo: 'Icons_Immunity' },
+  { nome: 'life_recovery', arquivo: 'Icons_Life Recovery' },
+  { nome: 'mana_recovery', arquivo: 'Icons_Mana Recovery' },
+  { nome: 'strength_buff', arquivo: 'Icons_Strength Buff' },
+];
+
+/** Lado do medalhão na saída. A ficha desenha a 16 px; 48 dá três vezes isso. */
+const LADO_MEDALHAO = 48;
+
+
 const ffmpeg = (args) => execFileSync('ffmpeg', ['-y', '-v', 'error', ...args], { stdio: 'inherit' });
 
 // ---------------------------------------------------------------------------
@@ -86,6 +110,14 @@ if (iFonte >= 0) {
     }
     console.log(`[buffs] fonte ${e.nome}: ${e.quadros} quadros em ${para}`);
   }
+  const paraIcones = join(FONTE, 'medalhoes');
+  mkdirSync(paraIcones, { recursive: true });
+  for (const m of MEDALHOES) {
+    ffmpeg(['-i', join(pack, 'Icons', 'PNG', `${m.arquivo}.png`),
+      '-vf', `scale=${LADO_MEDALHAO * 2}:${LADO_MEDALHAO * 2}:flags=lanczos`,
+      join(paraIcones, `${m.nome}.png`)]);
+  }
+  console.log(`[buffs] fonte medalhões: ${MEDALHOES.length} em ${paraIcones}`);
   process.exit(0);
 }
 
@@ -135,6 +167,40 @@ for (const e of EFEITOS) {
   manifesto[e.nome] = quadros.length;
   console.log(`[buffs] ${e.nome}.png  ${W}x${ALT}  (${quadros.length} quadros)`);
 }
+
+// ---------------------------------------------------------------------------
+// Os medalhões das fichas
+// ---------------------------------------------------------------------------
+
+const DESTINO_MEDALHOES = 'client/public/assets/hud/buffs';
+mkdirSync(DESTINO_MEDALHOES, { recursive: true });
+for (const m of MEDALHOES) {
+  const fonte = join(FONTE, 'medalhoes', `${m.nome}.png`);
+  if (!existsSync(fonte)) continue;
+  const img = decode(fonte);
+  const L = LADO_MEDALHAO;
+  const out = Buffer.alloc(L * L * 4);
+  for (let y = 0; y < L; y++) {
+    for (let x = 0; x < L; x++) {
+      let r = 0, g = 0, b = 0, a = 0, n = 0;
+      for (let sy = y * 2; sy < y * 2 + 2; sy++) {
+        for (let sx = x * 2; sx < x * 2 + 2; sx++) {
+          const o = (sy * img.w + sx) * 4;
+          const peso = img.px[o + 3] / 255;
+          r += img.px[o] * peso; g += img.px[o + 1] * peso; b += img.px[o + 2] * peso;
+          a += img.px[o + 3]; n += peso;
+        }
+      }
+      const d = (y * L + x) * 4;
+      out[d] = n ? Math.round(r / n) : 0;
+      out[d + 1] = n ? Math.round(g / n) : 0;
+      out[d + 2] = n ? Math.round(b / n) : 0;
+      out[d + 3] = Math.round(a / 4);
+    }
+  }
+  writeFileSync(join(DESTINO_MEDALHOES, `${m.nome}.png`), encode(L, L, out));
+}
+console.log(`[buffs] ${MEDALHOES.length} medalhões em ${DESTINO_MEDALHOES}`);
 
 writeFileSync(MANIFESTO, `${JSON.stringify(manifesto, null, 2)}\n`);
 console.log(`[buffs] manifesto em ${MANIFESTO}`);
