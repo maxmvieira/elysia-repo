@@ -19,12 +19,14 @@
  *   node tools/hud/magias2png.mjs
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
 import { decode, encode } from './png.mjs';
 
 const ORIGEM = 'arte-fonte/magias';
+const ORIGEM_HAB = 'arte-fonte/habilidades';
 const DESTINO = 'client/public/assets/hud/magias';
 const MANIFESTO = 'client/src/magias-arte.json';
 
@@ -40,11 +42,13 @@ const LADO = 128;
 /**
  * A magia e o número do arquivo no pacote.
  *
- * ⚠️ **Só os ramos mágicos.** Knight, Assassino e Arqueiro continuam com os
- * ícones desenhados por código: o pacote é de efeito mágico, e dar um vórtice
- * roxo para "Corte Cruzado" seria inventar um significado que o desenho não
- * tem. As passivas também ficam de fora — o ícone desenhado põe nelas um anel
- * tracejado, e esse anel é o único aviso de que aquilo não vai para a barra.
+ * ⚠️ **Só os ramos mágicos**, porque o pacote é de efeito mágico e dar um
+ * vórtice roxo para "Corte Cruzado" seria inventar um significado que o desenho
+ * não tem. As três classes de arma saem da tabela `HABILIDADES`, mais abaixo.
+ *
+ * ⚠️ As passivas ficam de fora das DUAS tabelas — o ícone desenhado põe nelas um
+ * anel tracejado, e esse anel é o único aviso de que aquilo não vai para a
+ * barra. Um quadro ilustrado bonito apagaria o aviso.
  */
 const MAGIAS = {
   // 🔥 Fogo — laranja.
@@ -101,6 +105,72 @@ const MAGIAS = {
 };
 
 /**
+ * 🔴 **AS TRÊS CLASSES DE ARMA, em PIXEL ART** — e a mistura é de propósito.
+ *
+ * O pacote de efeitos cobriu os ramos mágicos e parou ali: ele é feito de
+ * fogo, gelo e vórtice, e não tem espada, kunai nem flecha. Estes vêm de
+ * pacotes de habilidade por classe, que são pixel art de paleta reduzida.
+ *
+ * ⚠️ **Duas linguagens no mesmo jogo, e nunca na mesma barra.** Habilidade é
+ * POR CLASSE: quem joga de Knight vê oito ícones de pixel art e nenhum
+ * ilustrado; quem joga de Feiticeiro vê o contrário. Os dois estilos só se
+ * encontrariam numa tela que listasse as cinco classes juntas, e não existe
+ * nenhuma.
+ *
+ * ⚠️ A paleta de cada meia-folha é o que dá identidade: o Guerreiro é vermelho,
+ * o Caçador é verde e dourado, o Ladino é vermelho sobre azul-petróleo. Trocar
+ * um ícone de meia-folha estraga isso mais do que parece.
+ */
+const HABILIDADES = {
+  // ⚔️ Knight — metade "Warrior" da folha do Caçador/Guerreiro (51–100).
+  power_strike: ['hw', 51], //     espada abrindo em estouro
+  bash: ['hw', 56], //             a onda de choque, que é o formato da área
+  charge: ['hw', 64], //           o guerreiro correndo com a lança à frente
+  rupture: ['hw', 70], //          os três talhos
+  execution: ['hw', 75], //        a espada com o clarão do golpe final
+  taunt: ['hw', 68], //            a cabeça de touro: provocar
+  defensive_stance: ['hw', 59], // o escudo de pé
+  battle_fury: ['hw', 74], //      a figura urrando
+
+  // 🏹 Arqueiro — metade "Hunter" da mesma folha (1–50).
+  double_shot: ['hw', 1], //       as duas flechas cruzando
+  precise_shot: ['hw', 50], //     a mira fechada no alvo
+  piercing_shot: ['hw', 30], //    a flecha com rastro, atravessando
+  arrow_rain: ['hw', 27], //       as flechas caindo
+  volley: ['hw', 41], //           o punhado saindo junto
+  eagle_eye: ['hw', 21], //        o olho
+  concentration: ['hw', 15], //    o retículo
+  hunting_trap: ['hw', 40], //     a boca de dentes
+  explosive_trap: ['hw', 24], //   o chão rachado com o fogo saindo por baixo
+
+  // 🗡️ Assassino — metade "Rogue" da folha do Ladino/Bruxo (1–50).
+  sonic_blow: ['rw', 4], //        as adagas cruzando em rajada
+  envenom: ['rw', 44], //          a caveira: veneno na lâmina
+  hide: ['rw', 41], //             os olhos no escuro
+  cross_slash: ['rw', 30], //      as duas lâminas em X
+  deep_cut: ['rw', 34], //         a lâmina pingando
+  blade_dance: ['rw', 38], //      a figura girando com o talho
+  counter_attack: ['rw', 15], //   as lâminas travadas: a aparada
+  quick_throw: ['rw', 48], //      a adaga voando com rastro
+  shuriken_storm: ['rw', 12], //   a estrela
+  poison_kunai: ['rw', 10], //     o frasco
+  phantom_throw: ['rw', 24], //    a lâmina alada
+  hidden_strike: ['rw', 35], //    a facada pelas costas
+};
+
+/**
+ * Onde cada meia-folha mora e como os arquivos dela se chamam.
+ *
+ * ⚠️ O prefixo muda de pacote para pacote (`Ability_icons1_`, `Ability_icons3_`)
+ * e o número NÃO é zero-preenchido acima de 99. É por isso que a montagem do
+ * nome está aqui e não espalhada.
+ */
+const FOLHAS_HAB = {
+  hw: { pasta: 'hunter-and-warrior-ability-icons-pixel-art', prefixo: 'Ability_icons1_' },
+  rw: { pasta: 'rogue-and-warlock-ability-icons-pixel-art', prefixo: 'Ability_icons3_' },
+};
+
+/**
  * Reduz por MÉDIA de bloco, e não pegando um pixel a cada N.
  *
  * ⚠️ De 512 para 128 são dezesseis pixels virando um. Amostrar só um deles
@@ -144,6 +214,40 @@ function reduz(img, lado) {
   return out;
 }
 
+/*
+ * Preparação das habilidades: uma vez, com os pacotes em mãos.
+ *
+ * 🔴 **Passa pelo ffmpeg porque estes PNG são INDEXADOS** (cor tipo 3, com
+ * paleta e `tRNS`). O `png.mjs` lê RGBA direto; num indexado ele não erra, só
+ * devolve lixo — a mesma armadilha silenciosa do pacote entrelaçado.
+ *
+ * ⚠️ Sobe de 32 para 128 com vizinho-mais-próximo, que é multiplicação exata
+ * por 4: qualquer filtro suave aqui borraria a arte que existe justamente por
+ * ser de pixel. E 128 é o mesmo lado dos ícones ilustrados, para os dois
+ * conjuntos serem intercambiáveis no jogo.
+ */
+const iFonte = process.argv.indexOf('--fonte');
+if (iFonte >= 0) {
+  const base = process.argv[iFonte + 1];
+  if (!base) { console.error('uso: --fonte <pasta-com-os-packs>'); process.exit(1); }
+  mkdirSync(ORIGEM_HAB, { recursive: true });
+  for (const [id, [folha, n]] of Object.entries(HABILIDADES)) {
+    const f = FOLHAS_HAB[folha];
+    const de = join(base, f.pasta, 'Icons', `${f.prefixo}${String(n).padStart(2, '0')}.png`);
+    /*
+     * ⚠️ `-pix_fmt rgba` porque o ffmpeg PRESERVA o indexado se deixarem: a
+     * saída sairia em cor tipo 3 como a entrada, e aí a pasta teria dois
+     * formatos e o `png.mjs` — que só lê RGBA — engasgaria em metade dela.
+     */
+    execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', de,
+      '-vf', `scale=${LADO}:${LADO}:flags=neighbor`, '-pix_fmt', 'rgba',
+      join(ORIGEM_HAB, `${id}.png`)],
+    { stdio: 'inherit' });
+  }
+  console.log(`[magias] fonte de habilidades: ${Object.keys(HABILIDADES).length} em ${ORIGEM_HAB}`);
+  process.exit(0);
+}
+
 mkdirSync(DESTINO, { recursive: true });
 const ids = Object.keys(MAGIAS).sort();
 for (const id of ids) {
@@ -159,6 +263,21 @@ for (const id of ids) {
  * acrescentar uma magia aqui e esquecer lá para o ícone existir no disco e
  * nunca aparecer no jogo — ou o contrário, e virar imagem quebrada.
  */
-writeFileSync(MANIFESTO, `${JSON.stringify(ids, null, 2)}\n`);
-console.log(`[magias] ${ids.length} ícones em ${DESTINO} (${LADO}px)`);
+/*
+ * ⚠️ As habilidades entram no MESMO destino e no MESMO manifesto das magias.
+ * O cliente pergunta uma coisa só — "esta habilidade tem arte?" —, e dois
+ * caminhos para responder seria a primeira coisa a sair de sincronia.
+ */
+const idsHab = [];
+for (const id of Object.keys(HABILIDADES).sort()) {
+  const de = join(ORIGEM_HAB, `${id}.png`);
+  if (!existsSync(de)) continue;
+  copyFileSync(de, join(DESTINO, `${id}.png`));
+  idsHab.push(id);
+}
+if (idsHab.length) console.log(`[magias] + ${idsHab.length} habilidades de pixel art`);
+else console.log('[magias] habilidades sem fonte preparada (rode com --fonte)');
+
+writeFileSync(MANIFESTO, `${JSON.stringify([...ids, ...idsHab].sort(), null, 2)}\n`);
+console.log(`[magias] ${ids.length} ícones ilustrados em ${DESTINO} (${LADO}px)`);
 console.log(`[magias] manifesto em ${MANIFESTO}`);
