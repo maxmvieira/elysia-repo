@@ -471,8 +471,8 @@
          */
         min-width: 250px;
         background: #151614;
-        border: 14px solid transparent;
-        border-image: url('/assets/hud/icones/painel_char.png') 44 / 14px / 0 stretch;
+        border: 11px solid transparent;
+        border-image: url('/assets/hud/icones/painel_char.png') 30 / 11px / 0 stretch;
       }
       #chtopo {
         display: flex;
@@ -527,13 +527,7 @@
       }
       .chrot { font-weight: 700; }
       .chrot2 b { color: #c9a86a; }
-      .chpct {
-        width: 38px;
-        flex: none;
-        text-align: right;
-        color: #8a8171;
-        font-size: 9px;
-      }
+
       /*
        * 🖼️ **A CALHA DAS BARRAS É ARTE**, em três fatias horizontais (08/09).
        *
@@ -574,12 +568,17 @@
         border-width: 0 7px;
       }
       /*
-       * ⚠️ HP e SP não têm coluna de porcentagem à direita, e por isso acabavam
-       * 42 px depois das outras duas — a borda direita do painel ficava
-       * irregular. O vão reserva o mesmo espaço que a coluna ocupa.
+       * 🔴 **A PORCENTAGEM MORA DENTRO DA BARRA**, como os números de HP e SP.
+       *
+       * Ela era uma coluna à direita, e as quatro barras só ficavam alinhadas
+       * porque HP e SP reservavam 42 px de vão para compensar. Custava a mesma
+       * largura em TODAS: 42 px que a barra de HP perdia para uma coluna que
+       * ela nem usa.
+       *
+       * ✅ Com o número dentro, some a coluna, some o vão, e as quatro ganham a
+       * largura inteira do painel — continuando a começar e a terminar no mesmo
+       * x, que era o motivo do vão.
        */
-      .chbar.hp,
-      .chbar.sp { margin-right: 42px; }
       /*
        * ⚠️ O preenchimento é ABSOLUTO e recuado em PORCENTAGEM.
        *
@@ -738,24 +737,16 @@
       /*
        * 🔴 **RECOLHIDO, A BARRA FICA COM O ESPAÇO TODO** (09/09).
        *
-       * As duas medidas que apertavam a barra existem por causa das linhas de
-       * experiência — e são justamente elas que somem ao recolher:
-       *
-       *   - o rótulo de 66 px é a largura de "Base Lv. 149", e serve para as
-       *     quatro barras começarem no mesmo x. Sem as linhas de Base e Job
-       *     não há com o que alinhar, e 66 px viram vão morto ao lado de "HP".
-       *   - o vão de 42 px à direita reserva a coluna de porcentagem, que mora
-       *     dentro do bloco escondido.
-       *
-       * Somadas, sobravam 60 px de barra num painel de 150 — e "1360 / 1360"
-       * transbordava por cima das pontas ornamentais, que foi o que o dono viu.
+       * O rótulo de 66 px é a largura de "Base Lv. 149", e serve para as quatro
+       * barras começarem no mesmo x. Sem as linhas de Base e Job não há com o
+       * que alinhar, e 66 px viram vão morto ao lado de "HP" — num painel de
+       * 150 px sobravam 60 de barra, e "1360 / 1360" transbordava por cima das
+       * pontas ornamentais, que foi o que o dono viu.
        *
        * ⚠️ A largura mínima deixou de encolher junto: recolher tira LINHAS, não
        * largura. Com 150 px não havia distribuição que salvasse.
        */
       #charhud.recolhido .chrot { width: 22px; }
-      #charhud.recolhido .chbar.hp,
-      #charhud.recolhido .chbar.sp { margin-right: 0; }
 
       /* =====================================================================
        * 🧪 ITENS RÁPIDOS — canto inferior direito do mundo.
@@ -808,8 +799,8 @@
         width: 156px;
         /* Mesma história do painel: fatia no tamanho do canto, fundo na cor da arte. */
         background: #272827;
-        border: 13px solid transparent;
-        border-image: url('/assets/hud/icones/painel_mapa.png') 46 / 13px / 0 stretch;
+        border: 12px solid transparent;
+        border-image: url('/assets/hud/icones/painel_mapa.png') 34 / 12px / 0 stretch;
         font-size: 10px;
         user-select: none;
       }
@@ -3611,13 +3602,11 @@
               <div class="chexp">
                 <div class="chlinha">
                   <span class="chrot2">Base Lv. <b id="chbaselv">1</b></span>
-                  <div class="chbar xp"><i id="xpfill"></i></div>
-                  <span class="chpct" id="xptext">—</span>
+                  <div class="chbar xp"><i id="xpfill"></i><span id="xptext">—</span></div>
                 </div>
                 <div class="chlinha">
                   <span class="chrot2">Job Lv. <b id="chjoblv">—</b></span>
-                  <div class="chbar job"><i id="jobfill"></i></div>
-                  <span class="chpct" id="jobtext">—</span>
+                  <div class="chbar job"><i id="jobfill"></i><span id="jobtext">—</span></div>
                 </div>
                 <div id="chbtns"></div>
               </div>
