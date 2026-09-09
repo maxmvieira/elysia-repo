@@ -4531,14 +4531,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     renderBank();
     bankEl.style.display = 'flex';
     bankAmount.focus();
-    /*
-     * ⚠️ O DEPÓSITO abre junto. São coisas diferentes no doc — Banco guarda
-     * ouro, Depósito guarda item, e o cap. 19 separa as duas — mas é o mesmo
-     * NPC e o mesmo gesto para o jogador: "fui no banqueiro". Abrir só o cofre
-     * de ouro obrigaria a descobrir sozinho que os itens moram noutro lugar.
-     */
-    janDeposito.classList.add('aberta');
   }
+
+  /*
+   * 🔴 **O Depósito é uma OPÇÃO dentro do Banco, e não abre junto.**
+   *
+   * Houve uma versão que abria os dois no mesmo clique, e ela decidia pelo
+   * jogador: quem vai ao banqueiro guardar ouro ganhava uma grade de quarenta
+   * células na frente sem ter pedido. Como botão, quem quer os itens pede.
+   *
+   * ⚠️ O botão não some quando o Depósito está aberto: ele é a única forma de
+   * trazer a janela de volta se o jogador a fechar sem sair do banco.
+   */
+  el('bank-depot').onclick = () => {
+    janDeposito.classList.add('aberta');
+    janDeposito.parentElement?.appendChild(janDeposito);
+  };
   shopTabBuy.onclick = () => { shopTab = 'buy'; renderShop(); };
   shopTabSell.onclick = () => { shopTab = 'sell'; renderShop(); };
   el('shop-close').onclick = () => { shopEl.style.display = 'none'; };
