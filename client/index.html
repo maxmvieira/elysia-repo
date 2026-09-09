@@ -19,24 +19,22 @@
          * números são o controle: mexer neles reescala a UI inteira, em vez de
          * caçar tamanho solto por todo o arquivo.
          *
-         * ⚠️ `--slot` e `--bar-w` estão AMARRADOS: a mochila é uma grade de 5
-         * colunas, e 5 × slot + 4 × 3 px de gap tem que caber em
-         * `--bar-w` − 2 × (padding da barra) − 2 × (padding da .box).
-         * Com 190/24: 5×24+12 = 132, e o espaço útil é 190−14−12 = 164. Cabe.
-         * Aumentar `--slot` sem aumentar `--bar-w` reintroduz o scroll.
+         * 🔴 **`--slot` VOLTOU A CRESCER (09/09), e o motivo é que a conta que
+         * o prendia deixou de existir.**
          *
-         * 🔴 `--slot` caiu de 28 para 24 em 01/08, e a razão é ARITMÉTICA, não
-         * gosto: a mochila de 40 slots são 8 linhas, então cada pixel de slot
-         * custa 8 px de altura na barra — mais o paperdoll, que são outras 4.
-         * Foi o único corte de ~48 px disponível que não esconde informação
-         * nenhuma do jogador.
+         * Ele tinha caído de 28 para 24 em 01/08 por aritmética de COLUNA: a
+         * mochila é uma grade de 5, e `5 × slot + 4 × 3` precisava caber na
+         * largura da barra lateral; e como são 8 linhas, cada pixel de slot
+         * custava 8 px de altura numa coluna que já rolava. O comentário antigo
+         * registrava até o preço de desfazer: "48 px de largura a menos para o
+         * mundo".
          *
-         * Quer os ícones maiores de volta? Suba `--bar-w` junto: com 214/28 a
-         * conta fecha (5×28+12 = 152 ≤ 214−26 = 188). O preço são 48 px de
-         * largura a menos para o mundo.
+         * ✅ As colunas saíram em 09/09 e os painéis viraram janelas flutuantes.
+         * Não há mais largura fixa para caber nem altura de coluna para
+         * disputar, e o preço virou zero: a janela cresce com o conteúdo e o
+         * mundo não perde nada.
          */
-        --bar-w: 190px;
-        --slot: 24px;
+        --slot: 32px;
         --bar-pad: 7px;
         /*
          * Altura da doca de chat (rodapé, estilo Tibia). É arrastável pelo
@@ -166,27 +164,6 @@
         min-height: 0;
         display: flex;
         flex-direction: column;
-      }
-      /* Painel lateral estilo MMORPG clássico (doc 16). */
-      #sidebar {
-        width: var(--bar-w);
-        flex: none;
-        background: var(--panel);
-        border-left: 2px solid var(--border);
-        display: flex;
-        flex-direction: column;
-        padding: var(--bar-pad);
-        gap: 6px;
-        overflow-y: auto;
-        /* Scrollbar fina: quando ela precisar aparecer, não rouba 15 px de conteúdo. */
-        scrollbar-width: thin;
-        scrollbar-color: #3a352d transparent;
-      }
-      #sidebar h1 {
-        font-size: 11px;
-        margin: 0;
-        letter-spacing: 0.3px;
-        color: #c9a86a;
       }
       .box {
         background: linear-gradient(#1a1712, #131009);
@@ -850,8 +827,15 @@
        * lateral, onde era um cartão com borda. Aqui a moldura é a janela, e
        * manter as duas daria contorno dentro de contorno.
        */
+      /*
+       * ⚠️ `padding: 0` junto com o resto. A caixa vinha da lateral com 5px 6px
+       * por dentro, e com a janela medida pela grade esses 12 px de sobra
+       * empurravam a quinta coluna para fora — a janela ganhava barra de rolagem
+       * horizontal e a última coluna sumia.
+       */
       .jcorpo .box {
         margin: 0;
+        padding: 0;
         border: 0;
         background: none;
         box-shadow: none;
@@ -870,6 +854,42 @@
       }
       .jcorpo .phead .pt { display: none; }
       .jcorpo .pbody { padding: 4px 0 0; }
+      /*
+       * 🔴 **A largura da janela de itens É A DA GRADE**, e não o que o texto
+       * pedir.
+       *
+       * Sem isto quem dita a largura é a linha de dica mais comprida ("Clique:
+       * usar poção ou equipar item. Loot do chão vai pra mochila."): ela não
+       * quebra, a janela estica atrás dela, e as grades ficam boiando no meio
+       * de um vão de 160 px — foi o que o dono viu.
+       *
+       * ✅ Amarrada à conta da grade, a dica passa a quebrar dentro dela e não
+       * sobra espaço nenhum. Cinco colunas de `--slot` com 3 px de vão entre
+       * elas: mudar o slot reajusta a janela sozinho.
+       */
+      #jan-inventario .jcorpo,
+      #jan-deposito .jcorpo { width: max-content; }
+      /*
+       * ⚠️ **Quem tem largura é a DICA, não a janela.** Foi tentado medir a
+       * janela pela conta da grade, e não fecha: o `box-sizing` do projeto é
+       * `border-box`, então os 11 px de moldura de cada lado saem de dentro
+       * dessa conta e a quinta coluna fica para fora — a janela ganhava barra de
+       * rolagem horizontal.
+       *
+       * ✅ Limitando a DICA à largura da grade, ela quebra, a grade passa a ser
+       * o filho mais largo, e o `max-content` acima faz a janela vestir esse
+       * tamanho sozinha — com a moldura por fora, onde ela deve estar.
+       */
+      #jan-inventario .hint,
+      #jan-deposito .hint {
+        max-width: calc(5 * var(--slot) + 4 * 3px);
+      }
+      /*
+       * ⚠️ O paperdoll fica CENTRADO, e não espalhado. Espalhar as três colunas
+       * pela largura da mochila foi tentado e as peças viraram pontos soltos: as
+       * três colunas são arma, corpo e acessório, e é a proximidade entre elas
+       * que faz o conjunto ler como uma silhueta.
+       */
 
       /* =====================================================================
        * 🧪 ITENS RÁPIDOS — canto inferior direito do mundo.
@@ -2430,19 +2450,6 @@
        * `overflow-y: auto` continua aqui, mas como REDE DE PROTEÇÃO (janela
        * muito baixa, todos os painéis abertos), não como funcionamento normal.
        */
-      #leftbar {
-        width: var(--bar-w);
-        flex: none;
-        background: var(--panel);
-        border-right: 2px solid var(--border);
-        display: flex;
-        flex-direction: column;
-        padding: var(--bar-pad);
-        gap: 6px;
-        overflow-y: auto;
-        scrollbar-width: thin;
-        scrollbar-color: #3a352d transparent;
-      }
       /* Painéis retráteis (+/−) */
       .phead {
         display: flex;
