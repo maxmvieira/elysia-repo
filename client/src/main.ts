@@ -4471,8 +4471,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     fantasma.style.display = 'none';
   }
 
+  /**
+   * 🔴 **O clique só é do MUNDO se caiu no CANVAS.**
+   *
+   * O painel do personagem, o minimapa e os itens rápidos são filhos de
+   * `#viewport`, porque é nele que se ancoram nos cantos. A consequência é que
+   * um clique num botão deles SOBE até o ouvinte do viewport — e o dono viu o
+   * personagem sair andando ao apertar o botão de recolher.
+   *
+   * ✅ A regra é "o alvo é o canvas", e não uma lista de painéis a ignorar.
+   * Lista envelhece: o próximo painel que alguém ancorar aqui esqueceria de
+   * entrar nela, e o bug voltaria sem ninguém ligar uma coisa à outra.
+   */
+  const ehCliqueNoMundo = (ev: Event): boolean => ev.target === app.canvas;
+
   viewportEl.addEventListener('mousedown', (ev) => {
-    if (ev.button !== 0) return;
+    if (ev.button !== 0 || !ehCliqueNoMundo(ev)) return;
     const t = tileDoEvento(ev);
     const item = itensPorTile.get(t.y * map.width + t.x);
     if (!item) return;
@@ -4507,7 +4521,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
     // Soltou sobre o MUNDO? Empurra a pilha para aquele tile — o gesto do
     // Tibia, que permite ir levando o item de tile em tile sem pegá-lo.
-    if (alvo && (viewportEl.contains(alvo) || alvo === viewportEl)) {
+    // ⚠️ `alvo === app.canvas`, e não "está dentro do viewport": soltar em
+    // cima do painel do personagem empurraria a pilha para o tile que está
+    // ESCONDIDO atrás dele.
+    if (alvo === app.canvas) {
       const destino = tileDoEvento(ev);
       net.send({ t: 'movegrounditem', itemId: item.id, tileX: destino.x, tileY: destino.y });
       return;
@@ -6694,7 +6711,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // cancelar a propagação do Pixi, porque não depende da ordem em que os dois
   // sistemas de evento disparam.
   viewportEl.addEventListener('click', (ev) => {
-    if (ev.button !== 0) return;
+    if (ev.button !== 0 || !ehCliqueNoMundo(ev)) return;
     // Acabou de arrastar item pelo chão: este clique é o rabo do gesto, não uma
     // ordem de caminhada. Ver `fimDoArrasteDeChao`.
     if (performance.now() - fimDoArrasteDeChao < 250) return;
