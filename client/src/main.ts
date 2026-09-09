@@ -3295,7 +3295,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // ---- Inventário / Equipamento / Loja / Depósito ------------------------
   const bpGrid = el('bpgrid');
   const equipGrid = el('equipgrid');
-  const depotBox = el('depotbox');
+  const janDeposito = el('jan-deposito');
   const dpGrid = el('dpgrid');
   const invHint = el('invhint');
   const shopEl = el('shop');
@@ -3831,7 +3831,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       bpGrid.appendChild(cell);
     });
     // Depósito (só aparece dentro do DP).
-    depotBox.style.display = currentInv.atDepot ? 'block' : 'none';
+    /*
+     * ⚠️ A janela do Depósito abre e fecha pela PROXIMIDADE, não por botão. O
+     * servidor reenvia o inventário ao entrar e ao sair da zona (ver
+     * `wasAtDepot`), então este toque acontece nas duas pontas sozinho.
+     */
+    janDeposito.classList.toggle('aberta', currentInv.atDepot);
     if (currentInv.atDepot) {
       dpGrid.innerHTML = '';
       currentInv.depot.forEach((stack, i) => {

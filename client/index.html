@@ -3758,6 +3758,29 @@
             causaram por herança de clique, e aqui seria por cobertura.
           -->
           <div id="janelas">
+            <!--
+              🏦 O DEPÓSITO É JANELA PRÓPRIA, e não uma seção do Inventário.
+
+              🔴 Ele só existe dentro da zona do Banqueiro. Como seção, ficava
+              ocupando o fim da janela do Inventário com um retângulo de quarenta
+              células que na maior parte do jogo não serve para nada.
+
+              ⚠️ Não tem botão na HUD de propósito: quem a abre e a fecha é a
+              PROXIMIDADE. Um botão prometeria abrir o depósito longe do banco, e
+              o servidor recusaria — o gesto existiria só para ser negado.
+            -->
+            <div class="janela" id="jan-deposito" style="left: 300px; top: 60px">
+              <div class="jtopo">
+                <span>Depósito</span>
+                <button class="jfechar" type="button" aria-label="Fechar"></button>
+              </div>
+              <div class="jcorpo">
+                <!-- ⚠️ Sem subtítulo: a barra da janela já diz "Depósito". -->
+                <div id="depotbox">
+                  <div id="dpgrid"></div>
+                </div>
+              </div>
+            </div>
             <div class="janela" id="jan-amigos" style="right: 24px; top: 60px">
               <div class="jtopo">
                 <span>Amigos</span>
@@ -3909,10 +3932,6 @@
                       title="Shift enquanto arrasta solta a pilha inteira. Arraste do chão para cá para pegar. Botão direito também solta. Arraste entre slots para arrumar a mochila. O que fica no chão desaparece em 3 minutos."
                     >
                       <b>Arraste para o mundo</b> para soltar no chão.
-                    </div>
-                    <div id="depotbox" style="display: none">
-                      <div class="subhead">🏦 Depósito</div>
-                      <div id="dpgrid"></div>
                     </div>
                     <div id="invhint" class="hint" style="margin-top: 6px"></div>
                   </div>
