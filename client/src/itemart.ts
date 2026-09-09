@@ -34,6 +34,45 @@ const ARTE: Record<string, string> = {
 };
 
 /**
+ * 🔴 **O ESPÓLIO ENTRA SÓ EM PARTE, e o motivo é o que os packs têm.**
+ *
+ * São 61 itens de espólio, e a maioria é PARTE DE MONSTRO: presa de lobo,
+ * pelego de urso, olho de observador, sangue de troll, ectoplasma, quitina.
+ * Nenhum dos vinte e quatro packs enviados desenha isso — eles são de minério,
+ * gema, madeira, planta, ferramenta e mobília.
+ *
+ * ✅ Entram os que os packs cobrem DE VERDADE: os sete fragmentos (gema na cor
+ * da raridade), o minério e a pedra, a madeira, as plantas e as ferramentas.
+ *
+ * ⚠️ **O resto fica no desenho por código de propósito, e não por preguiça.**
+ * Aquele desenho já é específico: a forma vem da FAMÍLIA de material do
+ * catálogo (osso, couro, tecido, escama) e a cor vem do item. Uma presa de lobo
+ * sai com forma de osso na cor do lobo. Trocar isso por uma pedra ou uma tábua
+ * de pack genérico seria perder informação para ganhar pixel art.
+ */
+const ESPOLIO: Record<string, string> = {
+  // 💎 Fragmentos: a gema segue a cor da raridade que o jogo já usa.
+  fragment_common: 'rc_092',
+  fragment_uncommon: 'rc_078',
+  fragment_rare: 'rc_098',
+  fragment_epic: 'rc_073',
+  fragment_legendary: 'rc_088',
+  fragment_mythic: 'rc_063',
+  fragment_relic: 'rc_053',
+  // ⛏️ Material bruto e ferramenta.
+  oak_log: 'rc_031',
+  stone_core: 'rc_013',
+  pickaxe: 'rc_005',
+  sickle: 'nt_003',
+  // 🌿 Planta.
+  common_herb: 'nt_013',
+  moon_flower: 'nt_042',
+  cave_mushroom: 'nt_089',
+  spore_sac: 'nt_084',
+  living_bark: 'nt_073',
+};
+
+/**
  * 🔴 **OS 210 EQUIPAMENTOS, por FAMÍLIA e não um a um.**
  *
  * Escolher ícone para 210 itens à mão seria um dia de trabalho e um erro por
@@ -202,6 +241,6 @@ export function itemArtImage(kind: string): HTMLImageElement | null {
 export function itemArtUrl(kind: string): string | null {
   const nome = arquivoDe(kind);
   if (nome) return `${BASE}/${nome}.png`;
-  const equip = EQUIP[kind];
-  return equip ? `${BASE_EQUIP}/${equip}.png` : null;
+  const pack = EQUIP[kind] ?? ESPOLIO[kind];
+  return pack ? `${BASE_EQUIP}/${pack}.png` : null;
 }

@@ -54,6 +54,8 @@ const PACKS = {
   rg: { pasta: 'craftpix-net-539335-ring-earring-and-amulet-pixel-art-icons/Icons' },
   mb: { pasta: 'craftpix-net-872304-magic-wand-and-book-icon-pack/Icons/2 Books' },
   th: { pasta: 'craftpix-net-975646-things-for-rpg-game-32x32-pixel-art/Icons' },
+  rc: { pasta: 'craftpix-net-674745-resource-rpg-icons-32x32-pixel-art/Icons' },
+  nt: { pasta: 'craftpix-net-712507-nature-things-pixel-art-32x32-icons/Icons' },
 };
 
 const dois = (n) => String(n).padStart(3, '0');
