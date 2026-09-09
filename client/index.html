@@ -777,49 +777,73 @@
         pointer-events: auto;
         min-width: 200px;
         font-size: 11px;
-        filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
+        filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.6));
       }
       .janela.aberta { display: block; }
+      /*
+       * 🖼️ **A BARRA DE TÍTULO É A PLACA DE NOME** — a mesma peça que escreve a
+       * região no topo do minimapa.
+       *
+       * 🔴 Houve uma versão em madeira clara, da folha de interface em pixel
+       * art, e ela foi descartada pelo dono: a HUD é dourada e escura, e a
+       * janela ficava de outro jogo. Reusar as peças que a HUD já tem sai de
+       * graça e não tem como destoar.
+       *
+       * ⚠️ Altura FIXA porque a placa estica com ela — sem altura, o texto de
+       * uma linha achata a placa até ela virar um fio. É a mesma armadilha do
+       * `#mmtopo`, e o mesmo conserto.
+       */
       .jtopo {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 6px;
+        gap: 8px;
         height: 26px;
-        padding: 0 6px 0 10px;
+        margin: 0 6px -4px;
+        padding: 0 4px 2px 12px;
         border: 0 solid transparent;
-        border-width: 4px 10px;
-        border-image: url('/assets/hud/janela/janela_titulo.png') 8 20 fill / 4px 10px / 0 stretch;
-        color: #f2e2c2;
+        border-width: 0 11px;
+        border-image: url('/assets/hud/icones/placa_mapa.png') 0 34 fill / 0 11px / 0 stretch;
+        color: #f0d99a;
         font-weight: 700;
-        text-shadow: 0 1px 0 #3a2416;
+        text-shadow: 0 1px 2px #000;
         cursor: grab;
         user-select: none;
       }
       .jtopo:active { cursor: grabbing; }
       /*
-       * ⚠️ Margem negativa de 4 px: as duas peças se ENCOSTAM na folha, e é
-       * assim que o desenho fecha. Com elas separadas aparece uma linha do
-       * mundo entre a barra e o corpo.
+       * 🖼️ O corpo é a MOLDURA DO PAINEL DO PERSONAGEM, com a mesma fatia de 30
+       * e o mesmo fundo chapado — ver o comentário grande em `#chcorpo`, que
+       * explica por que a fatia para onde o chanfro para e por que o fundo não
+       * pode ser gradiente.
        */
       .jcorpo {
-        margin-top: -4px;
-        padding: 6px;
-        border: 12px solid transparent;
-        border-image: url('/assets/hud/janela/janela_corpo.png') 24 fill / 12px / 0 stretch;
+        padding: 4px 6px 6px;
+        background: #151614;
+        border: 11px solid transparent;
+        border-image: url('/assets/hud/icones/painel_char.png') 30 / 11px / 0 stretch;
         max-height: 60vh;
         overflow-y: auto;
       }
+      /*
+       * ⚠️ O ✕ é TEXTO, e não arte: as folhas da HUD têm recolher, expandir,
+       * zoom e bússola, mas nenhum fechar. Um "−" no lugar dele mentiria — a
+       * janela some, não encolhe.
+       */
       .jfechar {
         flex: none;
         width: 18px;
-        height: 20px;
+        height: 18px;
         padding: 0;
         border: 0;
-        background: url('/assets/hud/janela/janela_fechar.png') center/100% 100% no-repeat;
+        background: none;
+        color: #c9a86a;
+        font-size: 12px;
+        line-height: 1;
         cursor: pointer;
       }
-      .jfechar:hover { filter: brightness(1.25); }
+      .jfechar::before { content: '✕'; }
+      .jfechar:hover { color: #f7e7b8; }
       .jfechar:active { transform: scale(0.9); }
       /*
        * ⚠️ Dentro da janela a caixa antiga perde a própria moldura: ela veio da
@@ -834,22 +858,18 @@
       }
       /*
        * ⚠️ O cabeçalho da caixa FICA, virando divisória de seção: dentro da
-       * janela do Inventário ele é quem diz "Equipamentos", e a janela por fora
+       * janela do Inventário é ele quem diz "Equipamentos", e a janela por fora
        * só diz "Inventário". Some apenas o botão de minimizar — a janela toda
        * já fecha pelo ✕, e minimizar uma seção dentro dela não leva a nada.
        */
       .jcorpo .phead {
         padding: 0 0 3px;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.35);
-        color: #f2e2c2;
+        border-bottom: 1px solid #3a3226;
+        color: #f0d99a;
         font-weight: 700;
       }
       .jcorpo .phead .pt { display: none; }
       .jcorpo .pbody { padding: 4px 0 0; }
-      /* O texto da janela é claro sobre madeira, não cinza sobre preto. */
-      .jcorpo,
-      .jcorpo .subhead { color: #e8d8ba; }
-      .jcorpo .hint { color: #c2ac8a; }
 
       /* =====================================================================
        * 🧪 ITENS RÁPIDOS — canto inferior direito do mundo.
