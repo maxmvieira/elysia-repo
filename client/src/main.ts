@@ -176,6 +176,7 @@ import {
 } from './heroes.js';
 import { loadTrees, treeTexFor, type ArvoreSprite } from './trees.js';
 import { loadCrystals, crystalNodeSprite, crystalIconImage } from './crystals.js';
+import { loadItemArt, itemArtImage } from './itemart.js';
 import { carregaFarmArte } from './farmart.js';
 import { criaEditor } from './editor.js';
 
@@ -1606,6 +1607,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * placeholder de código e o sprite nunca apareceria naquela sessão.
    */
   await loadCrystals();
+  await loadItemArt();
 
   const world = new Container(); // a "câmera"
   /*
@@ -3448,6 +3450,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * art borra o contorno e apaga o brilho, que é justamente o que faz o
      * cristal ser reconhecível num slot pequeno.
      */
+    /*
+     * 🖼️ Arte da folha, quando o item tem uma (09/09). Vem ANTES do cristal e
+     * do desenho por código: onde há desenho do dono, é ele que manda.
+     *
+     * ⚠️ Desenhada com suavização LIGADA, ao contrário do cristal logo abaixo —
+     * aquele é pixel art de 16 px que borra se filtrado; esta é ilustração de
+     * 130 px sendo reduzida para 64, e sem filtro serrilharia.
+     */
+    const arte = itemArtImage(kind);
+    if (arte) {
+      g.drawImage(arte, 0, 0, S, S);
+      itemIconCanvasCache.set(kind, cv);
+      return cv;
+    }
+
     const cristal = crystalIconImage(kind);
     if (cristal) {
       g.imageSmoothingEnabled = false;

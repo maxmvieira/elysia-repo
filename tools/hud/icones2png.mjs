@@ -315,6 +315,27 @@ const TIRAS = [
       'mag_veneno', 'mag_sagrado', 'mag_travada',
     ],
   },
+  /*
+   * 🔴 **A fileira de ITENS da folha 4** — e só quatro dos onze entram.
+   *
+   * A folha desenhou quatro poções, quatro comidas, uma pena, um pergaminho e
+   * um baú. O jogo tem DUAS poções, nenhuma comida e nenhum baú de item: os
+   * outros sete não têm o que vestir, e cortar arquivo que ninguém carrega é
+   * peso morto no repositório. Ficam nomeados em branco, que é como os lotes já
+   * pulam peça.
+   *
+   * ⚠️ Medido: onze células iguais entre x=49 e x=1479 (130,1 cada). A medição
+   * por faixa devolve grupos colados porque as peças se encostam — é o mesmo
+   * caso dos ícones de magia.
+   */
+  {
+    folha: 'folha4', x0: 49, y0: 624, x1: 1479, y1: 750,
+    nomes: [
+      'pocao_vida', 'pocao_mana', '', '',
+      '', '', '', '',
+      'pena', 'pergaminho', '',
+    ],
+  },
 ];
 
 mkdirSync(DESTINO, { recursive: true });
@@ -322,7 +343,10 @@ for (const tira of TIRAS) {
   const img = decode(join(ORIGEM, `${tira.folha}.png`));
   const larg = (tira.x1 - tira.x0 + 1) / tira.nomes.length;
   const h = tira.y1 - tira.y0 + 1;
+  let feitos = 0;
   tira.nomes.forEach((nome, i) => {
+    if (!nome) return; // célula sem uso no jogo
+    feitos += 1;
     const ax = Math.round(tira.x0 + i * larg);
     const w = Math.round(tira.x0 + (i + 1) * larg) - ax;
     const out = Buffer.alloc(w * h * 4);
@@ -333,7 +357,7 @@ for (const tira of TIRAS) {
     writeFileSync(join(DESTINO, `${nome}.png`), encode(w, h, out));
   });
   console.log(`
-[hud] tira ${tira.folha} → ${tira.nomes.length} peças de ${Math.round(larg)}x${h}`);
+[hud] tira ${tira.folha} → ${feitos} peças de ${Math.round(larg)}x${h}`);
 }
 
 for (const m of MOLDURAS) {
