@@ -184,6 +184,32 @@ function linhasDaFolha(img) {
 }
 
 const arg = process.argv.slice(2);
+if (arg[0] === '--rows') {
+  // Linhas cheias dentro de uma faixa horizontal — o par do --cols.
+  const img = decode(join(ORIGEM, 'folha' + (arg[1] ?? '1') + '.png'));
+  const x0 = Number(arg[2] ?? 0), x1 = Number(arg[3] ?? img.w - 1);
+  const vazia = new Array(img.h).fill(true);
+  for (let y = 0; y < img.h; y++) {
+    for (let x = x0; x <= x1 && x < img.w; x++) {
+      if (!ehFundo(img.px, (y * img.w + x) * 4)) { vazia[y] = false; break; }
+    }
+  }
+  for (const [a, b] of faixas(vazia)) console.log('  linha y=' + a + '..' + b + '  (altura ' + (b - a + 1) + ')');
+  process.exit(0);
+}
+if (arg[0] === '--cols') {
+  // Colunas cheias dentro de uma faixa — para medir molduras antes de cortar.
+  const img = decode(join(ORIGEM, 'folha' + (arg[1] ?? '1') + '.png'));
+  const y0 = Number(arg[2] ?? 0), y1 = Number(arg[3] ?? img.h - 1);
+  const vazia = new Array(img.w).fill(true);
+  for (let y = y0; y <= y1 && y < img.h; y++) {
+    for (let x = 0; x < img.w; x++) {
+      if (!ehFundo(img.px, (y * img.w + x) * 4)) vazia[x] = false;
+    }
+  }
+  for (const [a, b] of faixas(vazia)) console.log('  coluna x=' + a + '..' + b + '  (largura ' + (b - a + 1) + ')');
+  process.exit(0);
+}
 if (arg[0] === '--mapa') {
   const nome = `folha${arg[1] ?? '1'}`;
   const img = decode(join(ORIGEM, `${nome}.png`));
@@ -194,7 +220,41 @@ if (arg[0] === '--mapa') {
   process.exit(0);
 }
 
+/**
+ * 🖼️ **AS MOLDURAS — recorte RETANGULAR, em resolução cheia.**
+ *
+ * 🔴 Nada a ver com o corte dos ícones acima. Ícone vira um quadrado de 64;
+ * moldura vira `border-image` de nove fatias, e para isso a arte tem de sair
+ * do jeito que está: os quatro cantos precisam da resolução original, senão o
+ * ornamento dourado borra quando o CSS os desenha em tamanho fixo.
+ *
+ * ⚠️ Os retângulos foram MEDIDOS com `--cols` e `--rows`, não estimados.
+ */
+const MOLDURAS = [
+  /*
+   * ⚠️ O painel do personagem começa em x=200, e não na borda esquerda da
+   * arte (x=9): à esquerda fica o ANEL DO RETRATO, que é peça própria e não
+   * pode entrar na fatia. No jogo o medalhão cobre essa borda de qualquer
+   * forma — é a mesma sobreposição do desenho original.
+   */
+  { nome: 'painel_char', folha: 'folha1', x0: 200, y0: 28, x1: 648, y1: 320 },
+  { nome: 'painel_mapa', folha: 'folha1', x0: 1119, y0: 12, x1: 1525, y1: 335 },
+];
+
 mkdirSync(DESTINO, { recursive: true });
+for (const m of MOLDURAS) {
+  const img = decode(join(ORIGEM, `${m.folha}.png`));
+  const w = m.x1 - m.x0 + 1;
+  const h = m.y1 - m.y0 + 1;
+  const out = Buffer.alloc(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    const de2 = ((m.y0 + y) * img.w + m.x0) * 4;
+    img.px.copy(out, y * w * 4, de2, de2 + w * 4);
+  }
+  writeFileSync(join(DESTINO, `${m.nome}.png`), encode(w, h, out));
+  console.log(`\n[hud] moldura ${m.nome}.png  ${w}x${h}`);
+}
+
 let total = 0;
 for (const lote of LOTES) {
   const img = decode(join(ORIGEM, `${lote.folha}.png`));
