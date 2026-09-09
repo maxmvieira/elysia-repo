@@ -144,6 +144,7 @@ import {
 } from '@dominion/shared';
 import { NetClient } from './net.js';
 import { spellIconUrl } from './spellicons.js';
+import FOLHAS_FX from './fx-folhas.json';
 import {
   generateCharacterTextures,
   PALETTE_OTHER,
@@ -1899,6 +1900,61 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       .catch(() => { /* folha ausente: o registro simplesmente não a tem */ });
   }
 
+  /**
+   * 🖼️ **AS FOLHAS DE EFEITO DO PACOTE DE BUFFS** (09/09).
+   *
+   * ⚠️ **A contagem de quadros vem do MANIFESTO, não de uma constante.** A tira
+   * do Fire Bolt podia assumir `QUADROS_FX` colunas fixas porque era uma só;
+   * aqui três efeitos têm dezesseis quadros e três têm doze, e um número fixo
+   * cortaria metade dos arquivos no lugar errado — sem erro nenhum, só com a
+   * animação picotada.
+   */
+  const folhasEfeito = new Map<string, Texture[]>();
+  for (const [nome, quadros] of Object.entries(FOLHAS_FX)) {
+    void Assets.load<Texture>(`/assets/fx/${nome}.png`)
+      .then((tex) => {
+        const cw = Math.max(1, Math.round(tex.width / quadros));
+        folhasEfeito.set(nome, Array.from({ length: quadros }, (_, i) => new Texture({
+          source: tex.source,
+          frame: new Rectangle(i * cw, 0, cw, tex.height),
+        })));
+      })
+      .catch(() => { /* folha ausente: o efeito simplesmente não toca */ });
+  }
+
+  /** Quanto dura a animação de um efeito de buff, do primeiro quadro ao último. */
+  const DUR_EFEITO = 900;
+
+  /**
+   * Toca uma folha de efeito num ponto do mundo.
+   *
+   * ⚠️ Ancorada em `0.5, 0.72` e NÃO no rodapé: o desenho tem um anel no chão e
+   * asas subindo acima dele, e o anel — que é o que tem de cair nos pés — está a
+   * 72% da altura do quadro (medido: y=64..110 num quadro de 120). Ancorar na
+   * base jogaria o anel 26 px acima do personagem.
+   */
+  function tocaEfeito(nome: string, wx: number, wy: number): void {
+    const frames = folhasEfeito.get(nome);
+    if (!frames) return;
+    const node = new AnimatedSprite(frames);
+    node.loop = false;
+    node.anchor.set(0.5, 0.72);
+    node.x = wx;
+    node.y = wy;
+    node.zIndex = 9997;
+    node.animationSpeed = frames.length / (DUR_EFEITO / (1000 / 60));
+    fxLayer.addChild(node);
+    /*
+     * ⚠️ Entra na MESMA lista das quedas, com atraso zero. O laço de lá já
+     * dispara o `play()` e destrói no fim; uma lista própria seria uma segunda
+     * cópia da mesma limpeza, e é assim que uma delas fica sem varrer.
+     */
+    node.visible = false;
+    const q = { node, atraso: 0, morto: false };
+    node.onComplete = () => { q.morto = true; };
+    quedas.push(q);
+  }
+
   /** A folha que melhor representa `n` bolts, ou a menor que existir. */
   function folhaPara(n: number): { bolts: number; frames: Texture[] } | null {
     if (folhasQueda.length === 0) return null;
@@ -2157,12 +2213,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     net.send({ t: 'cancel' });
   }
 
-  function spawnFloater(wx: number, wy: number, text: string, color: number, big: boolean): void {
+  /**
+   * ⚠️ `px` existe para o cartaz de LEVEL UP: `big` dá 20, que é o tamanho de
+   * um acerto crítico, e o cartaz precisa ser maior que qualquer número que
+   * apareça numa luta — senão ele se perde no meio deles.
+   */
+  function spawnFloater(
+    wx: number, wy: number, text: string, color: number, big: boolean, px?: number,
+  ): void {
     const node = new Text({
       text,
       style: {
         fill: color,
-        fontSize: big ? 20 : 14,
+        fontSize: px ?? (big ? 20 : 14),
         fontFamily: 'Segoe UI, sans-serif',
         fontWeight: 'bold',
         stroke: { color: 0x000000, width: 3 },
@@ -2193,6 +2256,29 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     'debuff_weaken', 'debuff_vulnerability', 'debuff_slow', 'debuff_curse',
     'silence', 'plague',
   ]);
+
+  /**
+   * 🖼️ Qual folha do pacote toca em cada família.
+   *
+   * ⚠️ **Por família, e não por habilidade**, e é a mesma razão que já governa
+   * os conjuntos acima: o jogador não precisa distinguir Pele de Carvalho de
+   * Bênção Espiritual pelo brilho — precisa saber de relance se aquilo foi bom
+   * ou ruim para ele. Cinco animações dão conta disso; setenta e cinco só
+   * dariam trabalho.
+   *
+   * ⚠️ Duas escapam da família porque a folha existe e é melhor: Proteção
+   * Mágica é a `immunity` (o escudo), e Amplificação Mágica é a
+   * `mana_recovery` (a onda de mana). Sem elas, essas duas folhas ficariam
+   * cortadas e sem uso.
+   */
+  function folhaDoFx(kind: string): string | null {
+    if (kind === 'magic_protection') return 'immunity';
+    if (kind === 'buff_amplify') return 'mana_recovery';
+    if (FX_CURA.has(kind)) return 'life_recovery';
+    if (FX_BUFF.has(kind)) return 'strength_buff';
+    if (FX_DEBUFF.has(kind)) return 'debuff';
+    return null;
+  }
 
   function spawnSpellFx(kind: string, tileX: number, tileY: number, radius: number): void {
     const node = new Container();
@@ -2927,7 +3013,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
             spawnQuedaDaConjuracao(msg.x * TS + TS / 2, msg.y * TS + TS, msg.n ?? 1);
             break;
           }
-          spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1);
+          {
+            /*
+             * ⚠️ A folha vem ANTES do desenho por código: onde há arte, é ela
+             * que toca. O `spawnSpellFx` continua atendendo as outras sessenta
+             * e poucas habilidades, e é para onde cai tudo que não tem folha.
+             */
+            const folha = folhaDoFx(msg.kind);
+            if (folha) tocaEfeito(folha, msg.x * TS + TS / 2, msg.y * TS + TS);
+            else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1);
+          }
           break;
         case 'heal': {
           // Cura é número VERDE e para cima, nunca vermelho: o jogador tem de
@@ -3068,9 +3163,33 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           hud.death.style.display = 'none';
           break;
         case 'levelup': {
+          /*
+           * 🔴 **A MESMA mensagem serve às duas progressões**, e o `kind` é o
+           * que as separa. Ausente vale `base`: a mensagem existia antes de o
+           * Job Level existir.
+           */
+          const job = msg.kind === 'job';
           const me = myId ? sprites.get(myId) : undefined;
-          if (me) spawnFloater(me.container.x, me.container.y - 30, `Nível ${msg.level}!`, 0x9fe0a3, true);
-          logChat(`Você subiu para o <b>nível ${msg.level}</b>!`, 'sys');
+          if (me) {
+            tocaEfeito('revival', me.container.x + TS / 2, me.container.y + TS);
+            /*
+             * ⚠️ O cartaz sobe MAIS ALTO que o número de dano (-52 contra -30):
+             * a animação ocupa a altura do personagem, e a 30 px o texto caía
+             * dentro das asas.
+             */
+            spawnFloater(
+              me.container.x, me.container.y - 52,
+              job ? 'JOB LEVEL UP!' : 'LEVEL UP!',
+              job ? 0x8fd8ff : 0xffd97a,
+              true, 26,
+            );
+          }
+          logChat(
+            job
+              ? `Seu <b>Job Level</b> subiu para <b>${msg.level}</b>!`
+              : `Você subiu para o <b>nível ${msg.level}</b>!`,
+            'sys',
+          );
           break;
         }
         case 'inventory':

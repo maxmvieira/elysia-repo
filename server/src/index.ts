@@ -2362,7 +2362,12 @@ function grantJobXp(player: Player, amount: number): void {
   while (player.jobLevel < JOB_MAX_LEVEL && player.jobXp >= jobXpToNext(player.jobLevel)) {
     player.jobXp -= jobXpToNext(player.jobLevel);
     player.jobLevel += 1;
-    send(player, { t: 'chat', from: '', text: `⚒️ Job Level ${player.jobLevel}!` });
+    /*
+     * ⚠️ Evento, e não linha de chat. O cliente toca animação e escreve o
+     * cartaz a partir daqui, e ainda registra a linha na conversa — juntar as
+     * três coisas num lugar só é o que garante que elas não se separem.
+     */
+    send(player, { t: 'levelup', level: player.jobLevel, kind: 'job' });
   }
   if (player.jobLevel >= JOB_MAX_LEVEL) player.jobXp = 0;
 }

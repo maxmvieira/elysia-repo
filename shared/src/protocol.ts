@@ -1028,6 +1028,16 @@ export interface S2C_Respawn {
 export interface S2C_LevelUp {
   t: 'levelup';
   level: number;
+  /**
+   * ⚠️ **Qual das DUAS progressões subiu.** Ausente vale `base`, porque a
+   * mensagem existia antes de o Job Level existir e o campo entrou depois.
+   *
+   * 🔴 O Job Level subia só por uma linha de chat. Isso bastava enquanto não
+   * havia animação: agora o cliente precisa saber a diferença para escrever
+   * "JOB LEVEL UP!" em vez de "LEVEL UP!", e o texto da conversa não é um
+   * evento — ninguém deveria ter de lê-lo com expressão regular.
+   */
+  kind?: 'base' | 'job';
 }
 
 /** Estado do inventário do dono (mochila + equipamento + depósito). */
