@@ -749,6 +749,109 @@
       #charhud.recolhido .chrot { width: 22px; }
 
       /* =====================================================================
+       * 🪟 JANELAS — os painéis que saíram das laterais.
+       * =====================================================================
+       *
+       * 🖼️ **A moldura é a variante TODA-MARROM da folha de interface.** A
+       * folha traz quatro; as outras três têm miolo de pergaminho creme e barra
+       * verde, e ao lado do painel dourado da HUD elas gritariam.
+       *
+       * ⚠️ **Barra de título e corpo são duas caixas**, cada uma com o próprio
+       * `border-image`. Não dá para ser uma só: `border-image` não aceita
+       * conteúdo dentro da borda, e o título é texto com um botão ao lado.
+       *
+       * ⚠️ A fatia é medida na ARTE (que já vem ampliada por 4) e a largura na
+       * TELA, como em toda moldura deste projeto. Aqui a razão é 1:2 — a arte
+       * de pixel aparece ao dobro do tamanho original, que é o que a deixa
+       * legível sem virar borrão.
+       */
+      #janelas {
+        position: absolute;
+        inset: 0;
+        z-index: 8;
+        pointer-events: none;
+      }
+      .janela {
+        position: absolute;
+        display: none;
+        pointer-events: auto;
+        min-width: 200px;
+        font-size: 11px;
+        filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
+      }
+      .janela.aberta { display: block; }
+      .jtopo {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        height: 26px;
+        padding: 0 6px 0 10px;
+        border: 0 solid transparent;
+        border-width: 4px 10px;
+        border-image: url('/assets/hud/janela/janela_titulo.png') 8 20 fill / 4px 10px / 0 stretch;
+        color: #f2e2c2;
+        font-weight: 700;
+        text-shadow: 0 1px 0 #3a2416;
+        cursor: grab;
+        user-select: none;
+      }
+      .jtopo:active { cursor: grabbing; }
+      /*
+       * ⚠️ Margem negativa de 4 px: as duas peças se ENCOSTAM na folha, e é
+       * assim que o desenho fecha. Com elas separadas aparece uma linha do
+       * mundo entre a barra e o corpo.
+       */
+      .jcorpo {
+        margin-top: -4px;
+        padding: 6px;
+        border: 12px solid transparent;
+        border-image: url('/assets/hud/janela/janela_corpo.png') 24 fill / 12px / 0 stretch;
+        max-height: 60vh;
+        overflow-y: auto;
+      }
+      .jfechar {
+        flex: none;
+        width: 18px;
+        height: 20px;
+        padding: 0;
+        border: 0;
+        background: url('/assets/hud/janela/janela_fechar.png') center/100% 100% no-repeat;
+        cursor: pointer;
+      }
+      .jfechar:hover { filter: brightness(1.25); }
+      .jfechar:active { transform: scale(0.9); }
+      /*
+       * ⚠️ Dentro da janela a caixa antiga perde a própria moldura: ela veio da
+       * lateral, onde era um cartão com borda. Aqui a moldura é a janela, e
+       * manter as duas daria contorno dentro de contorno.
+       */
+      .jcorpo .box {
+        margin: 0;
+        border: 0;
+        background: none;
+        box-shadow: none;
+      }
+      /*
+       * ⚠️ O cabeçalho da caixa FICA, virando divisória de seção: dentro da
+       * janela do Inventário ele é quem diz "Equipamentos", e a janela por fora
+       * só diz "Inventário". Some apenas o botão de minimizar — a janela toda
+       * já fecha pelo ✕, e minimizar uma seção dentro dela não leva a nada.
+       */
+      .jcorpo .phead {
+        padding: 0 0 3px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+        color: #f2e2c2;
+        font-weight: 700;
+      }
+      .jcorpo .phead .pt { display: none; }
+      .jcorpo .pbody { padding: 4px 0 0; }
+      /* O texto da janela é claro sobre madeira, não cinza sobre preto. */
+      .jcorpo,
+      .jcorpo .subhead { color: #e8d8ba; }
+      .jcorpo .hint { color: #c2ac8a; }
+
+      /* =====================================================================
        * 🧪 ITENS RÁPIDOS — canto inferior direito do mundo.
        * ===================================================================== */
       /*
@@ -3679,6 +3782,61 @@
             lugar só (`ITENS_RAPIDOS`) em vez de repetida aqui.
           -->
           <div id="itensrapidos"></div>
+
+          <!--
+            🪟 AS JANELAS DO JOGO.
+
+            🔴 **Os painéis saíram das colunas laterais** (09/09, pedido do
+            dono): eram nove caixas empilhadas nas bordas, comendo largura do
+            mundo o tempo todo mesmo fechadas. Agora cada grupo é uma janela que
+            abre por um botão da HUD e some quando fecha.
+
+            ⚠️ O contêiner é `pointer-events: none` e cada janela devolve
+            `auto`. Sem isso, esta camada cobriria o mundo inteiro e nenhum
+            clique chegaria ao chão — que é o mesmo bug que os painéis da HUD
+            causaram por herança de clique, e aqui seria por cobertura.
+          -->
+          <div id="janelas">
+            <div class="janela" id="jan-inventario" style="left: 24px; top: 60px">
+              <div class="jtopo">
+                <span>Inventário</span>
+                <button class="jfechar" type="button" aria-label="Fechar"></button>
+              </div>
+              <div class="jcorpo">
+                <div class="box panel" id="invbox">
+                  <div class="phead"><span>🛡️ Equipamentos</span><button class="pt" title="Minimizar">−</button></div>
+                  <div class="pbody">
+                    <div id="equipgrid"></div>
+                    <div class="subhead" id="bpsubhead">🎒 Mochila</div>
+                    <div id="bpgrid"></div>
+                    <!--
+                      Encurtada de 5 linhas para 1 (o resto foi para o `title`): este
+                      bloco sozinho comia ~60 px da barra. A frase que sobrou é a que
+                      NÃO pode sumir — arrastar para o mundo é o caminho principal de
+                      soltar item, e ninguém descobre isso sozinho.
+                    -->
+                    <div
+                      class="hint"
+                      style="margin-top: 4px"
+                      title="Shift enquanto arrasta solta a pilha inteira. Arraste do chão para cá para pegar. Botão direito também solta. Arraste entre slots para arrumar a mochila. O que fica no chão desaparece em 3 minutos."
+                    >
+                      <b>Arraste para o mundo</b> para soltar no chão.
+                    </div>
+                    <div id="depotbox" style="display: none">
+                      <div class="subhead">🏦 Depósito</div>
+                      <div id="dpgrid"></div>
+                    </div>
+                    <div id="invhint" class="hint" style="margin-top: 6px"></div>
+                  </div>
+                </div>
+                <!--
+                  PvP fica na DIREITA, junto dos vitais: é um interruptor de estado do
+                  personagem ("estou atacável"), não informação do mundo. E é o painel
+                  mais baixo do jogo, o que o torna o único que ainda cabia aqui.
+                -->
+              </div>
+            </div>
+          </div>
         </div>
         <!--
           Doca do chat. No rodapé, como no Tibia: usa a largura toda da tela em
@@ -3748,37 +3906,6 @@
             </button>
           </div>
         </div>
-        <div class="box panel" id="invbox">
-          <div class="phead"><span>🛡️ Equipamentos</span><button class="pt" title="Minimizar">−</button></div>
-          <div class="pbody">
-            <div id="equipgrid"></div>
-            <div class="subhead" id="bpsubhead">🎒 Mochila</div>
-            <div id="bpgrid"></div>
-            <!--
-              Encurtada de 5 linhas para 1 (o resto foi para o `title`): este
-              bloco sozinho comia ~60 px da barra. A frase que sobrou é a que
-              NÃO pode sumir — arrastar para o mundo é o caminho principal de
-              soltar item, e ninguém descobre isso sozinho.
-            -->
-            <div
-              class="hint"
-              style="margin-top: 4px"
-              title="Shift enquanto arrasta solta a pilha inteira. Arraste do chão para cá para pegar. Botão direito também solta. Arraste entre slots para arrumar a mochila. O que fica no chão desaparece em 3 minutos."
-            >
-              <b>Arraste para o mundo</b> para soltar no chão.
-            </div>
-            <div id="depotbox" style="display: none">
-              <div class="subhead">🏦 Depósito</div>
-              <div id="dpgrid"></div>
-            </div>
-            <div id="invhint" class="hint" style="margin-top: 6px"></div>
-          </div>
-        </div>
-        <!--
-          PvP fica na DIREITA, junto dos vitais: é um interruptor de estado do
-          personagem ("estou atacável"), não informação do mundo. E é o painel
-          mais baixo do jogo, o que o torna o único que ainda cabia aqui.
-        -->
         <div class="box panel" id="pkbox">
           <div class="phead"><span>⚔️ PvP</span><button class="pt" title="Minimizar">−</button></div>
           <div class="pbody">

@@ -250,6 +250,89 @@ const hud = {
 
 const CHAVE_HUD_ABERTA = 'elysia.charhud.expandida';
 
+// ---------------------------------------------------------------------------
+// 🪟 Janelas do jogo
+//
+// Os painéis que moravam nas colunas laterais viraram janelas que flutuam sobre
+// o mundo e abrem por um botão da HUD.
+// ---------------------------------------------------------------------------
+
+/** Abre/fecha uma janela pelo id. */
+function alternaJanela(id: string): () => void {
+  return () => {
+    const j = document.getElementById(id);
+    if (!j) return;
+    j.classList.toggle('aberta');
+    /*
+     * ⚠️ Ao abrir, a janela vai para a FRENTE das outras. Sem isto, duas
+     * abertas ficariam na ordem do HTML para sempre, e a de trás só voltaria ao
+     * topo fechando a da frente — que é o oposto do que clicar nela sugere.
+     */
+    if (j.classList.contains('aberta')) j.parentElement?.appendChild(j);
+  };
+}
+
+/**
+ * Liga o comportamento das janelas: fechar, arrastar e lembrar onde ficaram.
+ *
+ * ⚠️ A posição é guardada no `localStorage` como a da barra de magias, e pela
+ * mesma razão: onde o jogador põe uma janela é preferência de interface, não
+ * estado de jogo. Com a mesma consequência — trocar de máquina devolve tudo ao
+ * lugar de fábrica.
+ */
+function ligaJanelas(): void {
+  for (const j of document.querySelectorAll<HTMLElement>('.janela')) {
+    const chave = `elysia.janela.${j.id}`;
+    try {
+      const salvo = JSON.parse(localStorage.getItem(chave) ?? 'null') as { x: number; y: number } | null;
+      if (salvo && Number.isFinite(salvo.x) && Number.isFinite(salvo.y)) {
+        j.style.left = `${salvo.x}px`;
+        j.style.top = `${salvo.y}px`;
+      }
+    } catch { /* armazenamento bloqueado: fica onde o HTML pôs */ }
+
+    j.querySelector('.jfechar')?.addEventListener('click', () => j.classList.remove('aberta'));
+
+    /*
+     * ⚠️ Clicar em qualquer lugar da janela a traz para a frente — não só a
+     * barra de título. É o que se espera de janela, e sai de graça aqui.
+     */
+    j.addEventListener('pointerdown', () => j.parentElement?.appendChild(j));
+
+    const topo = j.querySelector<HTMLElement>('.jtopo');
+    topo?.addEventListener('pointerdown', (ev) => {
+      // Só o botão esquerdo, e nunca começando pelo botão de fechar.
+      if (ev.button !== 0 || (ev.target as HTMLElement).closest('.jfechar')) return;
+      ev.preventDefault();
+      const caixa = j.getBoundingClientRect();
+      const pai = j.parentElement!.getBoundingClientRect();
+      const dx = ev.clientX - caixa.left;
+      const dy = ev.clientY - caixa.top;
+      const mover = (e: PointerEvent): void => {
+        /*
+         * ⚠️ Preso à área do mundo: uma janela arrastada para fora não teria
+         * como voltar, porque a barra de título é o único pegador dela.
+         */
+        const x = Math.min(Math.max(0, e.clientX - pai.left - dx), pai.width - caixa.width);
+        const y = Math.min(Math.max(0, e.clientY - pai.top - dy), pai.height - caixa.height);
+        j.style.left = `${Math.round(x)}px`;
+        j.style.top = `${Math.round(y)}px`;
+      };
+      const soltar = (): void => {
+        window.removeEventListener('pointermove', mover);
+        window.removeEventListener('pointerup', soltar);
+        try {
+          localStorage.setItem(chave, JSON.stringify({
+            x: parseInt(j.style.left, 10), y: parseInt(j.style.top, 10),
+          }));
+        } catch { /* idem */ }
+      };
+      window.addEventListener('pointermove', mover);
+      window.addEventListener('pointerup', soltar);
+    });
+  }
+}
+
 /**
  * Liga os quatro estados de um botão de arte.
  *
@@ -290,6 +373,7 @@ function ligaPainelDoPersonagem(): void {
     expandida = localStorage.getItem(CHAVE_HUD_ABERTA) !== '0';
   } catch { /* armazenamento bloqueado: começa expandida */ }
   aplicaEstadoDoPainel(expandida);
+  ligaJanelas();
   el('chtoggle').addEventListener('click', () => {
     expandida = !expandida;
     aplicaEstadoDoPainel(expandida);
@@ -334,7 +418,7 @@ function ligaPainelDoPersonagem(): void {
   const ATALHOS: Array<{
     arte: string; nome: string; abre: () => void; futuro?: boolean;
   }> = [
-    { arte: 'inventario', nome: 'Inventário', abre: alterna('invbox') },
+    { arte: 'inventario', nome: 'Inventário', abre: alternaJanela('jan-inventario') },
     { arte: 'skills', nome: 'Habilidades (K)', abre: alterna('skillpanel', 'flex') },
     { arte: 'amigos', nome: 'Amigos', abre: alterna('friendsbox') },
     { arte: 'quests', nome: 'Missões', abre: porVir('O diário de missões'), futuro: true },
