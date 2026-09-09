@@ -419,21 +419,28 @@
        * era uma faixa escura sobre o retrato, e com o anel de arte por cima ela
        * brigava com o ornamento. É onde a referência o põe.
        */
+      /*
+       * 🖼️ O disco do nível é arte, e fica embaixo e à esquerda do anel — é o
+       * lugar em que ele está desenhado na folha, encostado no aro grande.
+       *
+       * ⚠️ `display: grid` + `place-items: center` porque o número tem de ficar
+       * no centro do disco em qualquer largura: "9" e "150" ocupam bem diferente,
+       * e com padding um deles sairia torto.
+       */
       #chlv {
         position: absolute;
-        left: -4px;
-        bottom: -4px;
+        left: -7px;
+        bottom: -5px;
         z-index: 3;
-        min-width: 20px;
-        padding: 1px 3px;
-        text-align: center;
-        font-size: 10.5px;
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        background: url('/assets/hud/icones/disco_nivel.png') center/contain no-repeat;
+        font-size: 10px;
         font-weight: 700;
-        color: #f0d99a;
-        background: #0c0a08;
-        border: 1px solid #9a824c;
-        border-radius: 50%;
-        text-shadow: 0 1px 2px #000;
+        color: #f7e7b8;
+        text-shadow: 0 1px 2px #000, 0 0 3px #000;
       }
       /* O corpo: nome, barras e (no expandido) XP e botões. */
       /*
@@ -461,26 +468,35 @@
        * para 12 e o padding é quase zero — o respiro vem da moldura, que é onde
        * ele já existe no desenho.
        */
+      /*
+       * 🔴 **A FATIA TEM DE CABER O CANTO, não a espessura da barra dourada.**
+       *
+       * Houve uma versão que mediu a faixa lado a lado (18/28/9/34) e encolheu a
+       * borda para acompanhar. Ficou errado: nesta arte a faixa é FINA — uns 8
+       * px — e o ornamento todo mora nos CANTOS, que têm uns 44. Fatiar pela
+       * faixa cortava o canto no meio, e a moldura virava um fio.
+       *
+       * ✅ A fatia é 44 dos quatro lados, o tamanho do canto. O que entra junto
+       * é o miolo escuro do painel, e isso é de propósito: o conversor já tapou
+       * ali os desenhos da ilustração, então o que sobra é fundo — o mesmo que o
+       * CSS pinta ao lado.
+       *
+       * ⚠️ Por isso o fundo é uma cor CHATA, e não o gradiente de antes: ela é a
+       * amostra tirada da própria arte (21,22,20). Com gradiente aparecia a
+       * emenda entre o escuro pintado da moldura e o escuro do CSS.
+       */
       #chcorpo {
         margin-left: -14px;
-        padding: 0 2px 2px 8px;
-        min-width: 210px;
-        background: linear-gradient(#15120e, #0b0a08);
+        padding: 2px 4px 4px 8px;
         /*
-         * ⚠️ **A fatia acompanha o vazamento do conversor.** O miolo da arte
-         * foi apagado em x=34..420 e y=18..283, então é até ali que existe
-         * faixa dourada — 18 em cima, 28 à direita, 9 embaixo, 34 à esquerda.
-         * Uma fatia maior traria transparência para dentro da borda e a
-         * moldura viraria um fio fino, que foi o que aconteceu antes de os
-         * quatro números serem medidos.
-         *
-         * ⚠️ A largura na tela é a mesma redução aplicada aos quatro (≈0,35),
-         * senão um lado estica e o outro espreme.
+         * ⚠️ 250 e não 210: com os rótulos de 66 px e o vão de 42 à direita, a
+         * barra de HP ficava estreita demais e "2430 / 3375" quebrava em duas
+         * linhas dentro dela. A largura mínima é o que garante o número inteiro.
          */
-        border-style: solid;
-        border-color: transparent;
-        border-width: 6px 10px 3px 12px;
-        border-image: url('/assets/hud/icones/painel_char.png') 18 28 9 34 / 6px 10px 3px 12px / 0 stretch;
+        min-width: 250px;
+        background: #151614;
+        border: 14px solid transparent;
+        border-image: url('/assets/hud/icones/painel_char.png') 44 / 14px / 0 stretch;
       }
       #chtopo {
         display: flex;
@@ -530,19 +546,20 @@
         gap: 4px;
         margin-bottom: 2px;
       }
-      .chrot {
-        width: 18px;
-        flex: none;
-        color: #9a9384;
-        font-size: 9.5px;
-        font-weight: 700;
-      }
+      /*
+       * ⚠️ **Os dois rótulos têm a MESMA largura de propósito.** Eram 18 px para
+       * HP/SP e 74 para Base/Job, e o resultado era quatro barras começando em
+       * dois lugares diferentes — a coisa que mais fazia o painel parecer torto.
+       * O vão que sobra ao lado de "HP" é o preço, e é o preço certo.
+       */
+      .chrot,
       .chrot2 {
-        width: 74px;
+        width: 66px;
         flex: none;
         color: #9a9384;
         font-size: 9.5px;
       }
+      .chrot { font-weight: 700; }
       .chrot2 b { color: #c9a86a; }
       .chpct {
         width: 38px;
@@ -591,6 +608,13 @@
         border-width: 0 7px;
       }
       /*
+       * ⚠️ HP e SP não têm coluna de porcentagem à direita, e por isso acabavam
+       * 42 px depois das outras duas — a borda direita do painel ficava
+       * irregular. O vão reserva o mesmo espaço que a coluna ocupa.
+       */
+      .chbar.hp,
+      .chbar.sp { margin-right: 42px; }
+      /*
        * ⚠️ O preenchimento é ABSOLUTO e recuado em PORCENTAGEM.
        *
        * A calha da arte tem parede própria: o vão escuro vai de y=7 a y=27 num
@@ -614,6 +638,7 @@
         align-items: center;
         justify-content: center;
         font-size: 9px;
+        white-space: nowrap;
         color: #fff;
         text-shadow: 0 1px 2px #000, 0 0 3px #000;
         pointer-events: none;
@@ -627,10 +652,16 @@
        * 🔴 A LINHA DE BOTÕES. Pequenos de propósito — o pedido do dono foi
        * explícito: "bem menores que os da primeira versão", numa linha só.
        */
+      /*
+       * ⚠️ `space-between` porque a linha tem SETE botões e a largura do painel
+       * é ditada pelas barras, não por eles: com `gap` fixo sobrava um vão morto
+       * à direita, e o painel ficava com cara de inacabado embaixo.
+       */
       #chbtns {
         display: flex;
+        justify-content: space-between;
         gap: 3px;
-        margin-top: 4px;
+        margin-top: 5px;
       }
       /*
        * ⚠️ **Sem fundo e sem borda próprios**: a moldura dourada vem DENTRO do
@@ -698,13 +729,16 @@
         top: 6px;
         right: 6px;
         z-index: 6;
-        width: 172px;
-        background: linear-gradient(#15120e, #0b0a08);
-        /* Mesma medida do vazamento: 16 em cima e embaixo, 18 nos lados. */
-        border-style: solid;
-        border-color: transparent;
-        border-width: 10px 12px 10px 12px;
-        border-image: url('/assets/hud/icones/painel_mapa.png') 16 18 16 18 / 10px 12px 10px 12px / 0 stretch;
+        /*
+         * ⚠️ 156 é MEDIDA, não gosto: 130 do canvas + 13 de moldura de cada
+         * lado. Com 172 sobrava uma faixa de fundo à direita e embaixo do mapa,
+         * como se o desenho não coubesse na moldura.
+         */
+        width: 156px;
+        /* Mesma história do painel: fatia no tamanho do canto, fundo na cor da arte. */
+        background: #272827;
+        border: 13px solid transparent;
+        border-image: url('/assets/hud/icones/painel_mapa.png') 46 / 13px / 0 stretch;
         font-size: 10px;
         user-select: none;
       }

@@ -235,23 +235,38 @@ const MOLDURAS = [
    * ⚠️ O painel do personagem começa em x=200, e não na borda esquerda da
    * arte: à esquerda fica o MEDALHÃO DO RETRATO, que é peça própria.
    *
-   * ⚠️ **`vazar` existe porque a arte do painel JÁ TRAZ barras e slots
-   * desenhados dentro dela** — e a fatia de 44 px do `border-image` alcança
-   * esses desenhos. O resultado eram quatro tocos coloridos grudados na borda
-   * esquerda do painel, restos das barras da ilustração espremidos junto com a
-   * moldura, ao lado das barras de verdade.
+   * ⚠️ **`tapa` existe porque a arte do painel JÁ TRAZ barras e slots
+   * desenhados dentro dela** — e a fatia do `border-image` alcança esses
+   * desenhos. O resultado eram quatro tocos coloridos grudados na borda
+   * esquerda do painel, restos das barras da ilustração ao lado das barras de
+   * verdade.
    *
-   * ✅ Apagar o miolo resolve na FONTE: sobra o anel da moldura, e o que a
-   * fatia alcança para dentro fica transparente. O `fill` continua fora, e o
-   * fundo do painel segue sendo o gradiente do CSS.
+   * 🔴 **A primeira tentativa APAGOU o miolo, e foi pior.** Sem o escuro por
+   * baixo, a fatia teve de encolher até a espessura da faixa dourada — e a
+   * faixa desta arte é FINA (uns 8 px), com o ornamento todo concentrado nos
+   * cantos. A moldura virou um fio, e os cantos, um borrão.
+   *
+   * ✅ O certo é **tapar com o próprio fundo do painel**: os desenhos somem, o
+   * escuro fica, e a fatia pode voltar a ser grande o bastante para o canto
+   * ornamentado caber inteiro nela. A cor não é inventada — sai de `amostra`,
+   * um ponto do próprio miolo.
    *
    * ⚠️ O retângulo é MEDIDO: as barras da ilustração vão de x=36 a x=420 num
-   * PNG de 449, e os slots ocupam de y≈220 a y≈283 num de 293. O vão para em
-   * 34 e 18 para não comer a faixa dourada.
+   * PNG de 449, e os slots ocupam de y≈220 a y≈283 num de 293.
    */
-  { nome: 'painel_char', folha: 'folha1', x0: 200, y0: 28, x1: 648, y1: 320, vazar: { x0: 34, y0: 18, x1: 420, y1: 283 } },
+  /*
+   * ⚠️ `espelhaEsquerda` conserta o que `tapa` não alcança: **o anel do
+   * retrato passa por cima da borda esquerda do painel na folha**, e o corte
+   * traz um naco dele. Não dá para tapar junto — ali mora a barra dourada do
+   * painel, que é o que se quer guardar.
+   *
+   * ✅ A borda direita está limpa e é o espelho da esquerda no desenho, então
+   * ela é copiada invertida por cima. São 30 colunas: o suficiente para cobrir
+   * o naco do anel e para o canto ornamentado vir junto.
+   */
+  { nome: 'painel_char', folha: 'folha1', x0: 200, y0: 28, x1: 648, y1: 320, tapa: { x0: 30, y0: 16, x1: 424, y1: 285, amostra: [224, 150] }, espelhaEsquerda: 30 },
   /* Mesma história: a arte do minimapa traz bússola, botões e rótulo dentro. */
-  { nome: 'painel_mapa', folha: 'folha1', x0: 1119, y0: 12, x1: 1525, y1: 335, vazar: { x0: 18, y0: 16, x1: 388, y1: 307 } },
+  { nome: 'painel_mapa', folha: 'folha1', x0: 1119, y0: 12, x1: 1525, y1: 335, tapa: { x0: 16, y0: 14, x1: 390, y1: 309, amostra: [200, 150] } },
   /*
    * 🔴 **O ANEL DO RETRATO SÓ EXISTE PELA METADE NA ARTE.**
    *
@@ -278,6 +293,18 @@ const MOLDURAS = [
    * preenchidas em verde e vermelho, que não servem: a cor tem de vir do
    * preenchimento do jogo, não da arte.
    */
+  /*
+   * 🔴 **O DISCO DO NÍVEL também é arte** — estava sendo desenhado com um
+   * `border-radius` e uma borda de 1 px, e ao lado do anel remontado parecia
+   * uma bolha solta.
+   *
+   * ⚠️ Ele fica POR CIMA do anel na folha, embaixo e à esquerda: o arco do anel
+   * grande atravessa esta caixa. Como o disco é um círculo e está por cima, a
+   * máscara circular resolve — o que sobra do arco cai fora do raio.
+   *
+   * ⚠️ Medido: centro em (68,212) e raio ≈34 na folha.
+   */
+  { nome: 'disco_nivel', folha: 'folha1', x0: 34, y0: 178, x1: 102, y1: 246, circular: true },
   { nome: 'barra_calha', folha: 'folha1', x0: 23, y0: 850, x1: 262, y1: 885 },
 ];
 
@@ -291,16 +318,44 @@ for (const m of MOLDURAS) {
     const de2 = ((m.y0 + y) * img.w + m.x0) * 4;
     img.px.copy(out, y * w * 4, de2, de2 + w * 4);
   }
-  if (m.vazar) {
-    const v = m.vazar;
-    let limpos = 0;
-    for (let y = v.y0; y <= v.y1; y++) {
-      for (let x = v.x0; x <= v.x1; x++) {
+  if (m.tapa) {
+    const t = m.tapa;
+    const a = ((t.amostra[1] * w) + t.amostra[0]) * 4;
+    const cor = [out[a], out[a + 1], out[a + 2], out[a + 3]];
+    for (let y = t.y0; y <= t.y1; y++) {
+      for (let x = t.x0; x <= t.x1; x++) {
         const o = (y * w + x) * 4;
-        if (out[o + 3] !== 0) { out[o + 3] = 0; limpos++; }
+        out[o] = cor[0]; out[o + 1] = cor[1]; out[o + 2] = cor[2]; out[o + 3] = cor[3];
       }
     }
-    console.log(`     (miolo vazado: ${limpos} px apagados)`);
+    const area = (t.x1 - t.x0 + 1) * (t.y1 - t.y0 + 1);
+    console.log(`     (miolo tapado: ${area} px na cor ${cor.slice(0, 3).join(',')})`);
+  }
+  if (m.circular) {
+    /*
+     * ⚠️ Raio com 1 px de folga sobre a metade do lado: cravado na metade
+     * exata, a máscara comeria o contorno dourado do próprio disco.
+     */
+    const cx = (w - 1) / 2, cy = (h - 1) / 2;
+    const raio = Math.min(w, h) / 2 + 1;
+    let cortados = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (Math.hypot(x - cx, y - cy) <= raio) continue;
+        const o = (y * w + x) * 4;
+        if (out[o + 3] !== 0) { out[o + 3] = 0; cortados++; }
+      }
+    }
+    console.log(`     (máscara circular: ${cortados} px fora do disco apagados)`);
+  }
+  if (m.espelhaEsquerda) {
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < m.espelhaEsquerda; x++) {
+        const de3 = (y * w + (w - 1 - x)) * 4;
+        out.copy(out, (y * w + x) * 4, de3, de3 + 4);
+      }
+    }
+    console.log(`     (borda esquerda espelhada da direita: ${m.espelhaEsquerda} colunas)`);
   }
   if (m.espelhaQuadrante) {
     /*

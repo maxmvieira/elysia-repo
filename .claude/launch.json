@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Elysia (teste)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:test"],
+      "port": 5173
+    }
+  ]
+}
