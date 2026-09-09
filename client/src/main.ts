@@ -4525,7 +4525,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   el('bank-wit').onclick = () => bankSend('withdraw', bankDigitado());
   el('bank-dep-all').onclick = () => bankSend('deposit', goldEmMao);
   el('bank-wit-all').onclick = () => bankSend('withdraw', goldGuardado);
-  el('bank-close').onclick = () => { bankEl.style.display = 'none'; };
+  /*
+   * ⚠️ Fechar o Banco fecha o Depósito junto. Ele foi aberto POR ali — a única
+   * porta para ele é o botão de dentro do Banco —, então deixá-lo para trás
+   * seria abandonar uma janela que o jogador não sabe de onde veio.
+   */
+  el('bank-close').onclick = () => {
+    bankEl.style.display = 'none';
+    janDeposito.classList.remove('aberta');
+  };
 
   function openBank(): void {
     renderBank();

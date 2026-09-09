@@ -3545,15 +3545,29 @@
         width: 100%;
         margin-top: 6px;
       }
+      /*
+       * 🔴 **O BANCO DEIXOU DE SER MODAL** (09/09).
+       *
+       * Ele era uma tela inteira com véu escuro e `z-index: 15`, acima das
+       * janelas. O resultado, quando o Depósito passou a abrir por ele: a
+       * janela do Depósito aparecia atrás do véu e **nenhum clique chegava
+       * nela** — nem para mover item, nem no ✕. O dono descreveu os três
+       * sintomas de uma vez, e a causa era esta.
+       *
+       * ✅ A camada continua cobrindo a tela (é ela que centraliza a caixa), mas
+       * com `pointer-events: none`; só a caixa recebe clique. Sem o véu, e sem
+       * comer o que está embaixo.
+       */
       #bank {
         position: fixed;
         inset: 0;
         display: none;
         align-items: center;
         justify-content: center;
-        background: rgba(0, 0, 0, 0.55);
+        pointer-events: none;
         z-index: 15;
       }
+      #bank .win { pointer-events: auto; }
       #bank .win {
         width: 280px;
         background: var(--panel);
