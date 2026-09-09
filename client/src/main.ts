@@ -3832,11 +3832,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     });
     // Depósito (só aparece dentro do DP).
     /*
-     * ⚠️ A janela do Depósito abre e fecha pela PROXIMIDADE, não por botão. O
-     * servidor reenvia o inventário ao entrar e ao sair da zona (ver
-     * `wasAtDepot`), então este toque acontece nas duas pontas sozinho.
+     * 🔴 **A proximidade só FECHA a janela do Depósito — quem ABRE é o clique
+     * no Banqueiro.**
+     *
+     * A primeira versão abria pela zona, e ficava aberta o tempo todo: a zona do
+     * Depósito cobre a praça inteira, então "estar nela" é o estado normal de
+     * quem passa pela cidade, não um gesto.
+     *
+     * ⚠️ Fechar continua sendo por zona, e é o que faz a janela não viajar pelo
+     * mapa junto com o jogador. O servidor reenvia o inventário ao sair (ver
+     * `wasAtDepot`), então este toque acontece sozinho.
      */
-    janDeposito.classList.toggle('aberta', currentInv.atDepot);
+    if (!currentInv.atDepot) janDeposito.classList.remove('aberta');
     if (currentInv.atDepot) {
       dpGrid.innerHTML = '';
       currentInv.depot.forEach((stack, i) => {
@@ -4524,6 +4531,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     renderBank();
     bankEl.style.display = 'flex';
     bankAmount.focus();
+    /*
+     * ⚠️ O DEPÓSITO abre junto. São coisas diferentes no doc — Banco guarda
+     * ouro, Depósito guarda item, e o cap. 19 separa as duas — mas é o mesmo
+     * NPC e o mesmo gesto para o jogador: "fui no banqueiro". Abrir só o cofre
+     * de ouro obrigaria a descobrir sozinho que os itens moram noutro lugar.
+     */
+    janDeposito.classList.add('aberta');
   }
   shopTabBuy.onclick = () => { shopTab = 'buy'; renderShop(); };
   shopTabSell.onclick = () => { shopTab = 'sell'; renderShop(); };
