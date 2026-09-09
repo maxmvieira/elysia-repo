@@ -398,8 +398,9 @@ function ligaPainelDoPersonagem(): void {
     const alvo = document.getElementById(id);
     if (!alvo) return;
     alvo.style.display = alvo.style.display === modo ? 'none' : modo;
-    // ⚠️ Painel de caixa (`.box`) mora na coluna lateral e pode estar fora da
-    // vista quando a lista é longa; rolar até ele evita o "não abriu nada".
+    // ⚠️ Rola até o alvo se ele estiver fora da vista. Sobrou dos tempos das
+    // colunas laterais, onde uma lista longa empurrava painel para fora da
+    // tela; hoje só o painel de habilidades passa por aqui, e nele não custa.
     if (alvo.style.display === modo) alvo.scrollIntoView({ block: 'nearest' });
   };
   const porVir = (nome: string) => () => {
@@ -4667,15 +4668,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     });
   });
 
-  // Momento do último arraste de painel (para não minimizar no clique que segue).
-  let lastDragEnd = 0;
-
-  // Painéis retráteis: clicar em QUALQUER lugar do cabeçalho (.phead) minimiza
-  // o painel (menos nos botões de +atributo, que têm ação própria). O botão .pt
-  // só mostra o estado (+/−).
+  /*
+   * Seções retráteis: clicar em QUALQUER lugar do cabeçalho (`.phead`) recolhe a
+   * seção — menos nos botões de +atributo, que têm ação própria.
+   *
+   * 🔴 **O sistema de REORDENAR painéis saiu daqui** (09/09). Ele arrastava
+   * painel pelo cabeçalho para trocar a ordem dentro das colunas laterais, e
+   * guardava essa ordem por coluna. Com as colunas fora, ele não tinha o que
+   * ordenar: `BARS` apontava para `#sidebar` e `#leftbar`, que deixaram de
+   * existir, e o jogo quebrava no `startGame` lendo `children` de `null`.
+   *
+   * ⚠️ O que ele fazia agora é das JANELAS, que arrastam pela barra de título e
+   * guardam a própria posição. Junto com ele foi embora o `lastDragEnd`, que só
+   * existia para o clique do fim de um arraste não recolher o painel sem querer.
+   */
   for (const head of Array.from(document.querySelectorAll<HTMLElement>('.phead'))) {
     head.addEventListener('click', (ev) => {
-      if (performance.now() - lastDragEnd < 250) return; // foi arraste, não clique
       const tgt = ev.target as HTMLElement;
       if (tgt.tagName === 'BUTTON' && !tgt.classList.contains('pt')) return; // ex.: +/− de atributo
       const panel = head.closest('.panel');
@@ -4684,99 +4692,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       const pt = head.querySelector<HTMLElement>('.pt');
       if (pt) pt.textContent = collapsed ? '+' : '−';
     });
-  }
-
-  // ---- Reordenar painéis arrastando pelo cabeçalho -----------------------
-  // Clique curto = minimiza; arrastar (>6px) = reordena. A ordem fica salva.
-  // Havia aqui uma "caixa de baixo" fixa (posição + atalhos de teclado) que servia
-  // de âncora: os painéis arrastados eram inseridos ANTES dela. O dono mandou
-  // removê-la em 30/07, então a barra passou a ser só painéis e o fim da lista é o
-  // fim da barra — `insertBefore(x, null)` é exatamente `appendChild`.
-  //
-  // Desde o layout de três regiões são DUAS barras de painel. Cada uma guarda a
-  // própria ordem, com chave própria, e o arraste acontece dentro da barra de
-  // origem: as duas têm a mesma largura, mas deixar o painel pular de coluna no
-  // meio do gesto tornaria o alvo do arraste ambíguo.
-  type Bar = { el: HTMLElement; key: string };
-  const BARS: readonly Bar[] = [
-    { el: el('sidebar'), key: 'elysia_panel_order' },
-    { el: el('leftbar'), key: 'elysia_panel_order_left' },
-  ];
-  const reorderable = (bar: HTMLElement): HTMLElement[] =>
-    Array.from(bar.children).filter(
-      (c): c is HTMLElement => c instanceof HTMLElement && !!c.querySelector(':scope > .phead'),
-    );
-  // Restaura a ordem salva reanexando os painéis na ordem gravada. O teste
-  // `parentElement === bar.el` é o que protege de ordem antiga: um id que mudou
-  // de barra (o layout mudou em 01/08) simplesmente não casa, e o painel fica
-  // onde o HTML o pôs em vez de migrar de volta para a coluna errada.
-  for (const bar of BARS) {
-    try {
-      const saved = JSON.parse(localStorage.getItem(bar.key) ?? 'null') as string[] | null;
-      if (saved) {
-        for (const id of saved) {
-          const p = document.getElementById(id);
-          if (p && p.parentElement === bar.el) bar.el.appendChild(p);
-        }
-      }
-    } catch { /* ordem inválida — ignora */ }
-  }
-  const saveOrder = (bar: Bar): void => {
-    localStorage.setItem(
-      bar.key,
-      JSON.stringify(reorderable(bar.el).map((p) => p.id).filter(Boolean)),
-    );
-  };
-
-  let dragPanel: HTMLElement | null = null;
-  let dragBar: Bar | null = null;
-  let dragStartY = 0;
-  let dragMoved = false;
-  const panelAfter = (bar: HTMLElement, y: number): HTMLElement | null => {
-    let closest: HTMLElement | null = null;
-    let closestOffset = -Infinity;
-    for (const p of reorderable(bar)) {
-      if (p === dragPanel) continue;
-      const r = p.getBoundingClientRect();
-      const offset = y - (r.top + r.height / 2);
-      if (offset < 0 && offset > closestOffset) { closestOffset = offset; closest = p; }
-    }
-    return closest;
-  };
-  document.addEventListener('pointermove', (e) => {
-    if (!dragPanel || !dragBar) return;
-    if (!dragMoved) {
-      if (Math.abs(e.clientY - dragStartY) < 6) return;
-      dragMoved = true;
-      dragPanel.classList.add('dragging');
-    }
-    e.preventDefault();
-    const after = panelAfter(dragBar.el, e.clientY);
-    if (after) dragBar.el.insertBefore(dragPanel, after);
-    else dragBar.el.appendChild(dragPanel);
-  });
-  document.addEventListener('pointerup', () => {
-    if (!dragPanel) return;
-    if (dragMoved) {
-      dragPanel.classList.remove('dragging');
-      lastDragEnd = performance.now(); // suprime o clique-minimizar que segue
-      if (dragBar) saveOrder(dragBar);
-    }
-    dragPanel = null;
-    dragBar = null;
-    dragMoved = false;
-  });
-  for (const bar of BARS) {
-    for (const p of reorderable(bar.el)) {
-      const head = p.querySelector<HTMLElement>(':scope > .phead')!;
-      head.addEventListener('pointerdown', (e) => {
-        if (e.button !== 0) return;
-        dragPanel = p;
-        dragBar = bar;
-        dragStartY = e.clientY;
-        dragMoved = false;
-      });
-    }
   }
 
   // ---- Altura da doca de chat --------------------------------------------
