@@ -721,6 +721,40 @@
       #charhud.recolhido #charclass { display: none; }
 
       /* =====================================================================
+       * 🧪 ITENS RÁPIDOS — canto inferior direito do mundo.
+       * ===================================================================== */
+      /*
+       * ⚠️ Reusa `.sslot` da barra de magias, e isso é de propósito: é o mesmo
+       * gesto (arrastar para dentro, clicar ou apertar a tecla para usar) e
+       * tem de ser o mesmo desenho. Só o tamanho muda.
+       */
+      #itensrapidos {
+        position: absolute;
+        right: 6px;
+        bottom: 6px;
+        z-index: 6;
+        display: flex;
+        gap: 4px;
+        user-select: none;
+      }
+      .sslot.iq {
+        width: 40px;
+        height: 40px;
+      }
+      /* Sem item nenhum: o quadro fica, o número da tecla também. */
+      .sslot.iq.vazio {
+        opacity: 0.75;
+      }
+      /*
+       * ⚠️ Menor que o da barra de magias: ali o canto mostra o NÍVEL, que vai
+       * até 10; aqui mostra a quantidade, que passa de 100 e encostava na borda.
+       */
+      .sslot.iq .lv {
+        right: 2px;
+        font-size: 9px;
+      }
+
+      /* =====================================================================
        * 🗺️ MINIMAPA — canto superior direito do mundo.
        * ===================================================================== */
       /* 🖼️ Mesma moldura de nove fatias do painel do personagem. */
@@ -3594,6 +3628,15 @@
             </div>
             <div id="mmpe"><span id="mmpos">—</span></div>
           </div>
+
+          <!--
+            🧪 ITENS RÁPIDOS — canto inferior direito, como a referência.
+
+            ⚠️ Mesma âncora do painel e do minimapa: canto do VIEWPORT, não da
+            janela. Os slots são criados pelo JS, para a quantidade viver num
+            lugar só (`ITENS_RAPIDOS`) em vez de repetida aqui.
+          -->
+          <div id="itensrapidos"></div>
         </div>
         <!--
           Doca do chat. No rodapé, como no Tibia: usa a largura toda da tela em

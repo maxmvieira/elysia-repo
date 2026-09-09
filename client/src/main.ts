@@ -3465,6 +3465,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     return linhas.join('\n');
   }
 
+  /**
+   * Canal de arraste que carrega o **tipo** do item, para os itens rápidos.
+   *
+   * ⚠️ Canal próprio, e não o `text/plain` que a mochila já usa: aquele leva
+   * `bp:7`, uma POSIÇÃO, e é o que faz o rearranjo funcionar. Os dois viajam
+   * juntos no mesmo arraste, e cada destino lê o que sabe usar — a mochila, a
+   * posição; o slot rápido, o tipo. Enfiar os dois num campo só obrigaria os
+   * dois lados a decodificar o do outro.
+   */
+  const DND_ITEM = 'application/x-elysia-item';
+
   function makeItemCell(stack: ItemStack | null, onClick: () => void, dragData?: string): HTMLElement {
     const cell = document.createElement('div');
     cell.className = stack ? 'islot' : 'islot empty';
@@ -3488,7 +3499,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       cell.onclick = onClick;
       if (dragData) {
         cell.draggable = true;
-        cell.addEventListener('dragstart', (e) => e.dataTransfer?.setData('text/plain', dragData));
+        cell.addEventListener('dragstart', (e) => {
+          e.dataTransfer?.setData('text/plain', dragData);
+          /*
+           * ⚠️ Só da MOCHILA. Do depósito o tipo também viajaria, e o slot
+           * ficaria montado com uma poção que o jogador não carrega — um botão
+           * que nunca funciona até ele voltar ao banco e sacar.
+           */
+          if (dragData.startsWith('bp:')) e.dataTransfer?.setData(DND_ITEM, stack.kind);
+        });
       }
     }
     // 🔴 O slot é alvo de soltura mesmo VAZIO — é justamente para o vazio que se
@@ -3785,9 +3804,166 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       : `Clique para recolher · some em ${min}m${String(seg).padStart(2, '0')}s`;
   }
 
+  /* =======================================================================
+   * 🧪 ITENS RÁPIDOS — quatro slots no canto inferior direito.
+   * ======================================================================= */
+
+  const ITENS_RAPIDOS = 4;
+
+  /*
+   * 🔴 **O SLOT GUARDA O TIPO DO ITEM, NÃO A POSIÇÃO NA MOCHILA.**
+   *
+   * O protocolo de usar (`{ t: 'use', index }`) fala em índice, e é a coisa
+   * mais natural do mundo guardar esse índice aqui. Seria um bug silencioso:
+   * índice muda toda vez que uma pilha acaba, que um item é vendido ou que a
+   * mochila é arrumada — e aí a tecla 1, que era poção de vida, passa a beber o
+   * que tiver caído naquela posição. No meio de uma luta, ninguém entende.
+   *
+   * ✅ Guardando o TIPO, o índice é resolvido na hora do clique. A ligação
+   * sobrevive a rearranjo, a acabar e comprar de novo, e a trocar de mochila.
+   */
+  let itensRapidos: (string | null)[] = new Array(ITENS_RAPIDOS).fill(null);
+  /** De qual personagem é a arrumação carregada agora. */
+  let itensCarregadosDe: string | null = null;
+  const iqEl = el('itensrapidos');
+
+  /**
+   * Onde a arrumação fica.
+   *
+   * ⚠️ No cliente, pelo mesmo motivo da barra de magias: arrumação de HUD é
+   * preferência de interface, não estado de jogo. E com a mesma consequência —
+   * trocar de máquina devolve os slots vazios.
+   */
+  function chaveDosItens(): string {
+    return `elysia.quickitems.${net.charId ?? 'anon'}`;
+  }
+
+  function salvaItensRapidos(): void {
+    try {
+      localStorage.setItem(chaveDosItens(), JSON.stringify(itensRapidos));
+    } catch { /* armazenamento cheio ou bloqueado — só não persiste */ }
+  }
+
+  /**
+   * Lê a arrumação guardada.
+   *
+   * ⚠️ Cada tipo é revalidado: um `kind` que saiu do catálogo, ou que deixou de
+   * ser consumível, viraria um slot que não faz nada e não explica por quê.
+   */
+  function carregaItensRapidos(): void {
+    itensRapidos = new Array(ITENS_RAPIDOS).fill(null);
+    let bruto: unknown;
+    try {
+      bruto = JSON.parse(localStorage.getItem(chaveDosItens()) ?? 'null');
+    } catch { return; }
+    if (!Array.isArray(bruto)) return;
+    for (let i = 0; i < ITENS_RAPIDOS; i++) {
+      const k: unknown = bruto[i];
+      itensRapidos[i] = typeof k === 'string' && getItem(k)?.category === 'consumable' ? k : null;
+    }
+  }
+
+  /**
+   * Quantas unidades deste tipo há na mochila.
+   *
+   * ⚠️ Soma TODAS as pilhas em vez de olhar a primeira: poção empilha até um
+   * teto e o excedente abre pilha nova, então quem tem 120 costuma tê-las em
+   * duas ou três posições. Mostrar só a primeira diria "60" para quem tem 120.
+   */
+  function quantoTem(kind: string): number {
+    let n = 0;
+    for (const s of currentInv?.backpack ?? []) if (s && s.kind === kind) n += s.amount;
+    return n;
+  }
+
+  function usaItemRapido(i: number): void {
+    const kind = itensRapidos[i];
+    if (!kind || !currentInv) return;
+    const idx = currentInv.backpack.findIndex((s) => s?.kind === kind);
+    if (idx < 0) {
+      logChat(`Acabou <b>${getItem(kind)?.name ?? kind}</b>.`, 'sys');
+      return;
+    }
+    net.send({ t: 'use', index: idx });
+  }
+
+  function pintaItensRapidos(): void {
+    iqEl.textContent = '';
+    for (let i = 0; i < ITENS_RAPIDOS; i++) {
+      const kind = itensRapidos[i];
+      const n = kind ? quantoTem(kind) : 0;
+      const cel = document.createElement('div');
+      /*
+       * ⚠️ Três estados, e os três já existem na arte dos slots: montado,
+       * montado-mas-acabou (`locked`, o quadro apagado) e vazio.
+       */
+      cel.className = `sslot iq${kind ? (n === 0 ? ' locked' : '') : ' vazio'}`;
+      cel.title = kind
+        ? `${getItem(kind)?.name ?? kind} — ${n} na mochila · tecla ${i + 1} · botão direito tira daqui`
+        : `Vazio — arraste um consumível da mochila para cá · tecla ${i + 1}`;
+      if (kind) {
+        const img = document.createElement('img');
+        img.src = itemIconUrl(kind);
+        img.draggable = false;
+        cel.appendChild(img);
+        const q = document.createElement('span');
+        q.className = 'lv';
+        q.textContent = String(n);
+        cel.appendChild(q);
+      }
+      const tecla = document.createElement('span');
+      tecla.className = 'sk';
+      tecla.textContent = String(i + 1);
+      cel.appendChild(tecla);
+
+      cel.onclick = (): void => usaItemRapido(i);
+      // Botão direito esvazia — o mesmo gesto que já solta item na mochila.
+      cel.oncontextmenu = (ev): void => {
+        ev.preventDefault();
+        itensRapidos[i] = null;
+        salvaItensRapidos();
+        pintaItensRapidos();
+      };
+      cel.addEventListener('dragover', (ev) => {
+        if (!ev.dataTransfer?.types.includes(DND_ITEM)) return;
+        ev.preventDefault();
+        cel.classList.add('dropok');
+      });
+      cel.addEventListener('dragleave', () => cel.classList.remove('dropok'));
+      cel.addEventListener('drop', (ev) => {
+        ev.preventDefault();
+        cel.classList.remove('dropok');
+        const k = ev.dataTransfer?.getData(DND_ITEM);
+        /*
+         * 🔴 Só consumível. Arrastar uma espada para cá montaria um botão que
+         * nunca faz nada — equipar tem gesto próprio, e misturar os dois aqui
+         * daria um slot cujo comportamento depende do que está dentro.
+         */
+        if (!k || getItem(k)?.category !== 'consumable') return;
+        itensRapidos[i] = k;
+        salvaItensRapidos();
+        pintaItensRapidos();
+      });
+      iqEl.appendChild(cel);
+    }
+  }
+
+  pintaItensRapidos();
+
   function onInventory(msg: S2C_Inventory): void {
     currentInv = msg;
     renderInventory();
+    /*
+     * ⚠️ A arrumação é carregada aqui, e não no login: a chave depende do
+     * `charId`, que só existe depois de o personagem entrar. Recarregar a cada
+     * inventário seria desperdício — daí o `itensCarregadosDe`.
+     */
+    const id = String(net.charId ?? 'anon');
+    if (itensCarregadosDe !== id) {
+      itensCarregadosDe = id;
+      carregaItensRapidos();
+    }
+    pintaItensRapidos();
     // A aba Vender É a mochila: sem isto, o item vendido continuaria listado até
     // o jogador trocar de aba, e um segundo clique tentaria vender um slot vazio.
     if (shopEl.style.display !== 'none' && shopTab === 'sell') renderShop();
@@ -6250,6 +6426,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ⚠️ `F([1-9])` não bastava mais — pegava F1..F9 e deixava F10, F11 e F12
      * mudos, que é exatamente onde as habilidades grandes ficam no padrão novo.
      */
+    /*
+     * 🧪 1–4 usam os itens rápidos.
+     *
+     * ⚠️ `ev.code`, não `ev.key`: em teclado com acento morto e em layouts que
+     * põem símbolo no lugar do número, `key` devolve outra coisa. `code` é a
+     * tecla física, que é o que o jogador aperta.
+     */
+    const dig = /^Digit([1-4])$/.exec(ev.code);
+    if (dig) {
+      ev.preventDefault();
+      usaItemRapido(Number(dig[1]) - 1);
+    }
     const fn = /^F(\d{1,2})$/.exec(ev.code);
     if (fn) {
       const coluna = Number(fn[1]) - 1;
