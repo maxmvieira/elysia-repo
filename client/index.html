@@ -960,6 +960,9 @@
         height: 20px;
       }
       #mmpe {
+        display: flex;
+        justify-content: space-between;
+        gap: 6px;
         padding: 2px 2px 0;
         text-align: right;
         color: #8a8171;
@@ -3608,56 +3611,6 @@
       onde a mão já está.
     -->
     <div id="app">
-      <aside id="leftbar">
-        <div class="box panel" id="attrbox">
-          <div class="phead">
-            <span>Atributos · <b id="attr-points">0</b> pts</span>
-            <button class="pt" id="attr-toggle" title="Minimizar">−</button>
-          </div>
-          <div class="pbody"><div id="attrlist"></div></div>
-        </div>
-        <div class="box panel" id="battlebox">
-          <div class="phead"><span>⚔️ Battle</span><button class="pt" title="Minimizar">−</button></div>
-          <div class="pbody"><div id="battlelist"></div></div>
-        </div>
-        <!--
-          Grupo. Fica ESCONDIDO enquanto o jogador não está em nenhum: um painel
-          permanentemente vazio na barra rouba altura de quem joga sozinho, que
-          é a maioria do tempo.
-        -->
-        <div class="box panel" id="partybox" style="display: none">
-          <div class="phead"><span>👥 Grupo</span><button class="pt" title="Minimizar">−</button></div>
-          <div class="pbody">
-            <!--
-              A regra de loot fica sempre visível: `DD-PARTY-014` exige, e é o
-              tipo de coisa que o jogador só descobre que precisava saber depois
-              de perder um item.
-            -->
-            <div id="partyloot" class="hint"></div>
-            <div id="partylist"></div>
-            <div id="partyvote" style="display: none"></div>
-            <button id="party-leave" class="minibtn">Sair do grupo</button>
-            <div
-              class="hint"
-              style="margin-top: 6px"
-              title="/loot livre — cada um pega o que cair · /loot lider — só o líder pega · /loot aleatorio — sorteia entre os membros. O comando ABRE UMA VOTAÇÃO: o líder não muda a regra sozinho (DD-PARTY-015)."
-            >
-              <code>/loot</code> muda a regra (votação).
-            </div>
-          </div>
-        </div>
-        <div class="box panel" id="friendsbox">
-          <div class="phead">
-            <span>🤝 Amigos</span><button class="pt" title="Minimizar">−</button>
-          </div>
-          <div class="pbody">
-            <div id="friendlist"></div>
-            <div class="hint" style="margin-top: 4px" title="Botão direito em outro jogador para adicionar aos amigos.">
-              Botão direito para adicionar.
-            </div>
-          </div>
-        </div>
-      </aside>
       <div id="center">
         <div id="viewport">
           <!--
@@ -3771,7 +3724,15 @@
                 ></button>
               </div>
             </div>
-            <div id="mmpe"><span id="mmpos">—</span></div>
+            <!--
+              ⚠️ O RELÓGIO veio da coluna lateral que deixou de existir, e o pé
+              do minimapa é o lugar certo dele: hora do mundo é informação de
+              MUNDO, igual ao nome da região no topo e às coordenadas ao lado.
+            -->
+            <div id="mmpe">
+              <span id="clock" title="Hora do mundo (ciclo dia/noite)">☀️ 08:00</span>
+              <span id="mmpos">—</span>
+            </div>
           </div>
 
           <!--
@@ -3797,6 +3758,133 @@
             causaram por herança de clique, e aqui seria por cobertura.
           -->
           <div id="janelas">
+            <div class="janela" id="jan-amigos" style="right: 24px; top: 60px">
+              <div class="jtopo">
+                <span>Amigos</span>
+                <button class="jfechar" type="button" aria-label="Fechar"></button>
+              </div>
+              <div class="jcorpo">
+                <div class="box panel" id="partybox" style="display: none">
+                <div class="phead"><span>👥 Grupo</span><button class="pt" title="Minimizar">−</button></div>
+                <div class="pbody">
+                <!--
+                A regra de loot fica sempre visível: `DD-PARTY-014` exige, e é o
+                tipo de coisa que o jogador só descobre que precisava saber depois
+                de perder um item.
+                -->
+                <div id="partyloot" class="hint"></div>
+                <div id="partylist"></div>
+                <div id="partyvote" style="display: none"></div>
+                <button id="party-leave" class="minibtn">Sair do grupo</button>
+                <div
+                class="hint"
+                style="margin-top: 6px"
+                title="/loot livre — cada um pega o que cair · /loot lider — só o líder pega · /loot aleatorio — sorteia entre os membros. O comando ABRE UMA VOTAÇÃO: o líder não muda a regra sozinho (DD-PARTY-015)."
+                >
+                <code>/loot</code> muda a regra (votação).
+                </div>
+                </div>
+                </div>
+                <div class="box panel" id="friendsbox">
+                <div class="phead">
+                <span>🤝 Amigos</span><button class="pt" title="Minimizar">−</button>
+                </div>
+                <div class="pbody">
+                <div id="friendlist"></div>
+                <div class="hint" style="margin-top: 4px" title="Botão direito em outro jogador para adicionar aos amigos.">
+                Botão direito para adicionar.
+                </div>
+                </div>
+                </div>
+              </div>
+            </div>
+            <div class="janela" id="jan-personagem" style="left: 24px; top: 60px">
+              <div class="jtopo">
+                <span>Personagem</span>
+                <button class="jfechar" type="button" aria-label="Fechar"></button>
+              </div>
+              <div class="jcorpo">
+                <div class="box panel" id="attrbox">
+                <div class="phead">
+                <span>Atributos · <b id="attr-points">0</b> pts</span>
+                <button class="pt" id="attr-toggle" title="Minimizar">−</button>
+                </div>
+                <div class="pbody"><div id="attrlist"></div></div>
+                </div>
+                <div class="box panel" id="vitalsbox">
+                <div class="phead">
+                <span>Personagem</span>
+                <span style="display: flex; gap: 8px; align-items: center">
+                <button class="pt" title="Minimizar">−</button>
+                </span>
+                </div>
+                <div class="pbody">
+                <!--
+                🔴 A IDENTIDADE E AS BARRAS SAÍRAM DAQUI, e foram para o emblema
+                alado no alto do `#viewport`. Procure por `#emblema`.
+                
+                O motivo é de MEDIDA, não de gosto: a peça alada do pack tem
+                248 px e este painel tem `--bar-w` = 190. Alargar custaria o
+                dobro, porque a mesma variável serve aos dois painéis laterais.
+                Flutuando sobre o mundo ela não cobra largura nenhuma.
+                
+                ⚠️ Os ids são os MESMOS (`portrait`, `charname`, `hpfill`…), então
+                o `main.ts` não sabe que alguma coisa se mexeu — ele acha tudo por
+                `getElementById`.
+                -->
+                <!--
+                Condições ativas do PRÓPRIO jogador, com NOME.
+                
+                Os ícones sobre o sprite dão a leitura de relance; aqui vem o nome,
+                porque símbolo de 9 px não ensina o que significa. Fica vazio (e
+                escondido) quando não há condição nenhuma, que é o normal.
+                -->
+                <div id="mycond"></div>
+                <!--
+                Modo de combate, como no Tibia. "Parado" é o padrão porque é o que
+                o jogo já fazia: quem nunca tocar neste botão não pode ver o
+                personagem começar a andar sozinho.
+                -->
+                <button id="chase-toggle" class="minibtn" style="width: 100%; margin-top: 4px">
+                🧍 Parado
+                </button>
+                </div>
+                </div>
+                <div class="box panel" id="battlebox">
+                <div class="phead"><span>⚔️ Battle</span><button class="pt" title="Minimizar">−</button></div>
+                <div class="pbody"><div id="battlelist"></div></div>
+                </div>
+                <!--
+                  ⚠️ Vieram da coluna lateral: o estado da conexão e o botão de
+                  trocar de personagem. Ficam no fim da janela do Personagem
+                  porque é o painel "sobre mim" — e porque sair do mundo é a
+                  última coisa que se procura, não a primeira.
+                -->
+                <div class="box" id="status">
+                  <span id="conn">Servidor: <span class="off">conectando…</span></span>
+                </div>
+                <button
+                  id="switchchar"
+                  class="minibtn"
+                  title="Sai do mundo e volta para a lista de personagens da conta"
+                >
+                  ⇦ Trocar personagem
+                </button>
+                <div class="box panel" id="pkbox">
+                <div class="phead"><span>⚔️ PvP</span><button class="pt" title="Minimizar">−</button></div>
+                <div class="pbody">
+                <button id="pk-toggle" class="minibtn">PK: desligado</button>
+                <div
+                class="hint"
+                style="margin-top: 4px"
+                title="Ligue o PK para poder atacar outros jogadores. Quem agride ganha a ⚪ Caveira Branca por 5 min — e quem está de caveira pode ser atacado por qualquer um, sem punição e sem precisar ligar o próprio PK."
+                >
+                Ligue para atacar jogadores.
+                </div>
+                </div>
+                </div>
+              </div>
+            </div>
             <div class="janela" id="jan-inventario" style="left: 24px; top: 60px">
               <div class="jtopo">
                 <span>Inventário</span>
@@ -3854,72 +3942,6 @@
           </div>
         </div>
       </div>
-      <aside id="sidebar">
-        <h1>ELYSIA ONLINE</h1>
-        <div class="box" id="status">
-          <span id="conn">Servidor: <span class="off">conectando…</span></span>
-          <span id="clock" title="Hora do mundo (ciclo dia/noite)">☀️ 08:00</span>
-        </div>
-        <button
-          id="switchchar"
-          class="minibtn"
-          title="Sai do mundo e volta para a lista de personagens da conta"
-        >
-          ⇦ Trocar personagem
-        </button>
-        <div class="box panel" id="vitalsbox">
-          <div class="phead">
-            <span>Personagem</span>
-            <span style="display: flex; gap: 8px; align-items: center">
-              <button class="pt" title="Minimizar">−</button>
-            </span>
-          </div>
-          <div class="pbody">
-            <!--
-              🔴 A IDENTIDADE E AS BARRAS SAÍRAM DAQUI, e foram para o emblema
-              alado no alto do `#viewport`. Procure por `#emblema`.
-
-              O motivo é de MEDIDA, não de gosto: a peça alada do pack tem
-              248 px e este painel tem `--bar-w` = 190. Alargar custaria o
-              dobro, porque a mesma variável serve aos dois painéis laterais.
-              Flutuando sobre o mundo ela não cobra largura nenhuma.
-
-              ⚠️ Os ids são os MESMOS (`portrait`, `charname`, `hpfill`…), então
-              o `main.ts` não sabe que alguma coisa se mexeu — ele acha tudo por
-              `getElementById`.
-            -->
-            <!--
-              Condições ativas do PRÓPRIO jogador, com NOME.
-
-              Os ícones sobre o sprite dão a leitura de relance; aqui vem o nome,
-              porque símbolo de 9 px não ensina o que significa. Fica vazio (e
-              escondido) quando não há condição nenhuma, que é o normal.
-            -->
-            <div id="mycond"></div>
-            <!--
-              Modo de combate, como no Tibia. "Parado" é o padrão porque é o que
-              o jogo já fazia: quem nunca tocar neste botão não pode ver o
-              personagem começar a andar sozinho.
-            -->
-            <button id="chase-toggle" class="minibtn" style="width: 100%; margin-top: 4px">
-              🧍 Parado
-            </button>
-          </div>
-        </div>
-        <div class="box panel" id="pkbox">
-          <div class="phead"><span>⚔️ PvP</span><button class="pt" title="Minimizar">−</button></div>
-          <div class="pbody">
-            <button id="pk-toggle" class="minibtn">PK: desligado</button>
-            <div
-              class="hint"
-              style="margin-top: 4px"
-              title="Ligue o PK para poder atacar outros jogadores. Quem agride ganha a ⚪ Caveira Branca por 5 min — e quem está de caveira pode ser atacado por qualquer um, sem punição e sem precisar ligar o próprio PK."
-            >
-              Ligue para atacar jogadores.
-            </div>
-          </div>
-        </div>
-      </aside>
     </div>
     <div id="buffbar"></div>
     <div id="castbar"><div id="castfill"></div><div id="casttext"></div></div>
@@ -4403,12 +4425,6 @@
       </div>
     </div>
 
-    <div id="charpanel">
-      <h3>Personagem <span id="cp-close" style="cursor:pointer">✕</span></h3>
-      <div id="cp-summary"></div>
-      <div id="cp-attrs"></div>
-      <div id="derived"></div>
-    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

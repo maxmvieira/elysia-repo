@@ -420,10 +420,10 @@ function ligaPainelDoPersonagem(): void {
   }> = [
     { arte: 'inventario', nome: 'Inventário', abre: alternaJanela('jan-inventario') },
     { arte: 'skills', nome: 'Habilidades (K)', abre: alterna('skillpanel', 'flex') },
-    { arte: 'amigos', nome: 'Amigos', abre: alterna('friendsbox') },
+    { arte: 'amigos', nome: 'Amigos', abre: alternaJanela('jan-amigos') },
     { arte: 'quests', nome: 'Missões', abre: porVir('O diário de missões'), futuro: true },
     { arte: 'conquistas', nome: 'Conquistas', abre: porVir('A janela de conquistas'), futuro: true },
-    { arte: 'config', nome: 'Personagem (C)', abre: alterna('charpanel') },
+    { arte: 'config', nome: 'Personagem (C)', abre: alternaJanela('jan-personagem') },
     { arte: 'correio', nome: 'Correio', abre: porVir('O correio'), futuro: true },
   ];
 
@@ -3074,7 +3074,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           heroiStepMs = Math.ceil(msg.moveIntervalMs / SERVER_TICK_MS) * SERVER_TICK_MS;
           updateHud(msg);
           updateAttrHud(msg);
-          updateCharPanel(msg);
           updateSpellBar(msg);
           updateSkillPanel(msg);
           updateBestiary(msg);
@@ -5122,50 +5121,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     attrDerivedEl.innerHTML = derivedHtml(s);
   }
 
-  // Painel de personagem (tecla C): atributos + alocação de pontos.
-  const cpEl = el('charpanel');
-  const cpSummary = el('cp-summary');
-  const cpAttrs = el('cp-attrs');
-  const cpDerived = el('derived');
-  const attrRows = new Map<AttributeKey, { val: HTMLElement; btn: HTMLButtonElement }>();
-  for (const key of ATTRIBUTE_KEYS) {
-    const info = ATTRIBUTE_INFO[key];
-    const row = document.createElement('div');
-    row.className = 'attrrow';
-    const val = document.createElement('span');
-    val.className = 'av';
-    val.textContent = '0';
-    const btn = document.createElement('button');
-    btn.textContent = '+';
-    btn.disabled = true;
-    btn.onclick = () => net.send({ t: 'allocate', attr: key });
-    const nm = document.createElement('span');
-    nm.className = 'an';
-    nm.textContent = info.name;
-    const eff = document.createElement('small');
-    eff.textContent = info.effects;
-    row.append(nm, val, btn, eff);
-    cpAttrs.appendChild(row);
-    attrRows.set(key, { val, btn });
-  }
-  el('cp-close').onclick = () => (cpEl.style.display = 'none');
-
-  function updateCharPanel(s: S2C_Stats): void {
-    const clsName = CLASSES[s.charClass].name;
-    cpSummary.innerHTML =
-      `<b>${clsName}</b> · Nível ${s.level}<br>` +
-      `Pontos de atributo: <b style="color:${s.unspentPoints > 0 ? '#8fe08f' : '#a89f8f'}">${s.unspentPoints}</b>` +
-      ` · Talentos: ${s.talentPoints}`;
-    for (const key of ATTRIBUTE_KEYS) {
-      const r = attrRows.get(key)!;
-      const custo = attributeCost(s.attributes[key]);
-      r.val.textContent = String(s.attributes[key]);
-      r.btn.disabled = s.unspentPoints < custo;
-      r.btn.title = `+1 custa ${custo} pontos`;
-    }
-    cpDerived.innerHTML = derivedHtml(s);
-  }
-
   // ---- Barra de habilidades flutuante (estilo Ragnarok) -------------------
   // Uma linha de quadrados atalhados em F1, F2, … Cada quadrado é uma skill.
   // A barra flutua sobre o mundo e pode ser arrastada pelo "pegador" da esquerda
@@ -6681,7 +6636,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       if (magiaArmada) desarmaMagia();
       else clearTarget();
     }
-    if (ev.code === 'KeyC') cpEl.style.display = cpEl.style.display === 'block' ? 'none' : 'block';
+    if (ev.code === 'KeyC') alternaJanela('jan-personagem')();
     if (ev.code === 'KeyK') {
       // `flex`, não `block`: o painel virou coluna flex para o rodapé ficar
       // parado enquanto a lista de 23 habilidades rola.
