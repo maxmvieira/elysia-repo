@@ -75,6 +75,51 @@ estados de hover/press dos botões, os ícones de magia (continuam vindo de
 tem "Slot Bloqueado" e "Cooldown" prontos, mas são ilustrações de estado — o
 jogo já desenha os dois por cima com o dado de verdade.
 
+## 🖼️ 09/09 — TODA HABILIDADE TEM ARTE, E DE DUAS PROCEDÊNCIAS
+
+As 75 habilidades saíram do ícone desenhado por código. Foram três fontes, e a
+divisão não é arbitrária:
+
+| Fonte | Cobre | Estilo |
+|---|---|---|
+| Pacote de efeitos (50 avulsos) | 36 magias de Feiticeiro e Druida | ilustrado, 512→128 |
+| Pacote Caçador/Guerreiro | 17 de Knight e Arqueiro | pixel art 32→128 |
+| Pacote Ladino/Bruxo | 12 do Assassino | pixel art 32→128 |
+| Ícone desenhado (fica) | as 10 passivas | canvas |
+
+🔴 **Duas linguagens no mesmo jogo, e nunca na mesma barra.** Habilidade é POR
+CLASSE: quem joga de Knight vê pixel art e nenhum ilustrado; quem joga de
+Feiticeiro vê o contrário. Os dois só se encontrariam numa tela que listasse as
+cinco classes juntas, e não existe nenhuma.
+
+🔴 **As passivas continuam desenhadas de propósito.** O ícone de canvas põe nelas
+um anel tracejado, e esse anel é o único aviso de "isto não vai para a barra"
+ANTES de o jogador tentar arrastar.
+
+### ⚠️ Três armadilhas de FORMATO, e as três silenciosas
+
+O `png.mjs` lê PNG **cru, sequencial, RGBA**. Fora disso ele não levanta erro —
+devolve as dimensões certas e lixo no lugar dos pixels, que é o pior jeito de
+falhar. Aconteceu duas vezes em um dia:
+
+1. **Entrelaçado (Adam7)** — o pacote de buffs. Descoberto pela folha de contato:
+   dezesseis quadros de ruído colorido.
+2. **Indexado (cor tipo 3)** — os pacotes de pixel art, que vêm com paleta.
+3. **O ffmpeg PRESERVA o indexado** se deixarem. Sem `-pix_fmt rgba` a saída sai
+   no mesmo formato da entrada, e a pasta fica com dois.
+
+✅ A regra que ficou: **fonte de terceiro passa pelo ffmpeg antes de tocar no
+`png.mjs`**, e sempre com `-pix_fmt rgba`.
+
+### Dos onze pacotes enviados, entraram dois
+
+Os outros seis de habilidade são de classes que o jogo não tem (Paladino, Monge,
+Bardo, Geomante, Piromante, Alquimista). Os dois de status 16×16 foram avaliados
+para as fichas de efeito e **recusados**: são de tom único (vermelho e creme), e
+trocar por eles perderia o código de cor que as fichas têm hoje — cruz verde,
+escudo ciano, gema ciano, halter amarelo, redemoinho roxo. Seria mais específico
+e menos legível.
+
 ## 🎯 A PRÓXIMA COISA
 
 ### 1. 🔴 A animação de nível 10 do Fire Bolt — e a DECISÃO que ela força
