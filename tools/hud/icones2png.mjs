@@ -222,50 +222,6 @@ const MOLDURAS = [
    * preenchidas em verde e vermelho, que não servem: a cor tem de vir do
    * preenchimento do jogo, não da arte.
    */
-  /*
-   * 🔴 **O DISCO DO NÍVEL também é arte** — estava sendo desenhado com um
-   * `border-radius` e uma borda de 1 px, e ao lado do anel remontado parecia
-   * uma bolha solta.
-   *
-   * ⚠️ Ele fica POR CIMA do anel na folha, embaixo e à esquerda: o arco do anel
-   * grande atravessa esta caixa. Como o disco é um círculo e está por cima, a
-   * máscara circular resolve — o que sobra do arco cai fora do raio.
-   *
-   * ⚠️ Medido: centro em (68,212) e raio ≈34 na folha.
-   */
-  { nome: 'disco_nivel', folha: 'folha1', x0: 34, y0: 178, x1: 102, y1: 246, circular: true },
-  /*
-   * 🔴 **OS SLOTS DA BARRA DE MAGIAS** — folha 5, fileira de baixo. São três
-   * estados do mesmo quadro, e é por isso que saem juntos: vazio, selecionado
-   * (aro dourado) e indisponível (apagado). Medidos com `--cols 5 484 656` e
-   * `--rows 5 1501 1632`; a faixa vertical 486..620 deixa de fora a legenda
-   * que a folha escreve embaixo de cada peça.
-   *
-   * ⚠️ Ficaram de fora os dois vizinhos: "Slot Bloqueado" tem um cadeado
-   * desenhado e "Cooldown", um "3.2" — são ILUSTRAÇÕES de estado, não molduras,
-   * e o jogo já desenha esses dois por cima com o dado de verdade.
-   */
-  { nome: 'slot_vazio', folha: 'folha5', x0: 1501, y0: 486, x1: 1632, y1: 620 },
-  { nome: 'slot_ativo', folha: 'folha5', x0: 1668, y0: 486, x1: 1814, y1: 620 },
-  { nome: 'slot_indisponivel', folha: 'folha5', x0: 1997, y0: 486, x1: 2145, y1: 620 },
-  /*
-   * O MESMO quadro selecionado, com o miolo vazado: vira um ARO, para pôr em
-   * volta dos botões pequenos no hover sem tapar o ícone que está embaixo.
-   *
-   * ⚠️ É o mesmo recorte de propósito. O "passou o mouse aqui" da HUD inteira
-   * tem de ser um desenho só — se o botão de atalho acendesse de um jeito e o
-   * slot de magia de outro, seriam duas linguagens para a mesma coisa.
-   */
-  { nome: 'aro_ativo', folha: 'folha5', x0: 1668, y0: 486, x1: 1814, y1: 620, vazaCentro: 60 },
-  /*
-   * A placa de nome do mapa, para o nome da região no topo do minimapa.
-   *
-   * ⚠️ **A folha escreve "Prontera" DENTRO dela** — é a mesma armadilha dos
-   * painéis, e aqui seria pior: com o miolo esticado pela largura, a palavra
-   * viraria um borrão atrás do nome de verdade. `tapa` cobre o interior com o
-   * escuro da própria placa (14,15,17), amostrado acima da linha do texto.
-   */
-  { nome: 'placa_mapa', folha: 'folha5', x0: 1840, y0: 305, x1: 2145, y1: 386, tapa: { x0: 30, y0: 18, x1: 270, y1: 62, amostra: [150, 20] } },
   { nome: 'barra_calha', folha: 'folha1', x0: 23, y0: 850, x1: 262, y1: 885 },
 ];
 

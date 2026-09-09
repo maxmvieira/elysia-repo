@@ -225,7 +225,7 @@ const hud = {
   level: el('level'),
   // Identidade: retrato, nome e classe. Preenchidos uma vez, no `startGame` —
   // nenhum dos três muda enquanto o personagem está no mundo.
-  portrait: el('portrait'), charname: el('charname'), charclass: el('charclass'),
+  charname: el('charname'), charclass: el('charclass'),
   hpfill: el('hpfill'), hptext: el('hptext'),
   manafill: el('manafill'), manatext: el('manatext'),
   xpfill: el('xpfill'), xptext: el('xptext'),
@@ -1549,18 +1549,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   });
   viewportEl.appendChild(app.canvas);
 
-  // ---- Identidade no HUD: retrato, nome e classe --------------------------
+  // ---- Identidade no HUD: nome e classe -----------------------------------
   //
-  // O retrato sai da MESMA tira que o herói usa no mundo (`heroIconCss`), e não
-  // de um arquivo próprio: um segundo arquivo divergiria na primeira vez que a
-  // arte fosse reexportada e ninguém lembrasse dele. Classe sem pack HD cai no
-  // ícone MiniWorld, exatamente como os cartões da tela de criação.
-  hud.portrait.style.cssText += HERO_ART_CLASSES.has(charClass)
-    // 🔴 32 px, e o número vem do PNG: é o miolo vazado do encaixe da peça
-    // alada (medido em `tools/hud/recortar.mjs`). Era 44 quando o retrato
-    // morava num quadrado do painel lateral.
-    ? heroIconCss(charClass, 32, gender)
-    : classIconCss(charClass, 32);
+  // ⚠️ **Não há mais retrato.** O medalhão é só o anel, com o miolo vazio — foi
+  // pedido do dono em 09/09. O que morava ali era o sprite do herói a 32 px,
+  // dimensionado para um quadrado de 44 do painel lateral antigo, e dentro do
+  // anel de 66 ele ficava perdido no meio do vão.
   hud.charname.textContent = playerName;
   hud.charname.title = playerName; // o nome é cortado por `ellipsis` se for longo
   hud.charclass.textContent = CLASSES[charClass].name;

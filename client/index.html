@@ -398,15 +398,7 @@
         background: url('/assets/hud/icones/anel_retrato.png') center/contain no-repeat;
         pointer-events: none;
       }
-      #portrait {
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        overflow: hidden;
-        background-color: #0c0a08;
-        background-repeat: no-repeat;
-        background-position: center 2px;
-      }
+
       /*
        * O número do nível, no pé do medalhão.
        *
@@ -420,27 +412,24 @@
        * brigava com o ornamento. É onde a referência o põe.
        */
       /*
-       * 🖼️ O disco do nível é arte, e fica embaixo e à esquerda do anel — é o
-       * lugar em que ele está desenhado na folha, encostado no aro grande.
+       * O nível, ao lado do nome (09/09).
        *
-       * ⚠️ `display: grid` + `place-items: center` porque o número tem de ficar
-       * no centro do disco em qualquer largura: "9" e "150" ocupam bem diferente,
-       * e com padding um deles sairia torto.
+       * ⚠️ Saiu do disco de arte que ficava pendurado no anel. Ali ele era um
+       * medalhão a mais competindo com o ornamento; aqui ele é o que é — um
+       * número que se lê junto do nome, na mesma linha em que o jogador já olha.
+       *
+       * ⚠️ `flex: none` porque `#chtopo` é flex e o nome tem `ellipsis`: sem
+       * isto, um nome longo espremeria o nível antes de cortar a si mesmo.
        */
       #chlv {
-        position: absolute;
-        left: -7px;
-        bottom: -5px;
-        z-index: 3;
-        display: grid;
-        place-items: center;
-        width: 26px;
-        height: 26px;
-        background: url('/assets/hud/icones/disco_nivel.png') center/contain no-repeat;
+        flex: none;
         font-size: 10px;
-        font-weight: 700;
-        color: #f7e7b8;
-        text-shadow: 0 1px 2px #000, 0 0 3px #000;
+        color: #9a8f76;
+        white-space: nowrap;
+      }
+      #chlv b {
+        font-size: 11.5px;
+        color: #f0d99a;
       }
       /* O corpo: nome, barras e (no expandido) XP e botões. */
       /*
@@ -3595,13 +3584,23 @@
             aqui há botões. O CSS devolve o `none` só ao miolo decorativo.
           -->
           <div id="charhud" class="expandido">
-            <div id="chmedal">
-              <div id="portrait"></div>
-              <span id="chlv"><b id="level">1</b></span>
-            </div>
+            <!--
+              O medalhão é só o ANEL, e o miolo fica vazio de propósito (09/09).
+
+              🔴 Havia um retrato ali: o sprite do herói a 32 px, herdado de
+              quando o retrato morava num quadrado de 44 px no painel lateral.
+              Dentro do anel de 66 ele virou uma figurinha perdida no meio de um
+              vão escuro, e foi o dono quem pediu para tirar.
+
+              ⚠️ Não sobrou `<div>` nenhum dentro: o anel é desenhado pelo
+              `::after` do próprio medalhão, então um filho vazio só existiria
+              para pintar o fundo que agora não deve existir.
+            -->
+            <div id="chmedal"></div>
             <div id="chcorpo">
               <div id="chtopo">
                 <b id="charname">—</b>
+                <span id="chlv">Lv. <b id="level">1</b></span>
                 <span id="charclass">—</span>
                 <!-- A arte dos quatro estados entra por `poeIcone`, no JS. -->
                 <button id="chtoggle" class="btnico" type="button" title="Recolher o painel"></button>
