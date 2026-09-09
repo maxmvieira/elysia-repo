@@ -239,6 +239,19 @@ const MOLDURAS = [
    */
   { nome: 'painel_char', folha: 'folha1', x0: 200, y0: 28, x1: 648, y1: 320 },
   { nome: 'painel_mapa', folha: 'folha1', x0: 1119, y0: 12, x1: 1525, y1: 335 },
+  /*
+   * 🔴 **O ANEL DO RETRATO precisa de MÁSCARA CIRCULAR.**
+   *
+   * Na arte ele ENCOSTA no painel — a `--cols` na altura do meio devolve uma
+   * faixa só, de x=9 a 642, porque os dois se tocam. Não há espaço vazio para
+   * separar, então o recorte quadrado leva junto um naco da borda do painel
+   * nos cantos.
+   *
+   * ✅ Como o anel É um círculo, a máscara resolve: o que cai fora do raio
+   * vira transparente, e com ele some exatamente o pedaço de painel que
+   * sobrou nos cantos.
+   */
+  { nome: 'anel_retrato', folha: 'folha1', x0: 118, y0: 26, x1: 330, y1: 238, circular: true },
 ];
 
 mkdirSync(DESTINO, { recursive: true });
@@ -250,6 +263,24 @@ for (const m of MOLDURAS) {
   for (let y = 0; y < h; y++) {
     const de2 = ((m.y0 + y) * img.w + m.x0) * 4;
     img.px.copy(out, y * w * 4, de2, de2 + w * 4);
+  }
+  if (m.circular) {
+    /*
+     * ⚠️ Raio com 2 px de folga sobre a metade do lado: cravado na metade
+     * exata, a máscara comeria a linha de fora do anel, que é justamente o
+     * contorno dourado.
+     */
+    const cx = (w - 1) / 2, cy = (h - 1) / 2;
+    const raio = Math.min(w, h) / 2 + 2;
+    let cortados = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (Math.hypot(x - cx, y - cy) <= raio) continue;
+        const o = (y * w + x) * 4;
+        if (out[o + 3] !== 0) { out[o + 3] = 0; cortados++; }
+      }
+    }
+    console.log(`     (máscara circular: ${cortados} px fora do anel apagados)`);
   }
   writeFileSync(join(DESTINO, `${m.nome}.png`), encode(w, h, out));
   console.log(`\n[hud] moldura ${m.nome}.png  ${w}x${h}`);

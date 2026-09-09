@@ -357,8 +357,10 @@
        * ===================================================================== */
       #charhud {
         position: absolute;
-        top: 6px;
-        left: 6px;
+        /* ⚠️ 10 e não 6: o anel do retrato transborda 6 px para cima do medalhão
+           (as pontas do ornamento), e a 6 elas encostavam na beirada do mundo. */
+        top: 10px;
+        left: 10px;
         z-index: 6;
         display: flex;
         align-items: flex-start;
@@ -367,21 +369,35 @@
         user-select: none;
       }
       /* O medalhão do retrato, com o nível pendurado embaixo. */
+      /*
+       * 🖼️ **O ANEL É ARTE**, não mais um círculo de CSS (08/09).
+       *
+       * ⚠️ O `overflow: hidden` SAIU: o anel tem pontas que passam do círculo, e
+       * cortá-las tiraria justamente o ornamento. Quem recorta o retrato agora é
+       * o `#portrait`, que ganhou o próprio `border-radius` — a máscara desceu
+       * uma camada para o anel poder transbordar.
+       */
       #chmedal {
         position: relative;
-        width: 58px;
-        height: 58px;
+        width: 66px;
+        height: 66px;
         flex: none;
-        border-radius: 50%;
-        background: #0c0a08;
-        border: 2px solid #6b5a33;
-        box-shadow: 0 0 0 1px #1a1710, 0 2px 8px rgba(0, 0, 0, 0.7);
-        overflow: hidden;
         z-index: 2;
+      }
+      /* A moldura, por cima do retrato e sem roubar o clique. */
+      #chmedal::after {
+        content: '';
+        position: absolute;
+        inset: -6px;
+        background: url('/assets/hud/icones/anel_retrato.png') center/contain no-repeat;
+        pointer-events: none;
       }
       #portrait {
         width: 100%;
         height: 100%;
+        border-radius: 50%;
+        overflow: hidden;
+        background-color: #0c0a08;
         background-repeat: no-repeat;
         background-position: center 2px;
       }
@@ -392,17 +408,25 @@
        * custaria um wrapper a mais; aqui ele fica dentro, colado na base — lê
        * igual e é um elemento a menos para posicionar em quatro resoluções.
        */
+      /*
+       * ⚠️ O nível virou um MEDALHÃO próprio, no canto de baixo do anel — antes
+       * era uma faixa escura sobre o retrato, e com o anel de arte por cima ela
+       * brigava com o ornamento. É onde a referência o põe.
+       */
       #chlv {
         position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        left: -4px;
+        bottom: -4px;
+        z-index: 3;
+        min-width: 20px;
+        padding: 1px 3px;
         text-align: center;
-        font-size: 11px;
+        font-size: 10.5px;
         font-weight: 700;
         color: #f0d99a;
-        background: linear-gradient(rgba(10, 9, 8, 0), rgba(10, 9, 8, 0.92) 45%);
-        padding: 6px 0 1px;
+        background: #0c0a08;
+        border: 1px solid #9a824c;
+        border-radius: 50%;
         text-shadow: 0 1px 2px #000;
       }
       /* O corpo: nome, barras e (no expandido) XP e botões. */
@@ -424,13 +448,20 @@
        * de 44 px caber num painel de 200. Mexer só num dos dois estica ou
        * espreme o canto.
        */
+      /*
+       * ⚠️ **A borda de 15 px já é espaço.** A primeira versão somou padding por
+       * cima dela e o conteúdo ficou espremido: 15 de moldura + 8 de padding =
+       * 23 px de recuo em cada lado, num painel de 200. Agora a moldura afinou
+       * para 12 e o padding é quase zero — o respiro vem da moldura, que é onde
+       * ele já existe no desenho.
+       */
       #chcorpo {
-        margin-left: -10px;
-        padding: 6px 12px 8px 18px;
-        min-width: 196px;
+        margin-left: -14px;
+        padding: 0 2px 2px 8px;
+        min-width: 210px;
         background: linear-gradient(#15120e, #0b0a08);
-        border: 15px solid transparent;
-        border-image: url('/assets/hud/icones/painel_char.png') 44 / 15px / 0 stretch;
+        border: 12px solid transparent;
+        border-image: url('/assets/hud/icones/painel_char.png') 44 / 12px / 0 stretch;
       }
       #chtopo {
         display: flex;
@@ -615,10 +646,10 @@
         top: 6px;
         right: 6px;
         z-index: 6;
-        width: 178px;
+        width: 172px;
         background: linear-gradient(#15120e, #0b0a08);
-        border: 16px solid transparent;
-        border-image: url('/assets/hud/icones/painel_mapa.png') 46 / 16px / 0 stretch;
+        border: 13px solid transparent;
+        border-image: url('/assets/hud/icones/painel_mapa.png') 46 / 13px / 0 stretch;
         font-size: 10px;
         user-select: none;
       }
