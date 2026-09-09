@@ -176,7 +176,7 @@ import {
 } from './heroes.js';
 import { loadTrees, treeTexFor, type ArvoreSprite } from './trees.js';
 import { loadCrystals, crystalNodeSprite, crystalIconImage } from './crystals.js';
-import { loadItemArt, itemArtImage } from './itemart.js';
+import { loadItemArt, itemArtImage, itemArtUrl } from './itemart.js';
 import { carregaFarmArte } from './farmart.js';
 import { criaEditor } from './editor.js';
 
@@ -3588,6 +3588,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   function itemIconUrl(kind: string): string {
+    // ⚠️ Arte ilustrada vai direto, em tamanho cheio — ver `itemArtUrl`.
+    const arte = itemArtUrl(kind);
+    if (arte) return arte;
     const c = itemIconCache.get(kind);
     if (c) return c;
     const url = itemIconCanvas(kind).toDataURL();
@@ -3704,6 +3707,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (stack) {
       const img = document.createElement('img');
       img.src = itemIconUrl(stack.kind);
+      // ⚠️ Só a arte ilustrada foge do `pixelated` — ver o CSS de `.arte`.
+      if (itemArtUrl(stack.kind)) img.className = 'arte';
       cell.appendChild(img);
       if (stack.amount > 1) {
         const a = document.createElement('span');

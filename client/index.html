@@ -794,7 +794,28 @@
        * explica por que a fatia para onde o chanfro para e por que o fundo não
        * pode ser gradiente.
        */
+      /*
+       * 🔴 **A JANELA VESTE O CONTEÚDO**, e não o contrário.
+       *
+       * `max-content` para todas, e não só para as de item: a janela do
+       * Personagem ficava presa no `min-width` de 200 px, e as linhas de
+       * atributo — nome, valor, custo e botão — se espremiam dentro dele. Com
+       * a largura vindo do filho mais largo, cada janela sai do tamanho do que
+       * tem dentro.
+       *
+       * ⚠️ O teto de 340 px é a rede: sem ele, uma linha de texto comprida (a
+       * dica do PvP, o nome de um item) esticaria a janela pela tela inteira.
+       *
+       * ⚠️ `flex` com `gap` no lugar de blocos colados: as caixas vieram da
+       * coluna lateral, onde o respiro entre elas era do `gap` da própria
+       * coluna. Sem a coluna, elas encostavam umas nas outras.
+       */
       .jcorpo {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: max-content;
+        max-width: 340px;
         padding: 4px 6px 6px;
         background: #151614;
         border: 11px solid transparent;
@@ -867,8 +888,6 @@
        * sobra espaço nenhum. Cinco colunas de `--slot` com 3 px de vão entre
        * elas: mudar o slot reajusta a janela sozinho.
        */
-      #jan-inventario .jcorpo,
-      #jan-deposito .jcorpo { width: max-content; }
       /*
        * ⚠️ **Quem tem largura é a DICA, não a janela.** Foi tentado medir a
        * janela pela conta da grade, e não fecha: o `box-sizing` do projeto é
@@ -2555,14 +2574,27 @@
       .eslot:active {
         transform: scale(0.87);
       }
+      /*
+       * ⚠️ 90% e não 80%: com o slot em 32 px sobrava uma moldura larga demais
+       * em volta de cada item, e o desenho — que é o que se lê de relance —
+       * ficava menor do que era com o slot de 24.
+       */
       .islot img,
       .eslot img {
-        width: 80%;
-        height: 80%;
+        width: 90%;
+        height: 90%;
         image-rendering: pixelated;
         pointer-events: none;
         filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
       }
+      /*
+       * ⚠️ Item com ARTE ilustrada foge do `pixelated`. Ele vale para o resto
+       * (ícone desenhado a 28 px, mostrado a ~29, e o cristal, que é pixel art
+       * de 16), mas a poção vem de um PNG de 130 px e encolhe para 29 — e num
+       * encolhimento desses o vizinho-mais-próximo come metade dos pixels.
+       */
+      .islot img.arte,
+      .eslot img.arte { image-rendering: auto; }
       .eslot img.ph {
         opacity: 0.4;
         filter: none;

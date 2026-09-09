@@ -54,8 +54,29 @@ export async function loadItemArt(): Promise<number> {
   return imagens.size;
 }
 
+/** O nome do arquivo de arte deste item, ou `null` quando não há. */
+function arquivoDe(kind: string): string | null {
+  return (kind.startsWith('recipe_') ? 'pergaminho' : ARTE[kind]) ?? null;
+}
+
 /** A imagem do item, ou `null` quando não há — e aí vale o desenho por código. */
 export function itemArtImage(kind: string): HTMLImageElement | null {
-  const nome = kind.startsWith('recipe_') ? 'pergaminho' : ARTE[kind];
+  const nome = arquivoDe(kind);
   return nome ? imagens.get(nome) ?? null : null;
+}
+
+/**
+ * O CAMINHO da arte, para quem mostra o item num `<img>`.
+ *
+ * 🔴 **Existe para a arte não passar pelo canvas de 28 px.** O
+ * `itemIconCanvas` desenha tudo nesse tamanho — é o que o ícone por código
+ * precisa —, e enfiar ali um PNG de 130 px jogava fora quatro quintos dele
+ * antes de a tela ver. Num `<img>` o navegador reduz a partir do original.
+ *
+ * ⚠️ O canvas continua desenhando a arte também: quem usa é o item no CHÃO, que
+ * é textura do Pixi e não elemento do DOM.
+ */
+export function itemArtUrl(kind: string): string | null {
+  const nome = arquivoDe(kind);
+  return nome ? `${BASE}/${nome}.png` : null;
 }
