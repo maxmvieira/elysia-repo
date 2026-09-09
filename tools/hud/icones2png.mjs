@@ -286,7 +286,7 @@ const MOLDURAS = [
    * encosta em x=9, e a ponta de cima em x=114). O recorte é esse centro ±112,
    * que é o raio com folga para a ponta de cima, em y=8.
    */
-  { nome: 'anel_retrato', folha: 'folha1', x0: 2, y0: 8, x1: 227, y1: 233, espelhaQuadrante: true, vazaCentro: true },
+  { nome: 'anel_retrato', folha: 'folha1', x0: 2, y0: 8, x1: 227, y1: 233, espelhaQuadrante: true, vazaCentro: 28 },
   /*
    * A calha VAZIA das barras, com as pontas ornamentais. Medida em
    * x=23..262, y=850..885 da folha 1 — logo abaixo dela estão as versões já
@@ -320,6 +320,15 @@ const MOLDURAS = [
   { nome: 'slot_ativo', folha: 'folha5', x0: 1668, y0: 486, x1: 1814, y1: 620 },
   { nome: 'slot_indisponivel', folha: 'folha5', x0: 1997, y0: 486, x1: 2145, y1: 620 },
   /*
+   * O MESMO quadro selecionado, com o miolo vazado: vira um ARO, para pôr em
+   * volta dos botões pequenos no hover sem tapar o ícone que está embaixo.
+   *
+   * ⚠️ É o mesmo recorte de propósito. O "passou o mouse aqui" da HUD inteira
+   * tem de ser um desenho só — se o botão de atalho acendesse de um jeito e o
+   * slot de magia de outro, seriam duas linguagens para a mesma coisa.
+   */
+  { nome: 'aro_ativo', folha: 'folha5', x0: 1668, y0: 486, x1: 1814, y1: 620, vazaCentro: 60 },
+  /*
    * A placa de nome do mapa, para o nome da região no topo do minimapa.
    *
    * ⚠️ **A folha escreve "Prontera" DENTRO dela** — é a mesma armadilha dos
@@ -330,6 +339,82 @@ const MOLDURAS = [
   { nome: 'placa_mapa', folha: 'folha5', x0: 1840, y0: 305, x1: 2145, y1: 386, tapa: { x0: 30, y0: 18, x1: 270, y1: 62, amostra: [150, 20] } },
   { nome: 'barra_calha', folha: 'folha1', x0: 23, y0: 850, x1: 262, y1: 885 },
 ];
+
+/**
+ * 🔴 **OS ESTADOS SÃO DERIVADOS DO ÍCONE, NÃO RECORTADOS DA FOLHA — e a folha
+ * é justamente o motivo.**
+ *
+ * A folha 3 traz, embaixo de cada botão, uma fileirinha "Normal · Hover · Press
+ * · Disabled". Seria a fonte óbvia. Mas ela está **DESALINHADA**: o desenho
+ * escorregou de um em vários grupos, e o resultado é que
+ *
+ *   - o *hover* do Inventário é um LIVRO,
+ *   - o *press* e o *disabled* de Quests são TROFÉUS,
+ *   - o *hover* de Recolher é um "+", e não o "−",
+ *   - o *hover* de Zoom + é a lupa de Zoom −.
+ *
+ * Recortar aquilo daria um botão que vira outro botão quando o mouse passa por
+ * cima. Foi conferido grupo a grupo, e quatro dos quinze estão trocados.
+ *
+ * ✅ O que a folha entrega de confiável é a **transformação de cor**, porque
+ * entre um estado e outro só muda o tom. Os fatores abaixo saíram do grupo
+ * "Zoom −", o único da fileira cujos quatro quadros foram conferidos como
+ * sendo a mesma lupa nos quatro estados na ordem certa. Aplicados ao ícone que
+ * já temos, cada botão vira o próprio estado — e desalinhamento deixa de ser
+ * possível, porque o estado é derivado dele mesmo.
+ *
+ * ⚠️ **O hover mexe só no ARO.** É o que o desenho faz: no hover o quadro fica
+ * dourado e o pictograma continua o que era. Passar o fator no ícone inteiro
+ * deixaria a poção vermelha alaranjada. Já *press* e *disabled* valem no
+ * desenho todo, que também é o que a folha mostra.
+ */
+const ESTADOS = {
+  hover: { fator: [1.351, 1.208, 0.791], soAro: true },
+  press: { fator: [0.806, 0.850, 0.932] },
+  off: { fator: [0.754, 0.847, 1.027], cinza: 0.8 },
+};
+
+/**
+ * Devolve uma cópia do ícone com a regra de estado aplicada.
+ *
+ * ⚠️ O aro é medido pela CAIXA DE CONTEÚDO de cada ícone, e não por uma fração
+ * fixa do PNG: os recortes não são todos cheios até a borda (`recolher` começa
+ * em y=15 num quadro de 64), e uma fração fixa pegaria fundo transparente num e
+ * miolo no outro.
+ */
+function aplicaEstado(px, w, h, regra) {
+  const out = Buffer.from(px);
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (px[(y * w + x) * 4 + 3] < 24) continue;
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < 0) return out;
+  const aro = Math.max(2, Math.round(Math.min(x1 - x0, y1 - y0) * 0.16));
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const o = (y * w + x) * 4;
+      if (out[o + 3] < 24) continue;
+      if (regra.soAro) {
+        const noAro = x - x0 < aro || x1 - x < aro || y - y0 < aro || y1 - y < aro;
+        if (!noAro) continue;
+      }
+      let [r, g, b] = [out[o], out[o + 1], out[o + 2]];
+      if (regra.cinza) {
+        // Luminância padrão: verde pesa mais porque o olho o enxerga mais.
+        const l = 0.299 * r + 0.587 * g + 0.114 * b;
+        r += (l - r) * regra.cinza; g += (l - g) * regra.cinza; b += (l - b) * regra.cinza;
+      }
+      out[o] = Math.min(255, Math.round(r * regra.fator[0]));
+      out[o + 1] = Math.min(255, Math.round(g * regra.fator[1]));
+      out[o + 2] = Math.min(255, Math.round(b * regra.fator[2]));
+    }
+  }
+  return out;
+}
 
 mkdirSync(DESTINO, { recursive: true });
 for (const m of MOLDURAS) {
@@ -406,7 +491,14 @@ for (const m of MOLDURAS) {
      * borda de dentro do anel tem cravos que entram, e um círculo cortaria
      * justamente eles.
      */
-    const escuro = (o) => out[o + 3] !== 0 && (out[o] + out[o + 1] + out[o + 2]) / 3 < 28;
+    /*
+     * ⚠️ O limiar é POR PEÇA, e não um número fixo. No anel do retrato ele tem
+     * de ser baixo (28), senão o alagamento come o bronze escuro do próprio
+     * anel e ele sai esburacado. No quadro selecionado tem de ser alto (60),
+     * porque o miolo dele é um cinza texturizado que chega a 37 — com 28 o
+     * alagamento morria no primeiro pixel.
+     */
+    const escuro = (o) => out[o + 3] !== 0 && (out[o] + out[o + 1] + out[o + 2]) / 3 < m.vazaCentro;
     const pilha = [[w >> 1, h >> 1]];
     const visto = new Uint8Array(w * h);
     let limpos = 0;
@@ -484,7 +576,10 @@ for (const lote of LOTES) {
       }
     }
     writeFileSync(join(DESTINO, `${nome}.png`), encode(LADO, LADO, out));
-    console.log(`     ✓ ${nome}.png  (fonte ${w}x${h})`);
+    for (const [estado, regra] of Object.entries(ESTADOS)) {
+      writeFileSync(join(DESTINO, `${nome}_${estado}.png`), encode(LADO, LADO, aplicaEstado(out, LADO, LADO, regra)));
+    }
+    console.log(`     ✓ ${nome}.png  (+3 estados, fonte ${w}x${h})`);
     total++;
   });
 }

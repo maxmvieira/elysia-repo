@@ -528,17 +528,7 @@
         flex: none;
         width: 20px;
         height: 20px;
-        padding: 0;
-        background: none;
-        border: 0;
-        line-height: 0;
-        cursor: pointer;
       }
-      #chtoggle img { width: 100%; height: 100%; display: block; }
-      #chtoggle:hover img {
-        filter: brightness(1.25) drop-shadow(0 0 3px rgba(240, 217, 154, 0.55));
-      }
-      #chtoggle:active { transform: scale(0.9); }
 
       .chlinha {
         display: flex;
@@ -649,6 +639,66 @@
       #jobfill { background: linear-gradient(#4ec3f0, #2a7ba8); }
 
       /*
+       * 🖼️ **BOTÃO DE ARTE — os quatro estados, num lugar só** (09/09).
+       *
+       * 🔴 **O ícone saiu do `<img>` e virou FUNDO, e a razão se inverteu.** O
+       * `<img>` tinha sido escolhido para o estado desabilitado poder vir de um
+       * `filter` e para o `alt` sobreviver. Agora o desabilitado tem ARTE
+       * PRÓPRIA, e trocar o `src` de um `<img>` a cada hover exigiria
+       * JavaScript. Como fundo, cada estado é uma variável e o CSS troca
+       * sozinho. O nome foi para `aria-label`, que é onde ele deveria estar
+       * desde o começo — o rótulo é do botão, não da figura.
+       */
+      .btnico {
+        position: relative;
+        padding: 0;
+        border: 0;
+        background: var(--ico) center/100% 100% no-repeat;
+        line-height: 0;
+        cursor: pointer;
+        transition: transform 0.07s ease;
+      }
+      .btnico:hover { background-image: var(--ico-hover); }
+      .btnico:active {
+        background-image: var(--ico-press);
+        transform: scale(0.9);
+      }
+      /*
+       * ⚠️ O aro do hover é a MESMA moldura de seleção dos slots, com o miolo
+       * vazado pelo conversor — é por isso que ele pode ficar POR CIMA do ícone
+       * sem tapá-lo. `inset: -3px` para abraçar o botão em vez de comer a borda
+       * do desenho.
+       */
+      .btnico::after {
+        content: '';
+        position: absolute;
+        inset: -3px;
+        background: url('/assets/hud/icones/aro_ativo.png') center/100% 100% no-repeat;
+        opacity: 0;
+        transition: opacity 0.1s ease;
+        pointer-events: none;
+      }
+      .btnico:hover::after { opacity: 1; }
+      /*
+       * ⚠️ No clique o aro APAGA em vez de sumir: o desenho da folha mostra o
+       * press com moldura escura, e o aro a meio brilho, junto com o ícone mais
+       * escuro e o `scale`, é o que dá a sensação de afundar. Sumir de vez
+       * piscaria.
+       */
+      .btnico:active::after { opacity: 0.4; }
+      /*
+       * ⚠️ As regras de desabilitado vêm DEPOIS das de hover de propósito: o
+       * navegador continua aplicando `:hover` a um botão desabilitado, e com a
+       * mesma especificidade quem vem por último ganha. Fora de ordem, um botão
+       * apagado acenderia ao passar o mouse.
+       */
+      .btnico:disabled {
+        background-image: var(--ico-off);
+        cursor: default;
+      }
+      .btnico:disabled::after { opacity: 0; }
+
+      /*
        * 🔴 A LINHA DE BOTÕES. Pequenos de propósito — o pedido do dono foi
        * explícito: "bem menores que os da primeira versão", numa linha só.
        */
@@ -668,31 +718,22 @@
        * PNG, e uma segunda borda de CSS por fora daria dois contornos
        * concêntricos — o defeito clássico de misturar arte com estilo.
        */
+      /* Só o tamanho: o resto vem de `.btnico`. */
       #chbtns button {
-        position: relative;
         width: 22px;
         height: 22px;
-        padding: 0;
-        background: none;
-        border: 0;
-        line-height: 0;
-        cursor: pointer;
       }
-      #chbtns button img {
-        width: 100%;
-        height: 100%;
-        display: block;
-        /* Redução de 64 para 22: suave, porque a arte é ilustrada, não pixel. */
-        image-rendering: auto;
-      }
-      #chbtns button:hover img {
-        filter: brightness(1.25) drop-shadow(0 0 3px rgba(240, 217, 154, 0.55));
-      }
-      #chbtns button:active { transform: scale(0.9); }
       /* Marca de "ainda não existe": o botão funciona, o sistema é que falta. */
-      #chbtns button.futuro::after {
+      /*
+       * 🔴 `::before`, e não `::after`. O aro dourado do hover mora no
+       * `::after` de `.btnico`, e `#chbtns button.futuro::after` é MAIS
+       * específico — os três botões marcados ganhariam o ponto e perderiam o
+       * aro, virando os únicos da HUD que não acendem ao passar o mouse.
+       */
+      #chbtns button.futuro::before {
         content: '';
         position: absolute;
+        z-index: 1;
         right: -1px;
         top: -1px;
         width: 5px;
@@ -827,24 +868,7 @@
       #mmzoom button {
         width: 20px;
         height: 20px;
-        padding: 0;
-        background: none;
-        border: 0;
-        line-height: 0;
-        cursor: pointer;
       }
-      #mmzoom button img { width: 100%; height: 100%; display: block; }
-      #mmzoom button:hover img {
-        filter: brightness(1.25) drop-shadow(0 0 3px rgba(240, 217, 154, 0.55));
-      }
-      #mmzoom button:active { transform: scale(0.9); }
-      /*
-       * ⚠️ Desabilitado por SATURAÇÃO, não só por opacidade: o botão flutua
-       * sobre o mapa, e transparência sozinha o faria sumir no fundo verde em
-       * vez de parecer apagado.
-       */
-      #mmzoom button:disabled { cursor: default; }
-      #mmzoom button:disabled img { filter: grayscale(1) brightness(0.55); }
       #mmpe {
         padding: 2px 2px 0;
         text-align: right;
@@ -3572,9 +3596,8 @@
               <div id="chtopo">
                 <b id="charname">—</b>
                 <span id="charclass">—</span>
-                <button id="chtoggle" type="button" title="Recolher o painel">
-                  <img id="chtoggleimg" src="/assets/hud/icones/recolher.png" alt="Recolher" />
-                </button>
+                <!-- A arte dos quatro estados entra por `poeIcone`, no JS. -->
+                <button id="chtoggle" class="btnico" type="button" title="Recolher o painel"></button>
               </div>
               <div class="chlinha">
                 <span class="chrot">HP</span>
@@ -3615,15 +3638,45 @@
             <div id="mmcorpo">
               <canvas id="minimap" width="130" height="130"></canvas>
               <div id="mmzoom">
-                <button id="mmmais" type="button" title="Aproximar">
-                  <img src="/assets/hud/icones/zoom_mais.png" alt="Aproximar" />
-                </button>
-                <button id="mmmenos" type="button" title="Afastar">
-                  <img src="/assets/hud/icones/zoom_menos.png" alt="Afastar" />
-                </button>
-                <button id="mmgrande" type="button" title="Abrir o mapa grande (M)">
-                  <img src="/assets/hud/icones/mapa_grande.png" alt="Mapa grande" />
-                </button>
+                <button
+                  id="mmmais"
+                  class="btnico"
+                  type="button"
+                  title="Aproximar"
+                  aria-label="Aproximar"
+                  style="
+                    --ico: url('/assets/hud/icones/zoom_mais.png');
+                    --ico-hover: url('/assets/hud/icones/zoom_mais_hover.png');
+                    --ico-press: url('/assets/hud/icones/zoom_mais_press.png');
+                    --ico-off: url('/assets/hud/icones/zoom_mais_off.png');
+                  "
+                ></button>
+                <button
+                  id="mmmenos"
+                  class="btnico"
+                  type="button"
+                  title="Afastar"
+                  aria-label="Afastar"
+                  style="
+                    --ico: url('/assets/hud/icones/zoom_menos.png');
+                    --ico-hover: url('/assets/hud/icones/zoom_menos_hover.png');
+                    --ico-press: url('/assets/hud/icones/zoom_menos_press.png');
+                    --ico-off: url('/assets/hud/icones/zoom_menos_off.png');
+                  "
+                ></button>
+                <button
+                  id="mmgrande"
+                  class="btnico"
+                  type="button"
+                  title="Abrir o mapa grande (M)"
+                  aria-label="Abrir o mapa grande"
+                  style="
+                    --ico: url('/assets/hud/icones/mapa_grande.png');
+                    --ico-hover: url('/assets/hud/icones/mapa_grande_hover.png');
+                    --ico-press: url('/assets/hud/icones/mapa_grande_press.png');
+                    --ico-off: url('/assets/hud/icones/mapa_grande_off.png');
+                  "
+                ></button>
               </div>
             </div>
             <div id="mmpe"><span id="mmpos">—</span></div>

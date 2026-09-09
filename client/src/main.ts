@@ -248,22 +248,38 @@ const hud = {
 
 const CHAVE_HUD_ABERTA = 'elysia.charhud.expandida';
 
+/**
+ * Liga os quatro estados de um botão de arte.
+ *
+ * ⚠️ **Uma função, e não quatro `setProperty` espalhados.** Os nomes dos
+ * arquivos são convenção do conversor (`x.png`, `x_hover.png`, `x_press.png`,
+ * `x_off.png`); repetir essa convenção em cada botão é o jeito de um deles
+ * sair escrito errado e ninguém notar até alguém passar o mouse.
+ */
+function poeIcone(botao: HTMLElement, arte: string): void {
+  const u = (sufixo: string): string => `url('/assets/hud/icones/${arte}${sufixo}.png')`;
+  botao.style.setProperty('--ico', u(''));
+  botao.style.setProperty('--ico-hover', u('_hover'));
+  botao.style.setProperty('--ico-press', u('_press'));
+  botao.style.setProperty('--ico-off', u('_off'));
+}
+
 function aplicaEstadoDoPainel(expandida: boolean): void {
   const painel = el('charhud');
   painel.classList.toggle('recolhido', !expandida);
   painel.classList.toggle('expandido', expandida);
   const b = el('chtoggle');
   /*
-   * ⚠️ Troca a ARTE, não o texto. O botão virou uma moldura com `<img>` dentro
-   * em 08/09; escrever `textContent` aqui apagaria a imagem e deixaria um
-   * caractere solto no lugar do botão inteiro.
+   * ⚠️ Troca a ARTE, não o texto — escrever `textContent` aqui deixaria um
+   * caractere solto no lugar do botão inteiro. E troca as QUATRO de uma vez:
+   * recolher e expandir são desenhos diferentes, então os estados de hover e
+   * press também têm de trocar junto, senão o botão mostra um "−" parado e um
+   * "+" ao passar o mouse.
    */
-  const img = el('chtoggleimg') as HTMLImageElement;
-  img.src = expandida
-    ? '/assets/hud/icones/recolher.png'
-    : '/assets/hud/icones/expandir.png';
-  img.alt = expandida ? 'Recolher' : 'Expandir';
-  b.title = expandida ? 'Recolher o painel' : 'Expandir o painel';
+  poeIcone(b, expandida ? 'recolher' : 'expandir');
+  const nome = expandida ? 'Recolher o painel' : 'Expandir o painel';
+  b.title = nome;
+  b.setAttribute('aria-label', nome);
 }
 
 function ligaPainelDoPersonagem(): void {
@@ -331,17 +347,9 @@ function ligaPainelDoPersonagem(): void {
     const b = document.createElement('button');
     b.type = 'button';
     b.title = a.nome;
-    if (a.futuro) b.className = 'futuro';
-    /*
-     * ⚠️ `<img>` e não `background-image`: com fundo o ícone não teria como
-     * ganhar o estado desabilitado por `filter`, e o `alt` some — que é o que
-     * um leitor de tela e o modo "imagem quebrada" mostram.
-     */
-    const img = document.createElement('img');
-    img.src = `/assets/hud/icones/${a.arte}.png`;
-    img.alt = a.nome;
-    img.draggable = false;
-    b.appendChild(img);
+    b.setAttribute('aria-label', a.nome);
+    b.className = a.futuro ? 'btnico futuro' : 'btnico';
+    poeIcone(b, a.arte);
     b.addEventListener('click', a.abre);
     caixa.appendChild(b);
   }
