@@ -6,6 +6,24 @@
 
 import { SKILLS, type SkillId } from '@dominion/shared';
 
+import MAGIAS_COM_ARTE from './magias-arte.json';
+
+/**
+ * 🖼️ **UMA ARTE POR MAGIA** (09/09) — o pacote de efeitos, preparado por
+ * `tools/hud/magias2png.mjs`.
+ *
+ * 🔴 Isto resolve o que a folha do dono não resolvia: ela tinha treze quadros
+ * para 75 habilidades, então o mapa era por RAMO e as cinco magias de cura
+ * mostravam a mesma cruz verde. Aqui cada uma das 36 dos ramos mágicos tem a
+ * sua — duas magias lado a lado na barra ficam diferentes sem passar o mouse.
+ *
+ * ⚠️ A lista vem de um MANIFESTO gerado pelo conversor, e não escrita aqui: a
+ * curadoria (que efeito combina com que magia) mora numa tabela só, no
+ * conversor. Duas listas seria bastar acrescentar uma magia lá e esquecer aqui
+ * para o arquivo existir no disco e nunca aparecer no jogo.
+ */
+const COM_ARTE = new Set<string>(MAGIAS_COM_ARTE);
+
 /** Resolução do ícone. A barra exibe menor, então fica nítido em telas HiDPI. */
 const S = 48;
 
@@ -630,14 +648,12 @@ function drawGenerico(g: CanvasRenderingContext2D, id: SkillId): void {
 }
 
 /**
- * 🖼️ **AS MAGIAS SAEM DA FOLHA** (09/09) — folha 4, treze quadros ilustrados.
+ * 🖼️ A folha do dono, por RAMO — a **segunda camada**.
  *
- * 🔴 **Treze ícones para 75 habilidades: o mapa é por RAMO, não por magia.** E
- * a consequência precisa ficar dita: dentro de um ramo as habilidades DIVIDEM o
- * ícone — as cinco de cura mostram a mesma cruz verde. O nome está no tooltip e
- * o nível no canto do slot, mas duas magias do mesmo ramo lado a lado na barra
- * ficam parecidas. Arrumar é uma linha aqui por habilidade, no dia em que
- * houver arte para ela.
+ * ⚠️ Hoje o pacote cobre todas as 36 magias que esta tabela cobria, então ela
+ * não desenha nada. Fica de pé porque é a rede: uma magia nova num ramo que já
+ * existe ganha um ícone coerente de graça, em vez de cair no desenhado por
+ * código enquanto ninguém escolhe arte para ela.
  *
  * ⚠️ **Só os ramos MÁGICOS.** Knight, Assassino e Arqueiro continuam com os
  * ícones desenhados por código: a folha não desenhou espada, kunai nem flecha,
@@ -705,6 +721,7 @@ function arteDaMagia(id: SkillId): string | null {
 const cache = new Map<string, string>();
 
 export function spellIconUrl(id: SkillId): string {
+  if (COM_ARTE.has(id)) return `/assets/hud/magias/${id}.png`;
   const arte = arteDaMagia(id);
   if (arte) return `/assets/hud/icones/${arte}.png`;
   const hit = cache.get(id);
