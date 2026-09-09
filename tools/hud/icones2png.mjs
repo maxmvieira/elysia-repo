@@ -305,6 +305,29 @@ const MOLDURAS = [
    * ⚠️ Medido: centro em (68,212) e raio ≈34 na folha.
    */
   { nome: 'disco_nivel', folha: 'folha1', x0: 34, y0: 178, x1: 102, y1: 246, circular: true },
+  /*
+   * 🔴 **OS SLOTS DA BARRA DE MAGIAS** — folha 5, fileira de baixo. São três
+   * estados do mesmo quadro, e é por isso que saem juntos: vazio, selecionado
+   * (aro dourado) e indisponível (apagado). Medidos com `--cols 5 484 656` e
+   * `--rows 5 1501 1632`; a faixa vertical 486..620 deixa de fora a legenda
+   * que a folha escreve embaixo de cada peça.
+   *
+   * ⚠️ Ficaram de fora os dois vizinhos: "Slot Bloqueado" tem um cadeado
+   * desenhado e "Cooldown", um "3.2" — são ILUSTRAÇÕES de estado, não molduras,
+   * e o jogo já desenha esses dois por cima com o dado de verdade.
+   */
+  { nome: 'slot_vazio', folha: 'folha5', x0: 1501, y0: 486, x1: 1632, y1: 620 },
+  { nome: 'slot_ativo', folha: 'folha5', x0: 1668, y0: 486, x1: 1814, y1: 620 },
+  { nome: 'slot_indisponivel', folha: 'folha5', x0: 1997, y0: 486, x1: 2145, y1: 620 },
+  /*
+   * A placa de nome do mapa, para o nome da região no topo do minimapa.
+   *
+   * ⚠️ **A folha escreve "Prontera" DENTRO dela** — é a mesma armadilha dos
+   * painéis, e aqui seria pior: com o miolo esticado pela largura, a palavra
+   * viraria um borrão atrás do nome de verdade. `tapa` cobre o interior com o
+   * escuro da própria placa (14,15,17), amostrado acima da linha do texto.
+   */
+  { nome: 'placa_mapa', folha: 'folha5', x0: 1840, y0: 305, x1: 2145, y1: 386, tapa: { x0: 30, y0: 18, x1: 270, y1: 62, amostra: [150, 20] } },
   { nome: 'barra_calha', folha: 'folha1', x0: 23, y0: 850, x1: 262, y1: 885 },
 ];
 

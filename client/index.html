@@ -742,8 +742,26 @@
         font-size: 10px;
         user-select: none;
       }
+      /*
+       * 🖼️ A PLACA DE NOME é arte (folha 5). Nove fatias na horizontal: as
+       * pontas são as duas cabeças da placa e o meio estica com o nome da
+       * região, que vai de "Prontera" a "Terras Amaldiçoadas".
+       */
       #mmtopo {
-        padding: 0 4px 3px;
+        display: block;
+        margin: 0 -4px 3px;
+        padding: 3px 10px 4px;
+        border: 0 solid transparent;
+        /*
+         * ⚠️ A altura é FIXA (26 px) porque a placa estica com ela: a arte tem
+         * 306×82, e sem altura fixa o texto de uma linha achatava a placa até
+         * ela virar um fio dourado. A ponta de 11 px é os 34 da arte reduzidos
+         * na mesma proporção (26/82).
+         */
+        height: 26px;
+        line-height: 20px;
+        border-width: 0 11px;
+        border-image: url('/assets/hud/icones/placa_mapa.png') 0 34 fill / 0 11px / 0 stretch;
         text-align: center;
         color: #f0d99a;
         white-space: nowrap;
@@ -2863,11 +2881,13 @@
         display: none;
         align-items: center;
         gap: 6px;
-        padding: 6px 8px 6px 4px;
-        background: linear-gradient(#221e18, #14110c);
-        border: 1px solid #000;
-        border-radius: 7px;
-        box-shadow: inset 0 1px 0 rgba(201, 168, 106, 0.16), 0 5px 18px rgba(0, 0, 0, 0.65);
+        padding: 4px 6px 4px 2px;
+        /*
+         * 🔴 A barra em si não desenha NADA. Cada slot já traz a própria
+         * moldura, e um cartão por trás deles virava moldura sobre moldura —
+         * dois contornos concorrendo, que é o mesmo defeito que os botões
+         * tiveram antes de perderem a borda de CSS.
+         */
         z-index: 9;
         user-select: none;
       }
@@ -2908,9 +2928,7 @@
       }
       /* Slot sob o cursor durante o arraste. */
       .sslot.dropok {
-        outline: 2px solid #c9a86a;
-        outline-offset: -2px;
-        background: #3a3020;
+        background-image: url('/assets/hud/icones/slot_ativo.png');
       }
       .skrow[draggable='true'] {
         cursor: grab;
@@ -2995,32 +3013,43 @@
         text-shadow: 0 1px 2px #000;
         pointer-events: none;
       }
+      /*
+       * 🖼️ **O SLOT É ARTE** (09/09) — folha 5, e são três peças, não uma: o
+       * quadro vazio, o de aro dourado e o apagado. Antes era gradiente com
+       * `border-radius: 5px`, e ao lado do painel ornamentado parecia de outro
+       * jogo — era o "card arredondado moderno" que o dono pediu para não ter.
+       *
+       * ⚠️ `100% 100%` e não `contain`: os três recortes têm larguras diferentes
+       * (132, 147 e 149 px) porque na folha o aro dourado é mais largo que o
+       * quadro apagado. Com `contain` o slot mudaria de tamanho ao passar o
+       * mouse; esticando, os três ocupam a mesma célula de 44.
+       *
+       * ⚠️ `overflow: hidden` SAIU: o quadro tem canto chanfrado que passa da
+       * caixa, e cortá-lo tirava justamente o chanfro.
+       */
       .sslot {
         position: relative;
         width: 44px;
         height: 44px;
-        background: linear-gradient(#0c0a08, #17130d);
-        border: 1px solid #000;
-        border-radius: 5px;
-        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.85), inset 0 0 0 1px #2b2620;
+        background: url('/assets/hud/icones/slot_vazio.png') center/100% 100% no-repeat;
         cursor: pointer;
-        overflow: hidden;
-        transition: transform 0.07s ease, box-shadow 0.12s ease;
+        transition: transform 0.07s ease;
       }
       .sslot.free {
         cursor: default;
       }
       .sslot:not(.free):hover {
-        box-shadow: inset 0 0 0 1px #c9a86a, 0 0 8px rgba(201, 168, 106, 0.45);
+        background-image: url('/assets/hud/icones/slot_ativo.png');
       }
       .sslot:not(.free):active {
         transform: scale(0.9);
       }
+      /* ⚠️ 5px porque a moldura da arte vale ~9% do lado (12 px num PNG de 132). */
       .sslot img {
         position: absolute;
-        inset: 3px;
-        width: calc(100% - 6px);
-        height: calc(100% - 6px);
+        inset: 5px;
+        width: calc(100% - 10px);
+        height: calc(100% - 10px);
         image-rendering: auto;
         pointer-events: none;
       }
@@ -3049,6 +3078,9 @@
         pointer-events: none;
       }
       /* Bloqueada: cinza + cadeado com o requisito. */
+      .sslot.locked {
+        background-image: url('/assets/hud/icones/slot_indisponivel.png');
+      }
       .sslot.locked img {
         filter: grayscale(1) brightness(0.45);
       }
