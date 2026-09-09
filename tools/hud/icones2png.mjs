@@ -41,6 +41,32 @@ const LOTES = [
     y0: 430, y1: 500,
     nomes: ['inventario', 'skills', 'amigos', 'quests', 'conquistas', 'config', 'correio'],
   },
+  /*
+   * 🔴 A fileira do meio da folha 4 é a MELHOR fonte dos botões pequenos: ela
+   * não tem rótulo escrito embaixo. A mesma coleção existe na folha 5, mas lá
+   * cada botão vem com o nome por baixo, e a faixa teria de ser apertada até
+   * quase cortar o desenho.
+   */
+  {
+    folha: 'folha4',
+    y0: 285, y1: 400,
+    nomes: [
+      'bussola', 'mapa', 'zoom_mais', 'zoom_menos', 'dia', 'noite',
+      'mapa_grande', 'marca', 'mundo',
+      'seta_cima', 'seta_baixo', 'seta_esq', 'seta_dir',
+    ],
+  },
+  /*
+   * ⚠️ O − e o + estão na PRIMEIRA fileira da folha 4, à direita dos sete
+   * atalhos. A faixa exclui os rótulos (que começam por volta de y=185), e os
+   * sete primeiros nomes vão VAZIOS de propósito: já foram cortados da folha 2,
+   * e recortar de novo daria dois arquivos para o mesmo botão.
+   */
+  {
+    folha: 'folha4',
+    y0: 35, y1: 170,
+    nomes: ['', '', '', '', '', '', '', 'recolher', 'expandir'],
+  },
 ];
 
 // ---------------------------------------------------------------------------

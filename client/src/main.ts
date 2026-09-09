@@ -253,7 +253,16 @@ function aplicaEstadoDoPainel(expandida: boolean): void {
   painel.classList.toggle('recolhido', !expandida);
   painel.classList.toggle('expandido', expandida);
   const b = el('chtoggle');
-  b.textContent = expandida ? '−' : '+';
+  /*
+   * ⚠️ Troca a ARTE, não o texto. O botão virou uma moldura com `<img>` dentro
+   * em 08/09; escrever `textContent` aqui apagaria a imagem e deixaria um
+   * caractere solto no lugar do botão inteiro.
+   */
+  const img = el('chtoggleimg') as HTMLImageElement;
+  img.src = expandida
+    ? '/assets/hud/icones/recolher.png'
+    : '/assets/hud/icones/expandir.png';
+  img.alt = expandida ? 'Recolher' : 'Expandir';
   b.title = expandida ? 'Recolher o painel' : 'Expandir o painel';
 }
 
