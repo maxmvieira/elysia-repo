@@ -3234,7 +3234,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           // espadada chega como `physical` (ou sem o campo).
           if (!msg.dot) {
             const magia = msg.element !== undefined && msg.element !== 'physical';
-            sprites.get(msg.attackerId)?.playAttack?.(magia);
+            /*
+             * ⚠️ `semGesto`: as magias que caem do céu mandam um `hit` por
+             * bola, e o gesto de conjurar é UM por conjuração. Ver o campo no
+             * protocolo. O alvo continua piscando e o número continua saindo —
+             * só o gesto de quem conjurou fica de fora.
+             */
+            if (!msg.semGesto) sprites.get(msg.attackerId)?.playAttack?.(magia);
             /*
              * 🔥 Golpe de FOGO faz cair uma bola do céu sobre o alvo. Um `hit`
              * = uma bola, então a contagem do Fire Bolt (um bolt por nível)

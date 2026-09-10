@@ -860,6 +860,20 @@ export interface S2C_Hit {
   element?: DamageType;
   /** Parcela de DoT (veneno/sangramento/queimadura), não um golpe direto. */
   dot?: boolean;
+  /**
+   * 🔴 **Este golpe NÃO desenha o gesto de quem bateu.**
+   *
+   * O cliente toca a animação de ataque a cada `hit`, porque um golpe é um
+   * gesto. Deixou de valer para as magias que caem do céu: uma conjuração do
+   * Fire Bolt Lv.10 são dez `hit`, e o feiticeiro ficava repetindo o gesto de
+   * conjurar dez vezes, uma a cada bola. O dono: *"quando lançar magia ele não
+   * precisa ficar fazendo efeito de ataque para cada bolt que cair."*
+   *
+   * ⚠️ Diferente de `dot`: o DoT também não pinta o ALVO, porque ninguém
+   * desferiu nada. Aqui alguém desferiu — o alvo pisca normalmente, e o número
+   * sai normalmente. Só o gesto do atacante fica de fora.
+   */
+  semGesto?: boolean;
   /** Vida do alvo após o golpe. */
   hp: number;
   maxHp: number;

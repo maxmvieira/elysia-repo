@@ -26,8 +26,8 @@ import {
   skillConditionDuration,
   skillPower,
   skillCastMs,
-  castLevelReduction,
-  NIVEL_CONJURACAO_INSTANTANEA,
+  castDexReduction,
+  DEX_CONJURACAO_INSTANTANEA,
   PISO_CONJURACAO_MS,
   skillModifiers,
   castMasteryReduction,
@@ -123,16 +123,25 @@ test('Fire Bolt é multi-hit e econômico — o "Golpe Poderoso do mago"', () =>
   assert.equal(fb.manaCost, maisBarata);
 });
 
-test('a recarga do Fire Bolt cobre até o último bolt cair', () => {
+test('a série do Fire Bolt dura MAIS que a recarga — e isso é intencional', () => {
   /*
-   * 🔴 Pedido do dono em 09/09: *"o cooldown da magia deveria ser até terminar
-   * o último impacto dela."*
+   * 🔴 **A regra virou do avesso em 11/09**, e o teste registra as duas pontas.
    *
-   * A conta é a mesma dos dois lados — servidor e cliente —, e é por isso que
-   * os dois números moram no `shared`. O que este teste trava é a RELAÇÃO: a
-   * série do nível 10 tem de durar mais que a recarga de ficha, senão a magia
-   * ficaria pronta com as bolas ainda no ar e daria para empilhar duas chuvas
-   * com uma mana só.
+   * Em 09/09 o dono pediu *"o cooldown da magia deveria ser até terminar o
+   * último impacto dela"*, e a recarga passou a ser esticada até a última bola
+   * cair. Em 11/09 ele pediu o contrário: *"o cooldown deve ser mais curto para
+   * lançar a magia novamente."* A recarga voltou a ser a da ficha.
+   *
+   * O que mudou entre um pedido e o outro foi o resto do sistema. A recarga
+   * longa existia porque as bolas nasciam TODAS de um aviso só, num ponto fixo
+   * do chão — duas conjurações viravam um borrão de vinte bolas sem dono. Hoje
+   * cada bola nasce do seu próprio `fx`, na posição do alvo e seguindo ele, e
+   * duas séries se lêem como duas séries.
+   *
+   * ⚠️ Então este teste NÃO trava mais "recarga ≥ série". Ele trava o
+   * contrário, para o dia em que alguém achar que a sobreposição é bug: a série
+   * do Lv.10 dura MESMO mais que a recarga, e mais de uma delas no ar ao mesmo
+   * tempo é o desenho, não um descuido. O contrapeso é a mana e o carregamento.
    */
   const fb = SKILLS.fire_bolt;
   const serie = (golpes: number): number =>
@@ -140,8 +149,8 @@ test('a recarga do Fire Bolt cobre até o último bolt cair', () => {
 
   assert.ok(
     serie(skillHits(fb, 10)) > fb.cooldownMs,
-    `a série do Lv.10 (${serie(skillHits(fb, 10))} ms) tem de passar da recarga `
-    + `de ficha (${fb.cooldownMs} ms) — senão a regra do dono não muda nada`,
+    `a série do Lv.10 (${serie(skillHits(fb, 10))} ms) passa da recarga de ficha `
+    + `(${fb.cooldownMs} ms): mais de uma série no ar é ESPERADO desde 11/09`,
   );
   // E cresce com o nível: mais bolts, mais tempo no ar.
   assert.ok(serie(skillHits(fb, 10)) > serie(skillHits(fb, 1)));
@@ -334,28 +343,41 @@ test('🔴 magia que CAI DO CÉU é sempre de alvo único, e o Fire e o Cold cae
   for (const d of caem) assert.equal(d.shape, 'target', `${d.id} cai do céu mas não é de alvo`);
 });
 
-test('🔴 o Fire Bolt tem carregamento, e só fica instantâneo lá pelo nível 250', () => {
+test('🔴 o carregamento do Fire Bolt desce por DESTREZA, numa curva côncava', () => {
   /*
-   * Pedido do dono em 10/09: "precisa de ter um pequeno carregamento para
-   * lançar a magia, mesmo estando nível bem alto. instantâneo creio que deveria
-   * ser em leveis muito mais altos (200–300)."
+   * Pedido do dono em 11/09: "o tempo de conjuração deve seguir uma curva
+   * descendente à medida que o personagem vai adicionando mais atributo de
+   * destreza."
    *
-   * O teste guarda a RELAÇÃO, não os números: que existe carregamento no começo,
-   * que ele encolhe com o nível, e que o instantâneo cai dentro da faixa que o
-   * dono deu. Reequilibrar o `castMs` da ficha não deve quebrar isto.
+   * O teste guarda a FORMA da curva, não os números: existe carregamento sem
+   * destreza, ele desce a cada ponto, o ganho é MAIOR no fim que no começo
+   * (côncava), e o instantâneo só chega no topo da escala.
    */
   const bolt = SKILLS.fire_bolt;
-  assert.ok(skillCastMs(bolt, 10, 0, 1) > 0, 'no nível 1 tem de haver conjuração');
-  assert.ok(
-    skillCastMs(bolt, 10, 0, 100) > 0,
-    'nível 100 ainda é "nível bem alto" e ainda conjura',
-  );
-  assert.ok(skillCastMs(bolt, 10, 0, 100) < skillCastMs(bolt, 10, 0, 1), 'encolhe com o nível');
-  assert.equal(skillCastMs(bolt, 10, 0, NIVEL_CONJURACAO_INSTANTANEA), 0);
-  assert.ok(NIVEL_CONJURACAO_INSTANTANEA >= 200 && NIVEL_CONJURACAO_INSTANTANEA <= 300);
+  const semDex = skillCastMs(bolt, 10, 0, 1);
+  assert.ok(semDex > 0, 'sem destreza tem de haver carregamento');
+
+  // Desce, e nunca sobe.
+  let anterior = semDex;
+  for (let dex = 10; dex <= DEX_CONJURACAO_INSTANTANEA; dex += 10) {
+    const agora = skillCastMs(bolt, 10, 0, dex);
+    assert.ok(agora <= anterior, `subiu de DEX ${dex - 10} para ${dex}`);
+    anterior = agora;
+  }
+  assert.equal(anterior, 0, 'no topo da escala vira instantânea');
+
+  /*
+   * CÔNCAVA: os vinte primeiros pontos de destreza valem MENOS que os vinte
+   * últimos. Numa reta os dois trechos cortariam o mesmo tanto, e conjurar
+   * rápido sairia barato demais no começo da progressão.
+   */
+  const alvo = DEX_CONJURACAO_INSTANTANEA;
+  const ganhoInicio = castDexReduction(21) - castDexReduction(1);
+  const ganhoFim = castDexReduction(alvo) - castDexReduction(alvo - 20);
+  assert.ok(ganhoFim > ganhoInicio * 3, 'a curva tinha de ser bem mais íngreme no fim');
 });
 
-test('🔴 o piso de 1 s: magia longa nunca vira instantânea, por mais nível que se tenha', () => {
+test('🔴 o piso de 1 s: magia longa nunca vira instantânea, por mais destreza que se tenha', () => {
   /*
    * A redução por nível chega a 100 %, e sozinha ela apagaria a conjuração da
    * Chuva de Meteoros — cujo contrajogo é justamente poder ser interrompida.
@@ -364,8 +386,8 @@ test('🔴 o piso de 1 s: magia longa nunca vira instantânea, por mais nível q
   const chuva = SKILLS.meteor_storm;
   assert.ok((chuva.castMs ?? 0) > PISO_CONJURACAO_MS);
   assert.equal(skillCastMs(chuva, 10, 10, 9999), PISO_CONJURACAO_MS);
-  assert.equal(castLevelReduction(1), 0, 'nível 1 não ganha desconto nenhum');
-  assert.equal(castLevelReduction(9999), 1, 'a redução satura em 100 %');
+  assert.equal(castDexReduction(1), 0, 'destreza 1 não ganha desconto nenhum');
+  assert.equal(castDexReduction(9999), 1, 'a redução satura em 100 %');
 });
 
 test('Aprimoramento e Regeneração de Mana são passivas de verdade', () => {

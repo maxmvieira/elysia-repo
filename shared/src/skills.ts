@@ -3377,17 +3377,34 @@ export function castMasteryReduction(nivel: number): number {
 }
 
 /**
- * 🔴 **O nível de personagem em que a conjuração curta vira INSTANTÂNEA.**
+ * 🔴 **A DESTREZA em que a conjuração curta vira INSTANTÂNEA.**
  *
- * Pedido do dono em 10/09: *"precisa de ter um pequeno carregamento para lançar
- * a magia, mesmo estando nível bem alto. instantâneo creio que deveria ser em
- * leveis muito mais altos (200–300)."*
+ * Pedido do dono em 11/09: *"o tempo de conjuração deve seguir uma curva
+ * descendente à medida que o personagem vai adicionando mais atributo de
+ * destreza."*
  *
- * 250 é o meio da faixa que ele deu. O jogo não tem teto de nível de
- * personagem, então isto é late-game de verdade, não um marco que se cruza sem
- * perceber.
+ * ⚠️ **Isto substituiu o nível de personagem**, que era o eixo de ontem. A
+ * diferença não é de número, é de desenho: nível todo mundo ganha, então ele só
+ * adiantava o relógio para o servidor inteiro. Destreza é ESCOLHA, e cara — os
+ * pontos gastos aqui saem de INT, que é o dano do feiticeiro. Conjurar rápido
+ * passou a ter preço.
+ *
+ * 200 é investimento pesado de verdade: pela `ATTRIBUTE_COST_TABLE` os pontos
+ * acima de 200 custam 20 cada, então é onde a progressão de um atributo já está
+ * praticamente parando.
  */
-export const NIVEL_CONJURACAO_INSTANTANEA = 250;
+export const DEX_CONJURACAO_INSTANTANEA = 200;
+
+/**
+ * 🔴 **A curva é CÔNCAVA (expoente 1,5), e não reta.**
+ *
+ * Numa reta, os primeiros vinte pontos de destreza já cortariam 10 % do
+ * carregamento — barato demais para uma vantagem que o dono quer no fim da
+ * progressão. Com o expoente, os mesmos vinte pontos cortam 3 %, e a metade da
+ * escala (DEX 100) corta 35 %. O ganho grande mora perto do topo, que é onde o
+ * ponto de atributo custa 20.
+ */
+const EXPOENTE_DEX_CONJURACAO = 1.5;
 
 /**
  * 🔴 **O piso de quem conjura por mais de um segundo.**
@@ -3404,33 +3421,33 @@ export const NIVEL_CONJURACAO_INSTANTANEA = 250;
 export const PISO_CONJURACAO_MS = 1000;
 
 /**
- * ✨ Quanto o NÍVEL DO PERSONAGEM encurta a conjuração (0..1).
+ * ✨ Quanto a DESTREZA encurta a conjuração (0..1).
  *
- * ⚠️ É outro eixo que a Maestria de Conjuração, e os dois SOMAM. A Maestria é
- * escolha (pontos gastos numa habilidade passiva); isto é só ficar mais velho.
- * Somados, um sorcerer com Maestria 10 chega ao instantâneo por volta do nível
- * 175 em vez de 250 — que é o que ter gasto os pontos deveria comprar.
+ * ⚠️ É outro eixo que a Maestria de Conjuração, e os dois SOMAM. A Maestria são
+ * pontos numa passiva; isto são pontos num atributo. Somados, um sorcerer com
+ * Maestria 10 chega ao instantâneo por volta de DEX 155 em vez de 200 — que é o
+ * que ter gasto os pontos na passiva deveria comprar.
  */
-export function castLevelReduction(nivelPersonagem: number): number {
-  if (nivelPersonagem <= 1) return 0;
-  const alvo = NIVEL_CONJURACAO_INSTANTANEA - 1;
-  return Math.min(1, (nivelPersonagem - 1) / alvo);
+export function castDexReduction(dex: number): number {
+  if (dex <= 1) return 0;
+  const alvo = DEX_CONJURACAO_INSTANTANEA - 1;
+  const frac = Math.min(1, (dex - 1) / alvo);
+  return frac ** EXPOENTE_DEX_CONJURACAO;
 }
 
 /**
- * Tempo de conjuração efetivo, já com a Maestria e o nível do personagem.
+ * Tempo de conjuração efetivo, já com a Maestria e a Destreza.
  *
  * ⚠️ `nivel` é o nível da HABILIDADE e hoje não entra na conta — está na
  * assinatura porque quem chama já o tem em mãos, e porque o dia em que uma
- * ficha quiser conjuração por nível de skill, é aqui que ela entra. Não
- * confundir com `nivelPersonagem`, que é o do personagem.
+ * ficha quiser conjuração por nível de skill, é aqui que ela entra.
  */
 export function skillCastMs(
-  def: SkillDef, nivel: number, maestria: number, nivelPersonagem: number,
+  def: SkillDef, nivel: number, maestria: number, dex: number,
 ): number {
   const base = def.castMs ?? 0;
   if (base <= 0) return 0;
-  const reducao = Math.min(1, castMasteryReduction(maestria) + castLevelReduction(nivelPersonagem));
+  const reducao = Math.min(1, castMasteryReduction(maestria) + castDexReduction(dex));
   const piso = base <= PISO_CONJURACAO_MS ? 0 : PISO_CONJURACAO_MS;
   return Math.max(piso, Math.round(base * (1 - reducao)));
 }

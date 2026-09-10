@@ -210,7 +210,6 @@ import {
   ATRASO_IMPACTO_MS,
   CUSTO_DIAGONAL,
   INTERVALO_BOLT_MS,
-  DUR_QUEDA_MS,
   skillMiraNoChao,
   skillResetCost,
   skillThreshold,
@@ -2981,6 +2980,7 @@ function damageCreature(
   now: number,
   element: DamageType = 'physical',
   dot = false,
+  semGesto = false,
 ): void {
   creature.hp = Math.max(0, creature.hp - dmg);
   // Contribuição acumulada, para `DD-PARTY-008` (participação válida) e
@@ -3001,6 +3001,7 @@ function damageCreature(
     t: 'hit', attackerId: player.id, targetId: creature.id, amount: dmg, crit, dodged: false,
     hp: creature.hp, maxHp: creature.maxHp, fatal, element,
     ...(dot ? { dot: true } : {}),
+    ...(semGesto ? { semGesto: true } : {}),
     // No golpe fatal manda a XP concedida para o cliente exibir "+XP" sobre a criatura.
     ...(fatal ? { xp: creature.def.xpReward } : {}),
   });
@@ -3335,6 +3336,13 @@ interface GolpePendente {
   fxEm: number;
   /** O `fx` deste bolt já foi anunciado? */
   fxFeito: boolean;
+  /**
+   * Este é o PRIMEIRO bolt da conjuração?
+   *
+   * ⚠️ Só ele manda o gesto de conjurar até o cliente. Ver `semGesto` no
+   * protocolo — sem isto o feiticeiro repetia o gesto dez vezes, um por bola.
+   */
+  gesto: boolean;
   /** Quando o dano cai. É `fxEm + ATRASO_IMPACTO_MS`: a bola toca o chão. */
   quando: number;
 }
@@ -3348,6 +3356,11 @@ const golpesPendentes: GolpePendente[] = [];
 function aplicaGolpeDeMagia(
   player: Player, def: SkillDef, nivel: number, c: Creature,
   poderBase: number, critChance: number, critMult: number, now: number,
+  /**
+   * ⚠️ **Só o PRIMEIRO golpe de uma série desenha o gesto.** Ver `semGesto` no
+   * protocolo: dez bolas eram dez gestos de conjurar, um por bola.
+   */
+  gesto = true,
 ): void {
   if (!c.alive) return;
   // Execução escala com o quanto o alvo já está ferido.
@@ -3376,7 +3389,7 @@ function aplicaGolpeDeMagia(
   // 🔴 `tipo` viaja até o cliente: é o que faz o gesto de conjurar tocar e as
   // bolas do Fire Bolt caírem. Sem ele o golpe chega "físico" e o cliente
   // anima uma espadada.
-  damageCreature(player, c, dano, crit, now, tipo);
+  damageCreature(player, c, dano, crit, now, tipo, false, !gesto);
 }
 
 /**
@@ -3427,6 +3440,7 @@ function tickGolpesPendentes(now: number): void {
     if (now < g.quando) { fica.push(g); continue; }
     aplicaGolpeDeMagia(
       player, SKILLS[g.skillId], g.nivel, c, g.poderBase, g.critChance, g.critMult, now,
+      g.gesto,
     );
   }
   golpesPendentes.length = 0;
@@ -3449,25 +3463,26 @@ function marcaConjuracao(
   player: Player, def: SkillDef, now: number, nivel?: number,
 ): number {
   /*
-   * 🔴 **A RECARGA VAI ATÉ O ÚLTIMO IMPACTO** — pedido do dono em 09/09.
+   * 🔴 **A RECARGA É A DA FICHA, e mais nada** — dono, 11/09: *"o cooldown deve
+   * ser mais curto para lançar a magia novamente."*
    *
-   * O Fire Bolt de nível 10 solta dez bolas espaçadas por `INTERVALO_BOLT_MS`,
-   * e cada uma leva `DUR_QUEDA_MS` para chegar ao chão. Com a recarga fixa da
-   * ficha, a magia ficava pronta de novo ENQUANTO as bolas da conjuração
-   * anterior ainda estavam no ar — dava para empilhar duas chuvas, e o jogador
-   * via vinte bolas caindo de um lançamento que custou uma mana só.
+   * ⚠️ **Aqui morava o contrário**, e por um pedido dele de 09/09: a recarga
+   * era esticada até o ÚLTIMO impacto da série, `(golpes − 1) ×
+   * INTERVALO_BOLT_MS + DUR_QUEDA_MS`. No Fire Bolt Lv.10 isso dava 8,2 s de
+   * espera para uma magia de 1,5 s de ficha — e o motivo de então era impedir
+   * duas chuvas empilhadas.
    *
-   * ⚠️ É `max`, e não substituição: uma magia cuja recarga de ficha já seja
-   * maior que a série continua com a dela. O número calculado é o PISO.
+   * ✅ O que mudou entre um pedido e o outro foi o resto do sistema. Naquele dia
+   * as bolas nasciam TODAS de um aviso só, num ponto fixo do chão: duas
+   * conjurações viravam um borrão de vinte bolas sem dono. Hoje cada bola nasce
+   * do seu próprio `fx`, na posição do alvo e seguindo ele — duas séries se
+   * lêem como duas séries. O que a recarga longa protegia deixou de existir.
    *
-   * ⚠️ Vale só para o multi-hit de ALVO ÚNICO, que é o que cai do céu em série.
-   * O de área (Chuva de Meteoros) resolve tudo num tique só.
+   * ⚠️ **Consequência assumida:** dá para ter mais de uma série no ar. Com
+   * recarga de 1,5 s e uma série de 8,2 s no Lv.10, são até cinco. O contrapeso
+   * é a MANA, e o carregamento de 800 ms — não mais o relógio da magia.
    */
-  let recarga = def.cooldownMs;
-  if (def.queda === true && def.shape === 'target' && nivel !== undefined) {
-    const golpes = skillHits(def, nivel);
-    recarga = Math.max(recarga, (golpes - 1) * INTERVALO_BOLT_MS + DUR_QUEDA_MS);
-  }
+  const recarga = def.cooldownMs;
   player.spellReadyAt[def.id] = now + recarga;
   if (def.magic) player.gcdUntil = now + GCD_MAGIA_MS;
   /*
@@ -3596,7 +3611,7 @@ function castSpell(
   }
 
   const castMs = skillCastMs(
-    def, nivel, skillLevelOf(player.skillLevels, 'cast_mastery'), player.level,
+    def, nivel, skillLevelOf(player.skillLevels, 'cast_mastery'), player.attributes.dex,
   );
   if (castMs > 0) {
     player.casting = {
@@ -4016,7 +4031,7 @@ function executeSpell(
         golpesPendentes.push({
           playerId: player.id, creatureId: c.id, skillId: def.id, nivel,
           poderBase, critChance: d.critChance, critMult: d.critMult,
-          fxEm, fxFeito: false, quando: fxEm + ATRASO_IMPACTO_MS,
+          fxEm, fxFeito: false, gesto: i === 0, quando: fxEm + ATRASO_IMPACTO_MS,
         });
         continue;
       }
