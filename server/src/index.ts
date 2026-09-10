@@ -4421,7 +4421,19 @@ function executeSpell(
             poderBase, critChance: d.critChance, critMult: d.critMult,
             fxEm,
             fxFeito: false,
-            gesto: i === 0,
+            /*
+           * 🎭 **Magia COM carregamento não pede gesto no impacto.**
+           *
+           * O cliente já anima o arremesso quando a conjuração termina (a pose
+           * segurada completa o movimento). Mandar o gesto junto do primeiro
+           * impacto faria o personagem arremessar DE NOVO, meio segundo depois
+           * — e no Fire Bolt, que tem 800 ms de carregamento, os dois gestos
+           * quase se emendam.
+           *
+           * ⚠️ Magia instantânea continua pedindo: sem carregamento não houve
+           * arremesso nenhum, e o impacto é a única chance de mostrar um.
+           */
+          gesto: i === 0 && !def.castMs,
             // 🌠 O dano cai quando a unidade TOCA O CHÃO, e isso é por ficha:
             // uma rocha demora mais que uma lança. Ver `quedaMs`.
             quando: fxEm + (def.quedaMs ?? ATRASO_IMPACTO_MS),
@@ -4648,6 +4660,13 @@ function plantaArea(
     power: poder,
     damageType: def.damageType,
     ...(def.empurraPorPulso ? { empurraPorPulso: def.empurraPorPulso } : {}),
+    ...(def.congelaEmAcertos
+      ? {
+        congelaEmAcertos: def.congelaEmAcertos,
+        acertos: new Map<string, number>(),
+        congelados: new Set<string>(),
+      }
+      : {}),
     hitsPlayers: g.hitsPlayers,
     hitsCreatures: g.hitsCreatures,
     blocks: g.blocks ?? false,
@@ -4937,6 +4956,18 @@ function disparaArmadilha(a: GroundArea, dono: Player | undefined, now: number):
 
 /** Um pulso de área ofensiva numa criatura. */
 function golpeDeArea(dono: Player, a: GroundArea, c: Creature, now: number): void {
+  /*
+   * ❄️ **QUEM JÁ CONGELOU NESTA TEMPESTADE NÃO LEVA MAIS NADA DELA.**
+   *
+   * É a regra do Ragnarok, e aqui ela é OBRIGATÓRIA, não estética: o
+   * congelamento deste jogo quebra com dano (`DD-SOR-012`), então sem a
+   * imunidade o pulso seguinte descongelaria o alvo 400 ms depois de congelá-lo
+   * — o gelo nunca duraria os 10 s que o documento promete.
+   *
+   * ⚠️ Sai ANTES de tudo: sem dano, sem empurrão, sem nova rolagem.
+   */
+  if (a.congelados?.has(c.id)) return;
+
   const perfil = creatureDefenseProfile(c, now, dono, a.damageType !== 'physical');
   const bruto = resolveDamage(a.power, a.damageType ?? 'physical', perfil).amount;
   const dano = Math.max(1, Math.round(bruto));
@@ -4952,9 +4983,38 @@ function golpeDeArea(dono: Player, a: GroundArea, c: Creature, now: number): voi
    */
   if (a.empurraPorPulso) empurraDoCentro(a, c, a.empurraPorPulso);
   damageCreature(dono, c, dano, false, now, a.damageType ?? 'physical');
-  if (a.condition) {
-    applyConditionTo(c, a.condition.id, a.condition.chance, a.condition.durationMs, now, a.condition.power, dono.id);
+  if (!a.condition) return;
+
+  /*
+   * ❄️ **ACÚMULO: a condição é rolada UMA VEZ, no acerto de número N.**
+   *
+   * Sem `congelaEmAcertos` o comportamento é o de sempre — rola a cada pulso.
+   * Com ele, o alvo precisa aguentar N pulsos desta mesma área antes de a
+   * rolagem acontecer, e ela acontece uma vez só.
+   *
+   * ⚠️ O contador conta os pulsos que o alvo LEVOU, e não os que a área deu:
+   * quem entra na tempestade no meio começa do zero, e é o justo.
+   *
+   * ⚠️ Falhar a rolagem NÃO reinicia o contador. Ele fica acima de N, e a
+   * condição não é rolada de novo nesta tempestade — uma chance por alvo, por
+   * tempestade. Reiniciar transformaria 50 % numa garantia disfarçada.
+   */
+  if (a.congelaEmAcertos !== undefined && a.acertos) {
+    const n = (a.acertos.get(c.id) ?? 0) + 1;
+    a.acertos.set(c.id, n);
+    if (n !== a.congelaEmAcertos) return;
+    const pegou = Math.random() < a.condition.chance;
+    if (!pegou) return;
+    applyConditionTo(
+      c, a.condition.id, 1, a.condition.durationMs, now, a.condition.power, dono.id,
+    );
+    a.congelados?.add(c.id);
+    return;
   }
+
+  applyConditionTo(
+    c, a.condition.id, a.condition.chance, a.condition.durationMs, now, a.condition.power, dono.id,
+  );
 }
 
 /** Um pulso de área ofensiva num jogador (PvP). */

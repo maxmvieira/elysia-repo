@@ -72,6 +72,23 @@ export interface GroundArea {
    */
   empurraPorPulso?: number;
   /**
+   * ❄️ Quantos pulsos desta área um alvo aguenta antes de a condição ser
+   * rolada. Ver `congelaEmAcertos` na ficha.
+   */
+  congelaEmAcertos?: number;
+  /**
+   * ❄️ Acertos que cada entidade já levou DESTA área, por id.
+   *
+   * ⚠️ Mora na ÁREA e não na entidade: duas Nevascas sobrepostas contam
+   * separado, e é o certo — cada tempestade tem o próprio gelo para formar.
+   */
+  acertos?: Map<string, number>;
+  /**
+   * ❄️ Quem já congelou POR ESTA área e, por isso, não leva mais os pulsos
+   * dela. Ver a nota de `congelaEmAcertos`.
+   */
+  congelados?: Set<string>;
+  /**
    * Condição que cada tique tenta aplicar (a Nevasca congela, a Ira petrifica).
    *
    * ⚠️ **`power` não é opcional por acaso quando a condição é DoT.**

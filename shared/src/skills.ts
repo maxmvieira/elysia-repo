@@ -465,6 +465,24 @@ export interface SkillDef {
    * o empurrão é a condição `knockback`, que já existe.
    */
   empurraPorPulso?: number;
+  /**
+   * ❄️ **ACUMULA ACERTOS ATÉ CONGELAR** — o comportamento do Ragnarok, pedido
+   * pelo dono em 11/09 (*"quero o comportamento do RO"*).
+   *
+   * Quantos pulsos da MESMA tempestade um alvo precisa levar antes de a
+   * condição ser rolada. Ausente = rola a cada pulso, como todo o resto.
+   *
+   * 🔴 **E quem congela para de levar dano DESTA tempestade.** É a segunda
+   * metade da regra do RO, e sem ela a primeira não funciona AQUI: o
+   * congelamento deste jogo quebra com dano (`DD-SOR-012`), então o pulso
+   * seguinte descongelaria o alvo no mesmo instante. A imunidade é o que
+   * protege o gelo da própria tempestade que o criou.
+   *
+   * ✅ E o combo do documento continua de pé: *"congela → abre distância →
+   * prepara Meteoro → impacto quebra o gelo"*. Quem quebra é outra fonte de
+   * dano, não a Nevasca — que é exatamente o que o combo descreve.
+   */
+  congelaEmAcertos?: number;
   /** Condição aplicada pela habilidade. */
   applies?: SkillCondition;
   /** Modificadores concedidos (buff) ou impostos (debuff). */
@@ -1687,8 +1705,21 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * próximo nasce. É o que faz a coisa parecer CHUVA em vez de fila.
      */
     quedaMs: 520,
-    // 💥 Cada meteoro abre uma cratera de 3×3. Ver `splash`.
-    splash: 1,
+    /**
+     * 💥 **Cratera de 5×5** (raio 2). Era 3×3.
+     *
+     * O dono, jogando: *"os meteoros não estão pegando direto nos monstros…
+     * são bem grandes mas parece que acertam somente um pequeno ponto ao
+     * tocar o solo"*. E ele está descrevendo uma incoerência real: a rocha
+     * tem 46 px de raio e o estouro cobre ~4 tiles de largura em tela, mas o
+     * dano pegava 3×3. O olho promete mais do que a regra entrega.
+     *
+     * 🔴 **E isto sobe o dano em grupo de novo.** Com 5×5, um bando dentro da
+     * área leva praticamente TODOS os 18 meteoros, cada um. O `power`
+     * continua intocado de propósito — é o botão do dono. Ver o teste do
+     * respingo, que é onde a conta está escrita.
+     */
+    splash: 2,
     // 🔴 3 s de conjuração: o preço da maior magia do jogo é ficar parado e
     // interrompível. Sem isso ela não teria contrajogo nenhum.
     castMs: 3000,
@@ -1926,36 +1957,35 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     },
     // 🌬️ Um tile por pulso, para longe do centro. Ver `empurraPorPulso`.
     empurraPorPulso: 1,
+    // ❄️ O terceiro acerto é que rola o congelamento. Ver `congelaEmAcertos`.
+    congelaEmAcertos: 3,
     applies: {
       id: 'freeze',
       /**
-       * 🔴 **3,3 % → 5 %, e o número do documento continua sendo respeitado.**
+       * ❄️ **50 % → 100 %, rolados NO TERCEIRO ACERTO** (dono, 11/09: *"quero o
+       * comportamento do RO"*). Ver `congelaEmAcertos`.
        *
-       * O `DD-SOR-012` fixa *"8–12 % de chance por impacto"* e diz por quê, na
-       * mesma frase: *"por isso a Nevasca foi rebalanceada de 25 % para 8–12 %"*.
-       * O que ele está fixando é o quanto a Nevasca congela AO LONGO da
-       * tempestade — a porcentagem por impacto era o jeito de dizer isso quando
-       * o pulso era de 1 s.
+       * 🔴 **Isto NÃO é a chance por pulso de antes.** A rolagem acontece uma
+       * vez por tempestade, no terceiro pulso que o alvo levar — e quem congela
+       * fica imune ao resto dela. Comparando com o que o `DD-SOR-012` produzia:
        *
-       * O pulso passou para 400 ms em 11/09, e manter os 12 % literais teria
-       * sido um buff enorme e silencioso:
+       * | | antes (chance por pulso) | agora (RO) |
+       * |---|---|---|
+       * | Lv.1  | 39 % dos usos | 50 % |
+       * | Lv.10 | 78 % dos usos | 100 % |
        *
-       * | | pulsos | por pulso | ACUMULADO |
-       * |---|---|---|---|
-       * | Lv.1 antes | 6 | 8 % | 39 % |
-       * | Lv.1 com 8 % literal | 15 | 8 % | **71 %** |
-       * | Lv.1 compensado | 15 | 3,3 % | 39 % |
-       * | Lv.10 antes | 12 | 12 % | 78 % |
-       * | Lv.10 com 12 % literal | 30 | 12 % | **98 %** |
-       * | Lv.10 compensado | 30 | 5 % | 78 % |
+       * ⚠️ **É um aumento de controle, e ele foi pedido sabendo disso.** No Lv.10
+       * a Nevasca passa a congelar SEMPRE. O que o documento queria evitar era a
+       * Nevasca "de 25 %" que congelava cedo e repetidamente; aqui o gelo vem uma
+       * vez só, depois de 1,2 s dentro da tempestade, e o alvo para de apanhar
+       * dela — o dano cai em troca do controle.
        *
-       * ⚠️ **Seguir a letra teria contrariado o documento**, que existe para a
-       * Nevasca não ser controle garantido. Seguir o resultado o preserva. Se um
-       * dia o pulso mudar de novo, estes dois números mudam junto — é a mesma
-       * conta, e ela está aqui em cima.
+       * ✅ E o combo do `DD-SOR-012` fica intacto: quem quebra o gelo é OUTRA
+       * fonte de dano (*"prepara Meteoro → impacto quebra o gelo"*), porque a
+       * Nevasca deixou de bater em quem congelou.
        */
-      chanceAtLv1: 0.033,
-      chanceAtLv10: 0.05,
+      chanceAtLv1: 0.5,
+      chanceAtLv10: 1.0,
       durationAtLv1: 10000,
       durationAtLv10: 10000,
     },

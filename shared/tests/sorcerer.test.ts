@@ -186,46 +186,62 @@ test('a Ice Wall é a ÚNICA magia que bloqueia passagem', () => {
   }
 });
 
-test('DD-SOR-012: o gelo dura 10 s, e a Nevasca congela ~39 % a ~78 % por uso', () => {
+test('❄️ Nevasca no modelo do RO: congela no 3º acerto, e o gelo dura 10 s', () => {
   /*
-   * Citação: *"CONGELAMENTO DURA ~10 SEGUNDOS… por isso a Nevasca foi
-   * rebalanceada de 25 % para 8–12 % de chance por impacto."*
+   * 🔴 **A REGRA DE CONGELAR MUDOU DE MODELO EM 11/09**, a pedido do dono
+   * (*"quero o comportamento do RO"*), e este teste guarda as três peças que
+   * fazem o modelo funcionar JUNTAS. Tirar qualquer uma quebra as outras.
    *
-   * 🔴 **Este teste travava os 8–12 % literais, e passou a travar o ACUMULADO.**
-   * A razão está na própria citação: o documento fixa a porcentagem por impacto
-   * PARA limitar o quanto a Nevasca congela ao longo da tempestade — a segunda
-   * metade da frase diz o porquê. Enquanto o pulso era de 1 s, as duas coisas
-   * eram a mesma; quando ele foi para 400 ms (11/09), deixaram de ser.
+   * Antes: uma rolagem baixa (8–12 %) a CADA pulso, do `DD-SOR-012`.
+   * Agora: uma rolagem alta (50–100 %) UMA VEZ, no terceiro acerto.
    *
-   * Com os 12 % literais e 30 pulsos, o Lv.10 congelaria em 98 % dos usos —
-   * controle garantido, exatamente o que a correção de 25 % veio impedir.
-   * Manter a LETRA teria contrariado o documento; manter o RESULTADO o preserva.
+   * | | antes | agora |
+   * |---|---|---|
+   * | Lv.1  | 39 % dos usos | 50 % |
+   * | Lv.10 | 78 % dos usos | 100 % |
    *
-   * ⚠️ Por isso a conta é feita aqui, e não copiada: se o pulso mudar de novo,
-   * este teste continua medindo a coisa certa.
+   * ⚠️ É mais controle, e foi pedido sabendo disso. O que o `DD-SOR-012` queria
+   * evitar era a Nevasca "de 25 %", que congelava cedo e REPETIDAMENTE; aqui o
+   * gelo vem uma vez, depois de 1,2 s dentro da tempestade, e o alvo para de
+   * levar dano dela — controle em troca de dano.
    */
   const n = SKILLS.blizzard;
-  const tick = n.ground?.tickMs ?? 1000;
 
-  const acumulado = (nivel: number): number => {
-    const pulsos = Math.floor(skillGroundDuration(n, nivel) / tick);
-    return 1 - (1 - skillConditionChance(n, nivel)) ** pulsos;
-  };
+  // 1. O acúmulo: três acertos antes de rolar.
+  assert.equal(n.congelaEmAcertos, 3);
 
-  // As faixas vêm do que os 8–12 % davam com o pulso de 1 s: 39 % e 78 %.
-  assert.ok(
-    Math.abs(acumulado(1) - 0.39) < 0.06,
-    `Lv.1 congela ${(acumulado(1) * 100).toFixed(0)} % dos usos, e o alvo é ~39 %`,
-  );
-  assert.ok(
-    Math.abs(acumulado(10) - 0.78) < 0.06,
-    `Lv.10 congela ${(acumulado(10) * 100).toFixed(0)} % dos usos, e o alvo é ~78 %`,
-  );
-  assert.ok(acumulado(10) > acumulado(1), 'congela mais com o nível');
+  // 2. A rolagem, que só acontece naquele acerto.
+  assert.ok(Math.abs(skillConditionChance(n, 1) - 0.5) < 1e-9);
+  assert.ok(Math.abs(skillConditionChance(n, 10) - 1) < 1e-9);
+
+  /*
+   * 3. 🔴 **E o gelo continua quebrando com dano.**
+   *
+   * Esta é a peça que parece contradizer as outras duas e não contradiz. O
+   * congelamento deste jogo quebra com dano, então a imunidade aos pulsos
+   * seguintes da MESMA tempestade (no servidor, `golpeDeArea`) não é enfeite do
+   * RO: é o que impede a Nevasca de descongelar o próprio alvo 400 ms depois.
+   *
+   * O combo do documento sobrevive inteiro — *"congela → abre distância →
+   * prepara Meteoro → impacto quebra o gelo"* —, porque quem quebra é OUTRA
+   * fonte de dano.
+   */
+  assert.equal(CONDITIONS.freeze.brokenByDamage, true);
 
   // O que o documento crava e ninguém mexeu: dez segundos de gelo.
   assert.equal(skillConditionDuration(n, 10), 10000);
   assert.equal(CONDITIONS.freeze.referenceDurationMs, 10000);
+
+  /*
+   * ⚠️ E o alvo tem de conseguir levar os três acertos ANTES de a tempestade
+   * acabar, senão a regra nunca dispara. Com pulso de 400 ms são 1,2 s — folga
+   * larga mesmo no Lv.1.
+   */
+  const tick = n.ground?.tickMs ?? 1000;
+  assert.ok(
+    tick * n.congelaEmAcertos! < skillGroundDuration(n, 1),
+    'no Lv.1 a tempestade acaba antes do terceiro acerto — a regra nunca roda',
+  );
 });
 
 test('o combo do doc funciona: dano quebra o Congelamento, não a Petrificação', () => {
@@ -453,7 +469,7 @@ test('🌠 a Chuva de Meteoros: o que o dono mudou do documento, e o quanto', ()
   assert.equal(c.applies?.id, 'burn');
 });
 
-test('💥 cada meteoro respinga em 3×3 — e isso MULTIPLICA o dano em grupo', () => {
+test('💥 cada meteoro respinga numa CRATERA — e isso multiplica o dano em grupo', () => {
   /*
    * Pedido do dono em 11/09, jogando: *"se ele pegar em dois monstros juntos,
    * ambos devem tomar dano dele, afinal de contas é uma magia em área."*
@@ -465,7 +481,17 @@ test('💥 cada meteoro respinga em 3×3 — e isso MULTIPLICA o dano em grupo',
    * começa por aqui, não pelo `power`.
    */
   const c = SKILLS.meteor_storm;
-  assert.equal(c.splash, 1, 'respingo de 1 tile = cratera 3×3');
+  /*
+   * ⚠️ **Faixa, e não número cravado.** O respingo já foi 1 (3×3) e é 2 (5×5),
+   * porque o dono ajusta isso olhando a tela — a rocha desenhada cobre ~4 tiles
+   * e o dano tem de bater com o que o olho promete. O que o teste protege é o
+   * teto: acima de 3 a cratera cobre quase toda a área da tempestade e o
+   * sorteio de posições deixa de significar coisa alguma.
+   */
+  assert.ok(
+    c.splash !== undefined && c.splash >= 1 && c.splash <= 3,
+    `respingo fora da faixa: ${c.splash}`,
+  );
 
   /*
    * ⚠️ **`splash` e `range` são coisas diferentes**, e confundi-los é o erro

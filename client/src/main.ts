@@ -9118,7 +9118,12 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
    */
   const castBar = new Graphics();
   castBar.visible = false;
-  castBar.y = baseRotulo - 17;
+  /*
+   * ⚠️ **−26, e o número acompanha a ALTURA da barra.** Ela cresceu de 12 para
+   * 20 px; mantendo o −17, a borda de baixo invadiria o nome do personagem —
+   * que é o que o dono pediu para não acontecer.
+   */
+  castBar.y = baseRotulo - 26;
   c.addChild(castBar);
 
   /**
@@ -9130,7 +9135,15 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   const castName = new Text({
     text: '',
     style: {
-      fill: 0xf0e6ff, fontSize: 9, fontFamily: 'Segoe UI, sans-serif',
+      /*
+       * ⚠️ **14, contra os 9 de antes.** O dono: *"aumenta o tamanho do nome da
+       * magia e a HUD de carregamento dela, está muito pequeno no jogo"*. Os 9
+       * vinham de um rótulo que se queria discreto ao lado do nome do
+       * personagem; como barra única, ele É o elemento e tem de ser lido de
+       * longe. Fica MAIOR que o nome do personagem (11), e é o certo: o nome se
+       * lê o tempo todo, a conjuração é um evento de segundos.
+       */
+      fill: 0xf0e6ff, fontSize: 14, fontFamily: 'Segoe UI, sans-serif',
     },
   });
   castName.anchor.set(0.5, 0.5);
@@ -9139,6 +9152,20 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
 
   /** Fração 0..1 da conjuração em curso, ou `null` quando não há. */
   let castFrac: number | null = null;
+  /**
+   * 🎭 **Onde o gesto de conjurar PARA enquanto carrega**, como fração da folha.
+   *
+   * O dono descreveu o comportamento exato: *"começa a conjurar — animação vai
+   * até 50 % e para — termina de conjurar — animação vai até 100 % e volta para
+   * idle"*. Metade é o ponto natural: nas folhas do autosprite é ali que os
+   * braços estão recolhidos, antes do arremesso.
+   */
+  const POSE_CARREGANDO = 0.5;
+  /**
+   * Quando verdadeiro, o próximo `cast` RETOMA de onde a pose parou em vez de
+   * recomeçar do zero. Ver `setCasting(null)`.
+   */
+  let retomaCast = false;
 
   // Movimento: mesma interpolação linear sincronizada à cadência do servidor.
   let fromX = e.tileX * TS;
@@ -9247,7 +9274,7 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
       if (a) {
         const f = framesFor(dir, a);
         sprite.textures = f;
-        sprite.gotoAndStop(Math.floor(f.length / 2));
+        sprite.gotoAndStop(Math.floor(f.length * POSE_CARREGANDO));
         aplicaCamadas('attack', 0, false, false);
         return;
       }
@@ -9262,7 +9289,16 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
         const speed = oneShot === 'death' ? 0.14 : 0.22;
         sprite.animationSpeed = speed;
         sprite.loop = false;
-        sprite.gotoAndPlay(0);
+        /*
+         * 🎭 **RETOMA do meio quando o gesto já estava segurado.**
+         *
+         * Sem isto, soltar a magia rebobinava: o personagem recolhia os braços
+         * de novo antes de arremessar, e o gesto de três segundos terminava com
+         * um solavanco para trás. Ver `retomaCast`.
+         */
+        const inicio = retomaCast ? Math.floor(sprite.textures.length * POSE_CARREGANDO) : 0;
+        retomaCast = false;
+        sprite.gotoAndPlay(inicio);
         // ⚠️ `hurt` usa a pose: levar dano não tem arte de arma própria, e a
         // alternativa (sumir com a espada ao apanhar) seria pior que repeti-la.
         aplicaCamadas(
@@ -9314,6 +9350,16 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   function startOneShot(k: OneShot): void {
     if (oneShot === 'death') return;
     if (k === 'hurt' && (oneShot === 'attack' || oneShot === 'cast')) return;
+    /*
+     * 🎭 **Um `cast` em andamento não recomeça.** Quem solta a magia já está
+     * completando o gesto desde a pose segurada; o `hit` que chega logo depois
+     * mandaria o corpo de volta ao quadro zero, e o arremesso apareceria duas
+     * vezes.
+     *
+     * ⚠️ Vale só para `cast`. Golpe repetido DEVE reiniciar — é assim que o
+     * ataque rápido se lê como vários golpes e não como um só.
+     */
+    if (k === 'cast' && oneShot === 'cast') return;
     if (!oneShotAnim(k)) return; // sem folha: o chamador cai no efeito antigo
     oneShot = k;
     applyState();
@@ -9520,8 +9566,26 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     castName.visible = frac !== null;
     if (nome !== undefined && castName.text !== nome) castName.text = nome;
     if (frac === null) {
-      // Solta a pose: `applyState` devolve o corpo a andar/parado.
-      if (mudou) applyState();
+      /*
+       * 🎭 **Soltar a pose COMPLETA o gesto, não o cancela.**
+       *
+       * Quem estava segurando a pose lança agora: o corpo tem de terminar o
+       * movimento de onde parou e só então voltar ao repouso. Devolver direto
+       * ao `applyState` mandaria o personagem para o idle no mesmo quadro em
+       * que a magia sai — e a magia sairia de um boneco parado.
+       *
+       * ⚠️ Só quando havia folha de conjuração para segurar. Sem ela nada foi
+       * segurado, e não há o que completar.
+       */
+      if (mudou) {
+        const tinhaPose = !!(opts.castAnim ?? opts.attackAnim);
+        if (tinhaPose && !oneShot) {
+          retomaCast = true;
+          startOneShot(opts.castAnim ? 'cast' : 'attack');
+        } else {
+          applyState();
+        }
+      }
       return;
     }
     if (mudou) applyState();
@@ -9546,8 +9610,9 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
      * `castName.width` só é confiável depois de o texto estar posto — por isso
      * o nome é atribuído no topo desta função.
      */
-    const L = Math.max(56, Math.ceil(castName.width) + 12);
-    const H = 12;
+    // ⚠️ Cresceu junto com a fonte: 80 de piso e 20 de altura, contra 56 e 12.
+    const L = Math.max(80, Math.ceil(castName.width) + 18);
+    const H = 20;
     const x0 = TS / 2 - L / 2;
     castBar.clear();
     castBar.roundRect(x0, 0, L, H, 3).fill({ color: 0x14110c, alpha: 0.92 });
