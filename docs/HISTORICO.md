@@ -9,6 +9,125 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-11 — Munição, aljava, e a Chuva de Meteoros virar chuva
+
+**Onde mora:** `arrow`/`bolt` e `quiver` em `shared/src/items.ts` · `ammo`/`splash`/
+`queda`/`quedaFx`/`quedaMs` em `SkillDef` · `gastaMunicao` e `tickGolpesPendentes` em
+`server/src/index.ts` · `CORES_RISCO`/`FORMA_RISCO`/`setCasting` em `client/src/main.ts`
+
+### 🏹 Munição: a flecha vira item, e a aljava vira slot
+
+🔴 **A munição mora na ARMA, não em `attackType`.** É tentador dizer "todo ataque à
+distância gasta flecha", e está errado: a **lança** tem alcance 2, logo é `ranged`, e é
+arma de haste — pela regra fácil ela comeria a aljava do jogador. Quem declara é
+`WEAPON_IDENTITY.ammo`: `arrow` no arco, `bolt` na besta.
+
+⚠️ **O desarmado não gasta.** A flecha pertence ao arco; sem isso um arqueiro
+recém-criado e sem ouro ficaria sem poder atacar.
+
+**A aljava** tem duas medidas que são coisas diferentes: `capacity: 4` são os SLOTS
+(quantos tipos lado a lado) e `ammoMax: 10000` são as UNIDADES somadas. Uma por vez —
+"precisar de um segundo quiver" é carregar outro na mochila e trocar. Dois slots
+dobrariam o teto de graça, e aí o teto não é teto.
+
+⚠️ **Aljava com munição dentro não sai.** Despejar na mochila precisaria de quatro slots
+livres, e sem eles a munição sumiria ou a troca falharia no meio.
+
+✅ **Persistência sem migração:** `character_item.container` já era TEXT com três valores;
+a aljava é o quarto.
+
+🔥 **Dez munições** (comum + fogo, gelo, sagrada, sombria, nas duas famílias) e **nenhuma
+tabela de bônus nova**: o elemento vira o `damageType` do golpe e a resistência do
+monstro decide o resto — a mesma conta da magia.
+
+⚠️ **Armadilha que quase passou:** `gastaMunicao` voltou a devolver objeto (para carregar
+o elemento), e `if (!gastaMunicao(...))` compila, roda e **nunca bloqueia** — objeto é
+sempre verdadeiro. O arqueiro atiraria sem flecha e nada acusaria.
+
+### 🌠 A Chuva de Meteoros: sete rodadas de teste em tela
+
+O GDD dizia *"Lv.10: 10 meteoros, área grande, ~4 s"*, e os ~4 s **nunca tinham sido
+implementados**: `durationMs` era 0 e os dez impactos resolviam no mesmo tique.
+
+**O estado final**, depois de sete rodadas de "testei, agora…":
+
+| | |
+|---|---|
+| contagem | 6 → **18** no Lv.10 |
+| janela | 2 s → **5,2 s** |
+| cadência | ~290 ms entre meteoros |
+| queda | **520 ms**, reta, rocha de raio 46 |
+| respingo | **3×3** por impacto |
+
+🔴 **Dois overrides conscientes do documento**, os dois do dono depois de jogar (contagem
+e duração). Os testes deixaram de travar esses números e passaram a travar a **faixa** do
+desvio — mais que o documento, sim; o dobro, não.
+
+🔴 **Os meteoros caem em PONTOS SORTEADOS, não em criaturas.** O sorteio era de alvo, e o
+efeito em tela era o oposto do `DD-SOR-010`: meteoro teleguiado. A fila de impactos
+passou a ter duas maneiras de uma coisa cair — **perseguindo** (Fire Bolt, Cold Bolt) e
+**em ponto fixo** (a Chuva). Consequência: a magia pode ser lançada em terreno vazio.
+
+⚠️ **Sorteio em QUADRADO** (chebyshev), como o alcance. Ângulo+raio daria distribuição
+circular numa área quadrada: concentraria no meio e nunca acertaria as quinas.
+
+⚠️ **O respingo multiplica o dano em grupo**, e está anotado onde se mexe nele: antes eram
+dez golpes distribuídos entre alvos sorteados; agora um bando colado leva perto de dezoito
+golpes cada um. O `power` não foi mexido — balancear é decisão de dono.
+
+### 🔴 O bug de três dias: toda magia de área desenhava no conjurador
+
+Em 08/09 o centro da magia de área passou a ser a MIRA. O `fx` continuou saindo em
+`player.tileX/tileY`, e ninguém corrigiu junto porque `cx`/`cy` viviam **dentro** do bloco
+que monta os alvos — fora dele, a única posição à mão era a do jogador.
+
+Por três dias o estouro foi desenhado em cima do conjurador enquanto o dano caía onde ele
+apontou. Passou despercebido porque estouro dura meio segundo; o círculo da tempestade
+durava quatro, e aí apareceu.
+
+⚠️ **A lição:** eu tinha provado, no dia anterior, que o caster não podia ser ATINGIDO — e
+estava certo, em três níveis. Ele não reclamou de dano, reclamou de DESENHO. Responder a
+pergunta que não foi feita esconde a que foi.
+
+### 🧪 O modo "risco": desenho por código no lugar da folha
+
+Proposta trazida pelo dono, implementada atrás de **um interruptor só** (`QUEDA_RISCO`) e
+aprovada em tela no mesmo dia. A descida virou um traço desenhado por código; a folha
+entra só no ESTOURO.
+
+⚠️ **A fração do impacto muda com a arte** — na folha do Fire Bolt a descida são 14 de 24
+quadros, na do Cold Bolt 18 de 30. Cada folha declara a sua em `fracaoQueda`; cortar no
+lugar errado mostra a bola caindo duas vezes ou come o começo da explosão.
+
+⚠️ **O tremor é somado DEPOIS do arredondamento da câmera.** A suavização persegue o
+herói, e empurrar o solavanco para dentro dela faria a câmera "aprender" o tremor.
+
+### ✨ Conjuração visível a todos
+
+O `casting` ia só para quem conjurava, e virou `broadcastFloor` com `casterId`. Não é
+enfeite: os três segundos parado são a janela em que a magia pode ser **interrompida**, e
+sem ver quem conjura o adversário não tem como reagir.
+
+⚠️ **A pilha de rótulos cresce PARA CIMA**, e o cálculo importa: `nlabel` tem âncora
+embaixo, então ocupa de `base − 11` até `base`. A barra de conjuração estava em `base − 7`
+— dentro do nome. Ordem final: vida (`base+6`), nome (`base`), barra (`base−15`), nome da
+magia (`base−17`).
+
+⚠️ **Apagar o conjurador do mapa NÃO limpa o sprite.** O laço por quadro só mexe em quem
+está no mapa; tirar de lá sem avisar a entidade deixava aura, barra e **pose** para sempre
+— e a pose congelava o personagem no gesto.
+
+### 📌 PENDENTE que este dia deixou
+
+- **O dano da Chuva precisa de uma passada.** Contagem (10→18) e respingo (1→3×3) entraram
+  no mesmo dia e se multiplicam. No Lv.10 o poder total por alvo foi de 10,4 para 18,7,
+  contra um bando colado. `DD-DRU-021` mede a suprema do Druida contra esse número.
+- **A diagonal do meteoro foi tentada e recusada** no mesmo dia. Não voltar como ideia nova.
+- **O passo do personagem**: continua o pendente de 10/09 — se as cardinais ainda parecerem
+  lentas contra o "para baixo", medir com `?passos=1` antes de mexer.
+
+---
+
 ## 2026-09-10 — Fire Bolt e Cold Bolt: a queda do céu vira mecânica
 
 **Onde mora:** `queda` em `SkillDef` (`shared/src/skills.ts`) · `ATRASO_IMPACTO_MS`
