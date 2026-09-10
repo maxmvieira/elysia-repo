@@ -9,11 +9,11 @@ decisões de design ficaram travadas por teste.
 
 ---
 
-## 2026-09-11 — Munição, aljava, e a Chuva de Meteoros virar chuva
+## 2026-09-11 — Munição, aljava, e as duas tempestades virarem bombardeio
 
 **Onde mora:** `arrow`/`bolt` e `quiver` em `shared/src/items.ts` · `ammo`/`splash`/
-`queda`/`quedaFx`/`quedaMs` em `SkillDef` · `gastaMunicao` e `tickGolpesPendentes` em
-`server/src/index.ts` · `CORES_RISCO`/`FORMA_RISCO`/`setCasting` em `client/src/main.ts`
+`queda`/`quedaFx`/`quedaMs`/`castMsAtLv10` em `SkillDef` · `gastaMunicao`, `Tempestade` e
+`tickGolpesPendentes` em `server/src/index.ts` · `CORES_RISCO`/`FORMA_RISCO`/`setCasting` em `client/src/main.ts`
 
 ### 🏹 Munição: a flecha vira item, e a aljava vira slot
 
@@ -117,12 +117,76 @@ magia (`base−17`).
 está no mapa; tirar de lá sem avisar a entidade deixava aura, barra e **pose** para sempre
 — e a pose congelava o personagem no gesto.
 
+### ❄️ A Nevasca deixa de ser área de chão e vira bombardeio
+
+O dono trouxe a ficha do Ragnarok inteira e uma captura de tela: *"gostaria de algo mais
+parecido com isso"* — cristais de gelo individuais caindo, não um vórtice girando.
+
+🔴 **A ficha descreve bombardeio, e não área.** *"Cria uma intensa tempestade de bolas de
+neve por 4,5 s numa área de 9×9… por caírem em células ALEATÓRIAS da área"*. Área de chão
+dá dano uniforme em todo mundo dentro do quadrado, que é justamente o que a ficha **não**
+diz. Então a Nevasca passou a usar a mesma máquina da Chuva de Meteoros: `queda`, pontos
+sorteados, um `fx` por bola.
+
+| | |
+|---|---|
+| área | 7×7 → **9×9** (`range: 4`), transbordando a **11×11** pelo respingo |
+| bolas | **10**, sempre — o que cresce é o dano de cada uma |
+| cadência | uma a cada **450 ms** (4,5 s ÷ 10) |
+| dano | **120 % → 570 % de ATQM**, e o número da ficha é o TOTAL das dez |
+| conjuração | 2,5 s → **6,3 s** |
+| congelar | **70 % → 25 %** |
+
+⚠️ **Os 570 % são de dez bolas, não de uma.** `power` neste motor sempre foi por impacto,
+então o valor gravado é 0,57. Ler a ficha ao pé da letra daria 5,7 por bola e 57 de total —
+dez vezes a suprema de fogo.
+
+🔴 **A conjuração CRESCE com o nível, ao contrário de toda outra magia do jogo.** É de
+propósito e é da ficha: a Nevasca se paga com tempo parado e interrompível, e quanto mais
+forte, mais tempo. Entrou como `castMsAtLv10` — a única coisa no cálculo de conjuração que
+olha o nível da habilidade.
+
+⚠️ A base ficou nos 2,5 s que ela já tinha, e não nos 4,5 da ficha: 4,5 s **no Lv.1**
+tornaria a magia inconjurável na prática, e a ficha pressupõe redutores de cast que aqui
+saem da Destreza.
+
+🔴 **E a chance de congelar CAI com o nível.** Parece erro de digitação e não é: o Lv.1 é
+magia de PRENDER (70 %, dano pequeno) e o Lv.10 é magia de MATAR (570 %, 25 %). ✅ Isso
+resolve sozinho a tensão com o `DD-SOR-012`, que existia para a Nevasca não ser controle
+garantido — no nível máximo ela quase não congela.
+
+**🔴 O defeito que a mudança criou, e que quase passou.** `empurraPorPulso` e
+`congelaEmAcertos` eram lidos **num lugar só**: na criação da área de chão. Ao virar queda,
+os dois campos continuaram na ficha, bonitos, e pararam de fazer efeito — a magia perdeu
+empurrão e congelamento sem um erro de compilação, sem um teste vermelho e sem nada em tela
+dizendo o que sumiu. As duas regras foram religadas na fila de impactos (`Tempestade`), e
+existe teste travando que quem declara esses campos esteja num modo que o servidor lê.
+
+⚠️ **O estado é UM objeto por conjuração, apontado pelas dez bolas.** *"O terceiro acerto
+rola o congelamento"* precisa de um contador que atravesse as bolas; se cada uma levasse o
+seu, o contador nunca passaria de um.
+
+⚠️ **Quem congelou fica imune ao resto da tempestade** — obrigatório, não estético: aqui
+dano quebra congelamento, então sem a imunidade a bola seguinte descongelaria o alvo 450 ms
+depois de congelá-lo.
+
+⚠️ **O empurrão agora sai do ponto onde AQUELA bola estourou**, e não do centro da área.
+Com as bolas caindo espalhadas, empurrar todo mundo para longe de um centro imaginário
+desmentiria o que a tela mostra.
+
+✅ **Saíram 44 linhas de cliente**: o vórtice desenhado por código, o mapa `vortices`, o
+laço de giro por quadro e o carregador solto da folha. A folha da nevasca (36 quadros)
+continua, agora como o estouro de cada bola.
+
 ### 📌 PENDENTE que este dia deixou
 
 - **O dano da Chuva precisa de uma passada.** Contagem (10→18) e respingo (1→3×3) entraram
   no mesmo dia e se multiplicam. No Lv.10 o poder total por alvo foi de 10,4 para 18,7,
   contra um bando colado. `DD-DRU-021` mede a suprema do Druida contra esse número.
 - **A diagonal do meteoro foi tentada e recusada** no mesmo dia. Não voltar como ideia nova.
+- **A dissipação da Nevasca (quadros 27–35) não toca.** A folha traz o fim da tempestade, e
+  a bola some no estouro. Só volta a fazer sentido se a tempestade tiver um fim visível.
+- **O spellcasting feminino não existe.** O autosprite só gerou o masculino.
 - **O passo do personagem**: continua o pendente de 10/09 — se as cardinais ainda parecerem
   lentas contra o "para baixo", medir com `?passos=1` antes de mexer.
 

@@ -3489,6 +3489,37 @@ const GCD_MAGIA_MS = 1000;
  * bolt passa mais de um segundo: a criatura pode morrer, o jogador pode morrer
  * ou trocar de andar. Nada disso pode virar dano fantasma.
  */
+/**
+ * ❄️ **O que as bolas de uma MESMA conjuração sabem umas das outras.**
+ *
+ * 🔴 Existe porque duas regras da Nevasca não cabem numa bola sozinha: *"o
+ * terceiro acerto rola o congelamento"* precisa de um contador por alvo que
+ * atravesse as dez bolas, e *"quem congelou fica imune ao resto da tempestade"*
+ * precisa que a bola seguinte saiba o que a anterior fez.
+ *
+ * ⚠️ **É um objeto por conjuração, apontado por todos os pendentes dela.** Não
+ * é cópia: se cada bola levasse o seu, o contador nunca passaria de um e o
+ * terceiro acerto jamais aconteceria.
+ *
+ * ⚠️ E a chance e a duração já vêm RESOLVIDAS em número, no lançamento, pelo
+ * mesmo motivo de `poderBase`: um nível que mudasse no meio da tempestade não
+ * pode fazer as bolas dela discordarem entre si.
+ *
+ * Isto é o gêmeo do que `GroundArea` guarda em `acertos`/`congelados` — a
+ * Nevasca era área de chão até 11/09 e levou as duas regras consigo na mudança.
+ */
+interface Tempestade {
+  /** Tiles empurrados por bola. Ausente = a queda não empurra. */
+  empurra?: number;
+  /** Em que acerto a condição é rolada. Ausente = rola a cada acerto. */
+  congelaEmAcertos?: number;
+  /** Quantos acertos DESTA tempestade cada alvo já levou. */
+  acertos: Map<string, number>;
+  /** Quem já congelou nela — imune ao resto. */
+  congelados: Set<string>;
+  condicao?: { id: ConditionId; chance: number; durationMs: number; power?: number };
+}
+
 interface GolpePendente {
   playerId: string;
   creatureId: string;
@@ -3531,6 +3562,13 @@ interface GolpePendente {
    */
   alvoX?: number;
   alvoY?: number;
+  /**
+   * ❄️ O estado que esta bola divide com as irmãs. Ver `Tempestade`.
+   *
+   * Ausente na esmagadora maioria das quedas: o Fire Bolt e a Chuva não
+   * empurram nem congelam, e para elas cada impacto é independente.
+   */
+  tempestade?: Tempestade;
 }
 const golpesPendentes: GolpePendente[] = [];
 
@@ -3692,9 +3730,54 @@ function tickGolpesPendentes(now: number): void {
      * dezenas de vezes.
      */
     atingidos.forEach((v, k) => {
+      const t = g.tempestade;
+      /*
+       * ❄️ **QUEM JÁ CONGELOU NESTA TEMPESTADE NÃO LEVA MAIS NADA DELA.**
+       *
+       * Sai ANTES de tudo: sem dano, sem empurrão, sem nova rolagem. É a regra
+       * do Ragnarok, e aqui ela é OBRIGATÓRIA e não estética — o congelamento
+       * deste jogo quebra com dano (`DD-SOR-012`), então sem a imunidade a bola
+       * seguinte descongelaria o alvo 450 ms depois de congelá-lo, e o gelo
+       * nunca duraria os 10 s prometidos.
+       */
+      if (t?.congelados.has(v.id)) return;
+      /*
+       * 🌬️ **O EMPURRÃO VEM ANTES DO DANO, e a ordem importa.** Depois dele,
+       * uma criatura que morresse no impacto ainda seria empurrada — e o corpo
+       * apareceria um tile ao lado de onde o jogador viu a bola estourar.
+       */
+      if (t?.empurra) empurraDoCentro(px, py, v, t.empurra);
       aplicaGolpeDeMagia(
         player, def, g.nivel, v, g.poderBase, g.critChance, g.critMult, now,
         g.gesto && k === 0,
+      );
+      if (!t?.condicao || !v.alive) return;
+      /*
+       * ❄️ **ACÚMULO: a condição é rolada UMA VEZ, no acerto de número N.**
+       *
+       * ⚠️ O contador conta os acertos que o alvo LEVOU, e não as bolas que
+       * caíram: as bolas caem em pontos sorteados, então dois monstros dentro
+       * da mesma tempestade chegam ao terceiro acerto em momentos diferentes —
+       * e é o justo.
+       *
+       * ⚠️ Falhar a rolagem NÃO reinicia o contador. Ele passa de N e a
+       * condição não é rolada de novo nesta tempestade — uma chance por alvo,
+       * por tempestade. Reiniciar transformaria os 70 % do Lv.1 numa garantia
+       * disfarçada em dez tentativas.
+       */
+      if (t.congelaEmAcertos !== undefined) {
+        const n = (t.acertos.get(v.id) ?? 0) + 1;
+        t.acertos.set(v.id, n);
+        if (n !== t.congelaEmAcertos || Math.random() >= t.condicao.chance) return;
+        applyConditionTo(
+          v, t.condicao.id, 1, t.condicao.durationMs, now, t.condicao.power, player.id,
+        );
+        t.congelados.add(v.id);
+        return;
+      }
+      applyConditionTo(
+        v, t.condicao.id, t.condicao.chance, t.condicao.durationMs, now,
+        t.condicao.power, player.id,
       );
     });
   }
@@ -4378,6 +4461,33 @@ function executeSpell(
    */
   if (emQueda && def.shape === 'area') {
     const pontos = pontosDaArea(golpes);
+    /*
+     * ❄️ **UM estado para as `golpes` bolas desta conjuração.** Ver `Tempestade`.
+     *
+     * ⚠️ Criado FORA do laço de propósito — é a referência compartilhada que faz
+     * o contador de acertos somar entre bolas. Dentro do laço seriam dez
+     * contadores zerados e o terceiro acerto nunca chegaria.
+     */
+    const tempestade: Tempestade | undefined
+      = def.empurraPorPulso !== undefined || def.congelaEmAcertos !== undefined
+        ? {
+          ...(def.empurraPorPulso !== undefined ? { empurra: def.empurraPorPulso } : {}),
+          ...(def.congelaEmAcertos !== undefined
+            ? { congelaEmAcertos: def.congelaEmAcertos } : {}),
+          acertos: new Map<string, number>(),
+          congelados: new Set<string>(),
+          ...(def.applies
+            ? {
+              condicao: {
+                id: def.applies.id,
+                chance: skillConditionChance(def, nivel),
+                durationMs: skillConditionDuration(def, nivel),
+                power: def.applies.power,
+              },
+            }
+            : {}),
+        }
+        : undefined;
     for (let i = 0; i < golpes; i++) {
       const ponto = pontos[i] ?? { x: cx, y: cy };
       const fxEm = now + i * passoDaQueda();
@@ -4389,6 +4499,7 @@ function executeSpell(
         gesto: i === 0,
         quando: fxEm + (def.quedaMs ?? ATRASO_IMPACTO_MS),
         alvoX: ponto.x, alvoY: ponto.y,
+        ...(tempestade ? { tempestade } : {}),
       });
     }
   } else {
@@ -4487,14 +4598,20 @@ function aplicaCondicaoDaSkill(
 }
 
 /**
- * 🌬️ Empurra a criatura para longe do CENTRO de uma área, se houver para onde.
+ * 🌬️ Empurra a criatura para longe de um PONTO, se houver para onde.
  *
- * ⚠️ Quem está exatamente no centro não tem direção para ir — e aí sorteia uma,
+ * ⚠️ Quem está exatamente no ponto não tem direção para ir — e aí sorteia uma,
  * em vez de ficar imune ao empurrão por sorte de posição.
+ *
+ * ⚠️ **O ponto não é sempre o mesmo tipo de coisa.** Na área de chão é o centro
+ * dela (a tempestade sopra para fora de si). Na queda é o lugar onde AQUELA
+ * bola estourou — e por isso recebe coordenadas soltas em vez da área: com as
+ * bolas caindo espalhadas, empurrar todo mundo para longe de um centro
+ * imaginário desmentiria o que a tela mostra.
  */
-function empurraDoCentro(a: GroundArea, c: Creature, tiles: number): void {
-  let dx = Math.sign(c.tileX - a.x);
-  let dy = Math.sign(c.tileY - a.y);
+function empurraDoCentro(cx: number, cy: number, c: Creature, tiles: number): void {
+  let dx = Math.sign(c.tileX - cx);
+  let dy = Math.sign(c.tileY - cy);
   if (dx === 0 && dy === 0) {
     const eixo = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(Math.random() * 4)]!;
     dx = eixo[0]!;
@@ -4981,7 +5098,7 @@ function golpeDeArea(dono: Player, a: GroundArea, c: Creature, now: number): voi
    * ⚠️ Empurra a partir do CENTRO DA ÁREA, não de quem lançou: a tempestade
    * sopra para fora dela mesma, e o mago pode estar em qualquer lugar.
    */
-  if (a.empurraPorPulso) empurraDoCentro(a, c, a.empurraPorPulso);
+  if (a.empurraPorPulso) empurraDoCentro(a.x, a.y, c, a.empurraPorPulso);
   damageCreature(dono, c, dano, false, now, a.damageType ?? 'physical');
   if (!a.condition) return;
 

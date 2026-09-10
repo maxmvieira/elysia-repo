@@ -210,9 +210,24 @@ test('❄️ Nevasca no modelo do RO: congela no 3º acerto, e o gelo dura 10 s'
   // 1. O acúmulo: três acertos antes de rolar.
   assert.equal(n.congelaEmAcertos, 3);
 
-  // 2. A rolagem, que só acontece naquele acerto.
-  assert.ok(Math.abs(skillConditionChance(n, 1) - 0.5) < 1e-9);
-  assert.ok(Math.abs(skillConditionChance(n, 10) - 1) < 1e-9);
+  /*
+   * 2. A rolagem, que só acontece naquele acerto — e ela CAI com o nível.
+   *
+   * 🔴 **70 % no Lv.1 e 25 % no Lv.10.** Parece erro e é a ficha do Ragnarok: a
+   * Nevasca troca controle por dano à medida que sobe. O Lv.1 é magia de
+   * PRENDER (dano pequeno, congela quase sempre) e o Lv.10 é magia de MATAR
+   * (570 % de ATQM, congela pouco). Quem quer congelar mantém a habilidade
+   * baixa — é decisão de build, e é o que dá duas leituras à mesma magia.
+   *
+   * ✅ E resolve sozinho a tensão com o `DD-SOR-012`, que existia para a Nevasca
+   * não ser controle garantido: no nível máximo ela quase não congela.
+   */
+  assert.ok(Math.abs(skillConditionChance(n, 1) - 0.70) < 1e-9);
+  assert.ok(Math.abs(skillConditionChance(n, 10) - 0.25) < 1e-9);
+  assert.ok(
+    skillConditionChance(n, 10) < skillConditionChance(n, 1),
+    'a chance de congelar CAI com o nível — ver a nota acima',
+  );
 
   /*
    * 3. 🔴 **E o gelo continua quebrando com dano.**
@@ -233,15 +248,45 @@ test('❄️ Nevasca no modelo do RO: congela no 3º acerto, e o gelo dura 10 s'
   assert.equal(CONDITIONS.freeze.referenceDurationMs, 10000);
 
   /*
-   * ⚠️ E o alvo tem de conseguir levar os três acertos ANTES de a tempestade
-   * acabar, senão a regra nunca dispara. Com pulso de 400 ms são 1,2 s — folga
-   * larga mesmo no Lv.1.
+   * ⚠️ A cadência agora sai da própria tempestade: dez bolas em 4,5 s dá uma a
+   * cada 450 ms, que é o número da ficha. E o alvo tem de conseguir levar três
+   * antes de ela acabar, senão a regra nunca dispara.
    */
-  const tick = n.ground?.tickMs ?? 1000;
+  const passo = n.durationMs / skillHits(n, 1);
+  assert.ok(Math.abs(passo - 450) < 1, `cadência de ${passo} ms, e a ficha diz 450`);
   assert.ok(
-    tick * n.congelaEmAcertos! < skillGroundDuration(n, 1),
-    'no Lv.1 a tempestade acaba antes do terceiro acerto — a regra nunca roda',
+    passo * n.congelaEmAcertos! < n.durationMs,
+    'a tempestade acaba antes do terceiro acerto — a regra nunca roda',
   );
+});
+
+test('🌬️ empurrão e acúmulo só existem em modo que o servidor LÊ', () => {
+  /*
+   * 🔴 **Este teste nasceu de um defeito real, em 11/09.**
+   *
+   * `empurraPorPulso` e `congelaEmAcertos` eram lidos num lugar só: na criação
+   * da área de chão. Quando a Nevasca deixou de ser área e virou queda, os dois
+   * campos continuaram na ficha, bonitos, e pararam de fazer efeito — a magia
+   * perdeu empurrão e congelamento sem UM erro de compilação, sem um teste
+   * vermelho, e sem nada na tela dizendo o que sumiu.
+   *
+   * ⚠️ O teste não prova que o servidor aplica os campos (isso ele não alcança
+   * daqui). Prova a única coisa que dá para provar da ficha: que a habilidade
+   * está num dos DOIS modos onde existe código para lê-los. Mover a magia para
+   * um terceiro modo — que é exatamente o que aconteceu — cai aqui.
+   */
+  for (const def of Object.values(SKILLS)) {
+    if (def.empurraPorPulso === undefined && def.congelaEmAcertos === undefined) continue;
+    assert.ok(
+      def.queda === true || def.kind === 'ground',
+      `${def.id} declara empurrão/acúmulo fora de queda e de área de chão — `
+      + 'os campos ficariam mortos',
+    );
+    // ⚠️ E o acúmulo sem condição nenhuma é um contador que não rola nada.
+    if (def.congelaEmAcertos !== undefined) {
+      assert.ok(def.applies, `${def.id}: acúmulo sem condição para rolar`);
+    }
+  }
 });
 
 test('o combo do doc funciona: dano quebra o Congelamento, não a Petrificação', () => {
@@ -398,7 +443,7 @@ test('🔴 magia que CAI DO CÉU: alvo único cadenciado, ou área com JANELA', 
   const caem = Object.values(SKILLS).filter((d) => d.queda);
   assert.deepEqual(
     caem.map((d) => d.id).sort(),
-    ['cold_bolt', 'fire_bolt', 'meteor_storm'],
+    ['blizzard', 'cold_bolt', 'fire_bolt', 'meteor_storm'],
     'mudou a lista? confira se o cliente tem como desenhar a queda da magia nova',
   );
   for (const d of caem) {
@@ -500,9 +545,13 @@ test('💥 cada meteoro respinga numa CRATERA — e isso multiplica o dano em gr
    */
   assert.ok(c.range > c.splash, 'a tempestade tem de ser maior que a cratera');
 
-  // E ninguém mais respinga: é exclusividade da suprema de fogo por enquanto.
+  /*
+   * ⚠️ Quem mais respinga: a Nevasca, desde 11/09 — a bola de neve tem 3×3
+   * células na ficha do Ragnarok. A lista é travada para respingo não virar
+   * enfeite que se acrescenta sem pensar: cada um multiplica o dano em grupo.
+   */
   const comSplash = Object.values(SKILLS).filter((d) => d.splash !== undefined);
-  assert.deepEqual(comSplash.map((d) => d.id), ['meteor_storm']);
+  assert.deepEqual(comSplash.map((d) => d.id).sort(), ['blizzard', 'meteor_storm']);
 });
 
 test('🔴 o carregamento do Fire Bolt desce por DESTREZA, numa curva côncava', () => {

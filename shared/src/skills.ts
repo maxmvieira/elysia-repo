@@ -377,6 +377,19 @@ export interface SkillDef {
    */
   castMs?: number;
   /**
+   * ⏳ **Conjuração no Lv.10, quando ela CRESCE com o nível.** Ausente = fixa.
+   *
+   * 🔴 **É o oposto de toda outra magia deste jogo, e existe por uma só.** A
+   * Nevasca do Ragnarok se paga com TEMPO PARADO: quanto mais forte, mais tempo
+   * imóvel e interrompível. Ver `blizzard`.
+   *
+   * ⚠️ Nada impede uma ficha futura de usar isto ao contrário (cair com o
+   * nível) — a interpolação não se importa com a direção. Mas pensar duas vezes
+   * antes: encurtar cast com nível de HABILIDADE é o que a Maestria de
+   * Conjuração faz, e ter dois caminhos para a mesma coisa acaba em desacordo.
+   */
+  castMsAtLv10?: number;
+  /**
    * 🔴 **A magia CAI DO CÉU em cima do alvo**, em vez de estourar nele.
    *
    * É uma bandeira de DESENHO com consequência de regra, e por isso mora na
@@ -1915,7 +1928,19 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   blizzard: {
     id: 'blizzard',
     name: 'Nevasca',
-    kind: 'ground',
+    /*
+     * 🔴 **DEIXOU DE SER ÁREA DE CHÃO E VIROU QUEDA** (11/09).
+     *
+     * O dono trouxe a ficha do Ragnarok: *"cria uma intensa tempestade de bolas
+     * de neve… as bolas têm 3×3 células de tamanho e causam dano a cada 0,45 s…
+     * por caírem em células ALEATÓRIAS da área de 9×9"*.
+     *
+     * Isso não é uma área que pulsa por igual — é bombardeio, a mesma coisa que
+     * a Chuva de Meteoros. Cada bola cai num ponto sorteado e machuca o que
+     * estiver na cratera dela. Modelar como área de chão daria dano uniforme
+     * em todo mundo dentro do 9×9, que é justamente o que a ficha NÃO descreve.
+     */
+    kind: 'multihit',
     branch: 'gelo',
     classes: ['sorcerer'],
     reqLevel: 50,
@@ -1927,70 +1952,103 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     manaCost: 130,
     manaPerLevel: 16,
     cooldownMs: 20000,
-    // ⚠️ Compensa o pulso 2,5× mais rápido — ver a nota em `ground.tickMs`.
-    power: 0.18,
-    powerPerLevel: 0.024,
-    shape: 'ground',
-    range: 3,
-    rangeEvery: 5,
-    durationMs: 6000,
+    /**
+     * ❄️ **120 % → 570 % de ATQM, e o número é POR BOLA.**
+     *
+     * A ficha diz *"o ATQM causado é contado por cada bola de neve, num máximo
+     * de 10"* — ou seja, os 570 % do Lv.10 são o TOTAL de dez bolas. Por bola
+     * dá 0,57, e é esse o número aqui, porque `power` neste motor sempre foi
+     * por impacto.
+     *
+     * ⚠️ Confundir os dois daria 5,7 por bola e 57 de total — dez vezes a
+     * suprema de fogo.
+     */
+    power: 0.12,
+    powerPerLevel: 0.05,
+    shape: 'area',
+    /*
+     * ❄️ **Raio 4 = área de 9×9**, o número da ficha. Era 3 (7×7).
+     *
+     * ⚠️ E a ficha avisa que o efeito TRANSBORDA: *"como cada bola possui 3×3
+     * células, a área pode chegar a 11×11"*. Isso sai de graça aqui — a bola
+     * cai dentro do 9×9 e o respingo dela pega o vizinho de fora.
+     */
+    range: 4,
+    rangeEvery: 0,
+    /**
+     * ❄️ **4,5 s de tempestade, em todos os níveis.**
+     *
+     * ⚠️ A coluna que cresce na ficha (4,5 → 6,3 s) é **conjuração**, não
+     * duração — no Ragnarok o cast da Nevasca sobe com o nível. A tempestade em
+     * si dura os mesmos 4,5 s sempre, e é o que a primeira linha da descrição
+     * diz. Ver `castMs`.
+     */
+    durationMs: 4500,
+    /**
+     * ❄️ **2,5 s → 6,3 s de conjuração**, a coluna "conjuração variável".
+     *
+     * 🔴 **Subir com o nível é o oposto de toda outra magia deste jogo**, e é
+     * de propósito: no Ragnarok a Nevasca é a magia que se paga com TEMPO
+     * PARADO, e quanto mais forte, mais tempo. É o contrajogo dela — e casa com
+     * o `castMs` de 3 s da Chuva de Meteoros, que existe pela mesma razão.
+     *
+     * ⚠️ A base é 2,5 s (a que ela já tinha) e não os 4,5 da ficha: 4,5 s de
+     * conjuração no NÍVEL 1 tornaria a magia inconjurável na prática, e a ficha
+     * do Ragnarok pressupõe redutores de cast que este jogo dá por Destreza.
+     */
     castMs: 2500,
+    castMsAtLv10: 6300,
     magic: true,
     damageType: 'ice',
-    ground: {
-      kind: 'damage',
-      /*
-       * 🌬️ **400 ms, e não 1000** (dono, 11/09, pedindo a cadência do Ragnarok).
-       * A tempestade passa a pulsar duas vezes e meia mais rápido — o que ela
-       * ganha é sensação de VENTANIA em vez de goteira.
-       *
-       * 🔴 **E por isso o `power` caiu junto**, de 0,45+0,06 para 0,18+0,024.
-       * Não é reequilíbrio: é ARITMÉTICA. O dano da área é por pulso, então
-       * acelerar sem compensar multiplicaria o dano total por 2,5 em silêncio.
-       * O total ao longo da tempestade ficou o mesmo de antes.
-       */
-      tickMs: 400,
-      durationAtLv1: 6000,
-      durationAtLv10: 12000,
-      hitsPlayers: true,
-      hitsCreatures: true,
-    },
-    // 🌬️ Um tile por pulso, para longe do centro. Ver `empurraPorPulso`.
+    /**
+     * ❄️ **DEZ BOLAS, sempre.**
+     *
+     * *"O ATQM é contado por cada bola de neve, num máximo de 10"*, e a
+     * tempestade dura 4,5 s com uma bola a cada 0,45 s — dez bolas exatas. Não
+     * cresce com o nível: o que cresce é o dano de cada uma.
+     */
+    hits: 10,
+    hitsAtLv10: 10,
+    /*
+     * ❄️ Cai do céu como a Chuva, com a mesma máquina: pontos sorteados na
+     * área, um `fx` por bola, dano no instante do impacto.
+     */
+    queda: true,
+    quedaFx: 'snowball',
+    // ❄️ A bola tem 3×3 células — raio 1 de respingo.
+    splash: 1,
+    // ⚠️ Queda curta: é bola de neve caindo, não rocha de meteoro.
+    quedaMs: 300,
+    // 🌬️ *"Oponentes atingidos serão empurrados para trás"*.
     empurraPorPulso: 1,
-    // ❄️ O terceiro acerto é que rola o congelamento. Ver `congelaEmAcertos`.
+    // ❄️ O terceiro acerto é que rola o congelamento — a regra do Ragnarok.
     congelaEmAcertos: 3,
     applies: {
       id: 'freeze',
       /**
-       * ❄️ **50 % → 100 %, rolados NO TERCEIRO ACERTO** (dono, 11/09: *"quero o
-       * comportamento do RO"*). Ver `congelaEmAcertos`.
+       * ❄️ **70 % → 25 %: a chance CAI com o nível**, e o número é da ficha.
        *
-       * 🔴 **Isto NÃO é a chance por pulso de antes.** A rolagem acontece uma
-       * vez por tempestade, no terceiro pulso que o alvo levar — e quem congela
-       * fica imune ao resto dela. Comparando com o que o `DD-SOR-012` produzia:
+       * 🔴 Parece erro e não é. No Ragnarok a Nevasca troca controle por dano à
+       * medida que sobe: o Lv.1 é uma magia de PRENDER (70 % de congelar, dano
+       * pequeno) e o Lv.10 é uma magia de MATAR (570 % de ATQM, 25 %). Quem
+       * quer congelar mantém a habilidade num nível baixo — é decisão de build,
+       * e é o que faz a Nevasca ter duas leituras.
        *
-       * | | antes (chance por pulso) | agora (RO) |
-       * |---|---|---|
-       * | Lv.1  | 39 % dos usos | 50 % |
-       * | Lv.10 | 78 % dos usos | 100 % |
+       * ✅ E isso resolve sozinho a tensão com o `DD-SOR-012`, que existia para
+       * a Nevasca não ser controle garantido: no nível máximo ela quase não
+       * congela.
        *
-       * ⚠️ **É um aumento de controle, e ele foi pedido sabendo disso.** No Lv.10
-       * a Nevasca passa a congelar SEMPRE. O que o documento queria evitar era a
-       * Nevasca "de 25 %" que congelava cedo e repetidamente; aqui o gelo vem uma
-       * vez só, depois de 1,2 s dentro da tempestade, e o alvo para de apanhar
-       * dela — o dano cai em troca do controle.
-       *
-       * ✅ E o combo do `DD-SOR-012` fica intacto: quem quebra o gelo é OUTRA
-       * fonte de dano (*"prepara Meteoro → impacto quebra o gelo"*), porque a
-       * Nevasca deixou de bater em quem congelou.
+       * ⚠️ A rolagem é UMA por tempestade, no terceiro acerto, e quem congela
+       * fica imune ao resto dela — sem isso a bola seguinte quebraria o gelo
+       * 450 ms depois, porque aqui dano quebra congelamento.
        */
-      chanceAtLv1: 0.5,
-      chanceAtLv10: 1.0,
+      chanceAtLv1: 0.70,
+      chanceAtLv10: 0.25,
       durationAtLv1: 10000,
       durationAtLv10: 10000,
     },
     fx: 'blizzard',
-    desc: 'Tempestade persistente. Cada impacto pode congelar por 10 s.',
+    desc: 'Tempestade de bolas de neve por 4,5 s. Empurra, e o 3º acerto pode congelar.',
   },
 
   // ------------------------------- ⚡ RAIO (3) ------------------------------
@@ -3643,7 +3701,14 @@ export function castDexReduction(dex: number): number {
 export function skillCastMs(
   def: SkillDef, nivel: number, maestria: number, dex: number,
 ): number {
-  const base = def.castMs ?? 0;
+  /*
+   * ⚠️ A base pode CRESCER com o nível da habilidade — ver `castMsAtLv10`. É a
+   * única coisa neste cálculo que olha o nível da skill; os dois redutores
+   * (Maestria e Destreza) vêm depois e não sabem de nada disso.
+   */
+  const base = def.castMsAtLv10 !== undefined && def.castMs !== undefined
+    ? Math.round(porNivel(nivel, def.castMs, def.castMsAtLv10))
+    : def.castMs ?? 0;
   if (base <= 0) return 0;
   const reducao = Math.min(1, castMasteryReduction(maestria) + castDexReduction(dex));
   const piso = base <= PISO_CONJURACAO_MS ? 0 : PISO_CONJURACAO_MS;

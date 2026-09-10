@@ -1949,6 +1949,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   const TREMOR: Record<string, { px: number; ms: number }> = {
     meteor_fall: { px: 8, ms: 160 },
+    /*
+     * ❄️ A bola de neve mal sacode: são dez em 4,5 s, e o peso dela é o de uma
+     * bola de neve. Tremor de meteoro aqui deixaria a tela em convulsão por
+     * quatro segundos e meio.
+     */
+    snowball: { px: 2, ms: 70 },
   };
   const TREMOR_PADRAO = { px: 3, ms: 90 };
 
@@ -1965,6 +1971,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     bolts: number; frames: Texture[];
     /** Onde a DESCIDA acaba dentro da tira. Ver `FOLHAS_QUEDA`. */
     fracaoQueda: number;
+    /** Quanto o ESTOURO dura, em ms. `0` = o que sobrar de `DUR_QUEDA`. */
+    duracaoEstouro: number;
   }>>();
 
   /**
@@ -2028,13 +2036,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * cortar no lugar errado ou mostraria a bola caindo de novo (corte cedo
      * demais) ou comeria o começo da explosão (corte tarde demais).
      */
-    { magia: 'fire_bolt', arquivo: 'firebolt24', bolts: 1, quadros: 24, fracaoQueda: 14 / 24 },
+    {
+      magia: 'fire_bolt', arquivo: 'firebolt24', bolts: 1, quadros: 24,
+      fracaoQueda: 14 / 24, duracaoEstouro: 0,
+    },
     /*
      * ❄️ O Cold Bolt (10/09). Trinta quadros: dezoito de descida em duas
      * fileiras de nove, e doze de estouro em duas de seis. Um golpe só na
      * ficha, então `bolts: 1` não é escolha — é o que a magia é.
      */
-    { magia: 'cold_bolt', arquivo: 'coldbolt30', bolts: 1, quadros: 30, fracaoQueda: 18 / 30 },
+    {
+      magia: 'cold_bolt', arquivo: 'coldbolt30', bolts: 1, quadros: 30,
+      fracaoQueda: 18 / 30, duracaoEstouro: 0,
+    },
     /*
      * 🌠 O METEORO da Chuva reusa a folha do Fire Bolt para o estouro — é fogo
      * caindo, e a arte serve. O que o distingue é a ESCALA e a cor do risco,
@@ -2043,7 +2057,26 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ⚠️ `meteor_fall` é um nome só desta queda, e não o `fx` do Meteoro avulso
      * (`meteor`). Reusar aquele faria mexer na chuva mudar a magia menor junto.
      */
-    { magia: 'meteor_fall', arquivo: 'firebolt24', bolts: 1, quadros: 24, fracaoQueda: 14 / 24 },
+    {
+      magia: 'meteor_fall', arquivo: 'firebolt24', bolts: 1, quadros: 24,
+      fracaoQueda: 14 / 24, duracaoEstouro: 0,
+    },
+    /*
+     * ❄️ A BOLA DE NEVE da Nevasca. A folha do dono é uma coluna de gelo que
+     * cresce (0–8), gira (9–26) e some (27–35).
+     *
+     * ⚠️ `fracaoQueda: 0` porque NENHUM quadro dela é queda: a bola descendo é o
+     * risco desenhado por código, e a folha inteira é o que acontece DEPOIS que
+     * ela toca o chão. Nas outras duas folhas a descida vem desenhada, e é por
+     * isso que lá a fração corta.
+     *
+     * ⚠️ E ela precisa de mais tempo em cena que um estouro: uma coluna de gelo
+     * que sobe e some em 160 ms não se lê. Ver `duracaoEstouro`.
+     */
+    {
+      magia: 'snowball', arquivo: 'nevasca36', bolts: 1, quadros: 36,
+      fracaoQueda: 0, duracaoEstouro: 900,
+    },
   ] as const;
 
   /**
@@ -2084,6 +2117,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         lista.push({
           bolts: folha.bolts,
           fracaoQueda: folha.fracaoQueda,
+          duracaoEstouro: folha.duracaoEstouro,
           frames: Array.from({ length: folha.quadros }, (_, i) => new Texture({
             source: tex.source,
             frame: new Rectangle(i * cw, 0, cw, ch),
@@ -2157,7 +2191,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   /** A folha desta magia que melhor representa `n` bolts, ou a menor que há. */
   function folhaPara(
     magia: string, n: number,
-  ): { bolts: number; frames: Texture[]; fracaoQueda: number } | null {
+  ): { bolts: number; frames: Texture[]; fracaoQueda: number; duracaoEstouro: number } | null {
     const lista = folhasQueda.get(magia);
     if (!lista || lista.length === 0) return null;
     return lista.find((f) => f.bolts <= n) ?? lista[lista.length - 1]!;
@@ -2197,6 +2231,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // 🌠 Meteoro: mais vermelho e mais escuro que o bolt — é pedra em brasa,
     // não chama pura.
     meteor_fall: [0xa03010, 0xff7a20, 0xffe0a0],
+    // ❄️ Bola de neve: azul-gelo com núcleo branco, como a folha da Nevasca.
+    snowball: [0x2a6ad0, 0x8fd8ff, 0xf2fbff],
   };
 
   /**
@@ -2211,7 +2247,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * procura um CORPO caindo, e um retângulo não tem corpo por mais largo que
    * seja. O que dá volume é a cabeça circular com o rastro afinando atrás.
    */
-  const FORMA_RISCO: Record<string, 'lanca' | 'esfera'> = { meteor_fall: 'esfera' };
+  const FORMA_RISCO: Record<string, 'lanca' | 'esfera'> = {
+    meteor_fall: 'esfera',
+    // ❄️ Bola de neve é bola: cabeça redonda com rastro curto.
+    snowball: 'esfera',
+  };
 
   /**
    * Raio da cabeça do meteoro, em pixels de mundo.
@@ -2227,16 +2267,31 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const RAIO_METEORO = 46;
 
   /**
+   * Raio da cabeça de cada coisa esférica que cai. Ausente = `RAIO_METEORO`.
+   *
+   * ⚠️ A bola de neve é bem menor que a rocha: ela cobre 3×3 células, contra as
+   * ~5×5 do meteoro, e o risco que cai tem de anunciar esse tamanho.
+   */
+  const RAIO_ESFERA: Record<string, number> = { snowball: 20 };
+
+  /**
    * Quanto o ESTOURO de cada magia é maior que o padrão da folha.
    *
    * ⚠️ Escala isotrópica (o mesmo fator em x e y), e isto importa: escalar só
    * um eixo é o que deixa a explosão OVAL, que foi a queixa do dono.
    */
-  const ESCALA_IMPACTO: Record<string, number> = { meteor_fall: 5.2 };
+  const ESCALA_IMPACTO: Record<string, number> = {
+    meteor_fall: 5.2,
+    /*
+     * ❄️ A célula da folha da Nevasca tem 160 px de largura para 3 tiles (96 px)
+     * de área de dano. 0,62 põe a coluna de gelo no tamanho da cratera dela.
+     */
+    snowball: 0.62,
+  };
 
   function spawnQueda(
     magia: string, wx: number, wy: number, frames: Texture[], atraso: number,
-    fracaoQueda: number, alvo?: string, quedaMs?: number,
+    fracaoQueda: number, alvo?: string, quedaMs?: number, duracaoEstouro = 0,
   ): void {
     const node = new AnimatedSprite(frames);
     node.loop = false;
@@ -2277,7 +2332,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ficaria negativo e a explosão sairia em um quadro só.
      */
     const tempoQueda = quedaMs ?? ATRASO_IMPACTO_MS;
-    const dur = QUEDA_RISCO ? Math.max(160, DUR_QUEDA - tempoQueda) : DUR_QUEDA;
+    /*
+     * ⚠️ A folha pode PEDIR o próprio tempo de estouro. É o caso da coluna de
+     * gelo da Nevasca: ela sobe, gira e some, e o que sobra de `DUR_QUEDA`
+     * (160 ms) não dá nem para ela nascer.
+     */
+    const dur = duracaoEstouro > 0
+      ? duracaoEstouro
+      : QUEDA_RISCO ? Math.max(160, DUR_QUEDA - tempoQueda) : DUR_QUEDA;
     node.animationSpeed = usados.length / (dur / (1000 / 60));
     fxLayer.addChild(node);
 
@@ -2303,7 +2365,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
          * que a rocha seja redonda em qualquer escala — foi a queixa do dono,
          * *"esféricos e perfeitamente redondos, não ovais"*.
          */
-        const R = RAIO_METEORO;
+        const R = RAIO_ESFERA[magia] ?? RAIO_METEORO;
         /*
          * ⚠️ A CAUDA é medida em R, não em pixels fixos: com a cabeça em 34 px,
          * um rastro de 120 px de altura fixa ficaria curto e atarracado. Assim
@@ -2364,6 +2426,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     for (let i = 0; i < copias; i++) {
       spawnQueda(
         magia, wx, wy, folha.frames, i * INTERVALO_BOLT_MS, folha.fracaoQueda, alvo, quedaMs,
+        folha.duracaoEstouro,
       );
     }
   }
@@ -2863,42 +2926,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   const groundAreaNodes = new Map<string, Container>();
 
-  /**
-   * ❄️ **A FOLHA DA NEVASCA** (36 quadros), carregada sem `await`.
-   *
-   * ⚠️ **Três trechos, e não um laço só.** A arte tem introdução (o gelo
-   * cresce), sustentação (a coluna gira) e dissipação (some). Rodar tudo em
-   * laço faria a tempestade nascer de novo a cada volta, o que é justamente o
-   * que se nota. Então a introdução toca UMA vez e a sustentação repete até a
-   * área acabar.
-   *
-   * ⚠️ A dissipação fica de fora: quem tira a área é o servidor, e a remoção é
-   * instantânea. Tocar os nove quadros finais exigiria segurar o nó vivo depois
-   * do `areagone` — dá para fazer, e fica anotado como coisa que falta.
-   */
-  const NEVASCA_INTRO = 9;
-  const NEVASCA_SUSTENTA = 27;
-  let nevascaQuadros: Texture[] | null = null;
-  void Assets.load<Texture>('/assets/fx/nevasca36.png')
-    .then((tex) => {
-      tex.source.scaleMode = 'linear';
-      const cw = Math.round(tex.width / 36);
-      nevascaQuadros = Array.from({ length: 36 }, (_, i) => new Texture({
-        source: tex.source,
-        frame: new Rectangle(i * cw, 0, cw, tex.height),
-      }));
-    })
-    .catch(() => { /* sem folha: cai no vórtice desenhado por código */ });
 
-  /**
-   * ❄️ **Os VÓRTICES em cena** — as áreas que giram, com o que cada uma precisa
-   * para girar. Só a Nevasca tem um, por enquanto.
-   *
-   * ⚠️ Lista separada do mapa de nós porque a maioria das áreas é estática: um
-   * laço por quadro sobre todas as áreas do andar giraria muralhas e círculos
-   * arcanos à toa.
-   */
-  const vortices = new Map<string, { anel: Container; lascas: Container }>();
 
   /** Cor de cada área, pela habilidade que a criou. */
   const CORES_AREA: Record<string, [number, number]> = {
@@ -2938,83 +2966,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       node.addChild(c);
     }
     /*
-     * ❄️ **A NEVASCA GIRA.** Pedido do dono em 11/09: *"um círculo translúcido
-     * azul-gelo rotacionando lentamente na base, com partículas de névoa e
-     * estilhaços de gelo subindo em espiral"*.
+     * ⚠️ **A NEVASCA NÃO PASSA MAIS POR AQUI** (11/09). Ela deixou de ser área
+     * de chão e virou queda de bolas de neve — cada uma cai num ponto sorteado
+     * e traz a própria coluna de gelo. Ver `snowball` em `FOLHAS_QUEDA`.
      *
-     * ⚠️ Dois nós, e eles giram em SENTIDOS OPOSTOS: o anel de névoa devagar
-     * para um lado, as lascas mais rápido para o outro. Girar tudo junto lê
-     * como uma imagem só rodando; contrário lê como turbulência.
-     *
-     * ⚠️ `screen` no anel e `add` nas lascas. A névoa tem de CLAREAR o chão sem
-     * estourar (screen satura devagar); a lasca é brilho pontual e pede a soma.
+     * O vórtice desenhado por código e a folha carregada aqui saíram junto: sem
+     * remetente, viravam código morto.
      */
-    if (fx === 'blizzard' && nevascaQuadros) {
-      /*
-       * ❄️ **A FOLHA COBRE A ÁREA INTEIRA e dura a tempestade toda** — pedido do
-       * dono em 11/09: *"preenche ela com esse tempo de conjuração… e a área de
-       * conjuração"*.
-       *
-       * ⚠️ A escala sai da LARGURA da área, e a altura vem junto: a arte é uma
-       * coluna de gelo (2 : 3), e esticar só um eixo para caber num quadrado a
-       * achataria. Ela sobe acima da área de propósito — o gelo sobe, o dano
-       * não.
-       *
-       * ⚠️ Âncora em 0,82 da altura: é onde o anel do chão está desenhado na
-       * folha. Ancorar embaixo poria o anel abaixo do centro da área.
-       */
-      const spr = new AnimatedSprite(nevascaQuadros.slice(0, NEVASCA_INTRO));
-      spr.blendMode = 'add';
-      spr.anchor.set(0.5, 0.82);
-      spr.scale.set(lado / (nevascaQuadros[0]!.width || 1));
-      spr.loop = false;
-      spr.animationSpeed = NEVASCA_INTRO / (600 / (1000 / 60));
-      /*
-       * Terminada a introdução, troca para a SUSTENTAÇÃO em laço. É a mesma
-       * `AnimatedSprite`: trocar `textures` preserva posição e escala.
-       */
-      spr.onComplete = () => {
-        if (!nevascaQuadros) return;
-        spr.textures = nevascaQuadros.slice(NEVASCA_INTRO, NEVASCA_SUSTENTA);
-        spr.loop = true;
-        spr.animationSpeed = (NEVASCA_SUSTENTA - NEVASCA_INTRO) / (1100 / (1000 / 60));
-        spr.gotoAndPlay(0);
-      };
-      spr.play();
-      node.addChild(spr);
-    } else if (fx === 'blizzard') {
-      /*
-       * ⚠️ Enquanto a folha não carregou (os primeiros segundos de mundo), o
-       * vórtice desenhado por código segura a peça. Ele é o que existia antes
-       * da arte chegar, e some sozinho quando ela chega.
-       */
-      const anel = new Container();
-      anel.blendMode = 'screen';
-      for (const [r, alpha] of [[0.46, 0.30], [0.32, 0.22], [0.2, 0.16]] as const) {
-        const nevoa = new Graphics();
-        nevoa.ellipse(0, 0, lado * r, lado * r * 0.55).fill({ color: brilho, alpha });
-        anel.addChild(nevoa);
-      }
-      node.addChild(anel);
-
-      const lascas = new Container();
-      lascas.blendMode = 'add';
-      const quantas = 10 + radius * 4;
-      for (let i = 0; i < quantas; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const raio = (0.2 + Math.random() * 0.28) * lado;
-        const L = 3 + Math.random() * 5;
-        const lasca = new Graphics();
-        lasca.poly([0, -L, L * 0.34, 0, 0, L, -L * 0.34, 0])
-          .fill({ color: brilho, alpha: 0.5 + Math.random() * 0.4 });
-        lasca.x = Math.cos(ang) * raio;
-        lasca.y = Math.sin(ang) * raio * 0.55;
-        lasca.rotation = ang;
-        lascas.addChild(lasca);
-      }
-      node.addChild(lascas);
-      vortices.set(id, { anel, lascas });
-    }
 
     fxLayer.addChild(node);
     groundAreaNodes.set(id, node);
@@ -3024,7 +2982,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   function removeGroundArea(id: string): void {
-    vortices.delete(id);
     const node = groundAreaNodes.get(id);
     if (!node) return;
     groundAreaNodes.delete(id);
@@ -8017,14 +7974,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
     // Números de dano flutuantes (sobem e desaparecem).
     const dt = app.ticker.deltaMS;
-    /*
-     * ❄️ Os vórtices giram. Sentidos opostos: névoa devagar para um lado,
-     * lascas mais rápido para o outro — ver `addGroundArea`.
-     */
-    for (const v of vortices.values()) {
-      v.anel.rotation += dt * 0.00035;
-      v.lascas.rotation -= dt * 0.0011;
-    }
     for (let i = floaters.length - 1; i >= 0; i--) {
       const f = floaters[i]!;
       f.life -= dt;
