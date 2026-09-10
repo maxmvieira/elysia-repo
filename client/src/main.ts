@@ -2170,6 +2170,47 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   let myFloor = map.spawn.floor;
   let myTileX = map.spawn.x;
   let myTileY = map.spawn.y;
+
+  /**
+   * 🔬 **A RÉGUA DO PASSO** — ligada por `?passos=1` na URL.
+   *
+   * Existe porque a mesma queixa voltou três vezes (*"muito lento para os lados,
+   * para baixo parece que está correndo"*) e três varreduras de código não
+   * acharam assimetria nenhuma: o intervalo do servidor só distingue diagonal, o
+   * envio do teclado é simétrico, `animationSpeed` é fixo, e as oito fileiras da
+   * folha universal têm 16 quadros com dois passos cada.
+   *
+   * ⚠️ Quando ler o código não resolve, MEÇA. Isto cronometra o intervalo REAL
+   * entre duas mudanças de tile do herói, separado por direção, e imprime a
+   * mediana de cada uma. Se as oito baterem, o problema não é o passo — é a
+   * leitura da animação, e o próximo lugar a olhar é outro.
+   *
+   * Uso: abrir `localhost:5173/?passos=1`, andar uns dez tiles em cada direção,
+   * e chamar `passos()` no console.
+   */
+  const REGUA_PASSO = new URLSearchParams(location.search).has('passos');
+  const amostras = new Map<string, number[]>();
+  let ultimoPassoEm = 0;
+  function anotaPasso(dx: number, dy: number, agora: number): void {
+    if (ultimoPassoEm > 0) {
+      const dir = `${dy < 0 ? 'N' : dy > 0 ? 'S' : ''}${dx < 0 ? 'O' : dx > 0 ? 'L' : ''}`;
+      const lista = amostras.get(dir) ?? [];
+      lista.push(agora - ultimoPassoEm);
+      amostras.set(dir, lista);
+    }
+    ultimoPassoEm = agora;
+  }
+  if (REGUA_PASSO) {
+    (window as unknown as { passos: () => void }).passos = () => {
+      for (const [dir, lista] of amostras) {
+        const ord = [...lista].sort((a, b) => a - b);
+        const mediana = ord[Math.floor(ord.length / 2)] ?? 0;
+        // eslint-disable-next-line no-console
+        console.log(`[passo] ${dir.padEnd(2)} n=${String(ord.length).padStart(3)} `
+          + `mediana=${Math.round(mediana)}ms  min=${ord[0]}  max=${ord[ord.length - 1]}`);
+      }
+    };
+  }
   let renderedFloor = -999;
   let moveSeq = 0;
   let targetId: string | null = null;
@@ -6546,6 +6587,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         const pkAgora = e.pkEnabled === true;
         if (pkAgora !== pkOn) { pkOn = pkAgora; renderPk(); }
         myFloor = e.floor;
+        if (REGUA_PASSO && (e.tileX !== myTileX || e.tileY !== myTileY)) {
+          anotaPasso(e.tileX - myTileX, e.tileY - myTileY, performance.now());
+        }
         myTileX = e.tileX;
         myTileY = e.tileY;
       }
