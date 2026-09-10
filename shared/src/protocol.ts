@@ -911,6 +911,20 @@ export interface S2C_Effect {
    * o `hit`, um por bolt, espaçado no tempo pelo servidor.
    */
   n?: number;
+  /**
+   * 🔴 **A criatura em cima de quem este efeito cai.**
+   *
+   * Existe para a bola do Fire Bolt SEGUIR o monstro. As bolas nascem uma a
+   * uma, e entre o nascimento de uma e o estouro dela passa quase um segundo —
+   * tempo de sobra para o monstro andar dois tiles. Sem este campo a bola
+   * estouraria no chão onde ele estava, e o dono via o número vermelho sair de
+   * um lado e o fogo do outro.
+   *
+   * ⚠️ É uma DICA de posição, não a posição. `x`/`y` continuam valendo e são o
+   * que o cliente usa quando não conhece este id (a criatura saiu da tela, ou é
+   * um efeito que não tem alvo).
+   */
+  targetId?: string;
 }
 
 /**

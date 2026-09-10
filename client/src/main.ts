@@ -1902,7 +1902,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * no `shared`: o espaçamento das bolas na tela tem de ser o MESMO do
    * espaçamento do dano, senão a última cai depois do próprio estrago.
    */
-  const quedas: Array<{ node: AnimatedSprite; atraso: number; morto: boolean }> = [];
+  const quedas: Array<{
+    node: AnimatedSprite; atraso: number; morto: boolean;
+    /** A criatura que esta bola persegue, quando o servidor disse qual é. */
+    alvo?: string;
+  }> = [];
 
   /**
    * As folhas disponíveis, por quantos bolts cada uma DESENHA.
@@ -2079,7 +2083,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   const ESCALA_QUEDA = 0.625;
 
-  function spawnQueda(wx: number, wy: number, frames: Texture[], atraso: number): void {
+  function spawnQueda(
+    wx: number, wy: number, frames: Texture[], atraso: number, alvo?: string,
+  ): void {
     const node = new AnimatedSprite(frames);
     node.loop = false;
     /*
@@ -2101,7 +2107,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // Quadros por tique de 60 Hz para a animação inteira durar `DUR_QUEDA`.
     node.animationSpeed = frames.length / (DUR_QUEDA / (1000 / 60));
     fxLayer.addChild(node);
-    const q = { node, atraso, morto: false };
+    const q = { node, atraso, morto: false, alvo };
     node.onComplete = () => { q.morto = true; };
     quedas.push(q);
   }
@@ -2117,12 +2123,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * ⚠️ As cópias são espaçadas por `INTERVALO_BOLT_MS`, **o mesmo número que o
    * servidor usa para espaçar o dano**. É o que mantém bola e estrago juntos.
    */
-  function spawnQuedaDaConjuracao(wx: number, wy: number, n: number): void {
+  function spawnQuedaDaConjuracao(
+    wx: number, wy: number, n: number, alvo?: string,
+  ): void {
     const folha = folhaPara(n);
     if (!folha) return;
     const copias = Math.max(1, Math.ceil(n / folha.bolts));
     for (let i = 0; i < copias; i++) {
-      spawnQueda(wx, wy, folha.frames, i * INTERVALO_BOLT_MS);
+      spawnQueda(wx, wy, folha.frames, i * INTERVALO_BOLT_MS, alvo);
     }
   }
 
@@ -3131,7 +3139,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
            * que decide a folha e quantas cópias tocam.
            */
           if (msg.kind === 'fire_bolt') {
-            spawnQuedaDaConjuracao(msg.x * TS + TS / 2, msg.y * TS + TS, msg.n ?? 1);
+            /*
+             * ⚠️ **Chega UM `fx` POR BOLT desde 10/09**, e não mais um por
+             * conjuração com `n` bolts. Quem espaça as bolas no tempo agora é o
+             * servidor, que só anuncia cada uma quando ela nasce — é o que faz
+             * a chuva parar quando o monstro morre.
+             *
+             * O caminho de `n > 1` continua aqui de propósito: é ele que faria
+             * a folha de dez bolas voltar a funcionar, e ela está pronta em
+             * disco (ver `folhasQueda`).
+             */
+            spawnQuedaDaConjuracao(
+              msg.x * TS + TS / 2, msg.y * TS + TS, msg.n ?? 1, msg.targetId,
+            );
             break;
           }
           {
@@ -7534,6 +7554,28 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         if (q.atraso <= 0) {
           q.node.visible = true;
           q.node.play();
+        }
+      }
+      /*
+       * 🔴 **A BOLA SEGUE O ALVO.** Entre o nascimento dela e o estouro passa
+       * quase um segundo, e o monstro anda nesse tempo. Sem isto o dono via o
+       * fogo cair no chão vazio e o número vermelho sair dois tiles ao lado.
+       *
+       * ⚠️ Segue o sprite JÁ SUAVIZADO (`container`), não o tile: é a posição
+       * que o jogador enxerga. Perseguir o tile faria a bola andar aos saltos.
+       *
+       * ⚠️ `+ TS/2` e `+ TS` porque o container de uma entidade é ancorado no
+       * canto do tile, e a queda é ancorada embaixo e no meio — mesmo ponto que
+       * `msg.x * TS + TS / 2` calcula na chegada do `fx`.
+       *
+       * ⚠️ Sumido o alvo (morreu, saiu da tela), a bola FICA onde estava e
+       * termina de estourar. Fazê-la sumir junto cortaria o efeito no meio.
+       */
+      if (q.alvo) {
+        const alvo = sprites.get(q.alvo);
+        if (alvo) {
+          q.node.x = alvo.container.x + TS / 2;
+          q.node.y = alvo.container.y + TS;
         }
       }
       if (q.morto) {

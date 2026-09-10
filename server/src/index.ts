@@ -207,6 +207,7 @@ import {
   JOB_MAX_LEVEL,
   jobXpToNext,
   skillCastRange,
+  ATRASO_IMPACTO_MS,
   INTERVALO_BOLT_MS,
   DUR_QUEDA_MS,
   skillMiraNoChao,
@@ -3325,6 +3326,15 @@ interface GolpePendente {
   poderBase: number;
   critChance: number;
   critMult: number;
+  /**
+   * 🔴 **Quando a bola COMEÇA A CAIR na tela** — o instante em que o `fx` deste
+   * bolt sai. É aqui, e não no impacto, que se decide se o bolt existe: se a
+   * criatura já morreu, o pendente é descartado e nenhuma bola nasce.
+   */
+  fxEm: number;
+  /** O `fx` deste bolt já foi anunciado? */
+  fxFeito: boolean;
+  /** Quando o dano cai. É `fxEm + ATRASO_IMPACTO_MS`: a bola toca o chão. */
   quando: number;
 }
 const golpesPendentes: GolpePendente[] = [];
@@ -3368,24 +3378,58 @@ function aplicaGolpeDeMagia(
   damageCreature(player, c, dano, crit, now, tipo);
 }
 
-/** Resolve os bolts cuja hora chegou. Roda no tique do mundo. */
+/**
+ * Resolve os bolts cuja hora chegou. Roda no tique do mundo.
+ *
+ * 🔴 **Cada bolt tem DOIS instantes**: `fxEm` (a bola começa a cair) e
+ * `quando` (ela toca o chão e o dano sai). Os dois passam por aqui, e o laço
+ * trata os dois na mesma varredura.
+ *
+ * 🔴 **A BOLA SEGUE O ALVO, e some quando ele morre** — pedido do dono em
+ * 10/09: *"se ele morrer no primeiro hit, não precisa continuar descendo bolt
+ * mais. agora se ele estiver tomando dano e não morreu, os bolts precisam
+ * seguir ele conforme vai tomando o dano."*
+ *
+ * As duas coisas saem da mesma mudança: o `fx` deixou de ser UM aviso no
+ * lançamento, com a contagem de bolts e a posição de então, e passou a ser um
+ * aviso POR BOLT, no instante em que aquela bola nasce. Aí a posição é a da
+ * criatura naquele momento (ela segue), e se a criatura morreu não há aviso
+ * nenhum (a chuva para).
+ */
 function tickGolpesPendentes(now: number): void {
   if (golpesPendentes.length === 0) return;
-  // Separa em vez de remover no meio do laço: assim os impactos saem na ORDEM
-  // em que foram agendados, mesmo quando dois vencem no mesmo tique.
-  const prontos = golpesPendentes.filter((g) => now >= g.quando);
-  if (prontos.length === 0) return;
-  for (let i = golpesPendentes.length - 1; i >= 0; i--) {
-    if (now >= golpesPendentes[i]!.quando) golpesPendentes.splice(i, 1);
-  }
-  for (const g of prontos) {
+  /*
+   * ⚠️ Varredura PARA A FRENTE, marcando quem sai em vez de remover no meio.
+   * A ordem importa: dois bolts que vencem no mesmo tique têm de bater na ordem
+   * em que foram agendados, e um laço de trás para a frente inverteria isso.
+   */
+  const fica: GolpePendente[] = [];
+  for (const g of golpesPendentes) {
+    if (now < g.fxEm) { fica.push(g); continue; }
     const player = players.get(g.playerId);
     const c = creatures.get(g.creatureId);
-    if (!player || !player.alive || !c || !c.alive || c.floor !== player.floor) continue;
+    /*
+     * ⚠️ **Revalidado a cada bolt, e não uma vez no lançamento.** Entre o
+     * primeiro e o décimo passam mais de sete segundos: a criatura pode morrer,
+     * o jogador pode morrer ou trocar de andar. Nada disso pode virar bola
+     * fantasma nem dano fantasma.
+     */
+    const vale = player && player.alive && c && c.alive && c.floor === player.floor;
+    if (!vale) continue;
+    if (!g.fxFeito) {
+      g.fxFeito = true;
+      broadcastFloor(player.floor, {
+        t: 'fx', kind: g.skillId, x: c.tileX, y: c.tileY, floor: player.floor,
+        n: 1, targetId: c.id,
+      });
+    }
+    if (now < g.quando) { fica.push(g); continue; }
     aplicaGolpeDeMagia(
       player, SKILLS[g.skillId], g.nivel, c, g.poderBase, g.critChance, g.critMult, now,
     );
   }
+  golpesPendentes.length = 0;
+  golpesPendentes.push(...fica);
 }
 
 /**
@@ -3911,42 +3955,49 @@ function executeSpell(
   const emSerie = def.kind === 'multihit' && def.shape === 'target';
 
   /*
-   * 🔴 **UM AVISO DE EFEITO POR CONJURAÇÃO, com a contagem de bolts** (08/09).
+   * 🔴 **O AVISO DE EFEITO DA SÉRIE SAIU DAQUI** (10/09).
    *
-   * Desde hoje a animação é **uma por conjuração**, e não uma por impacto: o
-   * cliente escolhe a folha pela quantidade de bolts. Mas ele **não sabe o
-   * nível de habilidade dos outros jogadores** — sem este aviso, o mago do lado
-   * apareceria sempre soltando um bolt só.
+   * Era um `fx` só, no lançamento, com a contagem de bolts e a posição do alvo
+   * naquele instante — e o cliente abria dali as dez bolas. Com isso as bolas
+   * caíam num PONTO FIXO e caíam TODAS, mesmo depois de o monstro morrer ou sair
+   * andando. O dono: *"se ele morrer no primeiro hit, não precisa continuar
+   * descendo bolt mais... se ele estiver tomando dano e não morreu, os bolts
+   * precisam seguir ele"*.
    *
-   * ⚠️ É **avisar**, não aplicar. O dano continua vindo dos `hit`, um por bolt,
-   * espaçados no tempo. Este pacote só diz "caiu isto aqui, com esta força".
+   * ✅ Agora quem manda o `fx` é `tickGolpesPendentes`, um por bolt, na hora em
+   * que aquela bola nasce e na posição que a criatura tem NAQUELE momento.
    *
-   * ⚠️ Só para o multi-hit de ALVO ÚNICO: é o único que virou queda do céu.
+   * ⚠️ E por isso o primeiro bolt da série também vai para a fila, em vez de
+   * resolver aqui — ver o laço abaixo.
    */
-  const primeiro = targets[0];
-  if (emSerie && primeiro) {
-    broadcastFloor(player.floor, {
-      t: 'fx', kind: def.id, x: primeiro.tileX, y: primeiro.tileY,
-      floor: player.floor, n: golpes,
-    });
-  }
-
   for (let i = 0; i < golpes; i++) {
     const lista = sorteiaAlvo
       ? [targets[Math.floor(Math.random() * targets.length)]!]
       : targets;
     for (const c of lista) {
-      if (i > 0 && emSerie) {
+      if (emSerie) {
         /*
+         * 🔴 **TODOS os bolts vão para a fila, inclusive o primeiro** (10/09).
+         *
+         * Antes o de índice zero batia aqui mesmo, no tique do lançamento. Isso
+         * deixou de servir quando o dano passou a cair junto com o ESTOURO da
+         * bola: o primeiro impacto tem de esperar a bola descer igual aos
+         * outros, senão o número vermelho sobe com ela ainda no céu.
+         *
+         * ⚠️ Consequência: o Fire Bolt não faz mais dano nenhum no instante do
+         * lançamento. Meio segundo de espera é o preço de a bola e o estrago
+         * acontecerem no mesmo lugar da tela.
+         *
          * ⚠️ O poder e o crítico são capturados AGORA, no lançamento, e não
          * relidos no impacto. Se um buff caísse no meio da rajada, os bolts da
          * mesma conjuração passariam a bater diferente uns dos outros — e o
          * jogador não teria como entender por quê.
          */
+        const fxEm = now + i * INTERVALO_BOLT_MS;
         golpesPendentes.push({
           playerId: player.id, creatureId: c.id, skillId: def.id, nivel,
           poderBase, critChance: d.critChance, critMult: d.critMult,
-          quando: now + i * INTERVALO_BOLT_MS,
+          fxEm, fxFeito: false, quando: fxEm + ATRASO_IMPACTO_MS,
         });
         continue;
       }

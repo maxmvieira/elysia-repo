@@ -169,3 +169,20 @@ export const INTERVALO_BOLT_MS = 800;
  * últimos — então o tempo de descida é ~58% deste número.
  */
 export const DUR_QUEDA_MS = 1000;
+
+/**
+ * 🔴 **Quando, DENTRO da queda, a bola toca o chão** — em milissegundos desde o
+ * começo da animação.
+ *
+ * Existe porque o dano e o estouro precisam acontecer no MESMO instante. Até
+ * 09/09 o servidor aplicava o dano no momento em que mandava a animação: o
+ * número vermelho subia com a bola ainda no céu, e o estouro chegava meio
+ * segundo depois, no vazio. Com um bolt por vez isso ficou impossível de não
+ * ver.
+ *
+ * ⚠️ **O 0,58 é a arte, não gosto.** A folha de 24 quadros gasta os catorze
+ * primeiros na descida e os dez últimos no estouro — 14/24 = 0,583. Trocar a
+ * folha por uma de proporção diferente obriga a mexer aqui, senão o dano
+ * desencontra do estouro outra vez.
+ */
+export const ATRASO_IMPACTO_MS = Math.round(DUR_QUEDA_MS * 0.58);
