@@ -83,6 +83,7 @@ import {
   skillPower,
   skillRange,
   skillCastRange,
+  CUSTO_DIAGONAL,
   INTERVALO_BOLT_MS,
   DUR_QUEDA_MS,
   skillMiraNoChao,
@@ -8097,6 +8098,31 @@ type StepCadence = ReturnType<typeof makeStepCadence>;
 const STEP_MS_FLOOR = 90;
 
 /**
+ * 🔴 **O DESLIZE DA DIAGONAL DURA MAIS, porque o passo dela dura mais.**
+ *
+ * O servidor cobra `CUSTO_DIAGONAL` a mais para um passo na diagonal (√2 de
+ * distância). O cliente não sabia disso e deslizava todo passo em 1,0× do
+ * intervalo: o sprite chegava ao tile e ficava PARADO o 0,5× restante, com a
+ * animação de caminhada desligada junto (`movingUntil`). Uma paradinha a cada
+ * tile, em tudo que não fosse reto — e o dono leu isso como velocidade:
+ * *"ele está muito rápido para baixo e muito lento para todas as outras
+ * direções."* O reto é contínuo; o resto anda-para-anda-para.
+ *
+ * ⚠️ **Só para JOGADOR.** Criatura não paga diagonal no servidor, e aplicar aqui
+ * a faria deslizar mais devagar do que anda. É o mesmo motivo de `isCreature`
+ * existir em `stepDurationFor`.
+ *
+ * ⚠️ A comparação é em PIXEL e com folga de meio tile: `setTarget` recebe o
+ * destino em pixels de mundo, e um passo diagonal move exatamente um tile nos
+ * dois eixos.
+ */
+function fatorDiagonal(dx: number, dy: number, ehJogador: boolean): number {
+  if (!ehJogador) return 1;
+  const meio = TS * 0.5;
+  return Math.abs(dx) > meio && Math.abs(dy) > meio ? CUSTO_DIAGONAL : 1;
+}
+
+/**
  * Quanto o deslize até o próximo tile deve durar, para qualquer ator.
  *
  * Uma porta só, com duas respostas conforme o cliente saiba ou não a velocidade
@@ -8654,7 +8680,8 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
       // A CRIATURA desliza só uma fração do intervalo e descansa o resto; o
       // JOGADOR usa o intervalo inteiro, porque quem segura a tecla espera
       // movimento contínuo.
-      stepMs = stepDurationFor(e, !!opts.creatureTint, cadence, now - moveStart);
+      stepMs = stepDurationFor(e, !!opts.creatureTint, cadence, now - moveStart)
+        * fatorDiagonal(x - fromX, y - fromY, !opts.creatureTint);
       movingUntil = now + stepMs + 80;
     }
     moveStart = now;
@@ -9032,7 +9059,8 @@ function makePlayerView(e: EntitySnapshot, isSelf: boolean, tex: CharacterTextur
       // Duração do deslize = intervalo real entre passos (sincroniza com o
       // servidor). Jogador desliza o intervalo INTEIRO: quem segura a tecla
       // espera movimento contínuo, sem pausa entre um tile e outro.
-      stepMs = stepDurationFor(e, false, cadence, now - moveStart, isSelf);
+      stepMs = stepDurationFor(e, false, cadence, now - moveStart, isSelf)
+        * fatorDiagonal(x - fromX, y - fromY, true);
       movingUntil = now + stepMs + 80; // segue animando entre passos consecutivos
     }
     moveStart = now;

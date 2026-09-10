@@ -208,6 +208,7 @@ import {
   jobXpToNext,
   skillCastRange,
   ATRASO_IMPACTO_MS,
+  CUSTO_DIAGONAL,
   INTERVALO_BOLT_MS,
   DUR_QUEDA_MS,
   skillMiraNoChao,
@@ -5805,8 +5806,9 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       if (dx === 0 && dy === 0) return;
       player.direction = dirFromDelta(dx, dy, player.direction);
       const now = Date.now();
-      // Diagonal percorre √2 de distância: custa ~1.5x o tempo para não virar
-      // atalho de velocidade (no Tibia diagonal é mais lento que reto).
+      // Diagonal percorre √2 de distância e custa mais tempo, para não virar
+      // atalho de velocidade. O número mora no `shared` desde 10/09: o cliente
+      // usa o MESMO para o deslize durar o passo inteiro. Ver `CUSTO_DIAGONAL`.
       const diagonal = dx !== 0 && dy !== 0;
       // Etapa 8: Congelamento, Petrificação, Stun e Aprisionamento prendem os
       // pés. A checagem vem antes de tudo — o servidor é a autoridade, então
@@ -5818,7 +5820,7 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       const base = player.derived.moveIntervalMs
         * (player.stance ? 1 + STANCE_SLOW : 1)
         * (1 + restr.slowPct);
-      const interval = diagonal ? base * 1.5 : base;
+      const interval = diagonal ? base * CUSTO_DIAGONAL : base;
       if (now - player.lastMoveAt < interval) return;
       const nx = player.tileX + dx;
       const ny = player.tileY + dy;

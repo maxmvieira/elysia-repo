@@ -142,6 +142,27 @@ export function directionFromDelta(
  * `marcaConjuracao`). Se um dia parecer lento demais, este é o número — não a
  * duração da queda, que é o que faz cada bola ser vista.
  */
+/**
+ * 🔴 **Quanto um passo NA DIAGONAL custa a mais que um reto.**
+ *
+ * A diagonal percorre √2 de distância, e sem cobrar por isso ela viraria atalho
+ * de velocidade — andar na diagonal chegaria 41 % mais longe pelo mesmo preço.
+ * 1,5 é um pouco acima do √2 de propósito, como no Tibia: a diagonal continua
+ * valendo a pena para contornar, mas não para viajar.
+ *
+ * 🔴 **Mora aqui porque são DUAS pontas.** O servidor cobra o intervalo maior; o
+ * cliente precisa do MESMO número para o deslize durar o passo inteiro. Enquanto
+ * o número morava só no servidor, o cliente deslizava a diagonal em 1,0× e o
+ * personagem ficava PARADO o 0,5× restante — uma paradinha a cada tile, em tudo
+ * que não fosse reto. O dono viu jogando: *"ele está muito rápido para baixo e
+ * muito lento para todas as outras direções."*
+ *
+ * ⚠️ Vale só para JOGADOR. As criaturas não pagam diagonal (ver
+ * `updateCreatures`), e é de propósito: o passo delas já é irregular por
+ * sorteio, e cobrar diagonal só as faria parecer emperradas.
+ */
+export const CUSTO_DIAGONAL = 1.5;
+
 export const INTERVALO_BOLT_MS = 800;
 
 /**
