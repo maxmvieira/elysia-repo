@@ -953,15 +953,6 @@ export interface S2C_Effect {
    * um efeito que não tem alvo).
    */
   targetId?: string;
-  /**
-   * 🌠 **Quanto tempo o efeito fica em cena**, quando ele não é um estouro.
-   *
-   * Existe para o círculo da Chuva de Meteoros: ele tem de ficar aceso pelos
-   * ~4 s da tempestade, enquanto os meteoros caem dentro dele. Sem o campo, o
-   * cliente usaria a duração padrão de estouro (520 ms) e o círculo sumiria
-   * com nove meteoros ainda por cair.
-   */
-  durationMs?: number;
 }
 
 /**

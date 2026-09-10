@@ -373,10 +373,22 @@ test('🌠 a Chuva de Meteoros segue o documento: 10 meteoros e ~4 s no Lv.10', 
    * implementa.
    */
   const c = SKILLS.meteor_storm;
-  assert.equal(skillHits(c, 10), 10, "o GDD diz DEZ meteoros no Lv.10");
-  assert.equal(skillDuration(c, 10), 4000, "o GDD diz ~4 s");
+  assert.equal(skillHits(c, 10), 10, 'o GDD diz DEZ meteoros no Lv.10');
   assert.equal(c.castMs, 3000);
   assert.equal(c.cooldownMs, 15000);
+
+  /*
+   * ⚠️ **A DURAÇÃO É A ÚNICA QUE PASSOU DO DOCUMENTO, e por decisão do dono.**
+   * O GDD diz "~4 s"; ele pediu mais depois de jogar (*"aumente um pouco mais a
+   * duração dela também"*). O teste trava a FAIXA em vez do número: mais que o
+   * documento, sim, mas não o dobro — se um dia alguém puser 12 s, a magia vira
+   * outra coisa e isto cai.
+   */
+  assert.ok(
+    skillDuration(c, 10) > 4000 && skillDuration(c, 10) <= 6000,
+    `duração do Lv.10 fora da faixa: ${skillDuration(c, 10)}`,
+  );
+  assert.ok(skillDuration(c, 10) > skillDuration(c, 1), 'cresce com o nível');
 
   /*
    * 🔴 **E a queimadura continua sendo a condição dela.** A mesma proposta
@@ -386,6 +398,32 @@ test('🌠 a Chuva de Meteoros segue o documento: 10 meteoros e ~4 s no Lv.10', 
    * identidade da suprema de raio.
    */
   assert.equal(c.applies?.id, 'burn');
+});
+
+test('💥 cada meteoro respinga em 3×3 — e isso MULTIPLICA o dano em grupo', () => {
+  /*
+   * Pedido do dono em 11/09, jogando: *"se ele pegar em dois monstros juntos,
+   * ambos devem tomar dano dele, afinal de contas é uma magia em área."*
+   *
+   * 🔴 **Este teste existe para o número não sumir sem alguém notar.** O
+   * respingo é a maior alavanca de dano da magia: antes, dez meteoros eram dez
+   * golpes DISTRIBUÍDOS entre os alvos sorteados; com respingo 1, um bando
+   * colado leva perto de dez golpes CADA UM. Quem for reequilibrar a Chuva
+   * começa por aqui, não pelo `power`.
+   */
+  const c = SKILLS.meteor_storm;
+  assert.equal(c.splash, 1, 'respingo de 1 tile = cratera 3×3');
+
+  /*
+   * ⚠️ **`splash` e `range` são coisas diferentes**, e confundi-los é o erro
+   * fácil: `range` é o raio da TEMPESTADE (onde os meteoros podem cair) e
+   * `splash` é o raio de UM impacto. A nuvem e a cratera.
+   */
+  assert.ok(c.range > c.splash, 'a tempestade tem de ser maior que a cratera');
+
+  // E ninguém mais respinga: é exclusividade da suprema de fogo por enquanto.
+  const comSplash = Object.values(SKILLS).filter((d) => d.splash !== undefined);
+  assert.deepEqual(comSplash.map((d) => d.id), ['meteor_storm']);
 });
 
 test('🔴 o carregamento do Fire Bolt desce por DESTREZA, numa curva côncava', () => {

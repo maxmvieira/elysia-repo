@@ -2198,7 +2198,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * A 34 o diâmetro é ~68 px — pouco menos da metade do raio do círculo, que é
    * a proporção em que uma rocha lê como rocha e não como fagulha.
    */
-  const RAIO_METEORO = 34;
+  const RAIO_METEORO = 46;
 
   /**
    * Quanto o ESTOURO de cada magia é maior que o padrão da folha.
@@ -2206,7 +2206,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * ⚠️ Escala isotrópica (o mesmo fator em x e y), e isto importa: escalar só
    * um eixo é o que deixa a explosão OVAL, que foi a queixa do dono.
    */
-  const ESCALA_IMPACTO: Record<string, number> = { meteor_fall: 3.4 };
+  const ESCALA_IMPACTO: Record<string, number> = { meteor_fall: 4.4 };
 
   function spawnQueda(
     magia: string, wx: number, wy: number, frames: Texture[], atraso: number,
@@ -2644,9 +2644,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     return null;
   }
 
-  function spawnSpellFx(
-    kind: string, tileX: number, tileY: number, radius: number, duracao?: number,
-  ): void {
+  function spawnSpellFx(kind: string, tileX: number, tileY: number, radius: number): void {
     const node = new Container();
     node.x = tileX * TS + TS / 2;
     node.y = tileY * TS + TS / 2;
@@ -2800,14 +2798,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // Durações alongadas a pedido do dono: a 320 ms o talho mal era percebido,
     // e efeito que o jogador não vê não ensina nada. Área dura mais que golpe
     // porque cobre um espaço que precisa ser LIDO antes de reagir.
-    /*
-     * 🌠 **A duração pode vir do SERVIDOR.** É o caso do círculo da Chuva de
-     * Meteoros: ele tem de ficar aceso os ~4 s da tempestade, enquanto os
-     * meteoros caem dentro dele. Com os 520 ms de estouro o círculo sumiria com
-     * nove meteoros ainda por cair, e o jogador perderia a única pista de ONDE
-     * é a área.
-     */
-    const dur = duracao ?? (kind === 'bash' || kind === 'fury' ? 800 : 520);
+    const dur = kind === 'bash' || kind === 'fury' ? 800 : 520;
     spellFx.push({ node, t: 0, dur, kind });
   }
 
@@ -3431,7 +3422,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
              */
             const folha = folhaDoFx(msg.kind);
             if (folha) tocaEfeito(folha, msg.x * TS + TS / 2, msg.y * TS + TS);
-            else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1, msg.durationMs);
+            else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1);
           }
           break;
         case 'heal': {
@@ -7849,33 +7840,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         // Labaredas sobem e se afastam do corpo.
         f.node.scale.set(0.5 + r * 0.7);
         f.node.y -= dt * 0.02;
-      } else if (f.kind === 'meteor_storm') {
-        /*
-         * 🌠 **O CÍRCULO DA TEMPESTADE PULSA, e não cresce nem some.**
-         *
-         * Os outros efeitos são ESTOUROS: abrem, apagam, acabaram em meio
-         * segundo. Este fica ~4 s no chão dizendo "a área é aqui", e as regras
-         * de estouro o arruinariam — crescer o faria mentir sobre o raio, e o
-         * `1 − r²` o deixaria invisível na metade da tempestade, justamente
-         * quando ainda faltam cinco meteoros.
-         *
-         * ⚠️ Escala TRAVADA em 1: o raio desenhado é o raio real da magia. E o
-         * fade só nos últimos 20 %, para o sumiço coincidir com o fim.
-         */
-        f.node.scale.set(1);
-        const pulso = 0.72 + 0.28 * Math.abs(Math.sin(f.t * 0.006));
-        f.node.alpha = pulso * (r > 0.8 ? (1 - r) / 0.2 : 1);
       } else {
         f.node.scale.set(0.6 + r * 0.9);
         f.node.rotation = r * 0.5;
       }
-      /*
-       * ⚠️ O fade vale para TODO efeito menos o círculo da tempestade, que tem o
-       * seu próprio (pulso + sumiço no fim). Deixar esta linha solta apagaria o
-       * pulso no quadro seguinte; movê-la para dentro de cada ramo tiraria o
-       * fade do `bash`, do `taunt`, do `stance` e do `fury` de uma vez.
-       */
-      if (f.kind !== 'meteor_storm') f.node.alpha = 1 - r * r;
+      f.node.alpha = 1 - r * r;
       if (r >= 1) {
         f.node.destroy({ children: true });
         spellFx.splice(i, 1);

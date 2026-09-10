@@ -3610,10 +3610,46 @@ function tickGolpesPendentes(now: number): void {
       });
     }
     if (now < g.quando) { fica.push(g); continue; }
+
+    const def = SKILLS[g.skillId];
+    /*
+     * 💥 **O RESPINGO: quem mais estava colado no ponto do impacto.**
+     *
+     * 🔴 O centro é a posição da criatura ANCORA no instante do estouro — a
+     * mesma que o `fx` usou. Não é o ponto onde o meteoro foi agendado: entre
+     * o agendamento e a queda passam centenas de milissegundos e a âncora
+     * andou. Usar a posição antiga faria a cratera abrir onde ninguém está.
+     *
+     * ⚠️ A âncora leva o golpe primeiro e os vizinhos depois, para o número
+     * dela sair na frente na tela — é ela que o jogador está olhando.
+     *
+     * ⚠️ **`chebyshev`, e não distância euclidiana.** Respingo 1 tem de ser um
+     * quadrado 3×3, como todo alcance deste jogo; com euclidiana as quinas
+     * ficariam de fora e o jogador veria dois monstros lado a lado com o
+     * meteoro entre eles, um levando dano e o outro não.
+     */
+    const vizinhos: Creature[] = [];
+    if (def.splash !== undefined) {
+      for (const outro of creatures.values()) {
+        if (outro.id === c.id || !outro.alive || outro.floor !== c.floor) continue;
+        if (chebyshev(c.tileX, c.tileY, outro.tileX, outro.tileY) <= def.splash) {
+          vizinhos.push(outro);
+        }
+      }
+    }
     aplicaGolpeDeMagia(
-      player, SKILLS[g.skillId], g.nivel, c, g.poderBase, g.critChance, g.critMult, now,
+      player, def, g.nivel, c, g.poderBase, g.critChance, g.critMult, now,
       g.gesto,
     );
+    /*
+     * ⚠️ Os vizinhos NÃO repetem o gesto do conjurador: um meteoro é um gesto,
+     * mesmo pegando cinco bichos. Ver `semGesto` no protocolo.
+     */
+    for (const v of vizinhos) {
+      aplicaGolpeDeMagia(
+        player, def, g.nivel, v, g.poderBase, g.critChance, g.critMult, now, false,
+      );
+    }
   }
   golpesPendentes.length = 0;
   golpesPendentes.push(...fica);
@@ -4215,21 +4251,18 @@ function executeSpell(
    * ⚠️ E por isso o primeiro bolt da série também vai para a fila, em vez de
    * resolver aqui — ver o laço abaixo.
    */
-/*
-   * 🌠 **A TEMPESTADE DE ÁREA MANDA UM `fx` DE CÍRCULO**, e é a exceção ao
-   * parágrafo acima: a queda de alvo único não manda `fx` nenhum daqui, mas a
-   * de área precisa de um — o círculo no chão que fica aceso enquanto ela dura.
-   * Sem ele o jogador vê meteoros caindo e não sabe onde é a área.
+  /*
+   * 🔴 **A TEMPESTADE NÃO DESENHA CÍRCULO NENHUM** — dono, 11/09, depois de ver
+   * em tela: *"remova o círculo agora"*.
    *
-   * ⚠️ Os meteoros em si continuam vindo um a um de `tickGolpesPendentes`.
+   * Ele existiu por um dia, para marcar a área durante a tempestade. O que se
+   * aprendeu jogando é que não fazia falta: os meteoros CAINDO já dizem onde a
+   * tempestade está, e melhor — dizem em movimento, sem tapar o chão nem
+   * competir com a leitura dos monstros.
+   *
+   * ⚠️ Então a queda de área segue a MESMA regra da de alvo único: nenhum `fx`
+   * sai daqui. Todos vêm de `tickGolpesPendentes`, um por meteoro.
    */
-  if (emQueda && def.shape === 'area') {
-    broadcastFloor(player.floor, {
-      t: 'fx', kind: def.fx, x: fxAt.tileX, y: fxAt.tileY, floor: player.floor,
-      radius: alcance, n: golpes, durationMs: skillDuration(def, nivel),
-    });
-  }
-
   for (let i = 0; i < golpes; i++) {
     const lista = sorteiaAlvo
       ? [targets[Math.floor(Math.random() * targets.length)]!]

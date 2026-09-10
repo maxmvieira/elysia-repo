@@ -408,6 +408,27 @@ export interface SkillDef {
    * desenho da chuva mudaria junto o da magia menor.
    */
   quedaFx?: string;
+  /**
+   * 💥 **RAIO DE RESPINGO de CADA impacto, em tiles.** Ausente = só o alvo.
+   *
+   * Pedido do dono em 11/09, jogando: *"se ele pegar em dois monstros juntos,
+   * ambos devem tomar dano dele, afinal de contas é uma magia em área."*
+   *
+   * ⚠️ **Não confundir com `range`.** Em magia de área, `range` é o raio da
+   * TEMPESTADE — onde os meteoros podem cair. `splash` é o raio de UM meteoro
+   * quando ele bate. Um é a nuvem, o outro é a cratera.
+   *
+   * 🔴 **E isto MULTIPLICA o dano em grupo.** Antes, cada meteoro batia num
+   * alvo sorteado: dez meteoros = dez golpes distribuídos. Com respingo 1, cada
+   * meteoro pega até 9 tiles, então um bando colado leva perto de dez golpes
+   * CADA UM. É o que o dono pediu, com a razão dele — mas é multiplicação, não
+   * ajuste, e quem for reequilibrar a magia tem de começar por aqui.
+   *
+   * ⚠️ `DD-SOR-010` continua de pé: os meteoros caem em posições parcialmente
+   * aleatórias, e um alvo grande ocupa mais tiles, logo apanha de mais
+   * respingos. O respingo REFORÇA a regra do documento em vez de contrariá-la.
+   */
+  splash?: number;
   /** Quantos golpes por lançamento (Fire Bolt, Lightning Ball). Ausente = 1. */
   hits?: number;
   hitsAtLv10?: number;
@@ -1600,19 +1621,25 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * servidor. Não é enfeite: é o que dá ao alvo a chance de SAIR da área, que
      * é o contrajogo natural de uma chuva.
      *
-     * ⚠️ 1,6 s no Lv.1 e 4 s no Lv.10. O topo é o número do documento; a base é
-     * escolha, e ela mantém a cadência quase constante (4 meteoros em 1,6 s =
-     * 400 ms cada; 10 em 4 s = 400 ms cada). A magia cresce em VOLUME, não em
-     * ritmo.
+     * ⚠️ **2 s no Lv.1 e 5,2 s no Lv.10 — e o topo passou do documento.** O GDD
+     * diz *"~4 s"*; o dono pediu mais depois de jogar (*"aumente um pouco mais a
+     * duração dela também"*). Fica registrado que é OVERRIDE consciente do dono,
+     * não descuido de quem implementou: 4000 é o número do doc e voltar a ele é
+     * trocar um literal.
+     *
+     * ⚠️ A cadência continua quase constante (4 meteoros em 2 s = 500 ms cada;
+     * 10 em 5,2 s = 520 ms cada). A magia cresce em VOLUME, não em ritmo.
      */
-    durationMs: 1600,
-    durationAtLv10: 4000,
+    durationMs: 2000,
+    durationAtLv10: 5200,
     /*
      * 🌠 Cai do céu, como o Fire Bolt — a bandeira liga o mesmo agendamento por
      * impacto e o mesmo desenho. Ver `queda` em `SkillDef`.
      */
     queda: true,
     quedaFx: 'meteor_fall',
+    // 💥 Cada meteoro abre uma cratera de 3×3. Ver `splash`.
+    splash: 1,
     // 🔴 3 s de conjuração: o preço da maior magia do jogo é ficar parado e
     // interrompível. Sem isso ela não teria contrajogo nenhum.
     castMs: 3000,
