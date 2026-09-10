@@ -1888,11 +1888,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * cai, estoura no chão e dissipa. Por isso ela nasce ACIMA do alvo e não tem
    * origem no conjurador.
    *
-   * 🔴 **UMA animação por CONJURAÇÃO, não por impacto** — decisão do dono em
-   * 08/09 ("vamos de letra B"). A folha é escolhida pela QUANTIDADE de bolts,
-   * que o servidor manda no `fx` (`n`): o cliente não sabe o nível de
-   * habilidade dos outros jogadores, e sem esse campo o mago do lado apareceria
-   * sempre soltando um bolt só.
+   * 🔴 **UM `fx` POR BOLT, mandado quando aquela bola nasce** (10/09). Era um
+   * aviso por CONJURAÇÃO, com a contagem de bolts em `n`, e o cliente abria
+   * dali as dez bolas — todas no mesmo ponto do chão, e todas mesmo depois de o
+   * alvo morrer. Agora cada bola chega com a posição da criatura NAQUELE
+   * instante e com o `targetId` para persegui-la.
+   *
+   * ⚠️ O caminho de `n > 1` continua vivo: é ele que faria a folha de dez bolas
+   * voltar a funcionar, e ela está pronta em disco (ver `folhasQueda`).
    *
    * 🔴 **A queda por impacto foi removida.** Ela vivia no `hit` com elemento de
    * fogo; mantê-la junto com esta faria a bola aparecer duas vezes.
@@ -1917,7 +1920,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * que já estava no ar. **Degrada para o comportamento de ontem**, em vez de
    * degradar para uma bola só.
    */
-  const folhasQueda: Array<{ bolts: number; frames: Texture[] }> = [];
+  const folhasQueda = new Map<string, Array<{ bolts: number; frames: Texture[] }>>();
 
   /**
    * Duração de uma queda inteira, do céu à dissipação.
@@ -1960,16 +1963,41 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * Com só a folha de 1, o nível 10 volta a tocar dez cópias dela, que é
    * exatamente o que estava no ar antes.
    */
-  for (const folha of [
+  /*
+   * ⚠️ **A contagem de quadros vem NA ENTRADA, e não de uma constante.** Era
+   * `QUADROS_FX = 16` fixo, o que valia enquanto havia uma folha só; a arte de
+   * 09/09 tem 24 e a do Cold Bolt tem 30, e um número fixo cortaria a tira no
+   * lugar errado — sem erro, só com a animação picotada. É a mesma lição do
+   * manifesto das folhas de buff.
+   *
+   * 🔴 **AGORA É POR MAGIA** (10/09): a chave `magia` é o `kind` que chega no
+   * `fx`, e é ela que decide se a habilidade cai do céu ou desenha o efeito
+   * geométrico. Enquanto havia uma folha só, "cai do céu" podia ser o literal
+   * `'fire_bolt'` no meio do tratador; com a segunda, isso viraria uma lista de
+   * ifs que envelhece a cada folha nova.
+   */
+  const FOLHAS_QUEDA = [
+    { magia: 'fire_bolt', arquivo: 'firebolt24', bolts: 1, quadros: 24 },
     /*
-     * ⚠️ **A contagem de quadros vem NA ENTRADA, e não de uma constante.** Era
-     * `QUADROS_FX = 16` fixo, o que valia enquanto havia uma folha só; a arte
-     * nova do dono (09/09) tem 24, e um número fixo cortaria a tira no lugar
-     * errado — sem erro, só com a animação picotada. É a mesma lição do
-     * manifesto das folhas de buff.
+     * ❄️ O Cold Bolt (10/09). Trinta quadros: dezoito de descida em duas
+     * fileiras de nove, e doze de estouro em duas de seis. Um golpe só na
+     * ficha, então `bolts: 1` não é escolha — é o que a magia é.
      */
-    { arquivo: 'firebolt24', bolts: 1, quadros: 24 },
-  ]) {
+    { magia: 'cold_bolt', arquivo: 'coldbolt30', bolts: 1, quadros: 30 },
+  ] as const;
+
+  /**
+   * As magias que CAEM DO CÉU, declaradas.
+   *
+   * ⚠️ **Não dá para perguntar ao mapa `folhasQueda`**, e a diferença é de
+   * tempo: as folhas carregam sem `await`, então nos primeiros segundos de
+   * mundo o mapa está vazio. Um `fx` que chegasse nessa janela cairia no
+   * desenho geométrico — a magia certa, com o efeito da errada, uma vez a cada
+   * vinte. O conjunto é estático e não tem essa janela.
+   */
+  const MAGIAS_QUE_CAEM = new Set<string>(FOLHAS_QUEDA.map((f) => f.magia));
+
+  for (const folha of FOLHAS_QUEDA) {
     void Assets.load<Texture>(`/assets/fx/${folha.arquivo}.png`)
       .then((tex) => {
         /*
@@ -1992,7 +2020,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
          */
         const cw = Math.max(1, Math.round(tex.width / folha.quadros));
         const ch = tex.height;
-        folhasQueda.push({
+        const lista = folhasQueda.get(folha.magia) ?? [];
+        lista.push({
           bolts: folha.bolts,
           frames: Array.from({ length: folha.quadros }, (_, i) => new Texture({
             source: tex.source,
@@ -2000,7 +2029,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           })),
         });
         // Maior primeiro: `folhaPara` pega a primeira que couber.
-        folhasQueda.sort((a, b) => b.bolts - a.bolts);
+        lista.sort((a, b) => b.bolts - a.bolts);
+        folhasQueda.set(folha.magia, lista);
       })
       .catch(() => { /* folha ausente: o registro simplesmente não a tem */ });
   }
@@ -2060,10 +2090,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     quedas.push(q);
   }
 
-  /** A folha que melhor representa `n` bolts, ou a menor que existir. */
-  function folhaPara(n: number): { bolts: number; frames: Texture[] } | null {
-    if (folhasQueda.length === 0) return null;
-    return folhasQueda.find((f) => f.bolts <= n) ?? folhasQueda[folhasQueda.length - 1]!;
+  /** A folha desta magia que melhor representa `n` bolts, ou a menor que há. */
+  function folhaPara(magia: string, n: number): { bolts: number; frames: Texture[] } | null {
+    const lista = folhasQueda.get(magia);
+    if (!lista || lista.length === 0) return null;
+    return lista.find((f) => f.bolts <= n) ?? lista[lista.length - 1]!;
   }
 
   /**
@@ -2124,9 +2155,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * servidor usa para espaçar o dano**. É o que mantém bola e estrago juntos.
    */
   function spawnQuedaDaConjuracao(
-    wx: number, wy: number, n: number, alvo?: string,
+    magia: string, wx: number, wy: number, n: number, alvo?: string,
   ): void {
-    const folha = folhaPara(n);
+    const folha = folhaPara(magia, n);
     if (!folha) return;
     const copias = Math.max(1, Math.ceil(n / folha.bolts));
     for (let i = 0; i < copias; i++) {
@@ -3138,7 +3169,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
            * geométrico como o giro do Vendaval. O `n` é a contagem de bolts,
            * que decide a folha e quantas cópias tocam.
            */
-          if (msg.kind === 'fire_bolt') {
+          if (MAGIAS_QUE_CAEM.has(msg.kind)) {
             /*
              * ⚠️ **Chega UM `fx` POR BOLT desde 10/09**, e não mais um por
              * conjuração com `n` bolts. Quem espaça as bolas no tempo agora é o
@@ -3150,7 +3181,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
              * disco (ver `folhasQueda`).
              */
             spawnQuedaDaConjuracao(
-              msg.x * TS + TS / 2, msg.y * TS + TS, msg.n ?? 1, msg.targetId,
+              msg.kind, msg.x * TS + TS / 2, msg.y * TS + TS, msg.n ?? 1, msg.targetId,
             );
             break;
           }

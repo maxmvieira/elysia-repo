@@ -281,6 +281,26 @@ test('a Maestria não inventa cast em quem não tem', () => {
   assert.equal(skillCastMs(SKILLS.emergency_heal, 10, 10, 300), 0);
 });
 
+test('🔴 magia que CAI DO CÉU é sempre de alvo único, e o Fire e o Cold caem', () => {
+  /*
+   * A bandeira `queda` custa três coisas ao servidor: o `fx` vai um por golpe
+   * (em vez do genérico no lançamento), a bola persegue o alvo pelo `targetId`,
+   * e o dano espera o estouro. Nada disso faz sentido em área — lá os impactos
+   * se espalham entre alvos diferentes.
+   *
+   * ⚠️ E o cliente tem de ter a FOLHA de cada uma (`FOLHAS_QUEDA`, no
+   * `main.ts`). Marcar `queda` numa magia sem folha a deixa sem efeito nenhum:
+   * o `fx` genérico não sai mais, e não há queda para desenhar no lugar.
+   */
+  const caem = Object.values(SKILLS).filter((d) => d.queda);
+  assert.deepEqual(
+    caem.map((d) => d.id).sort(),
+    ['cold_bolt', 'fire_bolt'],
+    'mudou a lista? confira se o cliente tem a folha de queda da magia nova',
+  );
+  for (const d of caem) assert.equal(d.shape, 'target', `${d.id} cai do céu mas não é de alvo`);
+});
+
 test('🔴 o Fire Bolt tem carregamento, e só fica instantâneo lá pelo nível 250', () => {
   /*
    * Pedido do dono em 10/09: "precisa de ter um pequeno carregamento para

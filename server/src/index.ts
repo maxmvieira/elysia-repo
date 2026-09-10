@@ -3463,7 +3463,7 @@ function marcaConjuracao(
    * O de área (Chuva de Meteoros) resolve tudo num tique só.
    */
   let recarga = def.cooldownMs;
-  if (def.kind === 'multihit' && def.shape === 'target' && nivel !== undefined) {
+  if (def.queda === true && def.shape === 'target' && nivel !== undefined) {
     const golpes = skillHits(def, nivel);
     recarga = Math.max(recarga, (golpes - 1) * INTERVALO_BOLT_MS + DUR_QUEDA_MS);
   }
@@ -3891,12 +3891,24 @@ function executeSpell(
     );
   }
 
+  /**
+   * 🔴 **A magia que CAI DO CÉU não manda o `fx` daqui** (10/09).
+   *
+   * Quem manda o dela é `tickGolpesPendentes`, um por golpe, na hora em que
+   * aquela bola nasce. Este broadcast genérico continuava saindo junto — e o
+   * Fire Bolt ganhava assim uma bola A MAIS por lançamento: a genérica, parada
+   * no chão, sem seguir ninguém. Com dez bolas sobrepostas ninguém via; com uma
+   * de cada vez, virou a primeira coisa que se nota.
+   */
+  const emQueda = def.queda === true && def.shape === 'target';
   // Área estoura no conjurador; alvo único estoura em cima de quem apanhou.
   const fxAt = def.shape === 'area' ? player : targets[0]!;
-  broadcastFloor(player.floor, {
-    t: 'fx', kind: def.fx, x: fxAt.tileX, y: fxAt.tileY, floor: player.floor,
-    ...(def.shape === 'area' ? { radius: alcance } : {}),
-  });
+  if (!emQueda) {
+    broadcastFloor(player.floor, {
+      t: 'fx', kind: def.fx, x: fxAt.tileX, y: fxAt.tileY, floor: player.floor,
+      ...(def.shape === 'area' ? { radius: alcance } : {}),
+    });
+  }
 
   const d = player.derived;
   // Bash muda de personalidade conforme a arma: machado bate mais forte, maça
@@ -3945,16 +3957,20 @@ function executeSpell(
    */
   const golpes = skillHits(def, nivel);
   const sorteiaAlvo = def.kind === 'multihit' && def.shape === 'area';
-  /**
+  /*
    * 🔴 **BOLT A BOLT, NÃO TUDO DE UMA VEZ** — decisão do dono em 08/09: *"o
    * dano é à medida que vão descendo os bolts do céu, ou seja nível 10 serão
    * 10 hits diferentes, não todos acumulados de uma vez."*
    *
-   * Vale para o multi-hit de ALVO ÚNICO (Fire Bolt, Cold Bolt). O de área
-   * (Chuva de Meteoros) continua num tique só — lá os impactos já se espalham
-   * entre alvos diferentes, e espalhá-los também no tempo é outra conversa.
+   * ⚠️ A condição era `kind === 'multihit' && shape === 'target'` e virou a
+   * bandeira `queda` da ficha (ver `emQueda`, acima). O motivo é o Cold Bolt:
+   * ele é `damage` de um golpe só, mas cai do céu igual — e com a condição
+   * antiga ficava de fora da fila, o que lhe custava as três coisas que a fila
+   * dá (seguir o alvo, sumir com ele, e o dano no instante do estouro).
+   *
+   * A Chuva de Meteoros continua num tique só: é de área, e lá os impactos já
+   * se espalham entre alvos diferentes.
    */
-  const emSerie = def.kind === 'multihit' && def.shape === 'target';
 
   /*
    * 🔴 **O AVISO DE EFEITO DA SÉRIE SAIU DAQUI** (10/09).
@@ -3977,7 +3993,7 @@ function executeSpell(
       ? [targets[Math.floor(Math.random() * targets.length)]!]
       : targets;
     for (const c of lista) {
-      if (emSerie) {
+      if (emQueda) {
         /*
          * 🔴 **TODOS os bolts vão para a fila, inclusive o primeiro** (10/09).
          *

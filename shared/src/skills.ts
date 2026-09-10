@@ -376,6 +376,28 @@ export interface SkillDef {
    * um botão sem risco.
    */
   castMs?: number;
+  /**
+   * 🔴 **A magia CAI DO CÉU em cima do alvo**, em vez de estourar nele.
+   *
+   * É uma bandeira de DESENHO com consequência de regra, e por isso mora na
+   * ficha e não no cliente:
+   *
+   *   - o cliente escolhe a folha de queda (`firebolt24`, `coldbolt30`) em vez
+   *     do efeito geométrico;
+   *   - o servidor manda o `fx` **um por golpe**, na hora em que aquela bola
+   *     nasce e na posição que a criatura tem naquele momento — é o que faz a
+   *     bola seguir quem anda e a chuva parar quando o alvo morre;
+   *   - e o dano de cada golpe espera a bola CHEGAR (`ATRASO_IMPACTO_MS`), para
+   *     o número vermelho e o estouro acontecerem no mesmo instante.
+   *
+   * ⚠️ Sem esta bandeira o `executeSpell` manda o `fx` genérico no lançamento,
+   * e aí a magia ganha uma bola A MAIS — a genérica, parada no chão, que não
+   * segue ninguém. Foi exatamente o que acontecia com o Fire Bolt até 10/09.
+   *
+   * ⚠️ Só vale com `shape: 'target'`. Queda em área é outra conversa: lá os
+   * impactos se espalham entre alvos diferentes.
+   */
+  queda?: boolean;
   /** Quantos golpes por lançamento (Fire Bolt, Lightning Ball). Ausente = 1. */
   hits?: number;
   hitsAtLv10?: number;
@@ -1437,6 +1459,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      */
     hits: 1,
     hitsAtLv10: 10,
+    queda: true,
     applies: {
       id: 'burn',
       chanceAtLv1: 0.10,
@@ -1595,6 +1618,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     durationMs: 0,
     magic: true,
     damageType: 'ice',
+    // ❄️ Cai do céu como o Fire Bolt, com a folha própria de 30 quadros.
+    queda: true,
     // Gelo CONTROLA: o bolt não congela, atrasa. Congelar é papel da Nevasca.
     applies: {
       id: 'slow',
