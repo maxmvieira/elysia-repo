@@ -144,9 +144,13 @@ export const INTERVALO_BOLT_MS = 140;
  * ⚠️ Mesmo contrato do intervalo acima: um valor, dois arquivos. Baixar aqui
  * sem baixar a animação libera a magia antes de a última bola cair na tela.
  *
- * ⚠️ 2400 não é gosto — o dono pediu a queda mais lenta nas três vezes em que
- * jogou (620 → 1000 → 1600 → 2400). Sendo bem maior que o intervalo de 140, as
- * dez bolas do nível 10 ficam quase todas no ar ao mesmo tempo, que é o efeito
- * de chuva que a arte quer.
+ * ⚠️ 3600 não é gosto — o dono pediu a queda mais lenta em CINCO testes
+ * seguidos (620 → 1000 → 1600 → 2400 → 3600). Sendo bem maior que o intervalo
+ * de 140, as dez bolas do nível 10 ficam quase todas no ar ao mesmo tempo, que
+ * é o efeito de chuva que a arte quer.
+ *
+ * ⚠️ Na arte de 24 quadros a QUEDA são os catorze primeiros e o estouro os dez
+ * últimos — então o tempo de descida é ~58% deste número, não ele inteiro. Foi
+ * por isso que 2400 ainda pareceu rápido: a descida durava 1,4 s.
  */
-export const DUR_QUEDA_MS = 2400;
+export const DUR_QUEDA_MS = 3600;

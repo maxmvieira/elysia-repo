@@ -1916,15 +1916,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const folhasQueda: Array<{ bolts: number; frames: Texture[] }> = [];
 
   /**
-   * Quantas colunas toda tira de FX tem.
-   *
-   * ⚠️ **É contrato com `tools/fx2strip.mjs`**, que emite `quadros: 16` para os
-   * dois efeitos. A célula pode mudar de tamanho entre folhas (64×64 e 64×256
-   * hoje); o que não muda é a CONTAGEM, e é dela que sai a largura da célula.
-   */
-  const QUADROS_FX = 16;
-
-  /**
    * Duração de uma queda inteira, do céu à dissipação.
    *
    * ⚠️ Quarto valor: 620 ms (rápido demais), 1000, 1600, agora **2400** — o
@@ -1966,27 +1957,40 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * exatamente o que estava no ar antes.
    */
   for (const folha of [
-    { arquivo: 'firebolt', bolts: 1 },
+    /*
+     * ⚠️ **A contagem de quadros vem NA ENTRADA, e não de uma constante.** Era
+     * `QUADROS_FX = 16` fixo, o que valia enquanto havia uma folha só; a arte
+     * nova do dono (09/09) tem 24, e um número fixo cortaria a tira no lugar
+     * errado — sem erro, só com a animação picotada. É a mesma lição do
+     * manifesto das folhas de buff.
+     */
+    { arquivo: 'firebolt24', bolts: 1, quadros: 24 },
   ]) {
     void Assets.load<Texture>(`/assets/fx/${folha.arquivo}.png`)
       .then((tex) => {
-        tex.source.scaleMode = 'nearest';
+        /*
+         * ⚠️ **`linear`, e não `nearest`.** Era `nearest` quando a folha vinha
+         * do conversor no tamanho exato da tela (64 px desenhados em 64). A
+         * arte de 09/09 é recortada em 128 para guardar detalhe e desenhada
+         * menor — e vizinho-mais-próximo num ENCOLHIMENTO come metade das
+         * fagulhas, que têm um pixel de largura.
+         */
+        tex.source.scaleMode = 'linear';
         /*
          * 🔴 **A CÉLULA NÃO É 64×64 EM TODAS.** A folha do nível 10 é 64×256:
          * o quadro de origem é alto e estreito, e espremê-lo num quadrado
          * transformava as três bolas num borrão de 5 px (ver `fx2strip.mjs`).
          *
-         * 🔴 Por isso a leitura é **pela contagem, não pelo tamanho**: toda
-         * tira de FX tem `QUADROS_FX` colunas, então a largura da célula sai de
-         * uma divisão e a altura é a da imagem. É o contrato entre o conversor
-         * e este bloco — dividir por 64 aqui cortaria a folha alta em quatro
-         * fatias horizontais de personagem nenhum.
+         * 🔴 Por isso a leitura é **pela contagem, não pelo tamanho**: a
+         * largura da célula sai de dividir a tira pelo número de quadros
+         * declarado na entrada, e a altura é a da imagem. Dividir por 64 aqui
+         * cortaria a folha alta em quatro fatias de personagem nenhum.
          */
-        const cw = Math.max(1, Math.round(tex.width / QUADROS_FX));
+        const cw = Math.max(1, Math.round(tex.width / folha.quadros));
         const ch = tex.height;
         folhasQueda.push({
           bolts: folha.bolts,
-          frames: Array.from({ length: QUADROS_FX }, (_, i) => new Texture({
+          frames: Array.from({ length: folha.quadros }, (_, i) => new Texture({
             source: tex.source,
             frame: new Rectangle(i * cw, 0, cw, ch),
           })),
@@ -2065,9 +2069,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * explosão fica na base da célula, e é ela que tem de cair no tile. Ancorar
    * no meio deixaria o estouro meio tile acima do alvo.
    */
+  /**
+   * Quanto do quadro aparece na tela.
+   *
+   * ⚠️ O quadro é recortado com 128 px de largura — quatro tiles — para a arte
+   * caber com folga na tira. Desenhado assim ele cobriria um quarto da tela;
+   * a 0,625 ele fica com 80 px, dois tiles e meio, que é a altura do
+   * personagem. A folga extra do recorte vira nitidez, não tamanho.
+   */
+  const ESCALA_QUEDA = 0.625;
+
   function spawnQueda(wx: number, wy: number, frames: Texture[], atraso: number): void {
     const node = new AnimatedSprite(frames);
     node.loop = false;
+    node.scale.set(ESCALA_QUEDA);
     node.anchor.set(0.5, 1);
     node.x = wx;
     node.y = wy;
