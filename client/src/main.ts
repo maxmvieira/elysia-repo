@@ -3187,19 +3187,26 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         case 'stats':
           myAttackRange = msg.attackRange;
           /*
-           * Velocidade autoritativa do herói, arredondada para CIMA ao tique.
+           * Velocidade autoritativa do herói, como o servidor a manda.
            *
-           * O servidor só libera um passo quando `now - lastMove >= moveInterval`,
-           * e ele testa isso uma vez por tique de 15 Hz. Então o intervalo que
-           * chega na tela não é o nominal: é o nominal subido ao próximo múltiplo
-           * do tique. Com 278 ms e tique de 66,7 ms, o passo real sai a cada
-           * ~333 ms.
+           * 🔴 **Aqui havia um arredondamento para cima ao tique de 15 Hz**, com
+           * a justificativa de que o servidor testaria a liberação do passo uma
+           * vez por tique. **A premissa é falsa:** `handleMessage` roda na
+           * CHEGADA do pacote (`socket.on('message')`), não no laço do mundo —
+           * o `case 'move'` compara `now - lastMoveAt` no instante em que o
+           * pedido chega. Não há quantização de tique nenhuma no passo do
+           * jogador.
            *
-           * Arredondar é mais exato que somar um tique cheio de folga: acerta a
-           * duração em vez de ficar sempre um pouco longa, e deslize longo demais
-           * deixa o sprite arrastando atrás da posição real.
+           * ⚠️ O arredondamento acrescentava até um tique inteiro (67 ms) de
+           * deslize a mais que o passo real. Isso NÃO congelava — congelar é o
+           * contrário —, mas fazia o ciclo de pernas ser cortado antes do fim a
+           * cada tile: a fase saltava de ~0,85 de volta para 0, todo passo. Um
+           * pulinho por tile, que é metade da sensação de "travando".
+           *
+           * ✅ Quem cobre a diferença entre o intervalo nominal e o que se vê na
+           * tela é `stepDurationFor`, e por um motivo medido — ver lá.
            */
-          heroiStepMs = Math.ceil(msg.moveIntervalMs / SERVER_TICK_MS) * SERVER_TICK_MS;
+          heroiStepMs = msg.moveIntervalMs;
           updateHud(msg);
           updateAttrHud(msg);
           updateSpellBar(msg);
@@ -7509,7 +7516,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
     // Consome a rota, um passo por vez, na MESMA cadência do teclado — então
     // andar por clique e por tecla tem exatamente a mesma velocidade.
-    if (caminho.length > 0 && now - lastSentAt > 120) {
+    if (caminho.length > 0 && now - lastSentAt > INTERVALO_PEDIDO_MS) {
       const proximo = caminho[0]!;
       if (proximo.x === myTileX && proximo.y === myTileY) {
         caminho.shift();
@@ -7535,7 +7542,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       }
     }
 
-    if (now - lastSentAt > 120 && heldKeys.size > 0) {
+    if (now - lastSentAt > INTERVALO_PEDIDO_MS && heldKeys.size > 0) {
       let dx = 0;
       let dy = 0;
       for (const code of heldKeys) {
@@ -8187,6 +8194,28 @@ const CONTATO_NO_QUADRO: Partial<Record<Direction, number>> = {
   down_left: 0,
 };
 
+/**
+ * 🔴 **DE QUANTO EM QUANTO O CLIENTE PEDE UM PASSO.**
+ *
+ * Ele não decide quando anda — pede, e o servidor concede a cada
+ * `moveIntervalMs` (~480 ms no nível 1). Como os dois relógios não são o mesmo,
+ * o pedido que abre a janela chega com um atraso qualquer entre 0 e este número.
+ *
+ * ⚠️ **Era 120, e esse era o travamento.** O intervalo REAL entre dois passos
+ * concedidos é `moveIntervalMs + atraso`, sorteado a cada passo; o cliente
+ * deslizava por `moveIntervalMs` cravado. Resultado: o sprite chegava ao tile e
+ * CONGELAVA por 0 a 120 ms, de novo a cada tile e sempre num tempo diferente. O
+ * dono: *"acho que ele está travando ainda a movimentação."*
+ *
+ * ✅ 60 corta o sorteio pela metade, e o deslize passou a durar
+ * `intervalo + metade deste número` (ver `stepDurationFor`) — aí o erro fica em
+ * ±30 ms, contra os ±120 de antes.
+ *
+ * ⚠️ Baixar mais tem custo de rede com ganho cada vez menor: o que sobra já está
+ * dentro do que a folga do deslize absorve.
+ */
+const INTERVALO_PEDIDO_MS = 60;
+
 /** Piso do deslize: abaixo disto o passo vira teleporte. */
 const STEP_MS_FLOOR = 90;
 
@@ -8238,8 +8267,37 @@ function stepDurationFor(
 ): number {
   const doBestiario = creatureStepMs(e);
   if (doBestiario !== null) return doBestiario;
-  // Herói local: o servidor já disse a velocidade dele. Ver `heroiStepMs`.
-  if (isSelf && heroiStepMs !== null) return Math.max(STEP_MS_FLOOR, heroiStepMs);
+  /*
+   * Herói local: o servidor já disse a velocidade dele. Ver `heroiStepMs`.
+   *
+   * 🔴 **Mais METADE de `INTERVALO_PEDIDO_MS`**, e o número sai de uma conta,
+   * não do gosto.
+   *
+   * O servidor CONCEDE um passo a cada `heroiStepMs`. Mas ele não anda sozinho:
+   * espera um pedido, e o cliente pede a cada `INTERVALO_PEDIDO_MS`. Então o
+   * intervalo que o jogador VÊ é `heroiStepMs + atraso`, com o atraso sorteado
+   * uniformemente entre 0 e `INTERVALO_PEDIDO_MS` a cada passo — o relógio de
+   * quem pede não é o de quem concede.
+   *
+   * Os dois erros possíveis são diferentes, e por isso a folga é a MÉDIA e não o
+   * pior caso:
+   *
+   *   - deslize CURTO demais → o sprite chega e congela até o próximo passo. É
+   *     a travadinha por tile que o dono relatou;
+   *   - deslize LONGO demais → o passo seguinte chega com o ciclo de pernas pela
+   *     metade, e a fase salta para trás. É um pulinho por tile.
+   *
+   * ✅ Com metade, o erro fica limitado a `INTERVALO_PEDIDO_MS / 2` para
+   * qualquer lado — 30 ms em 480, ou 6 %. Somar o pior caso inteiro trocaria
+   * todo o congelamento por todo o pulinho, e não é melhor: seria só o outro
+   * defeito.
+   *
+   * ⚠️ O atraso não acumula: cada `setTarget` reancora `fromX/fromY` na posição
+   * atual do sprite.
+   */
+  if (isSelf && heroiStepMs !== null) {
+    return Math.max(STEP_MS_FLOOR, heroiStepMs + INTERVALO_PEDIDO_MS / 2);
+  }
   const glide = isCreature ? CREATURE_GLIDE_DESCONHECIDA : 1;
   return Math.max(STEP_MS_FLOOR, cadence.observe(measured) * glide);
 }
