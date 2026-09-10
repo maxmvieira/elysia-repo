@@ -2082,6 +2082,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   function spawnQueda(wx: number, wy: number, frames: Texture[], atraso: number): void {
     const node = new AnimatedSprite(frames);
     node.loop = false;
+    /*
+     * 🔴 **MISTURA ADITIVA** (09/09): a cor do efeito é SOMADA à do mundo, em
+     * vez de tapá-lo. É como fogo se comporta — ele ilumina o que está atrás,
+     * não recorta um buraco. Sem isto o dono viu *"a animação muito escura"*:
+     * desenhada por cima, a arte trazia junto o próprio preto.
+     *
+     * ⚠️ É por causa disto que o recorte sai com alfa CHEIO (ver
+     * `tools/contato2fx.mjs`). Na soma, o preto já não acrescenta nada.
+     */
+    node.blendMode = 'add';
     node.scale.set(ESCALA_QUEDA);
     node.anchor.set(0.5, 1);
     node.x = wx;

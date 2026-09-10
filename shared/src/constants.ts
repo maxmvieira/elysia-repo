@@ -130,8 +130,19 @@ export function directionFromDelta(
  *
  * É o mesmo tipo de contrato do `GROUND_Y`/`feetY`: um valor, dois arquivos, e
  * mudar um sem o outro quebra em silêncio.
+ *
+ * 🔴 **De 140 para 800 em 09/09: os bolts passam a cair UM POR UM.** Pedido do
+ * dono depois de ver dez bolas no ar ao mesmo tempo — *"quase não está dando
+ * para ver a animação direito"*. A 140 o intervalo era uma fração da queda e a
+ * chuva virava borrão; a 800 cada bola chega perto do chão antes de a seguinte
+ * nascer.
+ *
+ * ⚠️ **Isto é o que mais mexe no ritmo da magia.** O Fire Bolt de nível 10
+ * passa a levar 9 × 800 + queda para terminar, e a recarga acompanha (ver
+ * `marcaConjuracao`). Se um dia parecer lento demais, este é o número — não a
+ * duração da queda, que é o que faz cada bola ser vista.
  */
-export const INTERVALO_BOLT_MS = 140;
+export const INTERVALO_BOLT_MS = 800;
 
 /**
  * 🔴 **Quanto UMA bola leva do céu ao chão.**
@@ -144,13 +155,17 @@ export const INTERVALO_BOLT_MS = 140;
  * ⚠️ Mesmo contrato do intervalo acima: um valor, dois arquivos. Baixar aqui
  * sem baixar a animação libera a magia antes de a última bola cair na tela.
  *
- * ⚠️ 3600 não é gosto — o dono pediu a queda mais lenta em CINCO testes
- * seguidos (620 → 1000 → 1600 → 2400 → 3600). Sendo bem maior que o intervalo
- * de 140, as dez bolas do nível 10 ficam quase todas no ar ao mesmo tempo, que
- * é o efeito de chuva que a arte quer.
+ * 🔴 **Voltou a 1000 quando os bolts passaram a cair um por um.** Ela subiu de
+ * 620 até 3600 ao longo de cinco testes, e o pedido por trás de todos era o
+ * mesmo: *dar para ver a bola*. Com dez caindo ao mesmo tempo, alongar a queda
+ * era o único jeito de conseguir isso — e não bastava, porque as dez se
+ * sobrepunham.
+ *
+ * ✅ Com `INTERVALO_BOLT_MS` em 800 cada bola cai sozinha, e aí ela é vista sem
+ * precisar durar quatro segundos. Alongar de novo AQUI só faria as bolas
+ * voltarem a se sobrepor.
  *
  * ⚠️ Na arte de 24 quadros a QUEDA são os catorze primeiros e o estouro os dez
- * últimos — então o tempo de descida é ~58% deste número, não ele inteiro. Foi
- * por isso que 2400 ainda pareceu rápido: a descida durava 1,4 s.
+ * últimos — então o tempo de descida é ~58% deste número.
  */
-export const DUR_QUEDA_MS = 3600;
+export const DUR_QUEDA_MS = 1000;

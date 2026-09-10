@@ -55,8 +55,12 @@ const img = decode(folha);
  * pixel sem cor que precisa sobreviver é o núcleo branco do clarão, e por isso
  * há a segunda porta, pelo brilho.
  *
- * ⚠️ O alfa sai do BRILHO, e não é 0 ou 255: fagulha fraca tem de ficar
- * translúcida, senão a borda do efeito vira um recorte duro.
+ * 🔴 **O que sobra sai com alfa CHEIO, e não graduado pelo brilho.** A primeira
+ * versão fazia `alfa = brilho × 1,7`, e o dono viu o resultado: *"a animação
+ * está muito escura"*. O motivo é que o jogo desenha isto em mistura ADITIVA —
+ * a cor do efeito é SOMADA ao mundo. Nessa conta o alfa é um volume, e baixá-lo
+ * nos tons médios apagava justamente o corpo da chama; o preto continua somando
+ * zero sozinho, sem precisar de alfa nenhum para sumir.
  */
 function alfaDe(r, g, b) {
   const mx = Math.max(r, g, b);
@@ -64,7 +68,7 @@ function alfaDe(r, g, b) {
   const croma = mx - mn;
   const lum = (r + g + b) / 3;
   if (croma < 8 && lum < 235) return 0;
-  return Math.min(255, Math.round(lum * 1.7));
+  return 255;
 }
 
 const quadros = [];
