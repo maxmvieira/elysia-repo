@@ -567,6 +567,36 @@ function monta(sexo) {
     { fonte: 'bow', saida: 'attack_bow', n: 8 },
     { fonte: 'cast', saida: 'attack_staff', n: 8 },
   ];
+
+  /**
+   * 🔴 **FOLHA QUE SAIU ERRADA, SUBSTITUÍDA POR OUTRA DIREÇÃO.**
+   *
+   * O autosprite erra o `up` do arco masculino de um jeito específico e
+   * teimoso: **a flecha sai ao contrário**, apontando para o rodapé do quadro
+   * em vez do topo. É o caso mais difícil que se pode pedir a um gerador — as
+   * costas do personagem, com a flecha em forte encurtamento, apontando para
+   * DENTRO da tela. Sem pista de profundidade, ele desenha a flecha no plano da
+   * imagem, que é o único onde ela "cabe". Três tentativas, três vezes errado.
+   *
+   * ✅ Enquanto não vier folha boa, o `up` é servido pela do `up_right`. O
+   * personagem mira um pouco à direita do norte, e é um preço pequeno: o gesto
+   * dura ~0,4 s e o que se lê nele é *"disparou para longe"*. Flecha voando de
+   * ré, não — aquilo se lê na primeira vez.
+   *
+   * ⚠️ **O custo real, dito por extenso:** atirar para o norte e para o nordeste
+   * passam a mostrar a MESMA arte. Some uma das oito direções do arco.
+   *
+   * ⚠️ Apagar a linha é o conserto do dia em que a folha certa chegar. Nada
+   * mais precisa mudar — é por isso que a exceção mora aqui, e não numa cópia
+   * do arquivo com outro nome.
+   *
+   * ⚠️ Só o MASCULINO. O `up` feminino saiu certo (de costas, flecha para o
+   * topo) e é a referência de como a folha boa se parece.
+   */
+  const SUBSTITUI = {
+    male: { bow: { up: 'up_right' } },
+  };
+  const trocaDe = (acao, fonteDir) => SUBSTITUI[sexo]?.[acao]?.[fonteDir] ?? fonteDir;
   const refPes = centroDosPes(recorta(walk.down, 0));
   for (const acao of ACOES) {
     if (!existsSync(join(dir, `${acao.fonte}_down.png`))) {
@@ -577,8 +607,11 @@ function monta(sexo) {
     for (const d of DIRECOES) folhas[d] = abre(join(dir, `${acao.fonte}_${d}.png`));
     const aW = CELL * acao.n, aH = CELL * LINHAS.length;
     const tiraAcao = Buffer.alloc(aW * aH * 4);
+    const trocadas = [];
     for (let row = 0; row < LINHAS.length; row++) {
-      const [fonte, espelhado] = FONTE[LINHAS[row]];
+      const [fontePedida, espelhado] = FONTE[LINHAS[row]];
+      const fonte = trocaDe(acao.fonte, fontePedida);
+      if (fonte !== fontePedida) trocadas.push(`${LINHAS[row]}←${fonte}`);
       const f = folhas[fonte];
       for (let col = 0; col < acao.n; col++) {
         const n = Math.round(((f.quadros - 1) * col) / (acao.n - 1));
@@ -594,7 +627,8 @@ function monta(sexo) {
     }
     writeFileSync(join(destino, `${acao.saida}.png`), encode(aW, aH, tiraAcao));
     console.log(
-      `        ${acao.saida}: ${acao.n} quadros de ${folhas.right.quadros}, 8 direções`,
+      `        ${acao.saida}: ${acao.n} quadros de ${folhas.right.quadros}, 8 direções`
+        + (trocadas.length ? `  ⚠️ substituída: ${trocadas.join(' ')}` : ''),
     );
   }
 
