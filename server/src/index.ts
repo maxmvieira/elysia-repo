@@ -3594,7 +3594,9 @@ function castSpell(
     }
   }
 
-  const castMs = skillCastMs(def, nivel, skillLevelOf(player.skillLevels, 'cast_mastery'));
+  const castMs = skillCastMs(
+    def, nivel, skillLevelOf(player.skillLevels, 'cast_mastery'), player.level,
+  );
   if (castMs > 0) {
     player.casting = {
       skillId: def.id, endsAt: now + castMs, targetId: mira.targetId ?? player.targetId,

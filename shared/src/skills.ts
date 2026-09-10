@@ -1386,6 +1386,20 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     manaCost: 8,
     manaPerLevel: 2,
     cooldownMs: 1500,
+    /**
+     * 🔴 **O Fire Bolt DEIXOU DE SER INSTANTÂNEO** (dono, 10/09): *"precisa de
+     * ter um pequeno carregamento para lançar a magia, mesmo estando nível bem
+     * alto."*
+     *
+     * ⚠️ 800 ms é pequeno de propósito — é a magia de todo dia do sorcerer, e
+     * ela dispara uma série que já dura vários segundos. O que 800 ms compra é
+     * o gesto: dá para ver que ele está conjurando, e dá para interromper.
+     *
+     * ⚠️ Encolhe com o nível do personagem e com a Maestria de Conjuração, e
+     * chega a zero perto do nível 250 — ver `skillCastMs`. Como 800 é menor que
+     * `PISO_CONJURACAO_MS`, esta é das que PODEM virar instantâneas.
+     */
+    castMs: 800,
     power: 0.55,
     powerPerLevel: 0.07,
     shape: 'target',
@@ -3302,11 +3316,63 @@ export function castMasteryReduction(nivel: number): number {
   return porNivel(nivel, 0.05, 0.30);
 }
 
-/** Tempo de conjuração efetivo, já com a Maestria. */
-export function skillCastMs(def: SkillDef, nivel: number, maestria: number): number {
+/**
+ * 🔴 **O nível de personagem em que a conjuração curta vira INSTANTÂNEA.**
+ *
+ * Pedido do dono em 10/09: *"precisa de ter um pequeno carregamento para lançar
+ * a magia, mesmo estando nível bem alto. instantâneo creio que deveria ser em
+ * leveis muito mais altos (200–300)."*
+ *
+ * 250 é o meio da faixa que ele deu. O jogo não tem teto de nível de
+ * personagem, então isto é late-game de verdade, não um marco que se cruza sem
+ * perceber.
+ */
+export const NIVEL_CONJURACAO_INSTANTANEA = 250;
+
+/**
+ * 🔴 **O piso de quem conjura por mais de um segundo.**
+ *
+ * A redução por nível é generosa de propósito — ela chega a 100 %. Sem um piso,
+ * a Chuva de Meteoros ficaria instantânea no nível 250, e o contrajogo dela é
+ * poder ser INTERROMPIDA. Então a regra é: **só vira instantânea a magia cuja
+ * conjuração base já cabe em um segundo.** As longas encolhem até 1 s e param.
+ *
+ * ⚠️ Isto substitui, na prática, a garantia que o teto de −30 % da Maestria
+ * dava sozinho (`castMasteryReduction`). Aquele teto continua valendo para o
+ * eixo dele; este piso é o que segura o eixo novo.
+ */
+export const PISO_CONJURACAO_MS = 1000;
+
+/**
+ * ✨ Quanto o NÍVEL DO PERSONAGEM encurta a conjuração (0..1).
+ *
+ * ⚠️ É outro eixo que a Maestria de Conjuração, e os dois SOMAM. A Maestria é
+ * escolha (pontos gastos numa habilidade passiva); isto é só ficar mais velho.
+ * Somados, um sorcerer com Maestria 10 chega ao instantâneo por volta do nível
+ * 175 em vez de 250 — que é o que ter gasto os pontos deveria comprar.
+ */
+export function castLevelReduction(nivelPersonagem: number): number {
+  if (nivelPersonagem <= 1) return 0;
+  const alvo = NIVEL_CONJURACAO_INSTANTANEA - 1;
+  return Math.min(1, (nivelPersonagem - 1) / alvo);
+}
+
+/**
+ * Tempo de conjuração efetivo, já com a Maestria e o nível do personagem.
+ *
+ * ⚠️ `nivel` é o nível da HABILIDADE e hoje não entra na conta — está na
+ * assinatura porque quem chama já o tem em mãos, e porque o dia em que uma
+ * ficha quiser conjuração por nível de skill, é aqui que ela entra. Não
+ * confundir com `nivelPersonagem`, que é o do personagem.
+ */
+export function skillCastMs(
+  def: SkillDef, nivel: number, maestria: number, nivelPersonagem: number,
+): number {
   const base = def.castMs ?? 0;
   if (base <= 0) return 0;
-  return Math.round(base * (1 - castMasteryReduction(maestria)));
+  const reducao = Math.min(1, castMasteryReduction(maestria) + castLevelReduction(nivelPersonagem));
+  const piso = base <= PISO_CONJURACAO_MS ? 0 : PISO_CONJURACAO_MS;
+  return Math.max(piso, Math.round(base * (1 - reducao)));
 }
 
 /** ✨ Regeneração de Mana: quanto a regeneração sobe (0..1). */

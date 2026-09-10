@@ -25,6 +25,9 @@ import {
   skillConditionChance,
   skillConditionDuration,
   skillCastMs,
+  castLevelReduction,
+  NIVEL_CONJURACAO_INSTANTANEA,
+  PISO_CONJURACAO_MS,
   skillModifiers,
   castMasteryReduction,
   magicProtectionShare,
@@ -264,17 +267,52 @@ test('a Maestria de Conjuração encurta o CAST, e nunca o cooldown', () => {
   // O GDD proíbe cooldown cair com o nível. Cast é outro eixo — e é o único
   // que pode encolher.
   const chuva = SKILLS.meteor_storm;
-  assert.ok(skillCastMs(chuva, 10, 10) < skillCastMs(chuva, 10, 0));
+  assert.ok(skillCastMs(chuva, 10, 10, 1) < skillCastMs(chuva, 10, 0, 1));
   assert.ok(castMasteryReduction(10) <= 0.30, 'teto de −30 %');
   assert.equal(castMasteryReduction(0), 0);
   // A maior magia do jogo continua interrompível: nunca abaixo de ~2 s.
-  assert.ok(skillCastMs(chuva, 10, 10) >= 2000);
+  assert.ok(skillCastMs(chuva, 10, 10, 1) >= 2000);
 });
 
 test('a Maestria não inventa cast em quem não tem', () => {
-  // Fire Bolt é instantânea; reduzir 30 % de zero não pode virar número
-  // negativo nem ligar uma barra de conjuração fantasma.
-  assert.equal(skillCastMs(SKILLS.fire_bolt, 10, 10), 0);
+  // Reduzir 30 % de zero não pode virar número negativo nem ligar uma barra de
+  // conjuração fantasma. `emergency_heal` é uma das sem `castMs` na ficha.
+  assert.equal(SKILLS.emergency_heal.castMs, undefined, 'a ficha mudou; escolha outra');
+  assert.equal(skillCastMs(SKILLS.emergency_heal, 10, 10, 300), 0);
+});
+
+test('🔴 o Fire Bolt tem carregamento, e só fica instantâneo lá pelo nível 250', () => {
+  /*
+   * Pedido do dono em 10/09: "precisa de ter um pequeno carregamento para
+   * lançar a magia, mesmo estando nível bem alto. instantâneo creio que deveria
+   * ser em leveis muito mais altos (200–300)."
+   *
+   * O teste guarda a RELAÇÃO, não os números: que existe carregamento no começo,
+   * que ele encolhe com o nível, e que o instantâneo cai dentro da faixa que o
+   * dono deu. Reequilibrar o `castMs` da ficha não deve quebrar isto.
+   */
+  const bolt = SKILLS.fire_bolt;
+  assert.ok(skillCastMs(bolt, 10, 0, 1) > 0, 'no nível 1 tem de haver conjuração');
+  assert.ok(
+    skillCastMs(bolt, 10, 0, 100) > 0,
+    'nível 100 ainda é "nível bem alto" e ainda conjura',
+  );
+  assert.ok(skillCastMs(bolt, 10, 0, 100) < skillCastMs(bolt, 10, 0, 1), 'encolhe com o nível');
+  assert.equal(skillCastMs(bolt, 10, 0, NIVEL_CONJURACAO_INSTANTANEA), 0);
+  assert.ok(NIVEL_CONJURACAO_INSTANTANEA >= 200 && NIVEL_CONJURACAO_INSTANTANEA <= 300);
+});
+
+test('🔴 o piso de 1 s: magia longa nunca vira instantânea, por mais nível que se tenha', () => {
+  /*
+   * A redução por nível chega a 100 %, e sozinha ela apagaria a conjuração da
+   * Chuva de Meteoros — cujo contrajogo é justamente poder ser interrompida.
+   * A regra: só vira instantânea a magia cuja conjuração base já cabe em 1 s.
+   */
+  const chuva = SKILLS.meteor_storm;
+  assert.ok((chuva.castMs ?? 0) > PISO_CONJURACAO_MS);
+  assert.equal(skillCastMs(chuva, 10, 10, 9999), PISO_CONJURACAO_MS);
+  assert.equal(castLevelReduction(1), 0, 'nível 1 não ganha desconto nenhum');
+  assert.equal(castLevelReduction(9999), 1, 'a redução satura em 100 %');
 });
 
 test('Aprimoramento e Regeneração de Mana são passivas de verdade', () => {
