@@ -1915,9 +1915,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     /**
      * 🧪 **MODO RISCO** (ver `QUEDA_RISCO`): o traço desenhado por código que
      * cai antes do estouro. Ausente no modo folha, em que a própria animação já
-     * contém a descida.
+     * contém a descida — e **apagado no impacto**, para não sobreviver a ele.
      */
-    risco?: { node: Graphics; t: number; deY: number };
+    risco: { node: Graphics; t: number; deY: number } | undefined;
   }> = [];
 
   /**
@@ -2123,7 +2123,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * cópia da mesma limpeza, e é assim que uma delas fica sem varrer.
      */
     node.visible = false;
-    const q = { node, atraso: 0, morto: false };
+    const q = { node, atraso: 0, morto: false, risco: undefined };
     node.onComplete = () => { q.morto = true; };
     quedas.push(q);
   }
@@ -2190,12 +2190,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   /**
    * Raio da cabeça do meteoro, em pixels de mundo.
    *
-   * ⚠️ 15 px num tile de 32 é quase um tile inteiro de diâmetro — é grande de
-   * propósito. A suprema do jogo tem de pesar em tela contra uma magia de 8 de
-   * mana, e o dono pediu justamente isso: *"substanciais, não apenas pequenas
-   * bolas de fogo"*.
+   * ⚠️ **Terceiro valor: 15 → 34.** Os 15 pareciam grandes na conta (quase um
+   * tile de diâmetro) e pequenos EM TELA, e o motivo é a comparação: a rocha
+   * não é lida contra o tile, é lida contra o CÍRCULO DA TEMPESTADE, que tem
+   * 4 tiles de raio. Ao lado de 144 px de círculo, 15 px de rocha somem.
+   *
+   * A 34 o diâmetro é ~68 px — pouco menos da metade do raio do círculo, que é
+   * a proporção em que uma rocha lê como rocha e não como fagulha.
    */
-  const RAIO_METEORO = 15;
+  const RAIO_METEORO = 34;
 
   /**
    * Quanto o ESTOURO de cada magia é maior que o padrão da folha.
@@ -2203,7 +2206,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * ⚠️ Escala isotrópica (o mesmo fator em x e y), e isto importa: escalar só
    * um eixo é o que deixa a explosão OVAL, que foi a queixa do dono.
    */
-  const ESCALA_IMPACTO: Record<string, number> = { meteor_fall: 1.7 };
+  const ESCALA_IMPACTO: Record<string, number> = { meteor_fall: 3.4 };
 
   function spawnQueda(
     magia: string, wx: number, wy: number, frames: Texture[], atraso: number,
@@ -2268,9 +2271,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
          * *"esféricos e perfeitamente redondos, não ovais"*.
          */
         const R = RAIO_METEORO;
-        g.poly([-R, 0, R, 0, R * 0.34, -120, -R * 0.34, -120])
+        /*
+         * ⚠️ A CAUDA é medida em R, não em pixels fixos: com a cabeça em 34 px,
+         * um rastro de 120 px de altura fixa ficaria curto e atarracado. Assim
+         * ela cresce junto e a silhueta continua a mesma em qualquer tamanho.
+         */
+        const cauda = R * 5;
+        g.poly([-R, 0, R, 0, R * 0.34, -cauda, -R * 0.34, -cauda])
           .fill({ color: fora, alpha: 0.4 });
-        g.poly([-R * 0.62, 0, R * 0.62, 0, R * 0.2, -104, -R * 0.2, -104])
+        g.poly([-R * 0.62, 0, R * 0.62, 0, R * 0.2, -cauda * 0.87, -R * 0.2, -cauda * 0.87])
           .fill({ color: meio, alpha: 0.7 });
         g.circle(0, 0, R).fill({ color: fora, alpha: 0.95 });
         g.circle(0, -R * 0.12, R * 0.68).fill({ color: meio, alpha: 1 });
@@ -2286,7 +2295,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       g.visible = false;
       fxLayer.addChild(g);
       // 350 px acima do alvo: a altura que o prompt do teste pediu.
-      risco = { node: g, t: 0, deY: 350 };
+      // ⚠️ 420 px: com a rocha maior, 350 a fazia nascer dentro da tela em
+      // monitor alto. O dono pediu que ela venha de FORA.
+      risco = { node: g, t: 0, deY: FORMA_RISCO[magia] === 'esfera' ? 420 : 350 };
     }
 
     const q = { node, atraso, morto: false, alvo, risco };
@@ -7931,7 +7942,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         const frac = Math.min(1, r.t / ATRASO_IMPACTO_MS);
         r.node.y = q.node.y - r.deY * (1 - frac);
         if (frac >= 1) {
-          r.node.visible = false;
+          /*
+           * 🔴 **O RISCO É DESTRUÍDO AQUI, e não junto com o estouro.**
+           *
+           * Ele vivia até `morto`, que depende do `onComplete` da animação de
+           * impacto. Qualquer caminho em que esse `onComplete` não chegasse
+           * deixava um FEIXE VERTICAL parado em cima da entidade, para sempre —
+           * e como o risco persegue o alvo, ele ficava colado nele. O dono viu:
+           * *"remova qualquer feixe vertical estático que fique travado sobre
+           * entidades"*.
+           *
+           * ✅ Destruir no toque do chão fecha a porta: o traço não tem mais
+           * nada a fazer depois do impacto, então não há estado em que ele
+           * deva sobreviver.
+           */
+          r.node.destroy();
+          q.risco = undefined;
           q.node.visible = true;
           q.node.play();
           /*

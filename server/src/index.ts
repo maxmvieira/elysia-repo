@@ -3954,6 +3954,27 @@ function executeSpell(
   // Os alvos são reunidos ANTES de gastar mana: sem alvo válido, a habilidade
   // não sai (e o jogador não perde mana nem cooldown por um clique no vazio).
   const targets: Creature[] = [];
+
+  /**
+   * 🔴 **O CENTRO DA MAGIA DE ÁREA — e ele NÃO é o mago.**
+   *
+   * Estas duas linhas moravam dentro do ramo de área, e é o que causou o bug
+   * que o dono viu jogando em 11/09: *"um meteoro ou esfera de impacto está
+   * surgindo imediatamente em cima do personagem que conjurou"*.
+   *
+   * O que aconteceu: em 08/09 o CENTRO da área passou a ser a mira, mas o `fx`
+   * continuou saindo em `player.tileX/tileY` — a variável `fxAt`, que ninguém
+   * corrigiu junto porque `cx`/`cy` não existiam fora do bloco. Durante três
+   * dias TODA magia de área desenhou o estouro em cima do conjurador enquanto
+   * o dano caía onde ele apontou. Passou despercebido porque os estouros duram
+   * meio segundo; o círculo da Chuva de Meteoros dura quatro, e aí apareceu.
+   *
+   * ⚠️ Sem mira, o centro continua sendo o jogador — é o caminho de um cliente
+   * antigo, e o comportamento de antes.
+   */
+  const cx = mira.tileX ?? player.tileX;
+  const cy = mira.tileY ?? player.tileY;
+
   if (def.shape === 'target') {
     /*
      * 🔴 **O TILE MIRADO GANHA do alvo selecionado.** Quem clicou num monstro
@@ -3983,16 +4004,7 @@ function executeSpell(
     }
     targets.push(target);
   } else {
-    /*
-     * 🔴 **O CENTRO DA ÁREA É A MIRA, não mais o mago** (08/09). Até aqui toda
-     * magia de área estourava em volta de quem lançou; agora ela cai onde o
-     * jogador apontou, e o `alcance` volta a significar só o RAIO do estouro.
-     *
-     * ⚠️ Sem mira, o centro continua sendo o próprio jogador — é o caminho de
-     * um cliente antigo, e o comportamento de antes.
-     */
-    const cx = mira.tileX ?? player.tileX;
-    const cy = mira.tileY ?? player.tileY;
+    // O centro é a mira, e ele agora vive acima — ver a nota lá.
     for (const c of creatures.values()) {
       if (!c.alive || c.floor !== player.floor) continue;
       if (chebyshev(cx, cy, c.tileX, c.tileY) <= alcance) targets.push(c);
@@ -4089,8 +4101,14 @@ function executeSpell(
    * de cada vez, virou a primeira coisa que se nota.
    */
   const emQueda = def.queda === true;
-  // Área estoura no conjurador; alvo único estoura em cima de quem apanhou.
-  const fxAt = def.shape === 'area' ? player : targets[0]!;
+  /*
+   * 🔴 **ONDE O ESTOURO É DESENHADO.** Área: no CENTRO DA MIRA. Alvo único: em
+   * cima de quem apanhou. Era `player` na área, e esse era o bug — ver a nota
+   * de `cx`/`cy`.
+   */
+  const fxAt = def.shape === 'area'
+    ? { tileX: cx, tileY: cy }
+    : { tileX: targets[0]!.tileX, tileY: targets[0]!.tileY };
 
   /**
    * 🌠 **QUANTO SEPARA UM IMPACTO DO PRÓXIMO**, e a resposta depende da forma.
