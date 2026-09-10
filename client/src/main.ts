@@ -1910,6 +1910,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   const quedas: Array<{
     node: AnimatedSprite; atraso: number; morto: boolean;
+    /** Que coisa está caindo. Decide a força da batida — ver `TREMOR`. */
+    magia: string;
     /** A criatura que esta bola persegue, quando o servidor disse qual é. */
     alvo?: string;
     /**
@@ -1917,7 +1919,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * cai antes do estouro. Ausente no modo folha, em que a própria animação já
      * contém a descida — e **apagado no impacto**, para não sobreviver a ele.
      */
-    risco: { node: Graphics; t: number; deY: number } | undefined;
+    risco: { node: Graphics; t: number; deY: number; dur: number } | undefined;
   }> = [];
 
   /**
@@ -1928,6 +1930,27 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * ali seria apagado no quadro seguinte. Ver o bloco da câmera.
    */
   let tremorAte = 0;
+  /** Força do tremor em curso, em pixels. Ver `TREMOR`. */
+  let tremorPx = 0;
+  /** Duração do tremor em curso, para a queda ser proporcional. */
+  let tremorDur = 1;
+
+  /**
+   * 💥 **A BATIDA DE CADA COISA QUE CAI.** Pixels e milissegundos.
+   *
+   * ⚠️ A rocha da Chuva sacode MUITO mais que a lança de um bolt, e tem de ser
+   * assim: com 46 px de raio caindo, um tremor de 3 px passa despercebido e o
+   * impacto lê como fraco — foi a queixa do dono (*"o impacto no chão ainda
+   * pode ser um pouco mais forte"*).
+   *
+   * ⚠️ Mas não muito mais LONGO. São 18 meteoros a cada ~290 ms; um tremor de
+   * meio segundo se emendaria no seguinte e a tela viraria borrão contínuo —
+   * que é enjoo, não impacto. A força sobe, a duração quase não.
+   */
+  const TREMOR: Record<string, { px: number; ms: number }> = {
+    meteor_fall: { px: 8, ms: 160 },
+  };
+  const TREMOR_PADRAO = { px: 3, ms: 90 };
 
   /**
    * As folhas disponíveis, por quantos bolts cada uma DESENHA.
@@ -2123,7 +2146,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * cópia da mesma limpeza, e é assim que uma delas fica sem varrer.
      */
     node.visible = false;
-    const q = { node, atraso: 0, morto: false, risco: undefined };
+    // ⚠️ Efeito de folha (buff, cura): entra na mesma lista, mas não cai nem
+    // sacode a tela. `magia` vazio cai no tremor padrão, que nunca é acionado
+    // porque não há `risco` para tocar o chão.
+    const q = { node, atraso: 0, morto: false, magia: '', risco: undefined };
     node.onComplete = () => { q.morto = true; };
     quedas.push(q);
   }
@@ -2206,11 +2232,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * ⚠️ Escala isotrópica (o mesmo fator em x e y), e isto importa: escalar só
    * um eixo é o que deixa a explosão OVAL, que foi a queixa do dono.
    */
-  const ESCALA_IMPACTO: Record<string, number> = { meteor_fall: 4.4 };
+  const ESCALA_IMPACTO: Record<string, number> = { meteor_fall: 5.2 };
 
   function spawnQueda(
     magia: string, wx: number, wy: number, frames: Texture[], atraso: number,
-    fracaoQueda: number, alvo?: string,
+    fracaoQueda: number, alvo?: string, quedaMs?: number,
   ): void {
     const node = new AnimatedSprite(frames);
     node.loop = false;
@@ -2244,11 +2270,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const usados = QUEDA_RISCO ? frames.slice(Math.round(frames.length * fracaoQueda)) : frames;
     node.textures = usados;
     // Quadros por tique de 60 Hz para a animação inteira durar o que sobra.
-    const dur = QUEDA_RISCO ? DUR_QUEDA - ATRASO_IMPACTO_MS : DUR_QUEDA;
+    /*
+     * ⚠️ A DESCIDA pode ser mais longa que o padrão — a rocha da Chuva leva 280
+     * ms contra os 120 de uma lança. O estouro toca no que sobra da animação, e
+     * nunca em menos de 160 ms: com uma queda muito longa, `DUR_QUEDA − queda`
+     * ficaria negativo e a explosão sairia em um quadro só.
+     */
+    const tempoQueda = quedaMs ?? ATRASO_IMPACTO_MS;
+    const dur = QUEDA_RISCO ? Math.max(160, DUR_QUEDA - tempoQueda) : DUR_QUEDA;
     node.animationSpeed = usados.length / (dur / (1000 / 60));
     fxLayer.addChild(node);
 
-    let risco: { node: Graphics; t: number; deY: number } | undefined;
+    let risco: { node: Graphics; t: number; deY: number; dur: number } | undefined;
     if (QUEDA_RISCO) {
       /*
        * A LANÇA: um traço vertical fino, claro no núcleo e alaranjado na
@@ -2297,10 +2330,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       // 350 px acima do alvo: a altura que o prompt do teste pediu.
       // ⚠️ 420 px: com a rocha maior, 350 a fazia nascer dentro da tela em
       // monitor alto. O dono pediu que ela venha de FORA.
-      risco = { node: g, t: 0, deY: FORMA_RISCO[magia] === 'esfera' ? 420 : 350 };
+      risco = {
+        node: g, t: 0, dur: tempoQueda,
+        deY: FORMA_RISCO[magia] === 'esfera' ? 420 : 350,
+      };
     }
 
-    const q = { node, atraso, morto: false, alvo, risco };
+    const q = { node, atraso, morto: false, magia, alvo, risco };
     node.onComplete = () => { q.morto = true; };
     quedas.push(q);
   }
@@ -2317,13 +2353,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * servidor usa para espaçar o dano**. É o que mantém bola e estrago juntos.
    */
   function spawnQuedaDaConjuracao(
-    magia: string, wx: number, wy: number, n: number, alvo?: string,
+    magia: string, wx: number, wy: number, n: number, alvo?: string, quedaMs?: number,
   ): void {
     const folha = folhaPara(magia, n);
     if (!folha) return;
     const copias = Math.max(1, Math.ceil(n / folha.bolts));
     for (let i = 0; i < copias; i++) {
-      spawnQueda(magia, wx, wy, folha.frames, i * INTERVALO_BOLT_MS, folha.fracaoQueda, alvo);
+      spawnQueda(
+        magia, wx, wy, folha.frames, i * INTERVALO_BOLT_MS, folha.fracaoQueda, alvo, quedaMs,
+      );
     }
   }
 
@@ -3410,7 +3448,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
              * disco (ver `folhasQueda`).
              */
             spawnQuedaDaConjuracao(
-              msg.kind, msg.x * TS + TS / 2, msg.y * TS + TS, msg.n ?? 1, msg.targetId,
+              msg.kind, msg.x * TS + TS / 2, msg.y * TS + TS, msg.n ?? 1,
+              msg.targetId, msg.quedaMs,
             );
             break;
           }
@@ -7890,7 +7929,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
            * 🧪 **MODO RISCO: primeiro o traço, o estouro só depois.** No modo
            * folha os dois são a mesma animação e ela começa aqui.
            */
-          if (q.risco && q.risco.t < ATRASO_IMPACTO_MS) {
+          if (q.risco && q.risco.t < q.risco.dur) {
             q.risco.node.visible = true;
           } else {
             q.node.visible = true;
@@ -7901,14 +7940,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
       /*
        * 🧪 A LANÇA CAINDO. Interpolação linear de `deY` px acima do alvo até o
-       * alvo, em `ATRASO_IMPACTO_MS`. Ao tocar o chão o traço some e o estouro
+       * alvo, no tempo de queda DESTA unidade. Ao tocar o chão o traço some e o estouro
        * começa — o dano do servidor chega neste mesmo instante, porque é o
        * mesmo número dos dois lados.
        */
       if (q.risco && q.node.visible === false && q.atraso <= 0) {
         const r = q.risco;
         r.t += dt;
-        const frac = Math.min(1, r.t / ATRASO_IMPACTO_MS);
+        const frac = Math.min(1, r.t / r.dur);
         r.node.y = q.node.y - r.deY * (1 - frac);
         if (frac >= 1) {
           /*
@@ -7929,12 +7968,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           q.risco = undefined;
           q.node.visible = true;
           q.node.play();
-          /*
-           * ⚠️ Tremor CURTO e por impacto. Com dez bolts a 140 ms, um tremor
-           * longo viraria um borrão contínuo de tela — que é enjoo, não
-           * impacto. 90 ms é o suficiente para o olho registrar a batida.
-           */
-          tremorAte = now + 90;
+          // 💥 A batida é por magia — ver `TREMOR`.
+          const forca = TREMOR[q.magia] ?? TREMOR_PADRAO;
+          tremorAte = now + forca.ms;
+          tremorPx = forca.px;
+          tremorDur = forca.ms;
         }
       }
       /*
@@ -8022,7 +8060,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * deslocamento com filtragem `nearest` faz o cenário inteiro cintilar.
        */
       const resta = tremorAte - now;
-      const shake = resta > 0 ? Math.round(Math.sin(now * 0.09) * 3 * (resta / 90)) : 0;
+      const shake = resta > 0
+        ? Math.round(Math.sin(now * 0.09) * tremorPx * (resta / tremorDur))
+        : 0;
       world.x = Math.round(camX) + shake;
       world.y = Math.round(camY) + (shake ? 1 : 0);
     }

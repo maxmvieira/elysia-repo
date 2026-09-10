@@ -105,10 +105,15 @@ test('Chuva de Meteoros: pré-requisito Fire Bolt 5 + Fire Wall 5 + Meteoro 5', 
   assert.equal(mapa.get('meteor'), 5);
 });
 
-test('Chuva de Meteoros: 10 meteoros, cast de 3 s e CD de 15 s no Lv.10', () => {
+test('Chuva de Meteoros: cast de 3 s, CD de 15 s e MP altíssimo no Lv.10', () => {
   // "Lv.10: 10 meteoros, área grande, ~4 s, cast ~3 s, CD ~15 s, MP altíssimo."
+  //
+  // ⚠️ **A contagem saiu deste teste em 11/09.** O documento diz dez; o dono
+  // subiu para dezoito depois de jogar, e a razão está no nome da magia: a
+  // dez ela lia como bombardeio espaçado, não como CHUVA. O que este teste
+  // guarda continua sendo o que o documento cravou e ninguém contestou — o
+  // preço de lançar (cast, cooldown, mana). Ver o teste da progressão.
   const c = SKILLS.meteor_storm;
-  assert.equal(skillHits(c, 10), 10);
   assert.equal(c.castMs, 3000);
   assert.equal(c.cooldownMs, 15000);
   assert.ok(c.manaCost >= 100, 'MP altíssimo');
@@ -362,20 +367,36 @@ test('🔴 magia que CAI DO CÉU: alvo único cadenciado, ou área com JANELA', 
   }
 });
 
-test('🌠 a Chuva de Meteoros segue o documento: 10 meteoros e ~4 s no Lv.10', () => {
+test('🌠 a Chuva de Meteoros: o que o dono mudou do documento, e o quanto', () => {
   /*
    * Citação do GDD: *"Lv.10: 10 meteoros, área grande, ~4 s, cast ~3 s,
-   * CD ~15 s, MP altíssimo."* Quando este teste cair, a pergunta certa é "o
-   * documento mudou?", não "ajusto o teste?".
+   * CD ~15 s, MP altíssimo."*
    *
-   * ⚠️ Existe porque em 11/09 chegou uma proposta de subir para 12 meteoros. O
-   * número é do documento, e mudá-lo é decisão de dono — não de quem
-   * implementa.
+   * ⚠️ Este teste nasceu travando os números do documento. Hoje ele trava o
+   * TAMANHO DO DESVIO: o dono mudou dois deles jogando, e o registro do que
+   * mudou (e de quanto) vale mais que fingir que o documento ainda manda neles.
+   * Os que ele NÃO contestou continuam cravados no teste acima.
    */
   const c = SKILLS.meteor_storm;
-  assert.equal(skillHits(c, 10), 10, 'o GDD diz DEZ meteoros no Lv.10');
   assert.equal(c.castMs, 3000);
   assert.equal(c.cooldownMs, 15000);
+
+  /*
+   * 🔴 **DOIS OVERRIDES CONSCIENTES DO DOCUMENTO NESTA MAGIA**, os dois do
+   * dono, os dois depois de jogar. O GDD diz "10 meteoros, ~4 s".
+   *
+   *   contagem  10 → 18   *"deve ser uma chuva de meteoros"*
+   *   duração  4 s → 5,2 s *"aumente um pouco mais a duração"*
+   *
+   * O teste trava a FAIXA, não o número: mais que o documento, sim; o dobro,
+   * não. Se um dia aparecer 40 meteoros ou 12 s, a magia virou outra coisa e
+   * isto cai — que é o ponto.
+   */
+  assert.ok(
+    skillHits(c, 10) > 10 && skillHits(c, 10) <= 24,
+    `contagem do Lv.10 fora da faixa: ${skillHits(c, 10)}`,
+  );
+  assert.ok(skillHits(c, 10) > skillHits(c, 1), 'a contagem cresce com o nível');
 
   /*
    * ⚠️ **A DURAÇÃO É A ÚNICA QUE PASSOU DO DOCUMENTO, e por decisão do dono.**

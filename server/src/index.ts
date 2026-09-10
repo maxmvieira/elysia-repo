@@ -3607,6 +3607,8 @@ function tickGolpesPendentes(now: number): void {
         kind: SKILLS[g.skillId].quedaFx ?? g.skillId,
         x: c.tileX, y: c.tileY, floor: player.floor,
         n: 1, targetId: c.id,
+        // ⚠️ Só quando a ficha manda outro tempo. Ausente = o padrão de sempre.
+        ...(SKILLS[g.skillId].quedaMs ? { quedaMs: SKILLS[g.skillId].quedaMs } : {}),
       });
     }
     if (now < g.quando) { fica.push(g); continue; }
@@ -4290,7 +4292,12 @@ function executeSpell(
         golpesPendentes.push({
           playerId: player.id, creatureId: c.id, skillId: def.id, nivel,
           poderBase, critChance: d.critChance, critMult: d.critMult,
-          fxEm, fxFeito: false, gesto: i === 0, quando: fxEm + ATRASO_IMPACTO_MS,
+          fxEm,
+          fxFeito: false,
+          gesto: i === 0,
+          // 🌠 O dano cai quando a unidade TOCA O CHÃO, e isso é por ficha:
+          // uma rocha demora mais que uma lança. Ver `quedaMs`.
+          quando: fxEm + (def.quedaMs ?? ATRASO_IMPACTO_MS),
         });
         continue;
       }

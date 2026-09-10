@@ -953,6 +953,15 @@ export interface S2C_Effect {
    * um efeito que não tem alvo).
    */
   targetId?: string;
+  /**
+   * 🌠 **Quanto esta unidade leva do céu ao chão**, em ms.
+   *
+   * ⚠️ Viaja porque o cliente desenha a queda a partir de um `kind`
+   * (`meteor_fall`) que não é id de habilidade nenhuma — sem o campo, ele
+   * precisaria de uma tabela paralela à ficha, e as duas divergiriam no dia em
+   * que alguém mexesse numa só. Ver `quedaMs` em `SkillDef`.
+   */
+  quedaMs?: number;
 }
 
 /**

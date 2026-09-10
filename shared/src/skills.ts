@@ -429,6 +429,24 @@ export interface SkillDef {
    * respingos. O respingo REFORÇA a regra do documento em vez de contrariá-la.
    */
   splash?: number;
+  /**
+   * 🌠 **Quanto UMA unidade leva do céu ao chão**, em ms. Ausente = o padrão
+   * de `ATRASO_IMPACTO_MS`.
+   *
+   * Pedido do dono em 11/09: *"eles podem ser um pouco mais lentos também"* —
+   * a queda de 120 ms serve para uma lança de Fire Bolt e é curta demais para
+   * uma rocha de 46 px de raio. Coisa pesada cai devagar; é o que o olho espera.
+   *
+   * 🔴 **Mora na FICHA porque os dois lados precisam do MESMO número**: o
+   * cliente para animar a descida, o servidor para saber quando o dano cai. Um
+   * valor em dois arquivos é como o número vermelho desencontra do estouro — o
+   * defeito que já foi corrigido uma vez aqui.
+   *
+   * ⚠️ E por isso ele VIAJA no `fx`: o cliente desenha a queda a partir de um
+   * `kind` (`meteor_fall`), que não é id de habilidade nenhuma. Sem mandar o
+   * número, o cliente teria de manter uma tabela paralela à ficha.
+   */
+  quedaMs?: number;
   /** Quantos golpes por lançamento (Fire Bolt, Lightning Ball). Ausente = 1. */
   hits?: number;
   hitsAtLv10?: number;
@@ -1638,6 +1656,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      */
     queda: true,
     quedaFx: 'meteor_fall',
+    // 🌠 Rocha pesada cai devagar: 280 ms contra os 120 de uma lança.
+    quedaMs: 280,
     // 💥 Cada meteoro abre uma cratera de 3×3. Ver `splash`.
     splash: 1,
     // 🔴 3 s de conjuração: o preço da maior magia do jogo é ficar parado e
@@ -1645,8 +1665,26 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     castMs: 3000,
     magic: true,
     damageType: 'fire',
-    hits: 4,
-    hitsAtLv10: 10,
+    /**
+     * 🌠 **6 → 18 METEOROS.** Era 4 → 10, o número do documento.
+     *
+     * O dono, depois de jogar: *"pode disparar mais meteoros conforme aumenta o
+     * nível da habilidade, deve ser uma chuva de meteoros"*. Com dez em 5,2 s a
+     * magia lia como bombardeio espaçado; a 18 ela lê como CHUVA, que é o nome
+     * dela.
+     *
+     * 🔴 **E isto DOBRA o dano total por alvo.** O `power` vale por impacto:
+     * no Lv.10 eram 10 × 1,04 = 10,4, e passam a ser 18 × 1,04 = 18,7. Somado
+     * ao respingo 3×3 de ontem, a suprema de fogo ficou muito acima do teto que
+     * ela mesma definia. **O `power` NÃO foi mexido de propósito** — balancear é
+     * decisão de dono, e ele tem agora dois números para escolher (contagem ou
+     * poder) sabendo o que cada um faz.
+     *
+     * ⚠️ Segundo override consciente do documento nesta magia (o primeiro foi a
+     * duração). O GDD diz dez.
+     */
+    hits: 6,
+    hitsAtLv10: 18,
     applies: {
       id: 'burn',
       chanceAtLv1: 0.35,
