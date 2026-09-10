@@ -4292,10 +4292,40 @@ function executeSpell(
    * raio daria distribuição circular, e a área desta magia é quadrada. Os
    * meteoros cairiam concentrados no meio e nunca nas quinas.
    */
-  const pontoNaArea = (): { x: number; y: number } => ({
-    x: cx + Math.floor(Math.random() * (alcance * 2 + 1)) - alcance,
-    y: cy + Math.floor(Math.random() * (alcance * 2 + 1)) - alcance,
-  });
+  const pontosDaArea = (quantos: number): Array<{ x: number; y: number }> => {
+    const todos: Array<{ x: number; y: number }> = [];
+    for (let dy = -alcance; dy <= alcance; dy++) {
+      for (let dx = -alcance; dx <= alcance; dx++) todos.push({ x: cx + dx, y: cy + dy });
+    }
+    /*
+     * 🔴 **SORTEIO SEM REPOSIÇÃO — e é isso que "preenche a área".**
+     *
+     * O dono, jogando: *"podem ser um pouco mais lentos e preencher mais a área
+     * de conjuração"*. A versão anterior sorteava cada ponto de forma
+     * independente, e sorteio independente AGRUPA: com 18 tiros em 81 tiles, a
+     * chance de repetir é alta e a de deixar um canto inteiro vazio também.
+     * O olho lê isso como "os meteoros caem sempre no meio".
+     *
+     * ✅ Embaralhar e tirar da pilha garante 18 tiles DIFERENTES, espalhados por
+     * toda a área. O acaso continua (a ordem é aleatória), mas some o
+     * agrupamento.
+     *
+     * ⚠️ Fisher-Yates parcial: embaralha só o que vai ser usado. Com área
+     * grande a lista tem centenas de tiles e embaralhar tudo seria desperdício.
+     *
+     * ⚠️ Se pedirem mais meteoros que tiles, a lista dá a volta — aí repetir é
+     * inevitável, e melhor repetir que cair no mesmo lugar por falta de opção.
+     */
+    const saida: Array<{ x: number; y: number }> = [];
+    for (let i = 0; i < quantos; i++) {
+      if (todos.length === 0) break;
+      const k = i % todos.length;
+      const j = k + Math.floor(Math.random() * (todos.length - k));
+      [todos[k], todos[j]] = [todos[j]!, todos[k]!];
+      saida.push(todos[k]!);
+    }
+    return saida;
+  };
   /*
    * 🔴 **BOLT A BOLT, NÃO TUDO DE UMA VEZ** — decisão do dono em 08/09: *"o
    * dano é à medida que vão descendo os bolts do céu, ou seja nível 10 serão
@@ -4347,8 +4377,9 @@ function executeSpell(
    * no instante do estouro, pelo respingo.
    */
   if (emQueda && def.shape === 'area') {
+    const pontos = pontosDaArea(golpes);
     for (let i = 0; i < golpes; i++) {
-      const ponto = pontoNaArea();
+      const ponto = pontos[i] ?? { x: cx, y: cy };
       const fxEm = now + i * passoDaQueda();
       golpesPendentes.push({
         playerId: player.id, creatureId: '', skillId: def.id, nivel,

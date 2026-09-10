@@ -1509,6 +1509,13 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     hits: 1,
     hitsAtLv10: 10,
     queda: true,
+    /*
+     * ⚠️ 260 ms, contra os 120 do padrão. O dono, jogando: *"firebolt está
+     * caindo muito rápido"*. Os 120 vinham do teste do modo "risco", em que
+     * o traço era só uma lasca; com a lança desenhada por código ele cruza a
+     * tela antes de o olho pegar.
+     */
+    quedaMs: 260,
     applies: {
       id: 'burn',
       chanceAtLv1: 0.10,
@@ -1754,6 +1761,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     hitsAtLv10: 10,
     // ❄️ Cai do céu como o Fire Bolt, com a folha própria de 30 quadros.
     queda: true,
+    // Mesma queda do Fire Bolt: sao gemeos, e ritmo diferente se notaria.
+    quedaMs: 260,
     /*
      * Gelo CONTROLA: o bolt não congela, atrasa. Congelar é papel da Nevasca.
      *

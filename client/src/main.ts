@@ -3488,13 +3488,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         }
         case 'casting':
           /*
-           * ⚠️ A barra GRANDE do HUD continua sendo só do jogador local — ela
-           * ocupa o centro da tela e diz "VOCÊ está conjurando". A dos outros é
-           * a pequena, em cima do nome deles.
+           * ⚠️ **Sem caso especial para o jogador local.** Ele vê a própria
+           * conjuração do mesmo jeito que vê a dos outros: sobre a cabeça. A
+           * barra do HUD que existia para ele saiu — ver a nota lá embaixo.
            */
-          if (msg.casterId === myId) {
-            mostraBarraDeConjuracao(msg.spell as SkillId | null, msg.ms);
-          }
           if (msg.spell === null) {
             /*
              * ⚠️ **Apagar do mapa NÃO limpa o sprite.** O laço por quadro só
@@ -5629,39 +5626,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
   }
 
-  const castBarEl = el('castbar');
-  const castFillEl = el('castfill');
-  const castTextEl = el('casttext');
-  /** Conjuração em curso, para a barra andar sozinha entre os tiques do servidor. */
-  let castando: { nome: string; inicio: number; dur: number } | null = null;
-
-  /**
-   * Liga ou desliga a barra de conjuração.
+  /*
+   * 🔴 **A BARRA DE CONJURAÇÃO DO HUD FOI REMOVIDA** — dono, 11/09: *"essa
+   * barra de magia que aparece embaixo pode ser colocada em cima, no nome do
+   * personagem"*.
    *
-   * 🔴 O servidor manda `spell: null` tanto quando a magia SAI quanto quando é
-   * interrompida — e é o certo: o cliente não precisa saber por quê, precisa
-   * parar de desenhar. O motivo chega separado, como mensagem no chat.
+   * Ela morava acima da barra de magias e mostrava nome + progresso. Quando a
+   * conjuração passou a aparecer SOBRE A CABEÇA de quem conjura (e para todo
+   * mundo, não só para o próprio), o jogador local ficou com DUAS barras
+   * dizendo a mesma coisa — e a de baixo era a que tirava o olho do mundo.
+   *
+   * ⚠️ Saiu inteira: função, tique, os três elementos e o CSS. O que ela fazia
+   * agora é `setCasting`, no ator.
    */
-  function mostraBarraDeConjuracao(spell: SkillId | null, ms: number): void {
-    if (!spell || ms <= 0) {
-      castando = null;
-      castBarEl.style.display = 'none';
-      return;
-    }
-    castando = { nome: SKILLS[spell].name, inicio: performance.now(), dur: ms };
-    castTextEl.textContent = SKILLS[spell].name;
-    castFillEl.style.width = '0%';
-    castBarEl.style.display = 'block';
-  }
-
-  /** Anima a barra de conjuração. Chamada pelo laço de render. */
-  function tickCastBar(now: number): void {
-    if (!castando) return;
-    const t = Math.min(1, (now - castando.inicio) / castando.dur);
-    castFillEl.style.width = `${(t * 100).toFixed(1)}%`;
-    // Não escondemos ao chegar em 100 %: quem esconde é o servidor, quando a
-    // magia realmente sai. Sumir antes disso mentiria sobre o estado do jogo.
-  }
   const spellGripEl = el('spellgrip');
   interface SpellSlot {
     id: SkillId;
@@ -7953,7 +7930,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
     // Cooldown dos atalhos de magia (setor escuro + contagem regressiva).
     tickSpellCooldowns(now);
-    tickCastBar(now);
     // Redesenha os chips de buff a cada quadro: a contagem escorre em vez de
     // pular de segundo em segundo quando o pacote do servidor chega.
     if (meusEfeitos.length > 0) desenhaEfeitos(now);
@@ -9043,42 +9019,40 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
    */
   const baseRotulo = opts.labelTop ?? (-WALL_H + 2);
 
+  /**
+   * ⏳ **A BARRA DE CONJURAÇÃO — a mesma que ficava no rodapé, agora aqui.**
+   *
+   * Dono, 11/09: *"essa barra de magia que aparece embaixo pode ser colocada em
+   * cima, no nome do personagem"* e, logo depois, *"você vai tirar a de cima e
+   * passar a de baixo para cima"*. Ou seja: não era só mudar de lugar — é a
+   * APARÊNCIA da barra do HUD que subiu, e a versão anterior daqui (traço fino
+   * azul com o nome solto por cima) foi descartada.
+   *
+   * Herdou do rodapé: fundo escuro com borda preta, preenchimento roxo em
+   * degradê e o nome da magia CENTRADO DENTRO da barra.
+   *
+   * ⚠️ **−17, e o número sai do NOME.** `nlabel` tem âncora embaixo, então
+   * ocupa de `base − 11` (fonte 11) até `base`. Pôr a barra mais abaixo a
+   * enfiava dentro do nome — o que o dono pediu para não acontecer.
+   */
   const castBar = new Graphics();
   castBar.visible = false;
-  /*
-   * ⚠️ **−15, e o número sai do NOME.** `nlabel` tem âncora embaixo, então ele
-   * ocupa de `base − 11` (fonte 11) até `base`. Pôr a barra em `base − 7` a
-   * enfiava DENTRO do nome — que é exatamente o que o dono pediu para não
-   * acontecer: *"e não atrapalhar o nome do personagem"*.
-   */
-  castBar.y = baseRotulo - 15;
+  castBar.y = baseRotulo - 17;
   c.addChild(castBar);
 
   /**
-   * 🔮 **O NOME DA MAGIA sendo conjurada.**
+   * 🔮 O nome da magia, DENTRO da barra — como era no rodapé.
    *
-   * Pedido do dono em 11/09: *"o nome da magia aparecer junto com o
-   * carregamento"* — e logo depois, *"e não atrapalhar o nome do personagem"*.
-   *
-   * ⚠️ **Por isso a pilha CRESCE PARA CIMA.** De baixo para cima: barra de
-   * vida, nome do personagem, barra de conjuração, nome da magia. Cada coisa
-   * nova empurra o topo, e nada se sobrepõe ao que já estava — o nome do
-   * personagem não sai do lugar quando alguém começa a conjurar.
-   *
-   * ⚠️ Menor (9 contra 11) e em azul-claro: é informação de EVENTO, que aparece
-   * e some. Do mesmo tamanho do nome, os dois competiriam pela leitura.
+   * ⚠️ Sem contorno preto: ele fica sobre o roxo, não sobre o mundo. O
+   * contorno existia na versão solta, quando o texto flutuava sobre o cenário.
    */
   const castName = new Text({
     text: '',
     style: {
-      fill: 0x9fd0ff, fontSize: 9, fontFamily: 'Segoe UI, sans-serif',
-      stroke: { color: 0x000000, width: 3 },
+      fill: 0xf0e6ff, fontSize: 9, fontFamily: 'Segoe UI, sans-serif',
     },
   });
-  castName.anchor.set(0.5, 1);
-  castName.x = TS / 2;
-  // Logo acima da barra (que ocupa 4 px a partir de `base − 15`).
-  castName.y = baseRotulo - 17;
+  castName.anchor.set(0.5, 0.5);
   castName.visible = false;
   c.addChild(castName);
 
@@ -9475,11 +9449,30 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     castAura.ellipse(TS / 2, TS - 3, R, R * 0.42).fill({ color: 0x4a86d8, alpha: brilho * 0.5 });
     castAura.ellipse(TS / 2, TS - 3, R * 0.66, R * 0.28).fill({ color: 0x9fd0ff, alpha: brilho });
 
-    // A barra: fundo escuro, preenchimento claro, largura de um tile.
-    const L = TS - 6;
+    /*
+     * A barra herdada do rodapé: fundo escuro, borda preta, preenchimento roxo.
+     *
+     * ⚠️ **A largura sai do TEXTO**, com um piso: nome curto não merece barra
+     * de 220 px sobre a cabeça, e nome longo não pode transbordar dela. O
+     * `castName.width` só é confiável depois de o texto estar posto — por isso
+     * o nome é atribuído no topo desta função.
+     */
+    const L = Math.max(56, Math.ceil(castName.width) + 12);
+    const H = 12;
+    const x0 = TS / 2 - L / 2;
     castBar.clear();
-    castBar.rect(3, 0, L, 4).fill({ color: 0x0a0908, alpha: 0.75 });
-    castBar.rect(3, 0, L * frac, 4).fill({ color: 0x9fd0ff, alpha: 0.95 });
+    castBar.roundRect(x0, 0, L, H, 3).fill({ color: 0x14110c, alpha: 0.92 });
+    castBar.roundRect(x0, 0, L, H, 3).stroke({ width: 1, color: 0x000000, alpha: 0.9 });
+    /*
+     * ⚠️ O preenchimento é recortado 1 px para dentro da borda, senão ele a
+     * cobre nos cantos e a barra perde o contorno justo quando está cheia.
+     */
+    if (frac > 0) {
+      castBar.roundRect(x0 + 1, 1, (L - 2) * frac, H - 2, 2)
+        .fill({ color: 0x8a5fd0, alpha: 0.95 });
+    }
+    castName.x = TS / 2;
+    castName.y = castBar.y + H / 2;
   }
 
   return {
