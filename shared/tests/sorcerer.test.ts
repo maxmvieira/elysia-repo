@@ -24,6 +24,7 @@ import {
   skillGroundMax,
   skillConditionChance,
   skillConditionDuration,
+  skillPower,
   skillCastMs,
   castLevelReduction,
   NIVEL_CONJURACAO_INSTANTANEA,
@@ -279,6 +280,38 @@ test('a Maestria não inventa cast em quem não tem', () => {
   // conjuração fantasma. `emergency_heal` é uma das sem `castMs` na ficha.
   assert.equal(SKILLS.emergency_heal.castMs, undefined, 'a ficha mudou; escolha outra');
   assert.equal(skillCastMs(SKILLS.emergency_heal, 10, 10, 300), 0);
+});
+
+test('❄️ o Cold Bolt é o Fire Bolt de gelo: mesma mecânica, outro elemento', () => {
+  /*
+   * Pedido do dono em 10/09: "a magia cold bolt deveria ser igual a firebolt
+   * porém de gelo."
+   *
+   * O teste guarda o GÊMEO: tudo que faz a magia se comportar igual tem de
+   * bater, e o que a torna gelo tem de diferir. Sem ele, mexer numa e esquecer
+   * a outra não dá erro nenhum — as duas continuam funcionando, só que
+   * diferentes.
+   */
+  const fogo = SKILLS.fire_bolt;
+  const gelo = SKILLS.cold_bolt;
+  for (const campo of [
+    'kind', 'shape', 'hits', 'hitsAtLv10', 'castMs', 'cooldownMs',
+    'power', 'powerPerLevel', 'range', 'rangeEvery', 'queda', 'magic',
+  ] as const) {
+    assert.deepEqual(gelo[campo], fogo[campo], `o Cold Bolt divergiu em "${campo}"`);
+  }
+  // E o que sobrou de identidade de gelo:
+  assert.equal(gelo.damageType, 'ice');
+  assert.equal(fogo.damageType, 'fire');
+  assert.equal(gelo.applies?.id, 'slow');
+  assert.equal(fogo.applies?.id, 'burn');
+  assert.ok(gelo.manaCost > fogo.manaCost, 'o slow custa mana a mais');
+  assert.ok(gelo.reqLevel > fogo.reqLevel, 'gelo abre depois de fogo');
+  // Mesmo total de dano no Lv.10 — é o que "igual" quer dizer aqui.
+  assert.equal(
+    skillHits(gelo, 10) * skillPower(gelo, 10),
+    skillHits(fogo, 10) * skillPower(fogo, 10),
+  );
 });
 
 test('🔴 magia que CAI DO CÉU é sempre de alvo único, e o Fire e o Cold caem', () => {

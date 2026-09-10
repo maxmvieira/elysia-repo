@@ -1599,18 +1599,43 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   },
 
   // ------------------------------- ❄️ GELO (4) ------------------------------
+  /**
+   * ❄️ **O GÊMEO DE GELO DO FIRE BOLT** — decisão do dono em 10/09: *"a magia
+   * cold bolt deveria ser igual a firebolt porém de gelo."*
+   *
+   * 🔴 **Ela era outra magia.** Um golpe só (`kind: 'damage'`), instantânea, com
+   * `power` de 1,15 — ou seja, uma lasca forte de uma vez. Virou a mesma coisa
+   * que o Fire Bolt: uma lasca por nível caindo do céu, uma atrás da outra, cada
+   * impacto com o seu número.
+   *
+   * ⚠️ **O `power` TEVE de descer, e não é reequilíbrio por conta própria.**
+   * Em `multihit` o `power` vale POR IMPACTO. Carregar o 1,15 para uma série de
+   * dez daria 15,4 de total no Lv.10 contra os 11,8 do Fire Bolt — 30 % a mais
+   * por duas de mana. Manter o número seria mudar o equilíbrio *em silêncio*;
+   * copiar o do Fire Bolt é o que "igual ao Fire Bolt" quer dizer.
+   *
+   * ✅ **O que sobrou de identidade** é o que faz dela gelo e não fogo: dano de
+   * `ice` (outras resistências), `slow` no lugar do `burn`, dois de mana a mais
+   * e o Lv.3 de requisito. Mesma cadência, mesmo alcance, mesma conjuração.
+   */
   cold_bolt: {
     id: 'cold_bolt',
     name: 'Cold Bolt',
-    kind: 'damage',
+    kind: 'multihit',
     branch: 'gelo',
     classes: ['sorcerer'],
     reqLevel: 3,
+    // ⚠️ Duas de mana a mais que o Fire Bolt, e é o preço do `slow`.
     manaCost: 10,
     manaPerLevel: 2,
-    cooldownMs: 2000,
-    power: 1.15,
-    powerPerLevel: 0.14,
+    cooldownMs: 1500,
+    /*
+     * ⚠️ Iguais aos do Fire Bolt, POR IMPACTO. Ver a nota do bloco acima sobre
+     * por que o 1,15 antigo não podia vir junto.
+     */
+    power: 0.55,
+    powerPerLevel: 0.07,
+    castMs: 800,
     shape: 'target',
     range: 6,
     // Cresce como o Fire Bolt: +1 tile a cada 3 níveis. Ver a nota lá.
@@ -1618,9 +1643,19 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     durationMs: 0,
     magic: true,
     damageType: 'ice',
+    // Uma lasca por nível, como o Fire Bolt. Ver a nota de `hits` lá.
+    hits: 1,
+    hitsAtLv10: 10,
     // ❄️ Cai do céu como o Fire Bolt, com a folha própria de 30 quadros.
     queda: true,
-    // Gelo CONTROLA: o bolt não congela, atrasa. Congelar é papel da Nevasca.
+    /*
+     * Gelo CONTROLA: o bolt não congela, atrasa. Congelar é papel da Nevasca.
+     *
+     * ⚠️ O sorteio da condição é UM POR LANÇAMENTO, não por impacto (ver
+     * `aplicaCondicaoDaSkill`) — dez lascas não podem dar dez chances de deixar
+     * lento. Por isso as chances ficaram como estavam, apesar de a magia ter
+     * virado série.
+     */
     applies: {
       id: 'slow',
       chanceAtLv1: 0.15,
@@ -1629,7 +1664,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       durationAtLv10: 5000,
     },
     fx: 'cold_bolt',
-    desc: 'Lasca de gelo num alvo, com chance de deixá-lo lento.',
+    desc: 'Chuva de lascas de gelo num alvo. 10 no Lv.10, com chance de deixá-lo lento.',
   },
   /**
    * 🔴 "Barreira física destruível, **1→3 paredes simultâneas**, **20 s→60 s**"

@@ -2552,9 +2552,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       bola.circle(0, 0, R * 0.55).fill({ color: 0xffc74a, alpha: 0.6 });
       bola.circle(0, 0, R * 0.25).fill({ color: 0xfff3c8, alpha: 0.9 });
       node.addChild(bola);
-    } else if (kind === 'cold_bolt' || kind === 'glacial_burst') {
-      // ❄️ Cristais irradiando.
-      const R = kind === 'cold_bolt' ? TS * 0.5 : (radius + 0.5) * TS;
+      /*
+       * ⚠️ `cold_bolt` saiu daqui em 10/09: ele passou a cair do céu com folha
+       * própria (ver `MAGIAS_QUE_CAEM`), e o `fx` dele nunca mais chega neste
+       * caminho. A Explosão Glacial continua sendo desenhada por código.
+       */
+    } else if (kind === 'glacial_burst') {
+      // ❄️ Cristais irradiando. Área: o raio é o da explosão.
+      const R = (radius + 0.5) * TS;
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2;
         const c = new Graphics();
