@@ -9,6 +9,127 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-10 — Fire Bolt e Cold Bolt: a queda do céu vira mecânica
+
+**Onde mora:** `queda` em `SkillDef` (`shared/src/skills.ts`) · `ATRASO_IMPACTO_MS`
+e `CUSTO_DIAGONAL` em `shared/src/constants.ts` · `tickGolpesPendentes` e
+`marcaConjuracao` em `server/src/index.ts` · `FOLHAS_QUEDA`/`MAGIAS_QUE_CAEM` e
+`fatorDiagonal` em `client/src/main.ts` · `tools/contato2fx.mjs`
+
+### O `fx` deixou de ser um aviso por conjuração
+
+🔴 **Um `fx` POR BOLT, mandado quando aquela bola nasce.** Era um aviso só, no
+lançamento, com a contagem de bolts e a posição do alvo naquele instante — o
+cliente abria dali as dez bolas. Consequência: elas caíam num PONTO FIXO e caíam
+TODAS, mesmo depois de o monstro morrer ou sair andando.
+
+As duas coisas que o dono pediu saem da mesma mudança: a bola nasce na posição
+que a criatura tem NAQUELE momento (segue quem anda), e se a criatura morreu não
+há aviso nenhum (a chuva para).
+
+⚠️ **Cada bolt tem DOIS instantes.** `fxEm` (a bola começa a cair) e `quando`
+(ela toca o chão e o dano sai), separados por `ATRASO_IMPACTO_MS` — 58 % de
+`DUR_QUEDA_MS`, porque a folha de 24 quadros gasta os catorze primeiros na
+descida. Antes o dano saía quando a animação COMEÇAVA: o número vermelho subia
+com a bola ainda no céu. Com um bolt por vez ficou impossível de não ver.
+
+⚠️ **O primeiro bolt também foi para a fila**, então o Fire Bolt não dá dano
+nenhum no tique do lançamento. Meio segundo de espera é o preço de a bola e o
+estrago acontecerem no mesmo lugar da tela.
+
+### O mostrador de recarga mentia
+
+🔴 O bloqueio nunca falhou: `marcaConjuracao` já guardava a recarga CALCULADA
+(8,2 s no Lv.10 — a série inteira). Quem estava errado era o aviso `cast`, que
+mandava `def.cooldownMs`, o número da FICHA: 1,5 s. O relógio do HUD zerava, o
+jogador apertava e levava um `denied`.
+
+`marcaConjuracao` passou a DEVOLVER a recarga aplicada, e os cinco pontos que
+avisam o cliente mandam esse retorno. Uma fonte para os dois lados.
+
+### Conjuração que encolhe com o NÍVEL DO PERSONAGEM
+
+🔴 Eixo novo. Até aqui o único redutor de tempo era a Maestria de Conjuração, que
+é escolha de pontos e não idade do personagem. `castLevelReduction` sobe
+linearmente até 100 % no `NIVEL_CONJURACAO_INSTANTANEA = 250`, e SOMA com a
+Maestria — quem gastou os pontos chega ao instantâneo por volta do 175.
+
+🔴 `PISO_CONJURACAO_MS = 1000` existe por causa da Chuva de Meteoros. A redução
+por nível chega a 100 % e sozinha apagaria a conjuração dela, cujo contrajogo É
+poder ser interrompida. A regra: **só vira instantânea a magia cuja conjuração
+base já cabe em um segundo.**
+
+⚠️ `skillCastMs` ganhou um QUARTO parâmetro em vez de reaproveitar o terceiro.
+Trocar o sentido de um parâmetro existente compilaria em silêncio nas chamadas
+não atualizadas.
+
+### O Cold Bolt virou o gêmeo de gelo
+
+Pedido do dono: *"deveria ser igual a firebolt porém de gelo"*. Era `damage` de
+um golpe só, instantânea, com `power` 1,15. Virou `multihit` 1→10, com os mesmos
+800 ms de conjuração.
+
+🔴 **O `power` teve de descer para 0,55.** Em `multihit` ele vale POR IMPACTO;
+carregar o 1,15 para uma série de dez daria 15,4 de total no Lv.10 contra os 11,8
+do Fire Bolt — 30 % a mais por duas de mana. Manter o número seria mudar o
+equilíbrio em silêncio.
+
+O que sobrou de identidade: dano de `ice`, `slow` no lugar do `burn`, duas de
+mana a mais e o Lv.3 de requisito.
+
+⚠️ As chances do `slow` ficaram como estavam apesar de a magia ter virado série:
+o sorteio da condição é UM POR LANÇAMENTO, não por impacto.
+
+### A bandeira `queda` consertou uma bola a mais
+
+🔴 `executeSpell` mandava o `fx` genérico no lançamento para TODA magia de dano,
+o Fire Bolt inclusive. Cada lançamento tinha **golpes + 1** bolas: as da série,
+que seguem o alvo, e mais uma genérica parada no chão. Com dez sobrepostas
+ninguém via; desde que elas passaram a cair uma por vez, virou a primeira coisa
+que se nota.
+
+A condição do servidor era `kind === 'multihit' && shape === 'target'`, o que
+deixava o Cold Bolt de fora. Virou a bandeira `queda` da ficha — uma decisão de
+desenho com consequência de regra, e por isso mora na ficha e não no cliente.
+
+### As folhas de contato
+
+⚠️ **O filtro de croma não dá conta do rótulo.** O recorte do fundo é por cor
+(fundo preto e número cinza têm croma zero), mas há uma segunda porta pelo BRILHO
+para salvar o núcleo branco do clarão — e o número é cinza claro. Passava por
+ela. Agora o rótulo sai por POSIÇÃO: cabe todo num canto de 46×40 da célula, onde
+a varredura acha de 0 a 2 pixels com cor por quadro.
+
+🔴 **A grade é MEDIDA, não detectada.** A do Cold Bolt tem nove células nas duas
+primeiras fileiras e seis nas duas últimas, e as duas de seis têm cortes
+diferentes entre si. E detectar em tempo de corte não funciona: nos quadros de
+dissipação o efeito já se quebrou em fagulhas, e o detector lê cada fagulha como
+uma célula — na quarta fileira ele acha dez onde há seis.
+
+✅ Regerar `firebolt24` com o conversor novo deu o arquivo byte a byte igual. Era
+essa a conferência do refactor.
+
+### O passo na diagonal
+
+🔴 O servidor cobra `CUSTO_DIAGONAL` (1,5×) por um passo diagonal; o cliente
+deslizava TODO passo em 1,0× do intervalo. O sprite chegava ao tile e ficava
+parado o 0,5× restante, com a animação de caminhada desligada junto — uma
+paradinha a cada tile, em tudo que não fosse reto. O dono leu isso como
+velocidade: *"muito rápido para baixo e muito lento para todas as outras
+direções"*.
+
+O número foi para o `shared`, como `INTERVALO_BOLT_MS` e `DUR_QUEDA_MS`: é o tipo
+de valor que precisa ser o MESMO nas duas pontas.
+
+⚠️ **PENDENTE:** isto explica a diagonal, não o par cima/esquerda/direita. As
+outras pontas foram varridas atrás de assimetria por direção e não há nenhuma — o
+intervalo do servidor só distingue diagonal, o envio do teclado é simétrico,
+`animationSpeed` é 0,18 fixo, e as oito fileiras da folha universal têm 16
+quadros cada. Se as cardinais ainda parecerem lentas, o próximo passo é MEDIR o
+intervalo real por direção no cliente.
+
+---
+
 ## 2026-09-08 (noite) — A HUD do personagem, e o NÍVEL DE JOB
 
 **Onde mora:** `#charhud` em `client/index.html` · `ligaPainelDoPersonagem` e
