@@ -1,3 +1,170 @@
+# Handoff — 2026-09-11 · PONTO DE RETOMADA
+
+> Typecheck limpo nos 3 pacotes, **650 testes** (622 shared + 28 server).
+> `npm run dev:test` → `localhost:5173`. **3 commits subiram**, rebasados sobre
+> os oito de Nevasca.
+
+## 🔴 O HERÓI TROCOU DE CORPO, E OS BANDIDOS SAÍRAM DO JOGO
+
+O dono trouxe um pack de corpo base da CraftPix para virar o personagem
+principal. Posto em tela, era o **template nu e careca** da CraftPix — sem
+roupa, sem cabelo — e ele mudou a decisão: usar os **espadachins**, os mesmos de
+onde saíam os bandidos.
+
+🔴 **Por isso os bandidos deixaram de existir.** Monstro com a cara do herói é a
+pior confusão possível num jogo visto de cima. As três espécies saíram de
+`CREATURES`, do `creatures.json` (87 → 84 spawns) e do `monstros2strip.mjs`, e a
+arte gerada foi apagada. O mundo nasce com **93 criaturas**, eram 96.
+
+Montagem por **`npm run principal:build`** (`tools/principal2strip.mjs`), das
+nove patentes do pack:
+
+| classe | patente | por quê |
+|---|---|---|
+| `assassin` | lvl1 | o mais leve dos nove: sem armadura, braços de fora |
+| `archer` | lvl2 | couro e capa, ainda leve |
+| `druid` | lvl3 | túnica **verde** |
+| `knight` | lvl6 | elmo alado, placa completa |
+| `sorcerer` | lvl9 | azul e dourado, o mais arcano |
+
+⚠️ **lvl6 e lvl9 também são GUARDAS.** Não há conflito em tela porque guarda não
+nasce — mas **no dia da IA de guarda, essas duas classes precisam de outra
+patente**, senão o jogador de Knight fica idêntico ao guarda ao lado.
+
+### O que ganhou e o que perdeu
+
+✅ **`hurt` e `death` nas cinco classes** — o personagem anterior não tinha nenhum
+dos dois, em sexo nenhum, e morrer não tombava. E escala **2,0×**, a mesma das
+criaturas deste pack: o herói passa a ter o pixel do tamanho do goblin ao lado.
+
+🔴 **Perdeu as diagonais (4 direções, eram 8), o arco e a conjuração.** As três
+caem sozinhas e sem erro — a diagonal vira a cardinal vertical, arco e cajado
+caem no golpe de espada pelo `attackPoseFallback`. ⚠️ **Consequência visível:
+conjurar qualquer magia mostra uma espadada**, até aparecer arte de conjuração
+para estas patentes.
+
+🔴 **O SEXO DEIXOU DE TROCAR O SPRITE.** O pack tem um corpo só por patente; não
+existe variante feminina para gerar. Quem escolhe agora é a **classe**, e
+`packDe` ignora o `gender` que continua recebendo.
+
+⚠️ **Nada do anterior foi apagado.** `universal2strip.mjs` e
+`classes-universal/` continuam no disco — é o único caminho com 8 direções, arco
+e conjuração, e é para lá que se volta se este pack for descartado.
+
+⚠️ O pack de corpo base (49 MB, **não usado**) ficou no `.gitignore` em vez de
+commitado, pelo mesmo critério do `map/Tiled/` de 04/08. Ele não viaja para quem
+clonar, e nada aponta para ele.
+
+## 🔴 UM BUG ANTIGO ACHADO NO `monstros2strip.mjs`, E NÃO CONSERTADO
+
+Ele usa `ORDEM = [0, 1, 3, 2]` também nos nove espadachins. Por **duas medidas
+independentes** a ordem real desse pack é `0=frente, 1=esquerda, 2=direita,
+3=costas`:
+
+1. **Qual par de linhas é espelho exato no alpha:** as linhas 1 e 2 divergem
+   **0,4 %**; todos os outros pares, de 1,8 % a 3,7 %. Só um par pode ser
+   esquerda/direita.
+2. **Onde caem os pixels de olho:** 36 na linha 0 (dois olhos), 18 nas linhas 1 e
+   2 (um), **zero** na linha 3 (costas).
+
+Ou seja: **o bandido andando para o norte mostrava o perfil, e para o leste
+mostrava as costas.** Não está em tela hoje porque os bandidos saíram e guarda
+não nasce. **Não mexi no `ORDEM`** — ele está certo para os outros vinte packs de
+monstro, e trocá-lo giraria todos eles. Quem for ligar a IA de guarda conserta
+ali antes.
+
+## ⚔️ DOIS BUGS DE COMBATE QUE SÓ APARECIAM À DISTÂNCIA
+
+Corpo a corpo nunca mostrou nenhum dos dois.
+
+**1. Monstro alvejado de longe ficava parado tomando dano até morrer.** Não era o
+`hit` mágico deixar de ser reconhecido: `damageCreature` **sempre** marcou o
+`targetId` certo. O tique seguinte da IA é que o apagava, pela coleira de
+`aggroRange + 2` — e `aggroRange` é distância de **enxergar** (4 a 6 na maioria),
+enquanto o mago conjura a 6 tiles no Lv.1, +1 a cada 3 níveis. A criatura nunca
+dava o primeiro passo.
+
+✅ Enquanto o dano entra, a coleira passa a ser `SNAPSHOT_RANGE` — até onde o
+jogador consegue mirar, e nem um tile a mais. Parou de bater,
+`NEUTRAL_CALM_DOWN_MS` depois ela volta ao normal e o ramo de `homeX`/`homeY`
+traz o bicho para casa. **Conserta o Arqueiro junto**: o remendo é na coleira da
+IA, não no caminho da magia.
+
+**2. Muralha de Fogo fazia o mago dar espadadas no ar.** Faltava `dot: true` no
+pulso de área em **criatura**. O irmão desta função (`danoDeAreaEmJogador`, o
+mesmo pulso em PvP) já o mandava desde sempre — por isso nunca apareceu num
+duelo. ⚠️ Some junto o flash de dano do alvo no pulso; é o mesmo `!msg.dot` no
+cliente, e é o comportamento pretendido (piscar o bicho a cada tique vira
+epilepsia). O número do dano continua saindo.
+
+## 🖼️ AS TELAS DE FORA DO JOGO E OS PAINÉIS DA HUD
+
+**Criação e seleção** mostram o **sprite do jogo respirando** no lugar dos
+retratos ilustrados — CSS puro com `steps(12)`, porque estas telas rodam antes
+de o Pixi existir. Tela mais larga (1320 → 1560) e a **teia de atributos** que o
+dono pediu.
+
+⚠️ **A teia tem SETE vértices, não seis como no Ragnarok** — o jogo tem `wis` e
+`luk` além dos cinco. A geometria sai de `ATTRIBUTE_KEYS.length`, então mudar a
+lista redesenha a figura sozinha.
+
+⚠️ **O enquadramento do sprite é pelo CONTEÚDO, não pela célula.** O boneco ocupa
+27 px de uma célula de 64; encaixar a célula dava 22 px de boneco num medalhão
+de 52, e parecia erro de carregamento.
+
+**Todos os painéis movem e redimensionam** (minimapa, painel do personagem,
+habilidades e as quatro janelas), com alça no canto, duplo-clique voltando ao
+padrão e tudo no `localStorage`.
+
+🔴 **Duas armadilhas que isso escondia, e valem para qualquer painel futuro:**
+
+1. **Quem desenha tem de acompanhar a caixa.** O `#charhud` é um flex cujo
+   desenho todo mora no filho `#chcorpo`, com largura própria — esticar o pai
+   crescia uma caixa **invisível**, e a alça fugia para o canto de um retângulo
+   que ninguém vê. O dono leu isso como *"não redimensiona, está dando erro"*, e
+   **não havia erro nenhum no console**, que é o que tornava difícil.
+2. **Recolher manda na altura.** O botão de recolher larga a altura inline,
+   senão o painel recolhido ficaria do mesmo tamanho com um vão vazio embaixo.
+
+**A engrenagem virou a carinha do personagem** (ela nunca abriu configuração —
+abre a ficha). ⚠️ O rosto é um **filho** do botão e a moldura continua sendo a do
+`.btnico`: a primeira versão trocava o `background` do próprio botão e apagava a
+arte de estado, deixando a carinha como o único dos sete atalhos sem moldura e
+sem hover. Usa `pose.png` (um quadro) em vez de travar a animação — assim "sem
+mexer" é propriedade do **arquivo**.
+
+## 🏹 A FLECHA NÃO ENTRAVA NA ALJAVA — E O DEPÓSITO PAGAVA A CONTA
+
+O `drop` de célula exigia prefixo **igual** entre origem e destino, então
+arrastar `bp:3` para `qv:0` **saía calado**: sem mensagem, sem recusa. Mochila ↔
+aljava agora usa `equip`/`unquiver`, que o servidor já sabia tratar — nenhuma
+mensagem de rede nova.
+
+🔴 **E no mesmo lugar havia um bug pior, nunca relatado porque o estrago é
+invisível:** `where` saía de um ternário `'bp' ? backpack : depot`, escrito
+quando só existiam duas listas. Com a aljava, `qv` caía no `else` — **reordenar
+duas flechas trocava dois slots do DEPÓSITO**, enquanto as flechas ficavam
+paradas.
+
+## 🎯 A PRÓXIMA COISA
+
+1. 🔴 **UM BUG ABERTO, NÃO REPRODUZIDO.** O dono relatou: *"clico 2x nas flechas
+   e elas desaparecem do mundo"*. Os quatro caminhos plausíveis foram lidos e
+   **todos passaram**: `use` recusa munição (a categoria `ammo` existe para
+   isso), `pickup` do chão ignora o segundo clique, `sell` vende 1 por clique e
+   `unquiver` devolve a pilha inteira. **Falta saber onde as flechas estavam** —
+   mochila, chão ou aljava — e se ele estava perto do comerciante. ⚠️ O conserto
+   do arrasto pode já ter resolvido o que ele sentiu.
+2. ⏳ **A carinha não foi vista em tela.** A automação do navegador travou três
+   vezes com o jogo rodando; a matemática do enquadramento foi conferida na mão
+   (cai em cabeça e ombros), mas falta o olho.
+3. ⏳ **Arte de conjuração e de arco para as patentes novas** — sem elas, magia e
+   flecha mostram uma espadada.
+4. ⏳ As frentes que continuam abertas: modelos 3D, renderizador `?r3d=1`,
+   licença da arte, e a casca de desktop (Electron × Tauri, não escolhida).
+
+---
+
 # Handoff — 2026-09-08 (madrugada) · PONTO DE RETOMADA
 
 > Typecheck limpo nos 3 pacotes, **635 testes**. `npm run dev:test` →
