@@ -2174,12 +2174,36 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   };
 
   /**
-   * 🌠 Quanto o risco de cada magia é mais grosso e mais longo que o padrão.
+   * 🌠 **A FORMA do que cai — e são duas coisas diferentes.**
    *
-   * ⚠️ O meteoro precisa ler como CORPO caindo, e o bolt como lança. Sem esta
-   * diferença a suprema de 140 de mana cai igual à magia de 8.
+   * - `lanca`: o risco fino do Fire Bolt e do Cold Bolt. Um traço vertical.
+   * - `esfera`: o meteoro. Uma ROCHA EM CHAMAS — cabeça redonda com rastro
+   *   atrás, e não um traço grosso.
+   *
+   * 🔴 **Engrossar a lança não faz um meteoro.** Foi a primeira tentativa (um
+   * fator de espessura de 2,2) e o resultado se lê como raio gordo: o olho
+   * procura um CORPO caindo, e um retângulo não tem corpo por mais largo que
+   * seja. O que dá volume é a cabeça circular com o rastro afinando atrás.
    */
-  const PORTE_RISCO: Record<string, number> = { meteor_fall: 2.2 };
+  const FORMA_RISCO: Record<string, 'lanca' | 'esfera'> = { meteor_fall: 'esfera' };
+
+  /**
+   * Raio da cabeça do meteoro, em pixels de mundo.
+   *
+   * ⚠️ 15 px num tile de 32 é quase um tile inteiro de diâmetro — é grande de
+   * propósito. A suprema do jogo tem de pesar em tela contra uma magia de 8 de
+   * mana, e o dono pediu justamente isso: *"substanciais, não apenas pequenas
+   * bolas de fogo"*.
+   */
+  const RAIO_METEORO = 15;
+
+  /**
+   * Quanto o ESTOURO de cada magia é maior que o padrão da folha.
+   *
+   * ⚠️ Escala isotrópica (o mesmo fator em x e y), e isto importa: escalar só
+   * um eixo é o que deixa a explosão OVAL, que foi a queixa do dono.
+   */
+  const ESCALA_IMPACTO: Record<string, number> = { meteor_fall: 1.7 };
 
   function spawnQueda(
     magia: string, wx: number, wy: number, frames: Texture[], atraso: number,
@@ -2197,7 +2221,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * `tools/contato2fx.mjs`). Na soma, o preto já não acrescenta nada.
      */
     node.blendMode = 'add';
-    node.scale.set(ESCALA_QUEDA);
+    // ⚠️ `set(v)` com UM argumento escala os dois eixos igualmente. Passar dois
+    // valores diferentes aqui é o que deixaria o estouro oval.
+    node.scale.set(ESCALA_QUEDA * (ESCALA_IMPACTO[magia] ?? 1));
     node.anchor.set(0.5, 1);
     node.x = wx;
     node.y = wy;
@@ -2227,11 +2253,33 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * vez e movido — não redesenhado por quadro.
        */
       const [fora, meio, nucleo] = CORES_RISCO[magia] ?? CORES_RISCO.fire_bolt!;
-      const k = PORTE_RISCO[magia] ?? 1;
       const g = new Graphics();
-      g.rect(-5 * k, -110, 10 * k, 110).fill({ color: fora, alpha: 0.55 });
-      g.rect(-2.5 * k, -104, 5 * k, 104).fill({ color: meio, alpha: 0.9 });
-      g.rect(-1 * k, -98, 2 * k, 98).fill({ color: nucleo, alpha: 1 });
+      if ((FORMA_RISCO[magia] ?? 'lanca') === 'esfera') {
+        /*
+         * 🌠 **ROCHA EM CHAMAS: cabeça redonda + rastro.**
+         *
+         * O rastro é desenhado ANTES da cabeça para ficar atrás dela, e afina
+         * subindo — largura cheia junto da rocha, um terço lá em cima. É essa
+         * conicidade que dá a direção; um rastro de largura constante lê como
+         * poste, não como coisa em movimento.
+         *
+         * ⚠️ **Círculos, e nunca elipse.** `circle()` com um raio só garante
+         * que a rocha seja redonda em qualquer escala — foi a queixa do dono,
+         * *"esféricos e perfeitamente redondos, não ovais"*.
+         */
+        const R = RAIO_METEORO;
+        g.poly([-R, 0, R, 0, R * 0.34, -120, -R * 0.34, -120])
+          .fill({ color: fora, alpha: 0.4 });
+        g.poly([-R * 0.62, 0, R * 0.62, 0, R * 0.2, -104, -R * 0.2, -104])
+          .fill({ color: meio, alpha: 0.7 });
+        g.circle(0, 0, R).fill({ color: fora, alpha: 0.95 });
+        g.circle(0, -R * 0.12, R * 0.68).fill({ color: meio, alpha: 1 });
+        g.circle(0, -R * 0.22, R * 0.34).fill({ color: nucleo, alpha: 1 });
+      } else {
+        g.rect(-5, -110, 10, 110).fill({ color: fora, alpha: 0.55 });
+        g.rect(-2.5, -104, 5, 104).fill({ color: meio, alpha: 0.9 });
+        g.rect(-1, -98, 2, 98).fill({ color: nucleo, alpha: 1 });
+      }
       g.blendMode = 'add';
       g.x = wx;
       g.zIndex = 9999;
