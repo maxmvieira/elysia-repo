@@ -2387,10 +2387,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   function carregaAtlas(nome: string): void {
-    fetch(`assets/spells/${nome}.json`)
+    /*
+     * ⚠️ **Barra na frente.** Todo o resto do arquivo carrega de `/assets/…`, e
+     * caminho relativo aqui resolveria contra a rota da PÁGINA — funciona na
+     * raiz e some em qualquer sub-rota, sem erro nenhum, porque o `catch`
+     * abaixo engole. Duas convenções no mesmo arquivo é a receita para isso.
+     */
+    fetch(`/assets/spells/${nome}.json`)
       .then((r) => r.json() as Promise<Atlas>)
       .then(async (atlas) => {
-        const tex = await Assets.load<Texture>(`assets/spells/${atlas.meta.image}`);
+        const tex = await Assets.load<Texture>(`/assets/spells/${atlas.meta.image}`);
         for (const [anim, quadros] of Object.entries(atlas.animations)) {
           folhasP.set(anim, quadros.map((q) => {
             const f = atlas.frames[q]!.frame;
@@ -2401,7 +2407,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           }));
         }
       })
-      .catch(() => { /* folha ausente: a camada simplesmente não nasce */ });
+      /*
+       * ⚠️ **Este aviso não é ruído.** A camada some em silêncio quando o atlas
+       * falha, e em 11/09 isso custou uma rodada de teste — o dono relatou *"não
+       * apareceu"* e não havia nada, nem no console, dizendo por quê. O jogo
+       * segue rodando; o que muda é ter onde olhar.
+       */
+      .catch((e: unknown) => console.warn(`[fx] atlas ${nome} não carregou:`, e));
   }
   for (const a of ['nevoa_base', 'gelo_grande', 'particulas_menores']) carregaAtlas(a);
 
@@ -2438,7 +2450,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     if (particulas.length >= TETO_PARTICULAS) return undefined;
     const g = new AnimatedSprite(quadros);
-    g.blendMode = 'add';
+    /*
+     * 🔴 **O CRISTAL NÃO É ADITIVO, e as outras duas são.**
+     *
+     * Descoberto testando a folha isolada em 11/09: a arte do `gelo_grande` é
+     * pixel art OPACA, com contorno azul-escuro, e é o contorno que lhe dá
+     * corpo. Em soma aditiva o escuro acrescenta quase nada ao chão — sobra só
+     * o miolo claro, e o cristal vira um fiapo pálido que o dono não viu cair.
+     *
+     * ⚠️ Névoa e centelha continuam somando, e devem: as duas são BRILHO, não
+     * objeto. Névoa em mistura normal taparia o chão com um borrão cinza.
+     */
+    g.blendMode = camada === 'cristal' ? 'normal' : 'add';
     /*
      * ⚠️ **O cristal é ancorado em 0,85 e não no meio.** A ponta dele é o que
      * toca o chão; ancorado no centro, metade do desenho afundaria no tile no
@@ -2509,8 +2532,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       p.vz = -naFaixa([0.85, 1.25]);
       p.giro = (Math.random() - 0.5) * 0.02;
       p.node.rotation = Math.random() * Math.PI * 2;
-      p.node.tint = cor();
-      p.escala = naFaixa([0.8, 1.5]);
+      /*
+       * ⚠️ **Tinta quase branca no cristal.** A folha já vem colorida, e tingir
+       * de azul-médio uma arte que já é azul escurece duas vezes — some contra
+       * o chão. As outras camadas são brancas na folha e dependem da tinta.
+       */
+      p.node.tint = 0xdff2ff;
+      /*
+       * 🔴 **Escala 2,0–3,2, e não 0,8–1,5.** A célula tem 48 px, mas o gelo
+       * dentro dela tem uns 10 de largura — num tile de 32 px isso cai como um
+       * fiapo. Medido na folha ampliada: o desenho ocupa um quinto da célula.
+       */
+      p.escala = naFaixa([2.0, 3.2]);
       p.t = 0; p.dur = naFaixa([420, 700]);
     }
 
@@ -2539,7 +2572,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       p.vz = naFaixa([0.06, 0.16]);
       p.vx = 0; p.vy = 0;
       p.node.tint = cores[Math.floor(Math.random() * cores.length)]!;
-      p.escala = naFaixa([0.5, 1.1]);
+      /*
+       * ⚠️ **1,6–2,6.** A centelha tem 16 px de célula e nove pixels acesos
+       * dentro dela; em escala 1 é literalmente invisível em movimento.
+       */
+      p.escala = naFaixa([1.6, 2.6]);
       p.t = 0; p.dur = naFaixa([500, 900]);
     }
   }

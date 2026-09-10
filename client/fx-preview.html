@@ -1,0 +1,47 @@
+<!doctype html><meta charset="utf-8"><title>Prévia das folhas de FX</title>
+<!--
+  🔬 Confere uma folha de FX FORA do jogo, nos dois modos de mistura.
+
+  🔴 Existe por causa de 11/09: as três camadas da Nevasca entraram, o dono
+  testou e disse "não apareceu". A folha carregava e desenhava — o que a
+  apagava era a MISTURA ADITIVA comendo o contorno azul-escuro do cristal, que
+  é justamente o que lhe dá corpo. Isso não se descobre olhando o código; se
+  descobre pondo a folha contra um fundo e comparando os dois modos.
+
+  ⚠️ Fica FORA de `public/`, então o `vite build` não a leva para o `dist` —
+  confira com `ls client/dist` se mexer nisto. Em desenvolvimento abre em
+  http://localhost:5173/fx-preview.html
+-->
+<style>body{background:#2e4a2a;margin:0;font:12px monospace;color:#fff}
+canvas{display:block;margin:8px 0}h3{margin:6px 0 0}</style>
+<div id="saida"></div>
+<script>
+const folhas = [
+  ['gelo_grande_sheet.png', 48, 48],
+  ['particulas_menores_sheet.png', 16, 16],
+  ['nevoa_base_sheet.png', 64, 32],
+];
+const ESC = 3;
+(async () => {
+  for (const [arq, cw, ch] of folhas) {
+    const img = new Image();
+    img.src = '/assets/spells/' + arq;
+    await img.decode();
+    const n = img.width / cw;
+    for (const modo of ['source-over', 'lighter']) {
+      const h = document.createElement('h3');
+      h.textContent = `${arq} — ${modo}${modo === 'lighter' ? '  (aditivo)' : '  (normal)'}`;
+      document.getElementById('saida').appendChild(h);
+      const c = document.createElement('canvas');
+      c.width = n * cw * ESC; c.height = ch * ESC;
+      const g = c.getContext('2d');
+      g.imageSmoothingEnabled = false;
+      // Fundo de grama: a soma precisa de algo contra o que somar.
+      g.fillStyle = '#3f6b38'; g.fillRect(0, 0, c.width, c.height);
+      g.globalCompositeOperation = modo;
+      g.drawImage(img, 0, 0, img.width, ch, 0, 0, c.width, c.height);
+      document.getElementById('saida').appendChild(c);
+    }
+  }
+})();
+</script>
