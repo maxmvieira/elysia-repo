@@ -2864,6 +2864,33 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const groundAreaNodes = new Map<string, Container>();
 
   /**
+   * ❄️ **A FOLHA DA NEVASCA** (36 quadros), carregada sem `await`.
+   *
+   * ⚠️ **Três trechos, e não um laço só.** A arte tem introdução (o gelo
+   * cresce), sustentação (a coluna gira) e dissipação (some). Rodar tudo em
+   * laço faria a tempestade nascer de novo a cada volta, o que é justamente o
+   * que se nota. Então a introdução toca UMA vez e a sustentação repete até a
+   * área acabar.
+   *
+   * ⚠️ A dissipação fica de fora: quem tira a área é o servidor, e a remoção é
+   * instantânea. Tocar os nove quadros finais exigiria segurar o nó vivo depois
+   * do `areagone` — dá para fazer, e fica anotado como coisa que falta.
+   */
+  const NEVASCA_INTRO = 9;
+  const NEVASCA_SUSTENTA = 27;
+  let nevascaQuadros: Texture[] | null = null;
+  void Assets.load<Texture>('/assets/fx/nevasca36.png')
+    .then((tex) => {
+      tex.source.scaleMode = 'linear';
+      const cw = Math.round(tex.width / 36);
+      nevascaQuadros = Array.from({ length: 36 }, (_, i) => new Texture({
+        source: tex.source,
+        frame: new Rectangle(i * cw, 0, cw, tex.height),
+      }));
+    })
+    .catch(() => { /* sem folha: cai no vórtice desenhado por código */ });
+
+  /**
    * ❄️ **Os VÓRTICES em cena** — as áreas que giram, com o que cada uma precisa
    * para girar. Só a Nevasca tem um, por enquanto.
    *
@@ -2922,7 +2949,45 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ⚠️ `screen` no anel e `add` nas lascas. A névoa tem de CLAREAR o chão sem
      * estourar (screen satura devagar); a lasca é brilho pontual e pede a soma.
      */
-    if (fx === 'blizzard') {
+    if (fx === 'blizzard' && nevascaQuadros) {
+      /*
+       * ❄️ **A FOLHA COBRE A ÁREA INTEIRA e dura a tempestade toda** — pedido do
+       * dono em 11/09: *"preenche ela com esse tempo de conjuração… e a área de
+       * conjuração"*.
+       *
+       * ⚠️ A escala sai da LARGURA da área, e a altura vem junto: a arte é uma
+       * coluna de gelo (2 : 3), e esticar só um eixo para caber num quadrado a
+       * achataria. Ela sobe acima da área de propósito — o gelo sobe, o dano
+       * não.
+       *
+       * ⚠️ Âncora em 0,82 da altura: é onde o anel do chão está desenhado na
+       * folha. Ancorar embaixo poria o anel abaixo do centro da área.
+       */
+      const spr = new AnimatedSprite(nevascaQuadros.slice(0, NEVASCA_INTRO));
+      spr.blendMode = 'add';
+      spr.anchor.set(0.5, 0.82);
+      spr.scale.set(lado / (nevascaQuadros[0]!.width || 1));
+      spr.loop = false;
+      spr.animationSpeed = NEVASCA_INTRO / (600 / (1000 / 60));
+      /*
+       * Terminada a introdução, troca para a SUSTENTAÇÃO em laço. É a mesma
+       * `AnimatedSprite`: trocar `textures` preserva posição e escala.
+       */
+      spr.onComplete = () => {
+        if (!nevascaQuadros) return;
+        spr.textures = nevascaQuadros.slice(NEVASCA_INTRO, NEVASCA_SUSTENTA);
+        spr.loop = true;
+        spr.animationSpeed = (NEVASCA_SUSTENTA - NEVASCA_INTRO) / (1100 / (1000 / 60));
+        spr.gotoAndPlay(0);
+      };
+      spr.play();
+      node.addChild(spr);
+    } else if (fx === 'blizzard') {
+      /*
+       * ⚠️ Enquanto a folha não carregou (os primeiros segundos de mundo), o
+       * vórtice desenhado por código segura a peça. Ele é o que existia antes
+       * da arte chegar, e some sozinho quando ela chega.
+       */
       const anel = new Container();
       anel.blendMode = 'screen';
       for (const [r, alpha] of [[0.46, 0.30], [0.32, 0.22], [0.2, 0.16]] as const) {
@@ -2934,11 +2999,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
       const lascas = new Container();
       lascas.blendMode = 'add';
-      /*
-       * ⚠️ Posições SORTEADAS uma vez, e não por quadro: recalcular espalharia
-       * as lascas a cada frame e o efeito viraria chuvisco de TV. Elas ficam
-       * paradas no nó e quem se move é o nó.
-       */
       const quantas = 10 + radius * 4;
       for (let i = 0; i < quantas; i++) {
         const ang = Math.random() * Math.PI * 2;

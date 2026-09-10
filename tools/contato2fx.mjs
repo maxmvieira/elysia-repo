@@ -82,6 +82,29 @@ const FOLHAS = {
       { y: [728, 1016], x: PARES_6 },
     ],
   },
+  /**
+   * ❄️ A NEVASCA (11/09): 9 colunas × 4 fileiras = 36 quadros.
+   *
+   * ⚠️ **As colunas foram MEDIDAS pelas separadoras**, não por divisão: 1536/9
+   * dá 170,67, e arredondar acumularia meio pixel por célula até cortar a nona
+   * fora do lugar. As linhas pretas entre as células dão os limites exatos.
+   *
+   * ⚠️ **As fileiras, ao contrário, saem da divisão** (1024/4 = 256 exato). O
+   * detector de separadora não serve nelas: a coluna de gelo é alta e clara, e
+   * as únicas linhas totalmente escuras que ele acha estão DENTRO das células.
+   *
+   * ⚠️ Célula alta (2 : 3): é uma coluna de gelo subindo, não um estouro. A
+   * saída mantém a proporção para o efeito não achatar em tela.
+   */
+  nevasca36: {
+    larg: 160,
+    alt: 240,
+    fileiras: [0, 256, 512, 768].map((y) => ({
+      y: [y + 1, y + 255],
+      x: [1, 170, 173, 341, 343, 512, 514, 683, 685, 853, 855, 1023, 1026, 1194, 1196, 1364, 1367, 1534],
+    })),
+    paresDeColuna: true,
+  },
   coldbolt30: {
     larg: 128,
     alt: 148,
