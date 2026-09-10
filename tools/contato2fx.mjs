@@ -38,6 +38,23 @@ const DESTINO = 'client/public/assets/fx';
 const COLUNAS = [[6, 254], [262, 508], [517, 764], [772, 1019], [1027, 1275], [1283, 1530]];
 const FILEIRAS = [[6, 225], [233, 467], [475, 721], [728, 1016]];
 
+/**
+ * O canto onde mora o NÚMERO DO QUADRO, em coordenadas da célula.
+ *
+ * 🔴 **O filtro de croma não dá conta do rótulo.** A ideia original era que o
+ * número cairia junto com o fundo por ser cinza — mas ele é cinza CLARO, e o
+ * recorte tem uma segunda porta, pelo brilho, para salvar o núcleo branco do
+ * clarão. O número passa por ela. O dono viu isso no jogo: *"estão aparecendo
+ * números pequenos, parece que é a contagem de quadros da magia"*.
+ *
+ * ✅ Então o rótulo sai por POSIÇÃO, não por cor. Medido nos 24 quadros ele cabe
+ * inteiro num retângulo de 36×35 no canto superior esquerdo da célula; 46×40 dá
+ * folga. E esse canto é seguro: a varredura acha de 0 a 2 pixels COM COR ali em
+ * cada quadro (ruído de compressão), contra as centenas do rótulo. O fogo desta
+ * folha desce pelo meio da célula e estoura embaixo.
+ */
+const ROTULO = { larg: 46, alt: 40 };
+
 /** Lado do quadro na tira. Metade do original, que é folgado para um tile. */
 const LARG = 128;
 const ALT = 148;
@@ -82,7 +99,7 @@ for (const [y0, y1] of FILEIRAS) {
         const o = ((y0 + y) * img.w + x0 + x) * 4;
         const d = (y * w + x) * 4;
         const [r, g, b] = [img.px[o], img.px[o + 1], img.px[o + 2]];
-        const a = alfaDe(r, g, b);
+        const a = x < ROTULO.larg && y < ROTULO.alt ? 0 : alfaDe(r, g, b);
         cel[d] = r; cel[d + 1] = g; cel[d + 2] = b; cel[d + 3] = a;
       }
     }
