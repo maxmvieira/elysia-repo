@@ -214,7 +214,7 @@ sem nenhuma ficha usando quando a Nevasca virou queda, e ao serem invertidos só
 viva mudou — sobrariam duas versões da mesma regra discordando. O teste agora exige `queda`
 e não aceita mais `kind: 'ground'`.
 
-### 🔴 PENDENTE CRÍTICO: a Nevasca entrega 63 % do que a ficha promete
+### ❄️ As bolas são o visual, o dano é da área (o conserto do 63 %)
 
 Medido por simulação depois de a mecânica ficar pronta (200 mil tempestades, alvo parado):
 
@@ -233,7 +233,26 @@ implementado é praticamente invisível.
 modelo do RO de verdade: **o dano é da ÁREA, e as bolas são o visual**. O texto que o dono
 trouxe diz isso — *"o motor cria uma área de 9×9 e começa a jogar aleatoriamente
 mini-**sprites** de 3×3"*. A leitura de 11/09 ("bombardeio, não área") acertou o desenho e
-errou o dano. Decisão do dono, pendente.
+errou o dano.
+
+**Foi o que se fez** (`danoDaArea` na ficha). Cada bola continua sendo desenhada no ponto
+sorteado dela; o golpe atinge todo mundo dentro do 11×11 — o raio é `range + splash`, que é
+a frase da própria ficha (*"por caírem em células aleatórias da área de 9×9, a área pode
+chegar a 11×11"*). Medido de novo, agora com o empurrão em cena:
+
+| | acertos | dano no Lv.10 | congela (Lv.1 / Lv.10) | ileso |
+|---|---|---|---|---|
+| centro | 6,28 | **358 %** | 83 % / 39 % | 0 % |
+| borda | 2,50 | 142 % | 23 % / 10 % | 0 % |
+
+⚠️ **Os 570 % são o TETO, não a média, e quem tira a diferença é o próprio empurrão** —
+duas células sorteadas por acerto tiram o alvo do 11×11 depois de ~6 bolas. É o contrajogo
+da magia contra ela mesma, e é o que se vê nos GIFs: o monstro é cuspido para fora da
+tempestade. Não é para "consertar" subindo o dano.
+
+⚠️ **A área é uniforme: quem está na borda apanha igual a quem está no meio.** No RO a
+borda apanha menos, porque lá as bolas são o dano. É simplificação assumida — o preço de
+ter o desenho de um modelo com a conta do outro.
 
 ### 📌 PENDENTE que este dia deixou
 

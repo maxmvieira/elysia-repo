@@ -3509,6 +3509,20 @@ const GCD_MAGIA_MS = 1000;
  * Nevasca era área de chão; a mudança levou as duas regras para cá. Ver `golpeDeArea`.
  */
 interface Tempestade {
+  /**
+   * ❄️ **O CENTRO E O RAIO DO DANO** — a mira da conjuração, e não o ponto onde
+   * cada bola cai. Ver `danoDaArea` na ficha: as bolas são o desenho, a área é
+   * quem apanha.
+   *
+   * ⚠️ Guardado no LANÇAMENTO. O raio já vem somado com o respingo (9×9 + as
+   * bolas de 3×3 = 11×11, a conta da própria ficha), para o laço de impacto não
+   * refazer isso dez vezes.
+   */
+  centroX: number;
+  centroY: number;
+  raio: number;
+  /** O dano é da área inteira, e não do respingo de cada bola. */
+  daArea: boolean;
   /** Tiles empurrados por bola. Ausente = a queda não empurra. */
   empurra?: number;
   /** Em que acerto a condição é rolada. Ausente = rola a cada acerto. */
@@ -3701,7 +3715,7 @@ function tickGolpesPendentes(now: number): void {
 
     /*
      * 💥 **QUEM APANHA: tudo que está dentro do respingo, no INSTANTE do
-     * estouro.**
+     * estouro** — ou a área inteira, quando a ficha manda (`danoDaArea`).
      *
      * 🔴 O centro é a posição de agora — a mesma que o `fx` usou —, e não a de
      * quando o meteoro foi agendado: entre uma e outra passam centenas de
@@ -3717,11 +3731,34 @@ function tickGolpesPendentes(now: number): void {
      * frente na tela — é nela que o jogador está olhando.
      */
     const atingidos: Creature[] = [];
-    if (c) atingidos.push(c);
-    if (def.splash !== undefined) {
+    const tmp = g.tempestade;
+    if (tmp?.daArea) {
+      /*
+       * ❄️ **DANO DA ÁREA: a bola diz ONDE a tempestade está, a área diz QUEM
+       * apanha.** Ver `danoDaArea` na ficha — o modelo de respingo entregava
+       * 63 % do que a ficha promete, medido em 200 mil tempestades.
+       *
+       * ⚠️ O centro é o da CONJURAÇÃO e não o do estouro desta bola, e o raio é
+       * o guardado no lançamento. Usar o ponto da bola aqui seria o modelo de
+       * respingo de volta, com nome novo.
+       *
+       * ⚠️ Reavaliado a CADA bola, de propósito: o empurrão joga o alvo para
+       * fora, e quem saiu para de apanhar. É o que faz a tempestade se esvaziar
+       * pelas bordas em vez de segurar todo mundo até o fim.
+       */
       for (const outro of creatures.values()) {
-        if (outro.id === c?.id || !outro.alive || outro.floor !== player.floor) continue;
-        if (chebyshev(px, py, outro.tileX, outro.tileY) <= def.splash) atingidos.push(outro);
+        if (!outro.alive || outro.floor !== player.floor) continue;
+        if (chebyshev(tmp.centroX, tmp.centroY, outro.tileX, outro.tileY) <= tmp.raio) {
+          atingidos.push(outro);
+        }
+      }
+    } else {
+      if (c) atingidos.push(c);
+      if (def.splash !== undefined) {
+        for (const outro of creatures.values()) {
+          if (outro.id === c?.id || !outro.alive || outro.floor !== player.floor) continue;
+          if (chebyshev(px, py, outro.tileX, outro.tileY) <= def.splash) atingidos.push(outro);
+        }
       }
     }
 
@@ -4475,7 +4512,18 @@ function executeSpell(
      */
     const tempestade: Tempestade | undefined
       = def.empurraPorPulso !== undefined || def.congelaEmAcertos !== undefined
+        || def.danoDaArea
         ? {
+          centroX: cx,
+          centroY: cy,
+          /*
+           * ⚠️ O respingo entra no RAIO quando o dano é da área — é a frase da
+           * ficha: as bolas de 3×3 caindo dentro do 9×9 fazem a área chegar a
+           * 11×11. Sem `danoDaArea` ele não entra aqui: lá o respingo continua
+           * sendo a cratera de cada bola, medida a partir do estouro dela.
+           */
+          raio: skillRange(def, nivel) + (def.danoDaArea ? def.splash ?? 0 : 0),
+          daArea: def.danoDaArea === true,
           ...(def.empurraPorPulso !== undefined ? { empurra: def.empurraPorPulso } : {}),
           ...(def.congelaEmAcertos !== undefined
             ? { congelaEmAcertos: def.congelaEmAcertos } : {}),

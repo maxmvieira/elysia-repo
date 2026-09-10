@@ -443,6 +443,33 @@ export interface SkillDef {
    */
   splash?: number;
   /**
+   * ❄️ **AS UNIDADES SÃO O VISUAL; O DANO É DA ÁREA INTEIRA.**
+   *
+   * Com isto ligado, cada unidade que cai continua sendo desenhada no ponto
+   * sorteado dela, mas o golpe atinge TODO MUNDO dentro da área da magia — não
+   * só quem está perto do estouro. Ausente = o normal (só o respingo).
+   *
+   * 🔴 **Existe porque a Nevasca não fecha a conta sem isso, e a conta foi
+   * medida** (11/09, 200 mil tempestades simuladas). São 81 células no 9×9 e 10
+   * bolas cobrindo 9 células cada: 90 coberturas para 81 células, ou **1,11
+   * acerto por alvo**. A ficha promete 570 % de ATQM no Lv.10 e o modelo de
+   * respingo entregava 63 %; em 28 % das conjurações o alvo não era tocado
+   * nenhuma vez, e o congelamento no 3º acerto disparava em ~2 % delas.
+   *
+   * ⚠️ **Nenhum ajuste de respingo ou de contagem chega perto.** Respingo 5×5
+   * dá 176 %; 18 bolas com respingo 5×5 dão 316 %. O buraco não é de calibragem.
+   *
+   * ✅ E é o modelo do Ragnarok de verdade: *"o motor cria uma área de 9×9 e
+   * começa a jogar aleatoriamente mini-**sprites** de 3×3"*. Mini-sprites. A
+   * leitura de 11/09 (*"bombardeio, não área"*) acertou o desenho e errou o
+   * dano — as bolas dizem ONDE a tempestade está, e a área diz QUEM apanha.
+   *
+   * ⚠️ Quem ligar isto numa magia nova multiplica o dano dela pelo número de
+   * unidades: cada uma passa a bater em todos. É o oposto de `splash`, que
+   * distribui.
+   */
+  danoDaArea?: boolean;
+  /**
    * 🌠 **Quanto UMA unidade leva do céu ao chão**, em ms. Ausente = o padrão
    * de `ATRASO_IMPACTO_MS`.
    *
@@ -2015,8 +2042,17 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      */
     queda: true,
     quedaFx: 'snowball',
-    // ❄️ A bola tem 3×3 células — raio 1 de respingo.
+    /**
+     * ❄️ **A bola tem 3×3 células — raio 1.**
+     *
+     * ⚠️ Com `danoDaArea` ligado, este número deixou de escolher QUEM apanha e
+     * passou a ALARGAR a área que apanha: *"por caírem em células aleatórias da
+     * área de 9×9, [as bolas de 3×3 fazem] a área chegar a 11×11 células"*. É a
+     * própria frase da ficha, e é de onde sai o raio 5 do dano.
+     */
     splash: 1,
+    // ❄️ As bolas são o desenho; quem apanha é a área. Ver `danoDaArea`.
+    danoDaArea: true,
     // ⚠️ Queda curta: é bola de neve caindo, não rocha de meteoro.
     quedaMs: 300,
     /*

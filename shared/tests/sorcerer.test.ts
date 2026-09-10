@@ -17,6 +17,7 @@ import {
   skillsOfClass,
   branchesOfClass,
   skillHits,
+  skillRange,
   INTERVALO_BOLT_MS,
   DUR_QUEDA_MS,
   skillDuration,
@@ -286,6 +287,56 @@ test('❄️ Nevasca no modelo do RO: congela a cada 3º acerto, e o quique é a
     passo * n.congelaEmAcertos! < n.durationMs,
     'a tempestade acaba antes do terceiro acerto — a regra nunca roda',
   );
+});
+
+test('❄️ na Nevasca as bolas são o VISUAL e o dano é da área', () => {
+  const n = SKILLS.blizzard;
+
+  /*
+   * 🔴 **Medido, não estimado** (11/09, 200 mil tempestades simuladas). Com o
+   * dano saindo do respingo de cada bola, a Nevasca entregava 63 % dos 570 %
+   * que a ficha promete, e em 28 % das conjurações o alvo não era tocado
+   * nenhuma vez — porque são 81 células no 9×9 e 10 bolas cobrindo 9 células
+   * cada, ou 1,11 acerto por alvo.
+   *
+   * ⚠️ E não era calibragem: respingo 5×5 dava 176 %, e 18 bolas com respingo
+   * 5×5 davam 316 %. Nenhum ajuste chegava perto.
+   *
+   * ✅ O modelo do Ragnarok é o que fecha: *"o motor cria uma área de 9×9 e
+   * começa a jogar aleatoriamente mini-SPRITES de 3×3"*. As bolas dizem ONDE a
+   * tempestade está; a área diz QUEM apanha. Com isto, 358 % no Lv.10 para quem
+   * fica no meio — o resto some porque o empurrão tira o alvo de dentro, que é
+   * o contrajogo da própria magia.
+   */
+  assert.equal(n.danoDaArea, true, 'sem isto a Nevasca entrega 63 % da ficha');
+
+  /*
+   * ⚠️ **11×11, e o número sai de `range + splash`.** É a frase da ficha: *"por
+   * caírem em células aleatórias da área de 9×9, [as bolas de 3×3 fazem] a área
+   * chegar a 11×11 células"*. Se um dia o respingo deixar de entrar no raio, a
+   * área encolhe para 9×9 sem ninguém decidir isso.
+   */
+  const lado = 2 * (skillRange(n, 10) + n.splash!) + 1;
+  assert.equal(lado, 11, `a área do dano deu ${lado}×${lado}, e a ficha diz 11×11`);
+
+  /*
+   * 🔴 **E o dano total volta a bater com a ficha.** Dez bolas, todas atingindo
+   * quem está na área: 10 × 0,57 = 570 %. É o TETO — o alvo que aguentar a
+   * tempestade inteira sem ser empurrado para fora.
+   */
+  const total = skillHits(n, 10) * skillPower(n, 10);
+  assert.ok(Math.abs(total - 5.7) < 1e-9, `teto de ${(total * 100).toFixed(0)} %, e a ficha diz 570 %`);
+
+  /*
+   * ⚠️ `danoDaArea` MULTIPLICA: cada unidade passa a bater em todos, em vez de
+   * distribuir. Ligar numa magia de alvo único não faria sentido nenhum — não
+   * há área para atingir —, e numa que não cai não há unidade para desenhar.
+   */
+  for (const def of Object.values(SKILLS)) {
+    if (!def.danoDaArea) continue;
+    assert.equal(def.shape, 'area', `${def.id}: dano de área sem área`);
+    assert.equal(def.queda, true, `${def.id}: dano de área sem unidade caindo`);
+  }
 });
 
 test('🌬️ empurrão e acúmulo só existem em modo que o servidor LÊ', () => {
