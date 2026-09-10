@@ -1919,7 +1919,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * cai antes do estouro. Ausente no modo folha, em que a própria animação já
      * contém a descida — e **apagado no impacto**, para não sobreviver a ele.
      */
-    risco: { node: Graphics; t: number; deY: number; deX: number; dur: number } | undefined;
+    risco: { node: Graphics; t: number; deY: number; dur: number } | undefined;
   }> = [];
 
   /**
@@ -2281,7 +2281,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     node.animationSpeed = usados.length / (dur / (1000 / 60));
     fxLayer.addChild(node);
 
-    let risco: { node: Graphics; t: number; deY: number; deX: number; dur: number } | undefined;
+    let risco: { node: Graphics; t: number; deY: number; dur: number } | undefined;
     if (QUEDA_RISCO) {
       /*
        * A LANÇA: um traço vertical fino, claro no núcleo e alaranjado na
@@ -2328,27 +2328,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       g.visible = false;
       fxLayer.addChild(g);
       // 350 px acima do alvo: a altura que o prompt do teste pediu.
-      const esfera = FORMA_RISCO[magia] === 'esfera';
       /*
-       * 🌠 **O METEORO CAI NA DIAGONAL** — dono, 11/09: *"o meteoro pode cair
-       * meio na diagonal, seria mais bonito"*.
-       *
-       * ⚠️ **A inclinação é SORTEADA por meteoro**, e é isso que faz a chuva
-       * parecer chuva: dezoito rochas descendo no mesmo ângulo leriam como
-       * cortina, não como bombardeio. O sinal também sorteia, para virem dos
-       * dois lados.
-       *
-       * ⚠️ O corpo é ROTACIONADO junto (`rotation`), e não só deslocado: uma
-       * rocha que anda de lado com o rastro apontando para cima parece
-       * derrapando. O rastro tem de apontar para de onde ela veio.
-       *
-       * ⚠️ A lança do Fire Bolt continua vertical. O dono aprovou aquela como
-       * está, e inclinar por simetria seria mexer no que já ficou bom.
+       * ⚠️ **A QUEDA É RETA, e a diagonal foi TENTADA e recusada** (11/09). O
+       * dono pediu (*"pode cair meio na diagonal, seria mais bonito"*), viu em
+       * tela e desfez (*"pode cair direto mesmo"*). Ficou o registro para não
+       * voltar como ideia nova: inclinar espalha o ponto de entrada e, com
+       * dezoito rochas, a leitura de ONDE cada uma vai bater se perde.
        */
-      const deY = esfera ? 420 : 350;
-      const inclina = esfera ? (0.28 + Math.random() * 0.26) * (Math.random() < 0.5 ? -1 : 1) : 0;
-      g.rotation = inclina;
-      risco = { node: g, t: 0, dur: tempoQueda, deY, deX: deY * inclina };
+      const deY = FORMA_RISCO[magia] === 'esfera' ? 420 : 350;
+      risco = { node: g, t: 0, dur: tempoQueda, deY };
     }
 
     const q = { node, atraso, morto: false, magia, alvo, risco };
@@ -2390,7 +2378,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * pacotes por conjuração, para uma barra que o cliente sabe desenhar
    * sozinho.
    */
-  const conjurando = new Map<string, { ate: number; total: number }>();
+  const conjurando = new Map<string, { ate: number; total: number; nome: string }>();
 
   let myTileX = map.spawn.x;
   let myTileY = map.spawn.y;
@@ -3517,7 +3505,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
             conjurando.delete(msg.casterId);
             sprites.get(msg.casterId)?.setCasting?.(null);
           } else {
-            conjurando.set(msg.casterId, { ate: performance.now() + msg.ms, total: msg.ms });
+            conjurando.set(msg.casterId, {
+              ate: performance.now() + msg.ms,
+              total: msg.ms,
+              // ⚠️ O nome vem da FICHA, não do servidor: ele já manda o id, e
+              // mandar o nome junto seria a mesma string trafegando a cada
+              // conjuração para algo que o cliente sabe traduzir.
+              nome: SKILLS[msg.spell as SkillId]?.name ?? '',
+            });
           }
           break;
         case 'area':
@@ -7903,7 +7898,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         view?.setCasting?.(null);
         continue;
       }
-      view?.setCasting?.(1 - resta / cj.total);
+      view?.setCasting?.(1 - resta / cj.total, cj.nome);
     }
 
     // Anel de alvo sob o inimigo selecionado.
@@ -8015,9 +8010,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         r.t += dt;
         const frac = Math.min(1, r.t / r.dur);
         r.node.y = q.node.y - r.deY * (1 - frac);
-        // 🌠 O X acompanha o Y na mesma fração: a rocha desce em linha reta
-        // inclinada, e não numa curva. Ver `deX`.
-        r.node.x = q.node.x + r.deX * (1 - frac);
         if (frac >= 1) {
           /*
            * 🔴 **O RISCO É DESTRUÍDO AQUI, e não junto com o estouro.**
@@ -8064,16 +8056,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         if (alvo) {
           q.node.x = alvo.container.x + TS / 2;
           q.node.y = alvo.container.y + TS;
-          /*
-           * 🧪 O traço persegue junto: ele mira onde a bola vai cair.
-           *
-           * ⚠️ Mantém o deslocamento diagonal do quadro atual em vez de colar o
-           * X no alvo — colar endireitaria a queda no meio do caminho.
-           */
-          if (q.risco) {
-            const f = Math.min(1, q.risco.t / q.risco.dur);
-            q.risco.node.x = q.node.x + q.risco.deX * (1 - f);
-          }
+          // 🧪 O traço persegue junto: ele mira onde a bola vai cair.
+          if (q.risco) q.risco.node.x = q.node.x;
         }
       }
       if (q.morto) {
@@ -8215,7 +8199,7 @@ interface EntityView {
    * ⚠️ Opcional porque nem todo ator a tem — item, nó de recurso e os
    * fallbacks antigos não conjuram.
    */
-  setCasting?: (frac: number | null) => void;
+  setCasting?: (frac: number | null, nome?: string) => void;
   /** Toca a animação de dano uma vez. */
   playHurt?: () => void;
   /**
@@ -9051,10 +9035,52 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
    * de urgência. Vida se lê o tempo todo; conjuração é um evento de três
    * segundos que precisa saltar aos olhos enquanto dura.
    */
+  /**
+   * A base da pilha de rótulos: a MESMA que o nome do personagem usa.
+   *
+   * ⚠️ `nameLabel` cai em `-WALL_H + 2` quando não há `labelTop`, e usar outro
+   * padrão aqui empilharia as coisas em alturas diferentes conforme o ator.
+   */
+  const baseRotulo = opts.labelTop ?? (-WALL_H + 2);
+
   const castBar = new Graphics();
   castBar.visible = false;
-  castBar.y = (opts.labelTop ?? -10) - 7;
+  /*
+   * ⚠️ **−15, e o número sai do NOME.** `nlabel` tem âncora embaixo, então ele
+   * ocupa de `base − 11` (fonte 11) até `base`. Pôr a barra em `base − 7` a
+   * enfiava DENTRO do nome — que é exatamente o que o dono pediu para não
+   * acontecer: *"e não atrapalhar o nome do personagem"*.
+   */
+  castBar.y = baseRotulo - 15;
   c.addChild(castBar);
+
+  /**
+   * 🔮 **O NOME DA MAGIA sendo conjurada.**
+   *
+   * Pedido do dono em 11/09: *"o nome da magia aparecer junto com o
+   * carregamento"* — e logo depois, *"e não atrapalhar o nome do personagem"*.
+   *
+   * ⚠️ **Por isso a pilha CRESCE PARA CIMA.** De baixo para cima: barra de
+   * vida, nome do personagem, barra de conjuração, nome da magia. Cada coisa
+   * nova empurra o topo, e nada se sobrepõe ao que já estava — o nome do
+   * personagem não sai do lugar quando alguém começa a conjurar.
+   *
+   * ⚠️ Menor (9 contra 11) e em azul-claro: é informação de EVENTO, que aparece
+   * e some. Do mesmo tamanho do nome, os dois competiriam pela leitura.
+   */
+  const castName = new Text({
+    text: '',
+    style: {
+      fill: 0x9fd0ff, fontSize: 9, fontFamily: 'Segoe UI, sans-serif',
+      stroke: { color: 0x000000, width: 3 },
+    },
+  });
+  castName.anchor.set(0.5, 1);
+  castName.x = TS / 2;
+  // Logo acima da barra (que ocupa 4 px a partir de `base − 15`).
+  castName.y = baseRotulo - 17;
+  castName.visible = false;
+  c.addChild(castName);
 
   /** Fração 0..1 da conjuração em curso, ou `null` quando não há. */
   let castFrac: number | null = null;
@@ -9423,11 +9449,13 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
    * disparo é que completa o movimento. Sem isso, três segundos de conjuração
    * eram três segundos de personagem parado como se nada fizesse.
    */
-  function setCasting(frac: number | null): void {
+  function setCasting(frac: number | null, nome?: string): void {
     const mudou = (frac === null) !== (castFrac === null);
     castFrac = frac;
     castAura.visible = frac !== null;
     castBar.visible = frac !== null;
+    castName.visible = frac !== null;
+    if (nome !== undefined && castName.text !== nome) castName.text = nome;
     if (frac === null) {
       // Solta a pose: `applyState` devolve o corpo a andar/parado.
       if (mudou) applyState();

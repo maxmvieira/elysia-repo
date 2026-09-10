@@ -1656,8 +1656,15 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      */
     queda: true,
     quedaFx: 'meteor_fall',
-    // 🌠 Rocha pesada cai devagar: 280 ms contra os 120 de uma lança.
-    quedaMs: 280,
+    /*
+     * 🌠 Rocha pesada cai devagar: 520 ms contra os 120 de uma lança.
+     *
+     * ⚠️ Terceiro valor (120 → 280 → 520), e os dois primeiros foram julgados
+     * rápidos demais em tela. A 520 vários meteoros ficam no ar ao mesmo
+     * tempo — com a cadência em ~290 ms, cada um ainda está caindo quando o
+     * próximo nasce. É o que faz a coisa parecer CHUVA em vez de fila.
+     */
+    quedaMs: 520,
     // 💥 Cada meteoro abre uma cratera de 3×3. Ver `splash`.
     splash: 1,
     // 🔴 3 s de conjuração: o preço da maior magia do jogo é ficar parado e
