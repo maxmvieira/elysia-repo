@@ -984,8 +984,21 @@ export interface S2C_Heal {
  * `spell: null` significa "acabou ou foi interrompida" — o cliente esconde a
  * barra sem precisar saber por quê.
  */
+/**
+ * Alguém começou (ou parou) de CONJURAR.
+ *
+ * 🔴 **Vai para TODO MUNDO no andar, não só para quem conjura** — dono, 11/09:
+ * *"o tempo de conjuração também pode aparecer para todos verem, e em cima do
+ * nome do personagem enquanto carrega."*
+ *
+ * É informação de jogo, não enfeite: três segundos parado é a janela em que a
+ * Chuva de Meteoros pode ser interrompida, e sem ver quem está conjurando o
+ * adversário não tem como reagir. Era mandada só ao próprio conjurador.
+ */
 export interface S2C_Casting {
   t: 'casting';
+  /** Quem está conjurando. */
+  casterId: string;
   spell: string | null;
   ms: number;
 }

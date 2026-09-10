@@ -2382,6 +2382,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   let myId: string | null = null;
   let myFloor = map.spawn.floor;
+  /**
+   * ✨ **QUEM ESTÁ CONJURANDO, e até quando.** Por id de entidade.
+   *
+   * 🔴 O servidor manda o COMEÇO e o FIM; a fração no meio é contada aqui. A
+   * alternativa seria o servidor mandar progresso a cada tique — trinta
+   * pacotes por conjuração, para uma barra que o cliente sabe desenhar
+   * sozinho.
+   */
+  const conjurando = new Map<string, { ate: number; total: number }>();
+
   let myTileX = map.spawn.x;
   let myTileY = map.spawn.y;
 
@@ -3489,7 +3499,26 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           break;
         }
         case 'casting':
-          mostraBarraDeConjuracao(msg.spell as SkillId | null, msg.ms);
+          /*
+           * ⚠️ A barra GRANDE do HUD continua sendo só do jogador local — ela
+           * ocupa o centro da tela e diz "VOCÊ está conjurando". A dos outros é
+           * a pequena, em cima do nome deles.
+           */
+          if (msg.casterId === myId) {
+            mostraBarraDeConjuracao(msg.spell as SkillId | null, msg.ms);
+          }
+          if (msg.spell === null) {
+            /*
+             * ⚠️ **Apagar do mapa NÃO limpa o sprite.** O laço por quadro só
+             * mexe em quem ESTÁ no mapa; tirando de lá sem avisar a entidade,
+             * a aura, a barra e a pose segurada ficavam para sempre — e a pose
+             * é a pior das três, porque o personagem congelava no gesto.
+             */
+            conjurando.delete(msg.casterId);
+            sprites.get(msg.casterId)?.setCasting?.(null);
+          } else {
+            conjurando.set(msg.casterId, { ate: performance.now() + msg.ms, total: msg.ms });
+          }
           break;
         case 'area':
           if (msg.floor === myFloor) {
@@ -7855,6 +7884,28 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // Interpolação + animação de caminhada de todas as entidades.
     for (const view of sprites.values()) view.update();
 
+    /*
+     * ✨ **A CONJURAÇÃO DE CADA UM**: aura, barra e pose. A fração é contada
+     * aqui a partir do começo e do fim que o servidor mandou.
+     *
+     * ⚠️ Varre o mapa de quem CONJURA, e não a lista de sprites: são no máximo
+     * um punhado por andar, contra dezenas de entidades.
+     *
+     * ⚠️ Limpa sozinho quando o prazo passa. O servidor manda o fim, mas o
+     * pacote pode se perder ou a entidade sair da tela no meio — e aura presa
+     * em alguém que já lançou é exatamente o tipo de sujeira que fica.
+     */
+    for (const [id, cj] of conjurando) {
+      const view = sprites.get(id);
+      const resta = cj.ate - now;
+      if (resta <= 0) {
+        conjurando.delete(id);
+        view?.setCasting?.(null);
+        continue;
+      }
+      view?.setCasting?.(1 - resta / cj.total);
+    }
+
     // Anel de alvo sob o inimigo selecionado.
     const tgt = targetId ? sprites.get(targetId) : undefined;
     if (tgt) {
@@ -8157,6 +8208,14 @@ interface EntityView {
   update: () => void;
   /** Toca a animação de ataque uma vez (atores com sprite animado). */
   playAttack?: (magia?: boolean) => void;
+  /**
+   * ✨ Liga/desliga a CONJURAÇÃO: aura no chão, barra em cima do nome e a pose
+   * de carregamento. `null` desliga.
+   *
+   * ⚠️ Opcional porque nem todo ator a tem — item, nó de recurso e os
+   * fallbacks antigos não conjuram.
+   */
+  setCasting?: (frac: number | null) => void;
   /** Toca a animação de dano uma vez. */
   playHurt?: () => void;
   /**
@@ -8966,6 +9025,40 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   c.addChild(hpbar.node);
   c.addChild(nlabel);
 
+  /**
+   * ✨ **A AURA DE CONJURAÇÃO** — anéis no chão, sob os pés de quem conjura.
+   *
+   * Pedido do dono em 11/09: *"gostaria de uma aura em torno do personagem
+   * enquanto ele está anunciando a magia"*.
+   *
+   * ⚠️ **Desenhada ATRÁS do corpo** (entra na lista antes do sprite não daria:
+   * o sprite já foi adicionado). `addChildAt(…, 1)` a põe logo depois da
+   * sombra e antes de tudo o mais — aura por cima taparia o personagem justo
+   * quando ele precisa ser visto.
+   *
+   * ⚠️ Mistura ADITIVA e no CHÃO (elipse achatada, não círculo): a câmera é de
+   * cima com leve perspectiva, e um círculo perfeito lê como disco flutuando.
+   */
+  const castAura = new Graphics();
+  castAura.blendMode = 'add';
+  castAura.visible = false;
+  c.addChildAt(castAura, 1);
+
+  /**
+   * ⏳ **A BARRA DE CONJURAÇÃO, em cima do nome.**
+   *
+   * ⚠️ Fica acima do NOME, e o nome já está acima da barra de vida: é a ordem
+   * de urgência. Vida se lê o tempo todo; conjuração é um evento de três
+   * segundos que precisa saltar aos olhos enquanto dura.
+   */
+  const castBar = new Graphics();
+  castBar.visible = false;
+  castBar.y = (opts.labelTop ?? -10) - 7;
+  c.addChild(castBar);
+
+  /** Fração 0..1 da conjuração em curso, ou `null` quando não há. */
+  let castFrac: number | null = null;
+
   // Movimento: mesma interpolação linear sincronizada à cadência do servidor.
   let fromX = e.tileX * TS;
   let fromY = e.tileY * TS;
@@ -9053,6 +9146,31 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   }
 
   function applyState(): void {
+    /*
+     * ✨ **CARREGANDO: a pose fica SEGURA no meio do gesto.**
+     *
+     * Vem antes do disparo único porque quem está conjurando não está andando
+     * nem golpeando — e depois, quando a magia sai, o `playAttack` normal toca
+     * a animação inteira e o movimento se completa.
+     *
+     * ⚠️ **`gotoAndStop`, não `play`.** Repetir o gesto em laço por três
+     * segundos leria como tique nervoso; parar num quadro de acumulação lê como
+     * força sendo juntada. O quadro escolhido é o do MEIO da folha — é onde os
+     * braços estão recolhidos, antes do arremesso.
+     *
+     * ⚠️ Sem folha de conjuração (`castAnim`), cai para a de golpe e, sem essa,
+     * não faz nada: aura e barra sozinhas já contam a história.
+     */
+    if (castFrac !== null && !oneShot) {
+      const a = opts.castAnim ?? opts.attackAnim;
+      if (a) {
+        const f = framesFor(dir, a);
+        sprite.textures = f;
+        sprite.gotoAndStop(Math.floor(f.length / 2));
+        aplicaCamadas('attack', 0, false, false);
+        return;
+      }
+    }
     // Disparo único vence tudo: quem está no meio do golpe não volta a andar
     // antes de o golpe terminar.
     if (oneShot) {
@@ -9296,12 +9414,53 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     hpbar.set(hp, maxHp);
   }
 
+  /**
+   * ✨ Estado de conjuração deste ator. Chamado a cada quadro enquanto dura.
+   *
+   * 🔴 **Também segura a POSE.** O dono: *"a animação de lançar fica travada
+   * antes dele lançar; quando ele lançar, termina de executar a animação."* Ou
+   * seja: durante o carregamento o corpo fica no gesto de acumular, e o
+   * disparo é que completa o movimento. Sem isso, três segundos de conjuração
+   * eram três segundos de personagem parado como se nada fizesse.
+   */
+  function setCasting(frac: number | null): void {
+    const mudou = (frac === null) !== (castFrac === null);
+    castFrac = frac;
+    castAura.visible = frac !== null;
+    castBar.visible = frac !== null;
+    if (frac === null) {
+      // Solta a pose: `applyState` devolve o corpo a andar/parado.
+      if (mudou) applyState();
+      return;
+    }
+    if (mudou) applyState();
+
+    /*
+     * ⚠️ A aura PULSA e cresce um pouco até o fim: é o que dá a sensação de
+     * carga acumulando. Redesenhada por quadro porque muda de tamanho — é uma
+     * elipse, custa nada.
+     */
+    const t2 = performance.now() * 0.008;
+    const R = TS * (0.42 + frac * 0.30);
+    const brilho = 0.32 + 0.18 * Math.abs(Math.sin(t2));
+    castAura.clear();
+    castAura.ellipse(TS / 2, TS - 3, R, R * 0.42).fill({ color: 0x4a86d8, alpha: brilho * 0.5 });
+    castAura.ellipse(TS / 2, TS - 3, R * 0.66, R * 0.28).fill({ color: 0x9fd0ff, alpha: brilho });
+
+    // A barra: fundo escuro, preenchimento claro, largura de um tile.
+    const L = TS - 6;
+    castBar.clear();
+    castBar.rect(3, 0, L, 4).fill({ color: 0x0a0908, alpha: 0.75 });
+    castBar.rect(3, 0, L * frac, 4).fill({ color: 0x9fd0ff, alpha: 0.95 });
+  }
+
   return {
     container: c,
     setDirection,
     setTarget,
     setHp,
     update,
+    setCasting,
     // Com folha de ataque, toca a animação; sem ela, cai no pulinho de sempre.
     // Os dois efeitos coexistem de propósito: o pulinho continua dando peso ao
     // golpe mesmo quando há animação.

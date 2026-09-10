@@ -3874,7 +3874,9 @@ function castSpell(
       mira, nivel,
       fromX: player.tileX, fromY: player.tileY,
     };
-    send(player, { t: 'casting', spell: def.id, ms: castMs });
+    broadcastFloor(player.floor, {
+      t: 'casting', casterId: player.id, spell: def.id, ms: castMs,
+    });
     return;
   }
   executeSpell(player, def, now, mira.targetId ?? player.targetId, mira, nivel);
@@ -3888,7 +3890,7 @@ function cancelCasting(player: Player, motivo: string): void {
   if (!player.casting) return;
   const def = SKILLS[player.casting.skillId];
   player.casting = null;
-  send(player, { t: 'casting', spell: null, ms: 0 });
+  broadcastFloor(player.floor, { t: 'casting', casterId: player.id, spell: null, ms: 0 });
   send(player, { t: 'chat', from: 'Sistema', text: `${def.name} interrompida: ${motivo}.` });
 }
 
@@ -3912,7 +3914,7 @@ function tickCasting(now: number): void {
     if (now < p.casting.endsAt) continue;
     const { skillId, targetId, mira, nivel } = p.casting;
     p.casting = null;
-    send(p, { t: 'casting', spell: null, ms: 0 });
+    broadcastFloor(p.floor, { t: 'casting', casterId: p.id, spell: null, ms: 0 });
     executeSpell(p, SKILLS[skillId], now, targetId, mira, nivel);
   }
 }
