@@ -44,6 +44,62 @@ Nos painéis ele fica FORA (o miolo traz conteúdo desenhado, que duplicaria o
 do jogo); na calha das barras ele fica DENTRO (o miolo é calha lisa, que é
 exatamente o fundo que a barra precisa).
 
+## 🪟 09/09 — OS PAINÉIS SAÍRAM DAS LATERAIS, E TODO ITEM TEM ARTE
+
+Trinta e um commits. Typecheck limpo, 635 testes.
+
+### As colunas laterais deixaram de existir
+
+Os nove painéis das bordas viraram **três janelas** abertas por botão da HUD:
+Inventário (equipamentos + mochila), Personagem (atributos + vitais + battle +
+servidor + PvP) e Amigos (amigos + grupo). Mais o **Depósito**, que é janela
+própria aberta por um botão dentro do Banco e fechada pela proximidade.
+
+🔴 O `#charpanel` foi **deletado**, não movido: era a segunda ficha de
+personagem do jogo, com os mesmos atributos e os mesmos botões de gastar ponto
+que o `#attrbox`.
+
+⚠️ A moldura das janelas é a do PAINEL DO PERSONAGEM e a barra de título é a
+PLACA DE NOME do minimapa. Houve uma versão em pixel art clara, da folha de
+interface, e ela foi descartada — reusar peça que a HUD já tem não tem como
+destoar.
+
+### Arte de item: 227 dos 277
+
+| Fonte | Cobre |
+|---|---|
+| Folha do dono | as duas poções, a pena e as sete receitas |
+| Packs de pixel art | os 210 equipamentos e 17 do espólio |
+| Desenho por código | os 44 restantes do espólio e as moedas |
+
+🔴 **Os 210 equipamentos foram mapeados por FAMÍLIA, não um a um.** No catálogo
+cada família está declarada em ordem de tier; nos packs cada fileira de dez vai
+do simples ao ornamentado. Esticar uma ordem sobre a outra resolve os 210 sem
+escolher nada à mão — e faz da **ordem do catálogo um contrato**: mexer nela
+mexe na arte.
+
+⚠️ O espólio entrou só em parte porque a maioria é PARTE DE MONSTRO (presa,
+pelego, olho, sangue) e nenhum dos 24 packs desenha isso. O que falta para
+fechar é um pack de partes de monstro; com ele o mapa é uma tabela.
+
+### Três bugs que valem lembrar
+
+1. **Clique atravessando a HUD.** Os painéis são filhos do `#viewport`, então o
+   clique num botão subia até o ouvinte do mundo e o personagem andava. A regra
+   passou a ser "o alvo é o CANVAS", e não uma lista de painéis a ignorar.
+2. **O jogo não abria.** O sistema de reordenar painéis apontava para
+   `#sidebar` e `#leftbar`, que tinham acabado de sair. Desde então toda
+   remoção de markup é seguida de uma varredura dos ids que o `main.ts` busca.
+3. **O ✕ das janelas.** Trazer a janela para a frente com `appendChild` no
+   `pointerdown` CANCELA o clique — o navegador exige a mesma cadeia de
+   elementos nos dois eventos. Virou `z-index`.
+
+⚠️ E a armadilha de formato que apareceu três vezes: o `png.mjs` lê PNG **cru,
+sequencial, RGBA**. Fora disso ele não levanta erro — devolve as dimensões
+certas e lixo nos pixels. Aconteceu com PNG entrelaçado e com PNG indexado, e o
+ffmpeg ainda preserva o indexado se não mandarem `-pix_fmt rgba`. **Fonte de
+terceiro passa pelo ffmpeg antes de tocar no `png.mjs`.**
+
 ## 🖼️ SEGUNDA PASSADA NA HUD (09/09)
 
 O dono testou e a palavra foi "ainda está bem estranho". Três causas, e as três
