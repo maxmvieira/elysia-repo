@@ -164,25 +164,30 @@ export function directionFromDelta(
 export const CUSTO_DIAGONAL = 1.5;
 
 /**
- * 🧪 **TESTE DO FIRE BOLT "RISCO"** — 11/09, a pedido do dono, para ele ver em
+ * 🧪 **A QUEDA DESENHADA POR CÓDIGO — o modo "RISCO"** — 11/09, a pedido do dono, para ele ver em
  * tela antes de decidir. *"Implementa apenas de teste para eu ver, se não
  * gostar vamos manter o que estava antes."*
  *
- * A proposta (do Gemini) troca a FOLHA de 24 quadros por um risco vertical
- * desenhado por código, caindo em ~120 ms, com o estouro em seguida. E baixa a
- * cadência dos bolts de 800 para 140 ms.
+ * A proposta troca a FOLHA por um risco vertical desenhado por código, caindo
+ * em ~120 ms, com o estouro em seguida, e baixa a cadência dos bolts de 800
+ * para 140 ms.
+ *
+ * ✅ **APROVADO em tela no mesmo dia** — *"testei, ficou muito bom"* — e desde
+ * então vale para as DUAS magias que caem do céu, Fire Bolt e Cold Bolt. Por
+ * isso deixou de se chamar `FIREBOLT_RISCO`: o nome antigo passou a mentir
+ * sobre o alcance dele.
  *
  * 🔴 **É UM INTERRUPTOR SÓ, e é por isso que ele existe.** Trocar meia dúzia de
  * números à mão e depois querer voltar é como se perde a versão boa. Aqui,
  * `false` devolve exatamente o que estava no ar antes do teste.
  *
- * ⚠️ **Conflito conhecido, e ele é o motivo de isto ser teste:** 140 ms era o
- * valor ORIGINAL, e o dono pediu mais lento CINCO vezes seguidas jogando
- * (*"ainda está caindo rápido demais"*, *"os fire bolts desçam um por um"*).
- * Os 800 de hoje são o resultado desses cinco pedidos. Este modo desfaz isso
- * de propósito — para comparar, não porque a razão anterior tenha mudado.
+ * ⚠️ **E os 140 ms desfazem cinco pedidos antigos**, o que vale registrar: o
+ * dono pediu mais lento CINCO vezes jogando (*"ainda está caindo rápido demais"*,
+ * *"os fire bolts desçam um por um"*), e os 800 eram o resultado disso. O que
+ * mudou não foi a opinião dele sobre velocidade — foi o DESENHO: o risco fino e
+ * o tremor leem o impacto num tempo em que a bola ilustrada virava borrão.
  */
-export const FIREBOLT_RISCO = true;
+export const QUEDA_RISCO = true;
 
 /**
  * Quanto tempo separa um bolt do próximo, na tela E no dano.
@@ -190,7 +195,7 @@ export const FIREBOLT_RISCO = true;
  * ⚠️ Um valor, dois arquivos: o cliente espaça as bolas e o servidor espaça o
  * estrago. Mexer num só faz a última cair depois do próprio dano.
  */
-export const INTERVALO_BOLT_MS = FIREBOLT_RISCO ? 140 : 800;
+export const INTERVALO_BOLT_MS = QUEDA_RISCO ? 140 : 800;
 
 /**
  * 🔴 **Quanto UMA bola leva do céu ao chão.**
@@ -216,7 +221,7 @@ export const INTERVALO_BOLT_MS = FIREBOLT_RISCO ? 140 : 800;
  * ⚠️ Na arte de 24 quadros a QUEDA são os catorze primeiros e o estouro os dez
  * últimos — então o tempo de descida é ~58% deste número.
  */
-export const DUR_QUEDA_MS = FIREBOLT_RISCO ? 320 : 1000;
+export const DUR_QUEDA_MS = QUEDA_RISCO ? 320 : 1000;
 
 /**
  * 🔴 **Quando, DENTRO da queda, a bola toca o chão** — em milissegundos desde o
@@ -240,4 +245,4 @@ export const DUR_QUEDA_MS = FIREBOLT_RISCO ? 320 : 1000;
  * o desenho por código cai em 120 ms dos 320 totais, e o resto é o estouro:
  * 0,375. Usar 0,58 no risco poria o dano no meio da explosão, tarde demais.
  */
-export const ATRASO_IMPACTO_MS = Math.round(DUR_QUEDA_MS * (FIREBOLT_RISCO ? 0.375 : 0.58));
+export const ATRASO_IMPACTO_MS = Math.round(DUR_QUEDA_MS * (QUEDA_RISCO ? 0.375 : 0.58));

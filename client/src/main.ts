@@ -84,7 +84,7 @@ import {
   skillRange,
   skillCastRange,
   CUSTO_DIAGONAL,
-  FIREBOLT_RISCO,
+  QUEDA_RISCO,
   ATRASO_IMPACTO_MS,
   INTERVALO_BOLT_MS,
   DUR_QUEDA_MS,
@@ -1913,7 +1913,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     /** A criatura que esta bola persegue, quando o servidor disse qual é. */
     alvo?: string;
     /**
-     * 🧪 **MODO RISCO** (ver `FIREBOLT_RISCO`): o traço desenhado por código que
+     * 🧪 **MODO RISCO** (ver `QUEDA_RISCO`): o traço desenhado por código que
      * cai antes do estouro. Ausente no modo folha, em que a própria animação já
      * contém a descida.
      */
@@ -1938,7 +1938,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * que já estava no ar. **Degrada para o comportamento de ontem**, em vez de
    * degradar para uma bola só.
    */
-  const folhasQueda = new Map<string, Array<{ bolts: number; frames: Texture[] }>>();
+  const folhasQueda = new Map<string, Array<{
+    bolts: number; frames: Texture[];
+    /** Onde a DESCIDA acaba dentro da tira. Ver `FOLHAS_QUEDA`. */
+    fracaoQueda: number;
+  }>>();
 
   /**
    * Duração de uma queda inteira, do céu à dissipação.
@@ -1995,13 +1999,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * ifs que envelhece a cada folha nova.
    */
   const FOLHAS_QUEDA = [
-    { magia: 'fire_bolt', arquivo: 'firebolt24', bolts: 1, quadros: 24 },
+    /*
+     * ⚠️ `fracaoQueda` é onde a DESCIDA acaba dentro da tira, e ela é MEDIDA em
+     * cada folha — não é a mesma nas duas. No modo risco só o estouro é usado, e
+     * cortar no lugar errado ou mostraria a bola caindo de novo (corte cedo
+     * demais) ou comeria o começo da explosão (corte tarde demais).
+     */
+    { magia: 'fire_bolt', arquivo: 'firebolt24', bolts: 1, quadros: 24, fracaoQueda: 14 / 24 },
     /*
      * ❄️ O Cold Bolt (10/09). Trinta quadros: dezoito de descida em duas
      * fileiras de nove, e doze de estouro em duas de seis. Um golpe só na
      * ficha, então `bolts: 1` não é escolha — é o que a magia é.
      */
-    { magia: 'cold_bolt', arquivo: 'coldbolt30', bolts: 1, quadros: 30 },
+    { magia: 'cold_bolt', arquivo: 'coldbolt30', bolts: 1, quadros: 30, fracaoQueda: 18 / 30 },
   ] as const;
 
   /**
@@ -2041,6 +2051,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         const lista = folhasQueda.get(folha.magia) ?? [];
         lista.push({
           bolts: folha.bolts,
+          fracaoQueda: folha.fracaoQueda,
           frames: Array.from({ length: folha.quadros }, (_, i) => new Texture({
             source: tex.source,
             frame: new Rectangle(i * cw, 0, cw, ch),
@@ -2109,7 +2120,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   /** A folha desta magia que melhor representa `n` bolts, ou a menor que há. */
-  function folhaPara(magia: string, n: number): { bolts: number; frames: Texture[] } | null {
+  function folhaPara(
+    magia: string, n: number,
+  ): { bolts: number; frames: Texture[]; fracaoQueda: number } | null {
     const lista = folhasQueda.get(magia);
     if (!lista || lista.length === 0) return null;
     return lista.find((f) => f.bolts <= n) ?? lista[lista.length - 1]!;
@@ -2132,8 +2145,25 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   const ESCALA_QUEDA = 0.625;
 
+  /**
+   * 🧪 **A COR DO RISCO, por magia.** Três tons do mais externo ao núcleo.
+   *
+   * ⚠️ **O núcleo é quase branco nas duas, e é de propósito.** Na mistura
+   * aditiva o que dá a sensação de "quente" ou "frio" é a BORDA; um núcleo
+   * colorido só faz o traço perder o brilho de coisa incandescente. O Cold Bolt
+   * fica gelado pelo azul das bordas, não por um miolo azul.
+   *
+   * ⚠️ Magia sem entrada aqui cai no fogo. É o que existia antes de haver
+   * tabela, e é melhor que um traço invisível.
+   */
+  const CORES_RISCO: Record<string, [number, number, number]> = {
+    fire_bolt: [0xd8501a, 0xffa03c, 0xfff2d0],
+    cold_bolt: [0x1a58d8, 0x5ac8ff, 0xeaf8ff],
+  };
+
   function spawnQueda(
-    wx: number, wy: number, frames: Texture[], atraso: number, alvo?: string,
+    magia: string, wx: number, wy: number, frames: Texture[], atraso: number,
+    fracaoQueda: number, alvo?: string,
   ): void {
     const node = new AnimatedSprite(frames);
     node.loop = false;
@@ -2162,24 +2192,25 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * tira inteira mostraria a bola caindo DE NOVO, depois de o traço já ter
      * caído — duas quedas por bolt.
      */
-    const usados = FIREBOLT_RISCO ? frames.slice(Math.floor(frames.length * 0.58)) : frames;
+    const usados = QUEDA_RISCO ? frames.slice(Math.round(frames.length * fracaoQueda)) : frames;
     node.textures = usados;
     // Quadros por tique de 60 Hz para a animação inteira durar o que sobra.
-    const dur = FIREBOLT_RISCO ? DUR_QUEDA - ATRASO_IMPACTO_MS : DUR_QUEDA;
+    const dur = QUEDA_RISCO ? DUR_QUEDA - ATRASO_IMPACTO_MS : DUR_QUEDA;
     node.animationSpeed = usados.length / (dur / (1000 / 60));
     fxLayer.addChild(node);
 
     let risco: { node: Graphics; t: number; deY: number } | undefined;
-    if (FIREBOLT_RISCO) {
+    if (QUEDA_RISCO) {
       /*
        * A LANÇA: um traço vertical fino, claro no núcleo e alaranjado na
        * borda, com a mesma mistura aditiva do resto do efeito. Desenhado uma
        * vez e movido — não redesenhado por quadro.
        */
+      const [fora, meio, nucleo] = CORES_RISCO[magia] ?? CORES_RISCO.fire_bolt!;
       const g = new Graphics();
-      g.rect(-5, -110, 10, 110).fill({ color: 0xd8501a, alpha: 0.55 });
-      g.rect(-2.5, -104, 5, 104).fill({ color: 0xffa03c, alpha: 0.9 });
-      g.rect(-1, -98, 2, 98).fill({ color: 0xfff2d0, alpha: 1 });
+      g.rect(-5, -110, 10, 110).fill({ color: fora, alpha: 0.55 });
+      g.rect(-2.5, -104, 5, 104).fill({ color: meio, alpha: 0.9 });
+      g.rect(-1, -98, 2, 98).fill({ color: nucleo, alpha: 1 });
       g.blendMode = 'add';
       g.x = wx;
       g.zIndex = 9999;
@@ -2212,7 +2243,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (!folha) return;
     const copias = Math.max(1, Math.ceil(n / folha.bolts));
     for (let i = 0; i < copias; i++) {
-      spawnQueda(wx, wy, folha.frames, i * INTERVALO_BOLT_MS, alvo);
+      spawnQueda(magia, wx, wy, folha.frames, i * INTERVALO_BOLT_MS, folha.fracaoQueda, alvo);
     }
   }
 
