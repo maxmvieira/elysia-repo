@@ -84,6 +84,7 @@ import {
   skillRange,
   skillCastRange,
   INTERVALO_BOLT_MS,
+  DUR_QUEDA_MS,
   skillMiraNoChao,
   REGIONS,
   skillUpgradeCost,
@@ -1937,8 +1938,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * 🔴 Isto **não** é a cadência dos bolts (`INTERVALO_BOLT_MS`, no `shared`).
    * Com a queda bem mais longa que o intervalo, as cópias se sobrepõem no ar —
    * chuva, não fila.
+   *
+   * ⚠️ O número mora no `shared` desde 09/09: o servidor usa o mesmo para
+   * calcular até quando a magia fica em recarga.
    */
-  const DUR_QUEDA = 2400;
+  const DUR_QUEDA = DUR_QUEDA_MS;
 
   /*
    * ⚠️ Carregadas em paralelo, sem `await`: são enfeite, e travar a entrada no

@@ -17,6 +17,8 @@ import {
   skillsOfClass,
   branchesOfClass,
   skillHits,
+  INTERVALO_BOLT_MS,
+  DUR_QUEDA_MS,
   skillDuration,
   skillGroundDuration,
   skillGroundMax,
@@ -115,6 +117,32 @@ test('Fire Bolt é multi-hit e econômico — o "Golpe Poderoso do mago"', () =>
   // Econômico: é a magia mais barata da classe.
   const maisBarata = Math.min(...magos().filter((d) => d.manaCost > 0).map((d) => d.manaCost));
   assert.equal(fb.manaCost, maisBarata);
+});
+
+test('a recarga do Fire Bolt cobre até o último bolt cair', () => {
+  /*
+   * 🔴 Pedido do dono em 09/09: *"o cooldown da magia deveria ser até terminar
+   * o último impacto dela."*
+   *
+   * A conta é a mesma dos dois lados — servidor e cliente —, e é por isso que
+   * os dois números moram no `shared`. O que este teste trava é a RELAÇÃO: a
+   * série do nível 10 tem de durar mais que a recarga de ficha, senão a magia
+   * ficaria pronta com as bolas ainda no ar e daria para empilhar duas chuvas
+   * com uma mana só.
+   */
+  const fb = SKILLS.fire_bolt;
+  const serie = (golpes: number): number =>
+    (golpes - 1) * INTERVALO_BOLT_MS + DUR_QUEDA_MS;
+
+  assert.ok(
+    serie(skillHits(fb, 10)) > fb.cooldownMs,
+    `a série do Lv.10 (${serie(skillHits(fb, 10))} ms) tem de passar da recarga `
+    + `de ficha (${fb.cooldownMs} ms) — senão a regra do dono não muda nada`,
+  );
+  // E cresce com o nível: mais bolts, mais tempo no ar.
+  assert.ok(serie(skillHits(fb, 10)) > serie(skillHits(fb, 1)));
+  // A queda de UMA bola é o piso, mesmo no nível 1, que solta uma só.
+  assert.equal(serie(skillHits(fb, 1)), DUR_QUEDA_MS);
 });
 
 // ---------------------------------------------------------------------------

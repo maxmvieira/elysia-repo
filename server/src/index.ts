@@ -208,6 +208,7 @@ import {
   jobXpToNext,
   skillCastRange,
   INTERVALO_BOLT_MS,
+  DUR_QUEDA_MS,
   skillMiraNoChao,
   skillResetCost,
   skillThreshold,
@@ -3399,8 +3400,30 @@ function tickGolpesPendentes(now: number): void {
  * tecla sem alvo válido: a habilidade nem sai, e o jogador ficaria um segundo
  * sem poder conjurar por causa de um clique no vazio.
  */
-function marcaConjuracao(player: Player, def: SkillDef, now: number): void {
-  player.spellReadyAt[def.id] = now + def.cooldownMs;
+function marcaConjuracao(
+  player: Player, def: SkillDef, now: number, nivel?: number,
+): void {
+  /*
+   * 🔴 **A RECARGA VAI ATÉ O ÚLTIMO IMPACTO** — pedido do dono em 09/09.
+   *
+   * O Fire Bolt de nível 10 solta dez bolas espaçadas por `INTERVALO_BOLT_MS`,
+   * e cada uma leva `DUR_QUEDA_MS` para chegar ao chão. Com a recarga fixa da
+   * ficha, a magia ficava pronta de novo ENQUANTO as bolas da conjuração
+   * anterior ainda estavam no ar — dava para empilhar duas chuvas, e o jogador
+   * via vinte bolas caindo de um lançamento que custou uma mana só.
+   *
+   * ⚠️ É `max`, e não substituição: uma magia cuja recarga de ficha já seja
+   * maior que a série continua com a dela. O número calculado é o PISO.
+   *
+   * ⚠️ Vale só para o multi-hit de ALVO ÚNICO, que é o que cai do céu em série.
+   * O de área (Chuva de Meteoros) resolve tudo num tique só.
+   */
+  let recarga = def.cooldownMs;
+  if (def.kind === 'multihit' && def.shape === 'target' && nivel !== undefined) {
+    const golpes = skillHits(def, nivel);
+    recarga = Math.max(recarga, (golpes - 1) * INTERVALO_BOLT_MS + DUR_QUEDA_MS);
+  }
+  player.spellReadyAt[def.id] = now + recarga;
   if (def.magic) player.gcdUntil = now + GCD_MAGIA_MS;
 }
 
@@ -3600,7 +3623,7 @@ function executeSpell(
   // --- Habilidades que agem sobre o próprio personagem -----------------------
   if (def.kind === 'stance') {
     player.stance = !player.stance;
-    marcaConjuracao(player, def, now);
+    marcaConjuracao(player, def, now, nivel);
     recompute(player);
     send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
     send(player, {
@@ -3614,7 +3637,7 @@ function executeSpell(
     // ✨ Proteção Mágica: liga e desliga, sem duração. Quem a desliga é o
     // jogador ou a falta de mana (ver `absorveComProtecaoMagica`).
     player.magicProtection = !player.magicProtection;
-    marcaConjuracao(player, def, now);
+    marcaConjuracao(player, def, now, nivel);
     send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
     send(player, {
       t: 'chat', from: 'Sistema',
@@ -3748,7 +3771,7 @@ function executeSpell(
   }
 
   player.mana -= custoMana;
-  marcaConjuracao(player, def, now);
+  marcaConjuracao(player, def, now, nivel);
   send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
   // 🥷 Qualquer habilidade OFENSIVA quebra a furtividade — o bônus do Ataque
   // Oculto já foi lido em `estavaOculto`, no topo da função.
@@ -4007,7 +4030,7 @@ function lancaEmAliados(
   if (alvos.length === 0) alvos.push(player);
 
   player.mana -= custoMana;
-  marcaConjuracao(player, def, now);
+  marcaConjuracao(player, def, now, nivel);
   send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
 
   if (def.kind === 'heal') {
@@ -4078,7 +4101,7 @@ function plantaArea(
   }
 
   player.mana -= custoMana;
-  marcaConjuracao(player, def, now);
+  marcaConjuracao(player, def, now, nivel);
   send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
 
   const duracao = skillGroundDuration(def, nivel);

@@ -132,3 +132,21 @@ export function directionFromDelta(
  * mudar um sem o outro quebra em silêncio.
  */
 export const INTERVALO_BOLT_MS = 140;
+
+/**
+ * 🔴 **Quanto UMA bola leva do céu ao chão.**
+ *
+ * Morava só no cliente, porque só ele desenhava a queda. Passou para cá quando
+ * a recarga do Fire Bolt deixou de ser fixa: o servidor precisa saber quando o
+ * ÚLTIMO bolt termina para liberar a magia, e esse instante é
+ * `(golpes − 1) × INTERVALO_BOLT_MS + DUR_QUEDA_MS`.
+ *
+ * ⚠️ Mesmo contrato do intervalo acima: um valor, dois arquivos. Baixar aqui
+ * sem baixar a animação libera a magia antes de a última bola cair na tela.
+ *
+ * ⚠️ 2400 não é gosto — o dono pediu a queda mais lenta nas três vezes em que
+ * jogou (620 → 1000 → 1600 → 2400). Sendo bem maior que o intervalo de 140, as
+ * dez bolas do nível 10 ficam quase todas no ar ao mesmo tempo, que é o efeito
+ * de chuva que a arte quer.
+ */
+export const DUR_QUEDA_MS = 2400;
