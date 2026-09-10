@@ -594,7 +594,17 @@ function monta(sexo) {
    * topo) e é a referência de como a folha boa se parece.
    */
   const SUBSTITUI = {
-    male: { bow: { up: 'up_right' } },
+    /*
+     * ✅ **VAZIO desde 10/09, e ficou o mecanismo.** A entrada que morava aqui
+     * era `male: { bow: { up: 'up_right' } }`, posta quando o autosprite errava
+     * a flecha do `up`. A oitava tentativa do dono saiu certa — de costas, com
+     * a flecha para o topo do quadro — então a troca saiu.
+     *
+     * O mecanismo fica porque o caso vai voltar: qualquer pose com forte
+     * encurtamento apontando para dentro da tela é dificil para o gerador, e
+     * ter onde registrar "esta direção sai de outra folha" vale mais do que a
+     * economia de dez linhas.
+     */
   };
   const trocaDe = (acao, fonteDir) => SUBSTITUI[sexo]?.[acao]?.[fonteDir] ?? fonteDir;
   const refPes = centroDosPes(recorta(walk.down, 0));
