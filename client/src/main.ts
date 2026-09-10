@@ -84,6 +84,8 @@ import {
   skillRange,
   skillCastRange,
   CUSTO_DIAGONAL,
+  FIREBOLT_RISCO,
+  ATRASO_IMPACTO_MS,
   INTERVALO_BOLT_MS,
   DUR_QUEDA_MS,
   skillMiraNoChao,
@@ -1910,7 +1912,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     node: AnimatedSprite; atraso: number; morto: boolean;
     /** A criatura que esta bola persegue, quando o servidor disse qual é. */
     alvo?: string;
+    /**
+     * 🧪 **MODO RISCO** (ver `FIREBOLT_RISCO`): o traço desenhado por código que
+     * cai antes do estouro. Ausente no modo folha, em que a própria animação já
+     * contém a descida.
+     */
+    risco?: { node: Graphics; t: number; deY: number };
   }> = [];
+
+  /**
+   * 🧪 **Tremor de tela do impacto** — pedido no teste do Fire Bolt "risco".
+   *
+   * ⚠️ Somado à câmera DEPOIS do arredondamento dela, e não escrito em
+   * `world.x`: o laço da câmera reescreve `world.x` todo quadro, então tremer
+   * ali seria apagado no quadro seguinte. Ver o bloco da câmera.
+   */
+  let tremorAte = 0;
 
   /**
    * As folhas disponíveis, por quantos bolts cada uma DESENHA.
@@ -2136,10 +2153,43 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     node.y = wy;
     node.zIndex = 9999;
     node.visible = false;
-    // Quadros por tique de 60 Hz para a animação inteira durar `DUR_QUEDA`.
-    node.animationSpeed = frames.length / (DUR_QUEDA / (1000 / 60));
+
+    /*
+     * 🧪 **MODO RISCO.** No teste de 11/09 a DESCIDA deixa de sair da folha e
+     * vira um traço desenhado por código; a folha entra só no ESTOURO.
+     *
+     * ⚠️ Por isso a animação toca só a segunda metade dos 24 quadros. Tocar a
+     * tira inteira mostraria a bola caindo DE NOVO, depois de o traço já ter
+     * caído — duas quedas por bolt.
+     */
+    const usados = FIREBOLT_RISCO ? frames.slice(Math.floor(frames.length * 0.58)) : frames;
+    node.textures = usados;
+    // Quadros por tique de 60 Hz para a animação inteira durar o que sobra.
+    const dur = FIREBOLT_RISCO ? DUR_QUEDA - ATRASO_IMPACTO_MS : DUR_QUEDA;
+    node.animationSpeed = usados.length / (dur / (1000 / 60));
     fxLayer.addChild(node);
-    const q = { node, atraso, morto: false, alvo };
+
+    let risco: { node: Graphics; t: number; deY: number } | undefined;
+    if (FIREBOLT_RISCO) {
+      /*
+       * A LANÇA: um traço vertical fino, claro no núcleo e alaranjado na
+       * borda, com a mesma mistura aditiva do resto do efeito. Desenhado uma
+       * vez e movido — não redesenhado por quadro.
+       */
+      const g = new Graphics();
+      g.rect(-5, -110, 10, 110).fill({ color: 0xd8501a, alpha: 0.55 });
+      g.rect(-2.5, -104, 5, 104).fill({ color: 0xffa03c, alpha: 0.9 });
+      g.rect(-1, -98, 2, 98).fill({ color: 0xfff2d0, alpha: 1 });
+      g.blendMode = 'add';
+      g.x = wx;
+      g.zIndex = 9999;
+      g.visible = false;
+      fxLayer.addChild(g);
+      // 350 px acima do alvo: a altura que o prompt do teste pediu.
+      risco = { node: g, t: 0, deY: 350 };
+    }
+
+    const q = { node, atraso, morto: false, alvo, risco };
     node.onComplete = () => { q.morto = true; };
     quedas.push(q);
   }
@@ -7725,8 +7775,40 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       if (!q.node.visible) {
         q.atraso -= dt;
         if (q.atraso <= 0) {
+          /*
+           * 🧪 **MODO RISCO: primeiro o traço, o estouro só depois.** No modo
+           * folha os dois são a mesma animação e ela começa aqui.
+           */
+          if (q.risco && q.risco.t < ATRASO_IMPACTO_MS) {
+            q.risco.node.visible = true;
+          } else {
+            q.node.visible = true;
+            q.node.play();
+          }
+        }
+      }
+
+      /*
+       * 🧪 A LANÇA CAINDO. Interpolação linear de `deY` px acima do alvo até o
+       * alvo, em `ATRASO_IMPACTO_MS`. Ao tocar o chão o traço some e o estouro
+       * começa — o dano do servidor chega neste mesmo instante, porque é o
+       * mesmo número dos dois lados.
+       */
+      if (q.risco && q.node.visible === false && q.atraso <= 0) {
+        const r = q.risco;
+        r.t += dt;
+        const frac = Math.min(1, r.t / ATRASO_IMPACTO_MS);
+        r.node.y = q.node.y - r.deY * (1 - frac);
+        if (frac >= 1) {
+          r.node.visible = false;
           q.node.visible = true;
           q.node.play();
+          /*
+           * ⚠️ Tremor CURTO e por impacto. Com dez bolts a 140 ms, um tremor
+           * longo viraria um borrão contínuo de tela — que é enjoo, não
+           * impacto. 90 ms é o suficiente para o olho registrar a batida.
+           */
+          tremorAte = now + 90;
         }
       }
       /*
@@ -7749,10 +7831,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         if (alvo) {
           q.node.x = alvo.container.x + TS / 2;
           q.node.y = alvo.container.y + TS;
+          // 🧪 O traço persegue junto: ele mira onde a bola vai cair.
+          if (q.risco) q.risco.node.x = q.node.x;
         }
       }
       if (q.morto) {
         q.node.destroy();
+        q.risco?.node.destroy();
         quedas.splice(i, 1);
       }
     }
@@ -7799,8 +7884,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * `camX/camY`) e garante que a grade de pixels da tela nunca fique meio
        * texel fora da grade do desenho.
        */
-      world.x = Math.round(camX);
-      world.y = Math.round(camY);
+      /*
+       * 🧪 **TREMOR DE TELA** (teste do Fire Bolt "risco", 11/09).
+       *
+       * ⚠️ Somado DEPOIS do arredondamento, e não escrito em `camX/camY`: a
+       * suavização da câmera persegue o herói, e empurrar o tremor para dentro
+       * dela faria a câmera "aprender" o solavanco e voltar devagar. Aqui ele é
+       * puro deslocamento de desenho — acaba e sai, sem deixar rastro.
+       *
+       * ⚠️ E é INTEIRO, pelo mesmo motivo que a câmera é: meio pixel de
+       * deslocamento com filtragem `nearest` faz o cenário inteiro cintilar.
+       */
+      const resta = tremorAte - now;
+      const shake = resta > 0 ? Math.round(Math.sin(now * 0.09) * 3 * (resta / 90)) : 0;
+      world.x = Math.round(camX) + shake;
+      world.y = Math.round(camY) + (shake ? 1 : 0);
     }
 
     // Cenário sob demanda: monta o que entrou na tela, joga fora o que saiu.
