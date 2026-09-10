@@ -186,18 +186,32 @@ aditiva, formas desenhadas por código, e um laço de vida com alfa por quadro j
 Blender é a ferramenta errada porque **renderiza fora do jogo** — o que sai dele é uma
 folha pré-cozida, que é o que já temos e do que o modo risco nos afastou.
 
-Cada impacto agora cospe **14 cacos de gelo e 3 baforadas de névoa** (`PARTICULAS` em
-`main.ts`), com posição, velocidade, giro e vida próprios. É a "sobreposição de camadas
-com transparências acumuladas" que o RO usa — uma folha sozinha toca sempre igual.
+Cada impacto cospe **três camadas** (`PARTICULAS` em `main.ts`), e cada uma faz um trabalho
+diferente: **névoa** (5 elipses achatadas girando no chão) dá volume, **cristal** (6 pontas
+de gelo nascendo a 180–260 px de altura e despencando) dá peso, **floco** (22 micro-cristais
+subindo em espiral) dá turbulência. É a "sobreposição de camadas com transparências
+acumuladas" do RO — uma folha sozinha toca sempre igual.
 
-⚠️ **O leque é achatado em `y`** (× 0,45): o chão é visto de viés, e um leque circular no
-plano da tela leria como coisa saindo na vertical.
+🔴 **Object pool: os nós são criados uma vez e reaproveitados.** Uma tempestade cospe ~500
+partículas em 4,5 s; criar e destruir um `Graphics` para cada põe meio milhar de objetos por
+conjuração no caminho do coletor, e o preço aparece como engasgo justamente quando a tela
+está mais cheia. O nó só troca `x`, `y`, `alpha`, `scale` e `tint`.
 
-⚠️ **Três anéis concêntricos no lugar de desfoque.** Em soma aditiva isso dá o esfumaçado
-de graça; um filtro custaria um passe de render por baforada.
+⚠️ **Uma pilha de livres POR CAMADA.** Pilha única falha em silêncio: a geometria já está
+desenhada, então um slot de névoa não vira cristal, e um slot da camada errada no topo
+bloqueia o reaproveitamento das outras duas até alguém pedir aquela camada — o pool cresce
+até o teto e o efeito começa a sumir sem nenhum erro.
 
-⚠️ **Teto de 300 cacos.** Dez bolas × 17 cacos, e nada impede quatro feiticeiros no mesmo
-andar.
+⚠️ **O laço varre o pool inteiro, mortas incluídas.** Uma lista de vivas precisaria de
+`splice` no meio, que é a alocação que o pool existe para evitar.
+
+⚠️ **`z` é altura, e a projeção continua a do jogo** — grade reta, com `z` subtraído de `y`.
+A fórmula isométrica 2:1 foi proposta em 11/09 e **não se aplica a este renderizador**:
+`main.ts` desenha em `tileX * TS`, e adotá-la quebraria a posição de todo sprite. O eixo `z`
+vale; a projeção 2:1, não.
+
+⚠️ **Elipses e órbitas achatadas em `y` (× 0,5).** O chão é visto de viés; círculo lê como
+bola de luz flutuando, elipse lê como névoa deitada.
 
 🔴 **O congelamento foi INVERTIDO, e o argumento anterior estava certo sobre a regra e
 errado sobre a magia.** A versão de ontem rolava uma vez e deixava o alvo imune ao resto da
