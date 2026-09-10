@@ -5138,7 +5138,31 @@ function golpeDeArea(dono: Player, a: GroundArea, c: Creature, now: number): voi
   const perfil = creatureDefenseProfile(c, now, dono, a.damageType !== 'physical');
   const bruto = resolveDamage(a.power, a.damageType ?? 'physical', perfil).amount;
   const dano = Math.max(1, Math.round(bruto));
-  damageCreature(dono, c, dano, false, now, a.damageType ?? 'physical');
+  /*
+   * 🔴 **`dot: true` — o pulso de área NÃO é um golpe, e o cliente precisa
+   * saber disso.**
+   *
+   * A área já está no chão: quem lançou a Muralha de Fogo conjurou uma vez e
+   * pode estar a vinte tiles dali, de costas. Cada pulso mandava um `hit`
+   * comum, e o cliente faz o que manda o `hit` comum — `playAttack` em quem
+   * consta como atacante. Relatado pelo dono em 2026-09-11: *"o personagem
+   * principal fica dando animação de ataque quando algum monstro passa pela
+   * área e toma dano... ele fica dando espadadas no ar."*
+   *
+   * ⚠️ **E eram espadadas mesmo, não gesto de conjurar.** O pulso chega com
+   * elemento mágico, então o cliente pede o gesto de magia — que hoje cai no
+   * golpe de espada pelo `attackPoseFallback`, porque o pack de arte novo não
+   * tem cajado. Com `dot` o gesto não é pedido, e a queda deixa de importar.
+   *
+   * ✅ O irmão desta função, `danoDeAreaEmJogador`, já mandava `dot: true`
+   * desde sempre — quem atravessava a muralha num PvP nunca viu o defeito. Isto
+   * é o pulso em CRIATURA alcançando a mesma regra, não uma regra nova.
+   *
+   * ⚠️ Some junto o flash de dano do alvo, que é o mesmo `!msg.dot` no cliente.
+   * É o comportamento pretendido e o motivo está escrito lá: piscar o bicho a
+   * cada tique de área vira epilepsia. O número do dano continua saindo.
+   */
+  damageCreature(dono, c, dano, false, now, a.damageType ?? 'physical', true);
   if (!a.condition) return;
 
   applyConditionTo(
@@ -7443,7 +7467,11 @@ function updateCreatures(now: number): void {
      */
     const avoidCenter = true;
     let target = c.targetId ? players.get(c.targetId) : null;
-    if (target && (!target.alive || target.floor !== c.floor || chebyshev(c.tileX, c.tileY, target.tileX, target.tileY) > c.def.aggroRange + 2)) {
+    // Quem está sob ataque persegue muito mais longe — ver `COLEIRA_APOS_DANO`.
+    const coleira = now - c.lastHurtAt <= NEUTRAL_CALM_DOWN_MS
+      ? COLEIRA_APOS_DANO
+      : c.def.aggroRange + 2;
+    if (target && (!target.alive || target.floor !== c.floor || chebyshev(c.tileX, c.tileY, target.tileX, target.tileY) > coleira)) {
       target = null;
       c.targetId = null;
     }
@@ -7906,6 +7934,41 @@ function buildSnapshotFor(viewer: Player): EntitySnapshot[] {
  * do outro lado do mapa continua aparecendo no painel, como deve.
  */
 const SNAPSHOT_RANGE = 32;
+
+/**
+ * 🔴 **A COLEIRA DE QUEM ACABOU DE APANHAR**, e por que ela não pode ser a
+ * mesma do `aggroRange`.
+ *
+ * A criatura larga o alvo que se afasta além de `aggroRange + 2` — é o que
+ * deixa o jogador desengajar andando. Mas `aggroRange` é distância de
+ * **enxergar**, e o mago acerta de muito mais longe: `CAST_RANGE_PADRAO` é 6 no
+ * Lv.1 e sobe +1 a cada 3 níveis, enquanto quase todo bicho enxerga 4 a 6, ou
+ * seja larga o alvo depois de 6 a 8 tiles.
+ *
+ * 🔴 **O defeito que isso causava, relatado pelo dono em 2026-09-10:** *"ao
+ * atacar os monstros com magia, eles parecem não estar identificando que é uma
+ * magia, e não me atacam... ficam parados tomando dano infinito até morrer."* E
+ * não era o `hit` mágico não ser reconhecido — `damageCreature` SEMPRE marcava
+ * o `targetId` certo. O tique seguinte da IA é que o apagava, porque o mago
+ * estava além da coleira, e a criatura nunca chegava a dar o primeiro passo.
+ * Corpo a corpo nunca mostrou o problema: o atacante está colado.
+ *
+ * ✅ Enquanto o dano continua entrando, a coleira passa a ser esta. Parou de
+ * entrar, `NEUTRAL_CALM_DOWN_MS` depois ela volta ao `aggroRange + 2`, a
+ * criatura larga o alvo e o ramo de `homeX`/`homeY` a traz de volta para casa —
+ * o desengajamento por distância continua existindo, só deixou de ser
+ * instantâneo para quem está sendo atacado.
+ *
+ * ⚠️ **`SNAPSHOT_RANGE` é o teto certo, e não um número redondo qualquer:** o
+ * jogador só recebe no snapshot as criaturas dentro dele, então além disso não
+ * há como mirar uma. Perseguir até onde se pode ser atingido é exatamente a
+ * regra, e nem um tile a mais.
+ *
+ * ⚠️ Vale para todo comportamento que revida, e é de propósito: o javali
+ * neutro alvejado de longe também tem de vir. O neutro continua esfriando pelo
+ * seu próprio relógio, logo abaixo.
+ */
+const COLEIRA_APOS_DANO = SNAPSHOT_RANGE;
 
 /** Corpos expiram: some do mundo quando o tempo acaba. */
 function expireCorpses(now: number): void {
