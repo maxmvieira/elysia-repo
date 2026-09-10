@@ -3514,6 +3514,23 @@ interface GolpePendente {
   gesto: boolean;
   /** Quando o dano cai. É `fxEm + ATRASO_IMPACTO_MS`: a bola toca o chão. */
   quando: number;
+  /**
+   * 🌠 **PONTO FIXO NO CHÃO**, quando a queda não persegue ninguém.
+   *
+   * Pedido do dono em 11/09: *"os meteoros estão caindo somente onde tem
+   * inimigos, eles devem cair aleatoriamente dentro da área de alcance da
+   * magia, independente se tem inimigos ou não."*
+   *
+   * 🔴 **É o que separa a CHUVA do bolt.** O Fire Bolt persegue um alvo — a
+   * bola cai em cima dele, e se ele anda, ela acompanha. A Chuva não: os
+   * meteoros caem em pontos SORTEADOS da área, e quem estiver lá apanha. Um
+   * é uma flecha teleguiada; a outra é bombardeio.
+   *
+   * ⚠️ Com ponto fixo, `creatureId` fica vazio: não há âncora, e o `fx` sai
+   * sem `targetId` para o meteoro não perseguir ninguém.
+   */
+  alvoX?: number;
+  alvoY?: number;
 }
 const golpesPendentes: GolpePendente[] = [];
 
@@ -3590,68 +3607,96 @@ function tickGolpesPendentes(now: number): void {
   for (const g of golpesPendentes) {
     if (now < g.fxEm) { fica.push(g); continue; }
     const player = players.get(g.playerId);
-    const c = creatures.get(g.creatureId);
+    const def = SKILLS[g.skillId];
+
     /*
-     * ⚠️ **Revalidado a cada bolt, e não uma vez no lançamento.** Entre o
-     * primeiro e o décimo passam mais de sete segundos: a criatura pode morrer,
-     * o jogador pode morrer ou trocar de andar. Nada disso pode virar bola
-     * fantasma nem dano fantasma.
+     * 🌠 **DUAS MANEIRAS DE UMA COISA CAIR, e elas se separam aqui.**
+     *
+     *  - **PERSEGUINDO** (`creatureId`): o Fire Bolt e o Cold Bolt. A bola cai
+     *    em cima de UMA criatura e a acompanha enquanto ela anda. Se ela morre
+     *    antes, a bola nem nasce.
+     *  - **EM PONTO FIXO** (`alvoX`/`alvoY`): a Chuva de Meteoros. O meteoro cai
+     *    onde foi sorteado, tenha ou não alguém lá — e quem estiver por perto
+     *    na hora do estouro apanha do respingo.
+     *
+     * ⚠️ O ponto fixo é o que faz a chuva ser bombardeio em vez de rajada
+     * teleguiada, e foi o pedido do dono: *"eles devem cair aleatoriamente
+     * dentro da área, independente se tem inimigos ou não."*
      */
-    const vale = player && player.alive && c && c.alive && c.floor === player.floor;
+    const pontoFixo = g.alvoX !== undefined && g.alvoY !== undefined;
+    const c = pontoFixo ? undefined : creatures.get(g.creatureId);
+
+    /*
+     * ⚠️ **Revalidado a cada impacto, e não uma vez no lançamento.** Entre o
+     * primeiro e o último passam segundos: a criatura pode morrer, o jogador
+     * pode morrer ou trocar de andar. Nada disso pode virar bola fantasma nem
+     * dano fantasma.
+     *
+     * ⚠️ Com ponto fixo só o JOGADOR é conferido — o chão não morre.
+     */
+    const vale = player && player.alive
+      && (pontoFixo || (c && c.alive && c.floor === player.floor));
     if (!vale) continue;
+
+    const px = pontoFixo ? g.alvoX! : c!.tileX;
+    const py = pontoFixo ? g.alvoY! : c!.tileY;
+
     if (!g.fxFeito) {
       g.fxFeito = true;
       broadcastFloor(player.floor, {
         t: 'fx',
         // 🌠 Ver `quedaFx`: a chuva desenha meteoro, não o círculo dela.
-        kind: SKILLS[g.skillId].quedaFx ?? g.skillId,
-        x: c.tileX, y: c.tileY, floor: player.floor,
-        n: 1, targetId: c.id,
+        kind: def.quedaFx ?? g.skillId,
+        x: px, y: py, floor: player.floor,
+        n: 1,
+        // ⚠️ Sem `targetId` no ponto fixo: o meteoro cai onde foi sorteado e
+        // não persegue ninguém. É a diferença entre bombardeio e teleguiado.
+        ...(pontoFixo ? {} : { targetId: c!.id }),
         // ⚠️ Só quando a ficha manda outro tempo. Ausente = o padrão de sempre.
-        ...(SKILLS[g.skillId].quedaMs ? { quedaMs: SKILLS[g.skillId].quedaMs } : {}),
+        ...(def.quedaMs ? { quedaMs: def.quedaMs } : {}),
       });
     }
     if (now < g.quando) { fica.push(g); continue; }
 
-    const def = SKILLS[g.skillId];
     /*
-     * 💥 **O RESPINGO: quem mais estava colado no ponto do impacto.**
+     * 💥 **QUEM APANHA: tudo que está dentro do respingo, no INSTANTE do
+     * estouro.**
      *
-     * 🔴 O centro é a posição da criatura ANCORA no instante do estouro — a
-     * mesma que o `fx` usou. Não é o ponto onde o meteoro foi agendado: entre
-     * o agendamento e a queda passam centenas de milissegundos e a âncora
-     * andou. Usar a posição antiga faria a cratera abrir onde ninguém está.
-     *
-     * ⚠️ A âncora leva o golpe primeiro e os vizinhos depois, para o número
-     * dela sair na frente na tela — é ela que o jogador está olhando.
+     * 🔴 O centro é a posição de agora — a mesma que o `fx` usou —, e não a de
+     * quando o meteoro foi agendado: entre uma e outra passam centenas de
+     * milissegundos, e a âncora andou. Usar a posição antiga abriria a cratera
+     * onde ninguém está.
      *
      * ⚠️ **`chebyshev`, e não distância euclidiana.** Respingo 1 tem de ser um
      * quadrado 3×3, como todo alcance deste jogo; com euclidiana as quinas
      * ficariam de fora e o jogador veria dois monstros lado a lado com o
      * meteoro entre eles, um levando dano e o outro não.
+     *
+     * ⚠️ A âncora (quando há) apanha PRIMEIRO, para o número dela sair na
+     * frente na tela — é nela que o jogador está olhando.
      */
-    const vizinhos: Creature[] = [];
+    const atingidos: Creature[] = [];
+    if (c) atingidos.push(c);
     if (def.splash !== undefined) {
       for (const outro of creatures.values()) {
-        if (outro.id === c.id || !outro.alive || outro.floor !== c.floor) continue;
-        if (chebyshev(c.tileX, c.tileY, outro.tileX, outro.tileY) <= def.splash) {
-          vizinhos.push(outro);
-        }
+        if (outro.id === c?.id || !outro.alive || outro.floor !== player.floor) continue;
+        if (chebyshev(px, py, outro.tileX, outro.tileY) <= def.splash) atingidos.push(outro);
       }
     }
-    aplicaGolpeDeMagia(
-      player, def, g.nivel, c, g.poderBase, g.critChance, g.critMult, now,
-      g.gesto,
-    );
+
     /*
-     * ⚠️ Os vizinhos NÃO repetem o gesto do conjurador: um meteoro é um gesto,
-     * mesmo pegando cinco bichos. Ver `semGesto` no protocolo.
+     * ⚠️ **O GESTO SAI UMA VEZ POR CONJURAÇÃO, não por vítima.** `g.gesto` é
+     * verdadeiro só no primeiro impacto agendado; dentro dele, só a PRIMEIRA
+     * vítima o carrega. Sem as duas condições o feiticeiro repetia a animação
+     * de conjurar a cada monstro atingido — e com respingo em bando isso são
+     * dezenas de vezes.
      */
-    for (const v of vizinhos) {
+    atingidos.forEach((v, k) => {
       aplicaGolpeDeMagia(
-        player, def, g.nivel, v, g.poderBase, g.critChance, g.critMult, now, false,
+        player, def, g.nivel, v, g.poderBase, g.critChance, g.critMult, now,
+        g.gesto && k === 0,
       );
-    }
+    });
   }
   golpesPendentes.length = 0;
   golpesPendentes.push(...fica);
@@ -4047,7 +4092,16 @@ function executeSpell(
       if (!c.alive || c.floor !== player.floor) continue;
       if (chebyshev(cx, cy, c.tileX, c.tileY) <= alcance) targets.push(c);
     }
-    if (targets.length === 0) {
+    /*
+     * 🌠 **BOMBARDEIO PODE CAIR NO VAZIO.** A magia que sorteia PONTOS DO CHÃO
+     * (`queda` de área) não precisa de alvo para sair: o jogador mira um lugar,
+     * os meteoros caem lá, e quem estiver por perto apanha.
+     *
+     * ⚠️ É intencional que dê para lançar em terreno vazio — serve para bloquear
+     * passagem e para acertar quem está chegando. Recusar seria dizer ao jogador
+     * que ele não pode mirar onde quer.
+     */
+    if (targets.length === 0 && !(def.queda === true && def.shape === 'area')) {
       send(player, { t: 'denied', reason: 'Nenhum inimigo ao alcance.' });
       return;
     }
@@ -4222,6 +4276,24 @@ function executeSpell(
    */
   const golpes = skillHits(def, nivel);
   const sorteiaAlvo = def.kind === 'multihit' && def.shape === 'area';
+
+  /**
+   * 🌠 **UM PONTO SORTEADO DENTRO DA ÁREA.**
+   *
+   * `DD-SOR-010`: *"os meteoros caem em posições parcialmente aleatórias na
+   * área"*. Até 11/09 o sorteio era de CRIATURA, e o efeito em tela era o
+   * oposto do documento — os meteoros caíam só onde havia bicho, como se
+   * fossem teleguiados. O dono viu: *"eles devem cair aleatoriamente dentro da
+   * área de alcance da magia, independente se tem inimigos ou não."*
+   *
+   * ⚠️ Sorteio em QUADRADO (chebyshev), como o alcance: pegar um ângulo e um
+   * raio daria distribuição circular, e a área desta magia é quadrada. Os
+   * meteoros cairiam concentrados no meio e nunca nas quinas.
+   */
+  const pontoNaArea = (): { x: number; y: number } => ({
+    x: cx + Math.floor(Math.random() * (alcance * 2 + 1)) - alcance,
+    y: cy + Math.floor(Math.random() * (alcance * 2 + 1)) - alcance,
+  });
   /*
    * 🔴 **BOLT A BOLT, NÃO TUDO DE UMA VEZ** — decisão do dono em 08/09: *"o
    * dano é à medida que vão descendo os bolts do céu, ou seja nível 10 serão
@@ -4265,43 +4337,66 @@ function executeSpell(
    * ⚠️ Então a queda de área segue a MESMA regra da de alvo único: nenhum `fx`
    * sai daqui. Todos vêm de `tickGolpesPendentes`, um por meteoro.
    */
-  for (let i = 0; i < golpes; i++) {
-    const lista = sorteiaAlvo
-      ? [targets[Math.floor(Math.random() * targets.length)]!]
-      : targets;
-    for (const c of lista) {
-      if (emQueda) {
-        /*
-         * 🔴 **TODOS os bolts vão para a fila, inclusive o primeiro** (10/09).
-         *
-         * Antes o de índice zero batia aqui mesmo, no tique do lançamento. Isso
-         * deixou de servir quando o dano passou a cair junto com o ESTOURO da
-         * bola: o primeiro impacto tem de esperar a bola descer igual aos
-         * outros, senão o número vermelho sobe com ela ainda no céu.
-         *
-         * ⚠️ Consequência: o Fire Bolt não faz mais dano nenhum no instante do
-         * lançamento. Meio segundo de espera é o preço de a bola e o estrago
-         * acontecerem no mesmo lugar da tela.
-         *
-         * ⚠️ O poder e o crítico são capturados AGORA, no lançamento, e não
-         * relidos no impacto. Se um buff caísse no meio da rajada, os bolts da
-         * mesma conjuração passariam a bater diferente uns dos outros — e o
-         * jogador não teria como entender por quê.
-         */
-        const fxEm = now + i * passoDaQueda();
-        golpesPendentes.push({
-          playerId: player.id, creatureId: c.id, skillId: def.id, nivel,
-          poderBase, critChance: d.critChance, critMult: d.critMult,
-          fxEm,
-          fxFeito: false,
-          gesto: i === 0,
-          // 🌠 O dano cai quando a unidade TOCA O CHÃO, e isso é por ficha:
-          // uma rocha demora mais que uma lança. Ver `quedaMs`.
-          quando: fxEm + (def.quedaMs ?? ATRASO_IMPACTO_MS),
-        });
-        continue;
+  /*
+   * 🌠 **BOMBARDEIO: sorteia PONTOS, e não alvos.** Ver `pontoNaArea`.
+   *
+   * Fica separado do laço comum de propósito: aqui não há criatura nenhuma no
+   * agendamento — o meteoro é marcado para um TILE, e quem apanha só se decide
+   * no instante do estouro, pelo respingo.
+   */
+  if (emQueda && def.shape === 'area') {
+    for (let i = 0; i < golpes; i++) {
+      const ponto = pontoNaArea();
+      const fxEm = now + i * passoDaQueda();
+      golpesPendentes.push({
+        playerId: player.id, creatureId: '', skillId: def.id, nivel,
+        poderBase, critChance: d.critChance, critMult: d.critMult,
+        fxEm,
+        fxFeito: false,
+        gesto: i === 0,
+        quando: fxEm + (def.quedaMs ?? ATRASO_IMPACTO_MS),
+        alvoX: ponto.x, alvoY: ponto.y,
+      });
+    }
+  } else {
+    for (let i = 0; i < golpes; i++) {
+      const lista = sorteiaAlvo
+        ? [targets[Math.floor(Math.random() * targets.length)]!]
+        : targets;
+      for (const c of lista) {
+        if (emQueda) {
+          /*
+           * 🔴 **TODOS os bolts vão para a fila, inclusive o primeiro** (10/09).
+           *
+           * Antes o de índice zero batia aqui mesmo, no tique do lançamento. Isso
+           * deixou de servir quando o dano passou a cair junto com o ESTOURO da
+           * bola: o primeiro impacto tem de esperar a bola descer igual aos
+           * outros, senão o número vermelho sobe com ela ainda no céu.
+           *
+           * ⚠️ Consequência: o Fire Bolt não faz mais dano nenhum no instante do
+           * lançamento. Meio segundo de espera é o preço de a bola e o estrago
+           * acontecerem no mesmo lugar da tela.
+           *
+           * ⚠️ O poder e o crítico são capturados AGORA, no lançamento, e não
+           * relidos no impacto. Se um buff caísse no meio da rajada, os bolts da
+           * mesma conjuração passariam a bater diferente uns dos outros — e o
+           * jogador não teria como entender por quê.
+           */
+          const fxEm = now + i * passoDaQueda();
+          golpesPendentes.push({
+            playerId: player.id, creatureId: c.id, skillId: def.id, nivel,
+            poderBase, critChance: d.critChance, critMult: d.critMult,
+            fxEm,
+            fxFeito: false,
+            gesto: i === 0,
+            // 🌠 O dano cai quando a unidade TOCA O CHÃO, e isso é por ficha:
+            // uma rocha demora mais que uma lança. Ver `quedaMs`.
+            quando: fxEm + (def.quedaMs ?? ATRASO_IMPACTO_MS),
+          });
+          continue;
+        }
+        aplicaGolpeDeMagia(player, def, nivel, c, poderBase, d.critChance, d.critMult, now);
       }
-      aplicaGolpeDeMagia(player, def, nivel, c, poderBase, d.critChance, d.critMult, now);
     }
   }
   // A condição vem DEPOIS do dano, e num sorteio só por lançamento: dez

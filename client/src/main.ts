@@ -1919,7 +1919,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * cai antes do estouro. Ausente no modo folha, em que a própria animação já
      * contém a descida — e **apagado no impacto**, para não sobreviver a ele.
      */
-    risco: { node: Graphics; t: number; deY: number; dur: number } | undefined;
+    risco: { node: Graphics; t: number; deY: number; deX: number; dur: number } | undefined;
   }> = [];
 
   /**
@@ -2281,7 +2281,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     node.animationSpeed = usados.length / (dur / (1000 / 60));
     fxLayer.addChild(node);
 
-    let risco: { node: Graphics; t: number; deY: number; dur: number } | undefined;
+    let risco: { node: Graphics; t: number; deY: number; deX: number; dur: number } | undefined;
     if (QUEDA_RISCO) {
       /*
        * A LANÇA: um traço vertical fino, claro no núcleo e alaranjado na
@@ -2328,12 +2328,27 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       g.visible = false;
       fxLayer.addChild(g);
       // 350 px acima do alvo: a altura que o prompt do teste pediu.
-      // ⚠️ 420 px: com a rocha maior, 350 a fazia nascer dentro da tela em
-      // monitor alto. O dono pediu que ela venha de FORA.
-      risco = {
-        node: g, t: 0, dur: tempoQueda,
-        deY: FORMA_RISCO[magia] === 'esfera' ? 420 : 350,
-      };
+      const esfera = FORMA_RISCO[magia] === 'esfera';
+      /*
+       * 🌠 **O METEORO CAI NA DIAGONAL** — dono, 11/09: *"o meteoro pode cair
+       * meio na diagonal, seria mais bonito"*.
+       *
+       * ⚠️ **A inclinação é SORTEADA por meteoro**, e é isso que faz a chuva
+       * parecer chuva: dezoito rochas descendo no mesmo ângulo leriam como
+       * cortina, não como bombardeio. O sinal também sorteia, para virem dos
+       * dois lados.
+       *
+       * ⚠️ O corpo é ROTACIONADO junto (`rotation`), e não só deslocado: uma
+       * rocha que anda de lado com o rastro apontando para cima parece
+       * derrapando. O rastro tem de apontar para de onde ela veio.
+       *
+       * ⚠️ A lança do Fire Bolt continua vertical. O dono aprovou aquela como
+       * está, e inclinar por simetria seria mexer no que já ficou bom.
+       */
+      const deY = esfera ? 420 : 350;
+      const inclina = esfera ? (0.28 + Math.random() * 0.26) * (Math.random() < 0.5 ? -1 : 1) : 0;
+      g.rotation = inclina;
+      risco = { node: g, t: 0, dur: tempoQueda, deY, deX: deY * inclina };
     }
 
     const q = { node, atraso, morto: false, magia, alvo, risco };
@@ -7949,6 +7964,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         r.t += dt;
         const frac = Math.min(1, r.t / r.dur);
         r.node.y = q.node.y - r.deY * (1 - frac);
+        // 🌠 O X acompanha o Y na mesma fração: a rocha desce em linha reta
+        // inclinada, e não numa curva. Ver `deX`.
+        r.node.x = q.node.x + r.deX * (1 - frac);
         if (frac >= 1) {
           /*
            * 🔴 **O RISCO É DESTRUÍDO AQUI, e não junto com o estouro.**
@@ -7995,8 +8013,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         if (alvo) {
           q.node.x = alvo.container.x + TS / 2;
           q.node.y = alvo.container.y + TS;
-          // 🧪 O traço persegue junto: ele mira onde a bola vai cair.
-          if (q.risco) q.risco.node.x = q.node.x;
+          /*
+           * 🧪 O traço persegue junto: ele mira onde a bola vai cair.
+           *
+           * ⚠️ Mantém o deslocamento diagonal do quadro atual em vez de colar o
+           * X no alvo — colar endireitaria a queda no meio do caminho.
+           */
+          if (q.risco) {
+            const f = Math.min(1, q.risco.t / q.risco.dur);
+            q.risco.node.x = q.node.x + q.risco.deX * (1 - f);
+          }
         }
       }
       if (q.morto) {
