@@ -63,31 +63,13 @@ export interface GroundArea {
   /** Dano ou cura por tique, já resolvido do nível da habilidade. */
   power: number;
   damageType?: DamageType;
-  /**
-   * 🌬️ Quantos tiles esta área empurra, por pulso, para longe do centro.
-   *
-   * ⚠️ Vem de `empurraPorPulso` na ficha, e o empurrão é SEPARADO do dano:
-   * quem não tem para onde ir (parede, outro bicho) leva o dano do mesmo
-   * jeito. É a regra que `DD-SOR-018` já fixava para a Bola de Raio.
+  /*
+   * 🌬️❄️ **`empurraPorPulso`, `congelaEmAcertos`, `acertos` e `congelados`
+   * SAÍRAM DAQUI em 11/09.** Os quatro existiam para a Nevasca, e ela deixou de
+   * ser área de chão: viraram campos que nenhuma ficha preenchia e que nenhum
+   * caminho lia. Hoje o estado equivalente é `Tempestade`, na fila de quedas do
+   * servidor. Ver a nota em `golpeDeArea`.
    */
-  empurraPorPulso?: number;
-  /**
-   * ❄️ Quantos pulsos desta área um alvo aguenta antes de a condição ser
-   * rolada. Ver `congelaEmAcertos` na ficha.
-   */
-  congelaEmAcertos?: number;
-  /**
-   * ❄️ Acertos que cada entidade já levou DESTA área, por id.
-   *
-   * ⚠️ Mora na ÁREA e não na entidade: duas Nevascas sobrepostas contam
-   * separado, e é o certo — cada tempestade tem o próprio gelo para formar.
-   */
-  acertos?: Map<string, number>;
-  /**
-   * ❄️ Quem já congelou POR ESTA área e, por isso, não leva mais os pulsos
-   * dela. Ver a nota de `congelaEmAcertos`.
-   */
-  congelados?: Set<string>;
   /**
    * Condição que cada tique tenta aplicar (a Nevasca congela, a Ira petrifica).
    *

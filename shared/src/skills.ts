@@ -2019,9 +2019,24 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     splash: 1,
     // ⚠️ Queda curta: é bola de neve caindo, não rocha de meteoro.
     quedaMs: 300,
-    // 🌬️ *"Oponentes atingidos serão empurrados para trás"*.
-    empurraPorPulso: 1,
-    // ❄️ O terceiro acerto é que rola o congelamento — a regra do Ragnarok.
+    /*
+     * 🌬️ **DUAS células, em direção SORTEADA** — *"cada vez que o monstro é
+     * atingido, ele é empurrado duas células para trás em uma direção
+     * aleatória"*.
+     *
+     * ⚠️ Era 1 célula para longe do impacto, e o dono mandou inverter (11/09).
+     * A diferença não é de número: empurrar para fora varre o bando da
+     * tempestade em linha e a magia se esvazia sozinha; sorteado, os monstros
+     * ricocheteiam DENTRO dela. Ver `empurraAoAcaso` no servidor.
+     */
+    empurraPorPulso: 2,
+    /*
+     * ❄️ **A CADA terceiro acerto** — no 3º, no 6º, no 9º —, e o alvo NÃO fica
+     * imune ao resto da tempestade. Congela, a bola seguinte quebra o gelo,
+     * empurra, e no acerto seguinte rola de novo. É o quique que fez a Nevasca
+     * virar meme, e foi decisão do dono em 11/09 contra a versão anterior, que
+     * congelava uma vez só. Ver a nota longa em `tickGolpesPendentes`.
+     */
     congelaEmAcertos: 3,
     applies: {
       id: 'freeze',

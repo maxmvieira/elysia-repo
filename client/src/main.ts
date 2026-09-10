@@ -2289,6 +2289,160 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     snowball: 0.62,
   };
 
+  /**
+   * ❄️ **ESTILHAÇOS: o que o impacto cospe.**
+   *
+   * 🔴 **É o que separa a nossa Nevasca da do Ragnarok.** A do RO nunca foi uma
+   * animação só; ela joga dezenas de mini-sprites com vida própria, e a
+   * transparência ACUMULADA de vários em cima do mesmo ponto é o que faz a
+   * tempestade parecer contínua. Uma folha sozinha, por melhor que seja, toca
+   * sempre igual — dez bolas dão dez cópias do mesmo desenho.
+   *
+   * ⚠️ **Só existe para quem declara aqui.** O Fire Bolt e a Chuva não cospem
+   * nada: eles já estouram numa folha grande, e enfeitar tudo é o caminho curto
+   * para a tela virar sopa.
+   *
+   * ⚠️ **Não precisamos de Unity, Godot nem Blender para isto** (pergunta do
+   * dono em 11/09). Blender renderiza FORA do jogo: o que sai dele é uma folha
+   * pré-cozida — que é exatamente o que já temos e do que o modo risco nos
+   * afastou. Uma folha não sabe onde a bola caiu nem quantas são; isto sabe.
+   */
+  const PARTICULAS: Record<string, {
+    /** Cacos de gelo: rápidos, girando, com quique. */
+    cacos: number;
+    /** Baforadas de névoa: lentas, grandes, quase transparentes. */
+    nevoas: number;
+    /** Vida de um caco, em ms — sorteada na faixa. */
+    vida: [number, number];
+    /** Velocidade inicial de um caco, em px/s. */
+    velocidade: [number, number];
+    /** Impulso PARA CIMA, em px/s. É o que faz o caco saltar em vez de deslizar. */
+    subida: number;
+    /** Queda, em px/s². */
+    gravidade: number;
+    /** Raio de um caco, em px. */
+    raio: [number, number];
+    /** As cores, sorteadas por caco. A névoa usa sempre a primeira. */
+    cores: number[];
+  }> = {
+    snowball: {
+      cacos: 14,
+      nevoas: 3,
+      vida: [340, 620],
+      velocidade: [70, 210],
+      subida: 150,
+      gravidade: 900,
+      raio: [3, 7],
+      cores: [0x8fd8ff, 0xd8f4ff, 0xf2fbff, 0x4f9be8],
+    },
+  };
+
+  /**
+   * ❄️ Um caco vivo. `vx`/`vy` são px por MILISSEGUNDO — a mesma unidade de
+   * `dt`, para o laço não ter fator de conversão espalhado por dentro.
+   */
+  interface Estilhaco {
+    node: Graphics;
+    vx: number;
+    vy: number;
+    giro: number;
+    t: number;
+    dur: number;
+    /**
+     * Queda, em px por ms². Fica NO CACO e não numa constante da tela: com duas
+     * magias cuspindo ao mesmo tempo, uma global faria os cacos de uma cair com
+     * o peso da outra — e o defeito seria silencioso.
+     */
+    gravidade: number;
+    /** Névoa cresce e some parada; caco voa e cai. */
+    nevoa: boolean;
+  }
+  const estilhacos: Estilhaco[] = [];
+  /**
+   * ⚠️ **TETO, e ele não é decoração.** São dez bolas por tempestade, 17 cacos
+   * cada, e nada impede quatro feiticeiros conjurando no mesmo andar. Sem teto
+   * a conta é ilimitada e quem paga é o quadro. Ao estourar, o emissor
+   * simplesmente não nasce — perder cacos numa tela já cheia deles não se vê.
+   */
+  const TETO_ESTILHACOS = 300;
+
+  const naFaixa = ([a, b]: [number, number]): number => a + Math.random() * (b - a);
+
+  /**
+   * ❄️ Cospe os estilhaços de UM impacto, no ponto onde ele aconteceu.
+   *
+   * ⚠️ **O leque é ACHATADO em y** (`* 0.45`). O chão é visto de cima e de
+   * viés; um leque circular no plano da tela leria como bola de fogo saindo na
+   * vertical, e não como coisa espalhando no chão.
+   */
+  function cospeEstilhacos(magia: string, x: number, y: number): void {
+    const p = PARTICULAS[magia];
+    if (!p) return;
+    if (estilhacos.length + p.cacos + p.nevoas > TETO_ESTILHACOS) return;
+
+    for (let i = 0; i < p.nevoas; i++) {
+      const g = new Graphics();
+      const R = naFaixa(p.raio) * 4;
+      /*
+       * ⚠️ **Três anéis concêntricos no lugar de desfoque.** Um círculo chapado
+       * de alfa baixo tem borda dura e lê como disco; em soma aditiva, três
+       * camadas com alfa decrescente dão o esfumaçado de graça, sem filtro
+       * (que custaria um passe de render por baforada).
+       */
+      g.circle(0, 0, R).fill({ color: p.cores[0]!, alpha: 0.06 });
+      g.circle(0, 0, R * 0.66).fill({ color: p.cores[0]!, alpha: 0.07 });
+      g.circle(0, 0, R * 0.33).fill({ color: p.cores[1] ?? p.cores[0]!, alpha: 0.08 });
+      g.blendMode = 'add';
+      g.x = x + (Math.random() - 0.5) * 26;
+      g.y = y + (Math.random() - 0.5) * 14;
+      g.zIndex = 9998;
+      fxLayer.addChild(g);
+      estilhacos.push({
+        node: g,
+        vx: (Math.random() - 0.5) * 0.02,
+        vy: -0.012 - Math.random() * 0.012,
+        giro: 0,
+        t: 0,
+        dur: naFaixa([520, 820]),
+        // ⚠️ Névoa não cai: ela sobe e se abre. Gravidade zero é o que a separa
+        // do caco sem precisar de um segundo laço.
+        gravidade: 0,
+        nevoa: true,
+      });
+    }
+
+    for (let i = 0; i < p.cacos; i++) {
+      const g = new Graphics();
+      const R = naFaixa(p.raio);
+      const cor = p.cores[Math.floor(Math.random() * p.cores.length)]!;
+      // Losango fino: o "espinho de gelo". Núcleo claro por dentro, para ele
+      // não virar uma mancha só quando dois se sobrepõem na soma.
+      g.poly([0, -R, R * 0.42, 0, 0, R, -R * 0.42, 0]).fill({ color: cor, alpha: 0.95 });
+      g.poly([0, -R * 0.5, R * 0.18, 0, 0, R * 0.5, -R * 0.18, 0])
+        .fill({ color: 0xffffff, alpha: 0.9 });
+      g.blendMode = 'add';
+      g.x = x;
+      g.y = y;
+      g.rotation = Math.random() * Math.PI * 2;
+      g.zIndex = 10000;
+      fxLayer.addChild(g);
+      const ang = Math.random() * Math.PI * 2;
+      const vel = naFaixa(p.velocidade) / 1000;
+      estilhacos.push({
+        node: g,
+        vx: Math.cos(ang) * vel,
+        vy: Math.sin(ang) * vel * 0.45 - p.subida / 1000,
+        giro: (Math.random() - 0.5) * 0.02,
+        t: 0,
+        dur: naFaixa(p.vida),
+        // ⚠️ px/s² vira px/ms² dividindo por 1000 DUAS vezes — é aceleração, e
+        // esquecer a segunda divisão põe os cacos no chão em três quadros.
+        gravidade: p.gravidade / 1_000_000,
+        nevoa: false,
+      });
+    }
+  }
+
   function spawnQueda(
     magia: string, wx: number, wy: number, frames: Texture[], atraso: number,
     fracaoQueda: number, alvo?: string, quedaMs?: number, duracaoEstouro = 0,
@@ -8088,6 +8242,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           q.risco = undefined;
           q.node.visible = true;
           q.node.play();
+          // ❄️ E os estilhaços saem AQUI, no toque do chão — o mesmo instante
+          // do tremor e do dano. Ver `PARTICULAS`.
+          cospeEstilhacos(q.magia, q.node.x, q.node.y);
           // 💥 A batida é por magia — ver `TREMOR`.
           const forca = TREMOR[q.magia] ?? TREMOR_PADRAO;
           tremorAte = now + forca.ms;
@@ -8123,6 +8280,41 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         q.node.destroy();
         q.risco?.node.destroy();
         quedas.splice(i, 1);
+      }
+    }
+
+    /*
+     * ❄️ **OS ESTILHAÇOS.** Um laço burro e sem ramificação por magia: cada
+     * caco carrega a própria física, e aqui só se integra e se apaga.
+     *
+     * ⚠️ **De trás para a frente**, porque remove no meio. Para a frente, o
+     * `splice` puxaria o próximo para o índice já visitado e metade dos cacos
+     * viveria para sempre.
+     */
+    for (let i = estilhacos.length - 1; i >= 0; i--) {
+      const e = estilhacos[i]!;
+      e.t += dt;
+      const r = Math.min(1, e.t / e.dur);
+      e.vy += e.gravidade * dt;
+      e.node.x += e.vx * dt;
+      e.node.y += e.vy * dt;
+      e.node.rotation += e.giro * dt;
+      if (e.nevoa) {
+        // A névoa ABRE: nasce fechada e cresce até três vezes, como fumaça.
+        e.node.scale.set(0.5 + r * 2.5);
+        e.node.alpha = 1 - r;
+      } else {
+        /*
+         * ⚠️ `1 - r*r` segura o brilho e some no fim, a mesma curva do resto
+         * dos efeitos. Linear apagaria o caco quando ele ainda está no ar, e a
+         * leitura vira "sumiu", não "caiu".
+         */
+        e.node.alpha = 1 - r * r;
+        e.node.scale.set(1 - r * 0.65);
+      }
+      if (r >= 1) {
+        e.node.destroy();
+        estilhacos.splice(i, 1);
       }
     }
 

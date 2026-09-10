@@ -178,6 +178,63 @@ desmentiria o que a tela mostra.
 laço de giro por quadro e o carregador solto da folha. A folha da nevasca (36 quadros)
 continua, agora como o estouro de cada bola.
 
+### ❄️ O emissor de partículas, e as duas regras invertidas para o RO
+
+**Não precisamos de Unity, Godot nem Blender** (pergunta do dono, com um guia que mandava
+usar os três). O cliente já era um motor de partículas sem ser usado como tal: mistura
+aditiva, formas desenhadas por código, e um laço de vida com alfa por quadro já existiam.
+Blender é a ferramenta errada porque **renderiza fora do jogo** — o que sai dele é uma
+folha pré-cozida, que é o que já temos e do que o modo risco nos afastou.
+
+Cada impacto agora cospe **14 cacos de gelo e 3 baforadas de névoa** (`PARTICULAS` em
+`main.ts`), com posição, velocidade, giro e vida próprios. É a "sobreposição de camadas
+com transparências acumuladas" que o RO usa — uma folha sozinha toca sempre igual.
+
+⚠️ **O leque é achatado em `y`** (× 0,45): o chão é visto de viés, e um leque circular no
+plano da tela leria como coisa saindo na vertical.
+
+⚠️ **Três anéis concêntricos no lugar de desfoque.** Em soma aditiva isso dá o esfumaçado
+de graça; um filtro custaria um passe de render por baforada.
+
+⚠️ **Teto de 300 cacos.** Dez bolas × 17 cacos, e nada impede quatro feiticeiros no mesmo
+andar.
+
+🔴 **O congelamento foi INVERTIDO, e o argumento anterior estava certo sobre a regra e
+errado sobre a magia.** A versão de ontem rolava uma vez e deixava o alvo imune ao resto da
+tempestade, para o gelo não se quebrar sozinho. Mas o quique **é** a Nevasca: *"se sofrer
+outro golpe, ele quebra o gelo, toma dano de novo e é empurrado outra vez"*. Agora rola a
+cada 3º acerto (3º, 6º, 9º) e não há imunidade nenhuma.
+
+🔴 **O empurrão também: duas células, em direção SORTEADA** (era uma, para longe do
+impacto). Empurrar para fora varre o bando da tempestade em linha e a magia se esvazia
+sozinha; sorteado, os monstros ricocheteiam dentro dela.
+
+✅ **E a implementação em `golpeDeArea` foi APAGADA.** Os dois campos nasceram lá, ficaram
+sem nenhuma ficha usando quando a Nevasca virou queda, e ao serem invertidos só a cópia
+viva mudou — sobrariam duas versões da mesma regra discordando. O teste agora exige `queda`
+e não aceita mais `kind: 'ground'`.
+
+### 🔴 PENDENTE CRÍTICO: a Nevasca entrega 63 % do que a ficha promete
+
+Medido por simulação depois de a mecânica ficar pronta (200 mil tempestades, alvo parado):
+
+| | acertos médios | chega ao 3º | dano no Lv.10 |
+|---|---|---|---|
+| **hoje** (10 bolas, respingo 3×3) | **1,11** | **7,7 %** | **63 %** de 570 % |
+| respingo 5×5 | 3,08 | 65 % | 176 % |
+| 18 bolas, respingo 5×5 | 5,55 | 97 % | 316 % |
+
+São 81 células no 9×9 e 10 bolas cobrindo 9 células cada: 90 coberturas para 81 células, ou
+**1,1 acerto por alvo**. E 28 % das vezes o alvo **não é tocado nenhuma vez**. Com isso o
+congelamento dispara em ~2 % das conjurações no Lv.10 — o quique que acabou de ser
+implementado é praticamente invisível.
+
+🔴 **Nenhum ajuste de respingo ou contagem chega perto dos 570 %.** O que fecha a conta é o
+modelo do RO de verdade: **o dano é da ÁREA, e as bolas são o visual**. O texto que o dono
+trouxe diz isso — *"o motor cria uma área de 9×9 e começa a jogar aleatoriamente
+mini-**sprites** de 3×3"*. A leitura de 11/09 ("bombardeio, não área") acertou o desenho e
+errou o dano. Decisão do dono, pendente.
+
 ### 📌 PENDENTE que este dia deixou
 
 - **O dano da Chuva precisa de uma passada.** Contagem (10→18) e respingo (1→3×3) entraram

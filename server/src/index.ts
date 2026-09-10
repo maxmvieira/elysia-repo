@@ -3505,18 +3505,21 @@ const GCD_MAGIA_MS = 1000;
  * mesmo motivo de `poderBase`: um nível que mudasse no meio da tempestade não
  * pode fazer as bolas dela discordarem entre si.
  *
- * Isto é o gêmeo do que `GroundArea` guarda em `acertos`/`congelados` — a
- * Nevasca era área de chão até 11/09 e levou as duas regras consigo na mudança.
+ * ⚠️ **A `GroundArea` NÃO guarda mais nada disso.** Guardou até 11/09, quando a
+ * Nevasca era área de chão; a mudança levou as duas regras para cá. Ver `golpeDeArea`.
  */
 interface Tempestade {
   /** Tiles empurrados por bola. Ausente = a queda não empurra. */
   empurra?: number;
   /** Em que acerto a condição é rolada. Ausente = rola a cada acerto. */
   congelaEmAcertos?: number;
-  /** Quantos acertos DESTA tempestade cada alvo já levou. */
+  /**
+   * Quantos acertos DESTA tempestade cada alvo já levou.
+   *
+   * ⚠️ Mora na TEMPESTADE e não na criatura: duas Nevascas sobrepostas contam
+   * separado, e é o certo — cada uma tem o próprio gelo para formar.
+   */
   acertos: Map<string, number>;
-  /** Quem já congelou nela — imune ao resto. */
-  congelados: Set<string>;
   condicao?: { id: ConditionId; chance: number; durationMs: number; power?: number };
 }
 
@@ -3732,47 +3735,49 @@ function tickGolpesPendentes(now: number): void {
     atingidos.forEach((v, k) => {
       const t = g.tempestade;
       /*
-       * ❄️ **QUEM JÁ CONGELOU NESTA TEMPESTADE NÃO LEVA MAIS NADA DELA.**
-       *
-       * Sai ANTES de tudo: sem dano, sem empurrão, sem nova rolagem. É a regra
-       * do Ragnarok, e aqui ela é OBRIGATÓRIA e não estética — o congelamento
-       * deste jogo quebra com dano (`DD-SOR-012`), então sem a imunidade a bola
-       * seguinte descongelaria o alvo 450 ms depois de congelá-lo, e o gelo
-       * nunca duraria os 10 s prometidos.
-       */
-      if (t?.congelados.has(v.id)) return;
-      /*
        * 🌬️ **O EMPURRÃO VEM ANTES DO DANO, e a ordem importa.** Depois dele,
        * uma criatura que morresse no impacto ainda seria empurrada — e o corpo
        * apareceria um tile ao lado de onde o jogador viu a bola estourar.
        */
-      if (t?.empurra) empurraDoCentro(px, py, v, t.empurra);
+      if (t?.empurra) empurraAoAcaso(v, t.empurra);
       aplicaGolpeDeMagia(
         player, def, g.nivel, v, g.poderBase, g.critChance, g.critMult, now,
         g.gesto && k === 0,
       );
       if (!t?.condicao || !v.alive) return;
       /*
-       * ❄️ **ACÚMULO: a condição é rolada UMA VEZ, no acerto de número N.**
+       * ❄️ **ACÚMULO: a condição é rolada A CADA N-ÉSIMO ACERTO** — no 3º, no
+       * 6º, no 9º. Não uma vez por tempestade.
+       *
+       * 🔴 **Isto foi INVERTIDO em 11/09, e o motivo importa.** A primeira
+       * versão rolava uma vez só e marcava o alvo como imune ao resto da
+       * tempestade. O argumento era bom no papel — aqui dano quebra
+       * congelamento (`DD-SOR-012`), então sem imunidade a bola seguinte
+       * descongela o alvo 450 ms depois — e estava olhando para a regra em vez
+       * de para a tela.
+       *
+       * O quique É a Nevasca. *"Se sofrer outro golpe, ele quebra o gelo, toma
+       * dano de novo e é empurrado outra vez"* — congela, quebra, empurra,
+       * congela de novo, e é isso que os GIFs de vinte anos mostram. Com a
+       * imunidade, o monstro congelava uma vez e a tempestade parava de tocá-lo:
+       * mais arrumado, e não era Ragnarok. O dono decidiu (11/09).
+       *
+       * ⚠️ Consequência assumida: o gelo quase nunca dura os 10 s da ficha
+       * dentro da própria tempestade. Ele dura DEPOIS dela, em quem congelou no
+       * último acerto — e é aí que o combo do `DD-SOR-012` vive.
        *
        * ⚠️ O contador conta os acertos que o alvo LEVOU, e não as bolas que
        * caíram: as bolas caem em pontos sorteados, então dois monstros dentro
        * da mesma tempestade chegam ao terceiro acerto em momentos diferentes —
        * e é o justo.
-       *
-       * ⚠️ Falhar a rolagem NÃO reinicia o contador. Ele passa de N e a
-       * condição não é rolada de novo nesta tempestade — uma chance por alvo,
-       * por tempestade. Reiniciar transformaria os 70 % do Lv.1 numa garantia
-       * disfarçada em dez tentativas.
        */
       if (t.congelaEmAcertos !== undefined) {
         const n = (t.acertos.get(v.id) ?? 0) + 1;
         t.acertos.set(v.id, n);
-        if (n !== t.congelaEmAcertos || Math.random() >= t.condicao.chance) return;
+        if (n % t.congelaEmAcertos !== 0 || Math.random() >= t.condicao.chance) return;
         applyConditionTo(
           v, t.condicao.id, 1, t.condicao.durationMs, now, t.condicao.power, player.id,
         );
-        t.congelados.add(v.id);
         return;
       }
       applyConditionTo(
@@ -4475,7 +4480,6 @@ function executeSpell(
           ...(def.congelaEmAcertos !== undefined
             ? { congelaEmAcertos: def.congelaEmAcertos } : {}),
           acertos: new Map<string, number>(),
-          congelados: new Set<string>(),
           ...(def.applies
             ? {
               condicao: {
@@ -4597,26 +4601,28 @@ function aplicaCondicaoDaSkill(
   }
 }
 
+/** As oito direções, para o empurrão sortear uma. */
+const OITO_DIRECOES: ReadonlyArray<readonly [number, number]> = [
+  [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1],
+];
+
 /**
- * 🌬️ Empurra a criatura para longe de um PONTO, se houver para onde.
+ * 🌬️ Empurra a criatura numa direção SORTEADA, se houver para onde.
  *
- * ⚠️ Quem está exatamente no ponto não tem direção para ir — e aí sorteia uma,
- * em vez de ficar imune ao empurrão por sorte de posição.
+ * 🔴 **Aleatório, e não "para longe do centro"** — decisão do dono em 11/09,
+ * com a ficha do Ragnarok na mão: *"cada vez que o monstro é atingido, ele é
+ * empurrado duas células para trás em uma direção aleatória"*.
  *
- * ⚠️ **O ponto não é sempre o mesmo tipo de coisa.** Na área de chão é o centro
- * dela (a tempestade sopra para fora de si). Na queda é o lugar onde AQUELA
- * bola estourou — e por isso recebe coordenadas soltas em vez da área: com as
- * bolas caindo espalhadas, empurrar todo mundo para longe de um centro
- * imaginário desmentiria o que a tela mostra.
+ * A versão anterior empurrava para fora do ponto de impacto, o que é mais
+ * arrumado e é justamente o problema: varre o bando para fora da tempestade em
+ * linha, e a magia se esvazia sozinha. Sorteado, os monstros ricocheteiam
+ * dentro dela — o *"ritmo frenético"* que fez a Nevasca virar meme.
+ *
+ * ⚠️ **Oito direções, e não quatro.** O jogo anda na diagonal (`CUSTO_DIAGONAL`),
+ * então limitar a empurrão a cardeais faria o caos ter quatro trilhos visíveis.
  */
-function empurraDoCentro(cx: number, cy: number, c: Creature, tiles: number): void {
-  let dx = Math.sign(c.tileX - cx);
-  let dy = Math.sign(c.tileY - cy);
-  if (dx === 0 && dy === 0) {
-    const eixo = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(Math.random() * 4)]!;
-    dx = eixo[0]!;
-    dy = eixo[1]!;
-  }
+function empurraAoAcaso(c: Creature, tiles: number): void {
+  const [dx, dy] = OITO_DIRECOES[Math.floor(Math.random() * OITO_DIRECOES.length)]!;
   /*
    * ⚠️ Anda tile a tile e PARA no primeiro obstáculo, em vez de teleportar para
    * o destino final. Saltar por cima de uma parede é o defeito clássico de
@@ -4776,14 +4782,8 @@ function plantaArea(
     tickMs: g.tickMs,
     power: poder,
     damageType: def.damageType,
-    ...(def.empurraPorPulso ? { empurraPorPulso: def.empurraPorPulso } : {}),
-    ...(def.congelaEmAcertos
-      ? {
-        congelaEmAcertos: def.congelaEmAcertos,
-        acertos: new Map<string, number>(),
-        congelados: new Set<string>(),
-      }
-      : {}),
+    // ⚠️ `empurraPorPulso` e `congelaEmAcertos` NÃO entram aqui: eles vivem na
+    // fila de quedas (`Tempestade`). Ver a nota em `golpeDeArea`.
     hitsPlayers: g.hitsPlayers,
     hitsCreatures: g.hitsCreatures,
     blocks: g.blocks ?? false,
@@ -5071,63 +5071,27 @@ function disparaArmadilha(a: GroundArea, dono: Player | undefined, now: number):
   }
 }
 
-/** Um pulso de área ofensiva numa criatura. */
+/**
+ * Um pulso de área ofensiva numa criatura.
+ *
+ * 🔴 **O EMPURRÃO E O ACÚMULO SAÍRAM DAQUI em 11/09, e não devem voltar.**
+ *
+ * Os dois nasceram nesta função, quando a Nevasca era área de chão. Ela virou
+ * queda, e a implementação ficou aqui sem NENHUMA ficha usando: código morto
+ * que ainda compilava. Pior — quando as duas regras foram invertidas para o
+ * comportamento do Ragnarok (empurrão sorteado, congelamento que se quebra), só
+ * a cópia viva mudou, e sobraram duas versões da mesma regra discordando.
+ *
+ * ⚠️ Se uma magia de área de chão precisar de empurrão um dia, o lugar é
+ * `empurraAoAcaso` — a função continua aqui e é a mesma dos dois lados. O que
+ * não pode voltar é uma segunda implementação da regra.
+ */
 function golpeDeArea(dono: Player, a: GroundArea, c: Creature, now: number): void {
-  /*
-   * ❄️ **QUEM JÁ CONGELOU NESTA TEMPESTADE NÃO LEVA MAIS NADA DELA.**
-   *
-   * É a regra do Ragnarok, e aqui ela é OBRIGATÓRIA, não estética: o
-   * congelamento deste jogo quebra com dano (`DD-SOR-012`), então sem a
-   * imunidade o pulso seguinte descongelaria o alvo 400 ms depois de congelá-lo
-   * — o gelo nunca duraria os 10 s que o documento promete.
-   *
-   * ⚠️ Sai ANTES de tudo: sem dano, sem empurrão, sem nova rolagem.
-   */
-  if (a.congelados?.has(c.id)) return;
-
   const perfil = creatureDefenseProfile(c, now, dono, a.damageType !== 'physical');
   const bruto = resolveDamage(a.power, a.damageType ?? 'physical', perfil).amount;
   const dano = Math.max(1, Math.round(bruto));
-  /*
-   * 🌬️ **O EMPURRÃO VEM ANTES DO DANO, e a ordem importa.**
-   *
-   * Depois do dano, uma criatura que morre no pulso ainda seria empurrada — e
-   * o corpo apareceria um tile ao lado de onde o jogador viu o golpe. Antes,
-   * ela é empurrada, apanha onde parou, e o corpo cai ali.
-   *
-   * ⚠️ Empurra a partir do CENTRO DA ÁREA, não de quem lançou: a tempestade
-   * sopra para fora dela mesma, e o mago pode estar em qualquer lugar.
-   */
-  if (a.empurraPorPulso) empurraDoCentro(a.x, a.y, c, a.empurraPorPulso);
   damageCreature(dono, c, dano, false, now, a.damageType ?? 'physical');
   if (!a.condition) return;
-
-  /*
-   * ❄️ **ACÚMULO: a condição é rolada UMA VEZ, no acerto de número N.**
-   *
-   * Sem `congelaEmAcertos` o comportamento é o de sempre — rola a cada pulso.
-   * Com ele, o alvo precisa aguentar N pulsos desta mesma área antes de a
-   * rolagem acontecer, e ela acontece uma vez só.
-   *
-   * ⚠️ O contador conta os pulsos que o alvo LEVOU, e não os que a área deu:
-   * quem entra na tempestade no meio começa do zero, e é o justo.
-   *
-   * ⚠️ Falhar a rolagem NÃO reinicia o contador. Ele fica acima de N, e a
-   * condição não é rolada de novo nesta tempestade — uma chance por alvo, por
-   * tempestade. Reiniciar transformaria 50 % numa garantia disfarçada.
-   */
-  if (a.congelaEmAcertos !== undefined && a.acertos) {
-    const n = (a.acertos.get(c.id) ?? 0) + 1;
-    a.acertos.set(c.id, n);
-    if (n !== a.congelaEmAcertos) return;
-    const pegou = Math.random() < a.condition.chance;
-    if (!pegou) return;
-    applyConditionTo(
-      c, a.condition.id, 1, a.condition.durationMs, now, a.condition.power, dono.id,
-    );
-    a.congelados?.add(c.id);
-    return;
-  }
 
   applyConditionTo(
     c, a.condition.id, a.condition.chance, a.condition.durationMs, now, a.condition.power, dono.id,

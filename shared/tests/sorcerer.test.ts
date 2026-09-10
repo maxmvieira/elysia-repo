@@ -186,29 +186,48 @@ test('a Ice Wall é a ÚNICA magia que bloqueia passagem', () => {
   }
 });
 
-test('❄️ Nevasca no modelo do RO: congela no 3º acerto, e o gelo dura 10 s', () => {
+test('❄️ Nevasca no modelo do RO: congela a cada 3º acerto, e o quique é a magia', () => {
   /*
-   * 🔴 **A REGRA DE CONGELAR MUDOU DE MODELO EM 11/09**, a pedido do dono
-   * (*"quero o comportamento do RO"*), e este teste guarda as três peças que
-   * fazem o modelo funcionar JUNTAS. Tirar qualquer uma quebra as outras.
+   * 🔴 **A REGRA DE CONGELAR MUDOU DUAS VEZES EM 11/09**, e a segunda desfez
+   * metade da primeira. O registro fica porque a versão do meio parecia a
+   * certa e não era.
    *
-   * Antes: uma rolagem baixa (8–12 %) a CADA pulso, do `DD-SOR-012`.
-   * Agora: uma rolagem alta (50–100 %) UMA VEZ, no terceiro acerto.
+   * 1. Antes de tudo: rolagem baixa (8–12 %) a CADA pulso, do `DD-SOR-012`.
+   * 2. No meio: rolagem alta UMA VEZ, no 3º acerto, com o alvo virando IMUNE ao
+   *    resto da tempestade. O argumento era que, como dano quebra gelo aqui, sem
+   *    a imunidade a bola seguinte descongelaria o alvo 450 ms depois.
+   * 3. Agora: rolagem alta a CADA 3º acerto (3º, 6º, 9º), sem imunidade nenhuma.
    *
-   * | | antes | agora |
-   * |---|---|---|
-   * | Lv.1  | 39 % dos usos | 50 % |
-   * | Lv.10 | 78 % dos usos | 100 % |
+   * 🔴 **O argumento da imunidade estava certo sobre a regra e errado sobre a
+   * MAGIA.** O gelo de fato não dura dentro da tempestade — e é esse o efeito:
+   * *"se sofrer outro golpe, ele quebra o gelo, toma dano de novo e é empurrado
+   * outra vez"*. Congela, quebra, empurra, congela de novo. O quique É a
+   * Nevasca; é o que aparece em vinte anos de GIF. Com a imunidade o monstro
+   * congelava uma vez e a tempestade parava de tocá-lo — mais arrumado, e não
+   * era Ragnarok. Decisão do dono.
    *
-   * ⚠️ É mais controle, e foi pedido sabendo disso. O que o `DD-SOR-012` queria
-   * evitar era a Nevasca "de 25 %", que congelava cedo e REPETIDAMENTE; aqui o
-   * gelo vem uma vez, depois de 1,2 s dentro da tempestade, e o alvo para de
-   * levar dano dela — controle em troca de dano.
+   * ⚠️ Consequência assumida: os 10 s de gelo quase nunca são cumpridos DENTRO
+   * da tempestade. Eles valem para quem congelou perto do fim dela — e é aí que
+   * o combo do `DD-SOR-012` vive.
    */
   const n = SKILLS.blizzard;
 
-  // 1. O acúmulo: três acertos antes de rolar.
+  // 1. O acúmulo: três acertos antes de cada rolagem.
   assert.equal(n.congelaEmAcertos, 3);
+
+  /*
+   * 🔴 **O alvo tem de PODER rolar mais de uma vez por tempestade.** É o que
+   * separa o modelo de agora do que ele substituiu: com 10 bolas e uma rolagem
+   * a cada 3 acertos, o melhor caso — o alvo apanhando de todas — são três
+   * rolagens (3º, 6º, 9º). Se a contagem de bolas cair para menos de 6, o
+   * modelo silenciosamente vira "uma chance por tempestade", que é exatamente a
+   * versão descartada, de volta sem ninguém decidir.
+   *
+   * ⚠️ Isto é o TETO, não a média. Quantas bolas de fato pegam um alvo depende
+   * de sorteio e do empurrão — ver o pendente do dia sobre a cobertura da área.
+   */
+  const rolagens = Math.floor(skillHits(n, 10) / n.congelaEmAcertos!);
+  assert.ok(rolagens >= 3, `só ${rolagens} rolagem(ns) por tempestade — o quique some`);
 
   /*
    * 2. A rolagem, que só acontece naquele acerto — e ela CAI com o nível.
@@ -230,18 +249,27 @@ test('❄️ Nevasca no modelo do RO: congela no 3º acerto, e o gelo dura 10 s'
   );
 
   /*
-   * 3. 🔴 **E o gelo continua quebrando com dano.**
+   * 3. 🔴 **E o gelo quebra com dano — inclusive com o dela mesma.**
    *
-   * Esta é a peça que parece contradizer as outras duas e não contradiz. O
-   * congelamento deste jogo quebra com dano, então a imunidade aos pulsos
-   * seguintes da MESMA tempestade (no servidor, `golpeDeArea`) não é enfeite do
-   * RO: é o que impede a Nevasca de descongelar o próprio alvo 400 ms depois.
+   * Parecia a peça que contradizia as outras duas. É a que as faz funcionar: é
+   * porque a própria Nevasca quebra o gelo que ela quica, e é porque ela rola
+   * de novo três acertos depois que o quique se repete. Trocar isto para
+   * `false` não "conserta" a duração — desliga a magia.
    *
-   * O combo do documento sobrevive inteiro — *"congela → abre distância →
-   * prepara Meteoro → impacto quebra o gelo"* —, porque quem quebra é OUTRA
-   * fonte de dano.
+   * O combo do documento sobrevive — *"congela → abre distância → prepara
+   * Meteoro → impacto quebra o gelo"* —, valendo para quem sai da tempestade
+   * congelado.
    */
   assert.equal(CONDITIONS.freeze.brokenByDamage, true);
+
+  /*
+   * 4. 🌬️ **O empurrão: duas células, e ele é PARTE do congelamento.**
+   *
+   * Sem empurrão o alvo fica no mesmo tile e o modelo ainda funciona; com ele,
+   * o alvo é jogado para outra célula do 9×9 a cada acerto, e é o vaivém que
+   * dá o efeito. O número é da ficha do RO.
+   */
+  assert.equal(n.empurraPorPulso, 2);
 
   // O que o documento crava e ninguém mexeu: dez segundos de gelo.
   assert.equal(skillConditionDuration(n, 10), 10000);
@@ -277,10 +305,16 @@ test('🌬️ empurrão e acúmulo só existem em modo que o servidor LÊ', () =
    */
   for (const def of Object.values(SKILLS)) {
     if (def.empurraPorPulso === undefined && def.congelaEmAcertos === undefined) continue;
-    assert.ok(
-      def.queda === true || def.kind === 'ground',
-      `${def.id} declara empurrão/acúmulo fora de queda e de área de chão — `
-      + 'os campos ficariam mortos',
+    /*
+     * ⚠️ **Só `queda`.** A área de chão sabia ler os dois campos e essa cópia
+     * foi APAGADA em 11/09, quando as regras foram invertidas para o RO e só a
+     * cópia viva mudou — sobraram duas versões da mesma regra discordando. Se
+     * uma magia de chão precisar de empurrão, o caminho é chamar
+     * `empurraAoAcaso`, e não ressuscitar a leitura aqui.
+     */
+    assert.equal(
+      def.queda, true,
+      `${def.id} declara empurrão/acúmulo sem ser queda — os campos ficariam mortos`,
     );
     // ⚠️ E o acúmulo sem condição nenhuma é um contador que não rola nada.
     if (def.congelaEmAcertos !== undefined) {
