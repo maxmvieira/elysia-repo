@@ -3630,6 +3630,372 @@
         border-color: #4a6a8a;
         color: #dfeeff;
       }
+
+      /* ================================================================
+         TELAS DE FORA DO JOGO — SEGUNDA PASSADA (2026-09-10)
+         ================================================================
+
+         Pedido do dono: *"Deixe mais bonito essa tela, com mais animações,
+         movimentos, ela mais 'expandida'. Com um design mais atrativo."*, para
+         a criação E para a lista de personagens.
+
+         🔴 **Este bloco vem por ÚLTIMO no `<style>` de propósito.** Ele
+         sobrescreve as regras de 02/09 sem apagá-las: o desenho anterior fica
+         legível no arquivo, e voltar atrás é remover este bloco inteiro. Foi o
+         mesmo caminho da segunda passada da HUD, em 09/09.
+
+         ⚠️ **Toda animação daqui é de CSS, nenhuma é de JavaScript.** Estas
+         telas rodam ANTES de o Pixi existir; um `requestAnimationFrame` só
+         para respirar um sprite gastaria quadro num lugar onde não há laço de
+         render nenhum. */
+
+      /* ---- A RESPIRAÇÃO DO SPRITE -------------------------------------
+       *
+       * 🔴 O par desta regra mora em `heroIdleCss`, no `heroes.ts` — ele monta
+       * o `background-size` e o `--quadros-x` que a animação consome. **Os dois
+       * têm de andar juntos**: o `12` do nome do keyframe é a contagem de
+       * quadros da tira `idle.png`, e o conversor a imprime a cada build.
+       *
+       * ⚠️ Anima `background-position-x` sozinho, e não `background-position`:
+       * a versão em duas dimensões zeraria o `y`, que é a LINHA da tira, e o
+       * personagem passaria a respirar de costas no meio do ciclo. */
+      @keyframes respira-12 {
+        /* ⚠️ O início NÃO é zero: o enquadramento por conteúdo desloca o
+           primeiro quadro para centrar o personagem, e `--quadros-x0` é esse
+           deslocamento. Partir de zero faria a animação saltar para o canto
+           da célula no primeiro quadro de cada ciclo. */
+        from { background-position-x: var(--quadros-x0); }
+        to   { background-position-x: var(--quadros-x); }
+      }
+
+      /* Entrada suave, usada por cartão, linha e painel. O `translateY` é
+         pequeno de propósito: chamar atenção sem virar carrossel. */
+      @keyframes cc-entra {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: none; }
+      }
+      /* Brilho que respira nas bordas douradas do que está selecionado. */
+      @keyframes cc-pulsa {
+        0%, 100% { box-shadow: 0 0 0 1px #6d5a30, 0 0 14px -4px #c9a86a; }
+        50%      { box-shadow: 0 0 0 1px #a98b45, 0 0 22px -2px #e8cd8f; }
+      }
+      /* O halo do palco, girando devagar atrás do personagem. */
+      @keyframes cc-gira {
+        from { transform: translate(-50%, -50%) rotate(0deg); }
+        to   { transform: translate(-50%, -50%) rotate(360deg); }
+      }
+
+      /* ⚠️ Quem pediu menos movimento no sistema recebe menos movimento. As
+         animações decorativas somem; a RESPIRAÇÃO do sprite fica, porque ela é
+         conteúdo (é o personagem), não enfeite. */
+      @media (prefers-reduced-motion: reduce) {
+        .classcard, .charrow, #ccpalco::before, #ccradar polygon { animation: none !important; }
+      }
+
+      /* ---- CRIAÇÃO: a tela ficou mais larga -------------------------- */
+      #startwrap {
+        width: min(1560px, 99vw);
+        grid-template-columns: 360px 1fr 340px;
+        gap: 24px;
+      }
+      #startleft, #ccattrs {
+        background: linear-gradient(180deg, rgba(14, 12, 18, 0.9), rgba(8, 7, 11, 0.88));
+        border: 1px solid #4a4137;
+        border-radius: 10px;
+        padding: 18px;
+        box-shadow: 0 18px 40px -22px #000, inset 0 1px 0 #ffffff10;
+      }
+
+      /* ---- CRIAÇÃO: o cartão de classe ------------------------------- */
+      /*
+       * 🔴 **O ícone virou o SPRITE DO JOGO, animado** (pedido do dono). Antes
+       * era o retrato ilustrado; agora é o mesmo boneco que vai andar no mundo,
+       * respirando. `retratoDeClasseCss` continua no `heroes.ts` e a arte segue
+       * em `/assets/retratos/` — a troca é de escolha visual, não de exclusão.
+       */
+      .classcard {
+        position: relative;
+        gap: 14px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        overflow: hidden;
+        /* O escalonamento por índice sai do `--i`, que o JS escreve no cartão:
+           os cinco entram em cascata em vez de aparecerem todos juntos. */
+        animation: cc-entra 0.34s ease both;
+        animation-delay: calc(var(--i, 0) * 60ms);
+        transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+      }
+      .classcard::after {
+        /* Faixa de luz que atravessa o cartão ao passar o mouse. É `::after`
+           com `transform` para não repintar o layout — só a composição. */
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(105deg, transparent 35%, #ffffff14 50%, transparent 65%);
+        transform: translateX(-120%);
+        transition: transform 0.55s ease;
+        pointer-events: none;
+      }
+      .classcard:hover { transform: translateX(4px); border-color: #7a6a45; }
+      .classcard:hover::after { transform: translateX(120%); }
+      .classcard.sel {
+        border-color: #c9a86a;
+        background: linear-gradient(90deg, #2a2113, rgba(20, 17, 12, 0.6));
+        animation: cc-pulsa 2.6s ease-in-out infinite;
+      }
+      .classcard .cicon {
+        width: 56px;
+        height: 56px;
+        flex: 0 0 56px;
+        /* ⚠️ A célula do sprite é quadrada e o boneco ocupa a metade de baixo
+           dela; sem o empurrão a cabeça fica no meio da caixa e o cartão parece
+           ter um buraco em cima. */
+        background-position-y: -4px;
+      }
+      .classcard .cinfo b { font-size: 14px; }
+
+      /* ---- CRIAÇÃO: o palco ----------------------------------------- */
+      #ccpalco {
+        position: relative;
+        min-height: 300px;
+        display: grid;
+        place-items: center;
+      }
+      /* Halo giratório atrás do boneco. Fica no `::before` para o palco poder
+         continuar recebendo o sprite como `background`, sem elemento extra. */
+      #ccpalco::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 54%;
+        width: 300px;
+        height: 300px;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle, rgba(201, 168, 106, 0.16) 0%, transparent 62%),
+          conic-gradient(from 0deg, transparent, rgba(201, 168, 106, 0.22), transparent 55%);
+        animation: cc-gira 22s linear infinite;
+        pointer-events: none;
+      }
+      /* Chão de luz, para o boneco não flutuar no vazio. */
+      #ccpalco::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        bottom: 8%;
+        width: 190px;
+        height: 26px;
+        transform: translateX(-50%);
+        border-radius: 50%;
+        background: radial-gradient(ellipse, rgba(201, 168, 106, 0.26), transparent 70%);
+        pointer-events: none;
+      }
+      /* O sprite do palco: grande, nítido e por cima do halo. */
+      #ccpalco .palcoboneco {
+        position: relative;
+        z-index: 1;
+        width: 256px;
+        height: 256px;
+        filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55));
+      }
+
+      /* ---- CRIAÇÃO: o gráfico de atributos --------------------------- */
+      /*
+       * 🔴 **O TEIA DE ATRIBUTOS, NO ESPÍRITO DO RAGNAROK** — pedido do dono: *"Coloque 1 gráfico
+       * montando os atributos, tipo o do ragnarok mesmo, quando vc coloca
+       * Strength, ele puxa pro lado dele.. e vai equilibrando."*
+       *
+       * ⚠️ **Sete vértices, não seis.** O jogo tem STR, VIT, AGI, DEX, INT, WIS
+       * e LUK; o do Ragnarok tem seis, sem WIS separado. A geometria sai do
+       * `ATTRIBUTE_KEYS.length`, então a figura acompanha sozinha se a lista
+       * mudar.
+       *
+       * ⚠️ O desenho é SVG e quem move os pontos é o `pintaRadar`, no
+       * `main.ts`. A transição mora aqui: mudar o `points` de um `<polygon>`
+       * anima sozinho se a propriedade estiver na lista de transição, e é o que
+       * faz o gráfico "puxar para o lado" em vez de saltar.
+       */
+      #ccradar {
+        display: block;
+        width: 100%;
+        max-width: 260px;
+        margin: 2px auto 10px;
+        overflow: visible;
+      }
+      #ccradar .grade { fill: none; stroke: #4a4137; stroke-width: 1; }
+      #ccradar .eixo { stroke: #3b3630; stroke-width: 1; }
+      #ccradar .area {
+        fill: rgba(201, 168, 106, 0.26);
+        stroke: #e8cd8f;
+        stroke-width: 2;
+        stroke-linejoin: round;
+        /* 🔴 É esta linha que dá o "puxa pro lado" do pedido. */
+        transition: points 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      #ccradar .ponto { fill: #e8cd8f; transition: cx 0.45s, cy 0.45s; }
+      #ccradar .rot { fill: #b9a173; font-size: 10px; letter-spacing: 1px; }
+      #ccradar .rotval { fill: #e8e2d5; font-size: 11px; font-weight: 700; }
+
+      /* ---- SEUS PERSONAGENS ------------------------------------------ */
+      #charselect > h2 { animation: cc-entra 0.3s ease both; }
+      #charlist {
+        display: grid;
+        gap: 8px;
+      }
+      .charrow {
+        position: relative;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        overflow: hidden;
+        animation: cc-entra 0.34s ease both;
+        animation-delay: calc(var(--i, 0) * 55ms);
+        transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+      }
+      .charrow::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(105deg, transparent 35%, #ffffff12 50%, transparent 65%);
+        transform: translateX(-120%);
+        transition: transform 0.55s ease;
+        pointer-events: none;
+      }
+      .charrow:hover { transform: translateX(4px); border-color: #7a6a45; }
+      .charrow:hover::after { transform: translateX(120%); }
+      .charrow.sel { animation: cc-pulsa 2.6s ease-in-out infinite; }
+      /*
+       * 🔴 **O ÍCONE DO PERSONAGEM** — pedido do dono: *"deixe o ícone do
+       * personagem também"*. É o sprite da classe, respirando, no lugar do
+       * quadrado de 36 px que havia antes.
+       *
+       * ⚠️ O medalhão redondo é `::before` do próprio ícone: sem ele o sprite
+       * fica solto sobre a linha e a lista perde o alinhamento de leitura, que
+       * é a única coisa que a lista precisa fazer bem.
+       */
+      .charrow .cicon {
+        position: relative;
+        width: 52px;
+        height: 52px;
+        flex: 0 0 52px;
+        background-position-y: -3px;
+        border-radius: 8px;
+        background-color: #14121a;
+        box-shadow: inset 0 0 0 1px #3b3630, inset 0 -10px 16px -10px #c9a86a55;
+      }
+      .charrow .cnome b { font-size: 14px; }
+
+      /* ---- MENUS DO JOGO: MOVER E REDIMENSIONAR ---------------------- */
+      /*
+       * 🔴 Pedido do dono: *"Os menus de dentro do game, como, mapa que fica na
+       * parte de cima, devem ser todos redimensionáveis... e também devo
+       * conseguir reposicionar eles na tela. (igual é com os menus onde ficam
+       * os atalhos de magias)."*
+       *
+       * ⚠️ A alça é um elemento REAL e não o `resize` nativo do CSS. O nativo
+       * exige `overflow` diferente de `visible`, o que cortaria a moldura de
+       * `border-image` da HUD inteira — e ele não avisa quando o arrasto acaba,
+       * então não haveria onde salvar o tamanho.
+       */
+      .jresize {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 16px;
+        height: 16px;
+        cursor: nwse-resize;
+        z-index: 5;
+        /* Três riscos na diagonal, como toda alça de canto. */
+        background:
+          linear-gradient(135deg, transparent 46%, #c9a86a99 46%, #c9a86a99 54%, transparent 54%),
+          linear-gradient(135deg, transparent 66%, #c9a86a77 66%, #c9a86a77 74%, transparent 74%);
+        opacity: 0;
+        transition: opacity 0.15s ease;
+      }
+      /* ⚠️ Só aparece com o mouse em cima: a alça é ferramenta, não decoração,
+         e seis alças sempre visíveis poluiriam a tela de jogo. */
+      .movivel:hover > .jresize, .jresize:active { opacity: 1; }
+      /* Enquanto arrasta ou redimensiona, o texto não pode ser selecionado nem
+         o cursor pode virar barra sobre os rótulos. */
+      .movivel.mexendo, .movivel.mexendo * { user-select: none; cursor: inherit !important; }
+      /* O pegador de MOVER, para painéis que não têm barra de título própria. */
+      .jmover {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 14px;
+        right: 16px;
+        cursor: grab;
+        z-index: 5;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+        background: repeating-linear-gradient(
+          90deg, #c9a86a55 0 3px, transparent 3px 7px
+        );
+      }
+      .movivel:hover > .jmover { opacity: 0.75; }
+      .jmover:active { cursor: grabbing; }
+
+      /* A alça e o pegador são `position: absolute` e precisam de um pai
+         posicionado. Os quatro painéis já são `absolute`/`fixed` pelo CSS
+         anterior; esta linha é a rede para qualquer painel futuro que entre no
+         sistema sem ter posicionamento próprio. */
+      .movivel { position: absolute; }
+      /*
+       * 🔴 **QUEM DESENHA TEM DE ACOMPANHAR A CAIXA.** Relatado pelo dono em
+       * 2026-09-11: *"o redimensionamento do menu principal (já dentro do game,
+       * onde fica o nome do char e o lvl) não redimensiona... está dando
+       * erro."*
+       *
+       * E não estava dando erro nenhum — era pior que isso, porque não havia o
+       * que investigar no console. O `#charhud` é um `flex` cujo desenho todo
+       * (moldura de `border-image`, barras, atalhos) mora no filho `#chcorpo`,
+       * e o filho tem largura PRÓPRIA. Esticar o pai crescia uma caixa
+       * invisível: o painel continuava do mesmo tamanho e a alça fugia para o
+       * canto de um retângulo que ninguém vê.
+       *
+       * ⚠️ Vale para os três casos em que o desenho está num filho — o painel do
+       * personagem, o corpo do minimapa e o miolo das janelas. O
+       * `ligaMovelRedimensionavel` continua escrevendo no elemento de fora, que
+       * é quem guarda a posição; estas regras fazem o de dentro segui-lo.
+       */
+      #charhud.movivel > #chcorpo,
+      #minimapa.movivel > #mmcorpo,
+      .janela.movivel > .jcorpo {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+      }
+      #skillpanel.movivel { position: fixed; }
+      /*
+       * 🔴 A CARINHA no lugar da engrenagem (10/09). O sprite entra como
+       * `background` pelo `heroIdleCss`, em estilo INLINE — que vence as regras
+       * de `--ico`, `--ico-hover` e `--ico-press` do `.btnico` sem precisar
+       * apagá-las.
+       *
+       * ⚠️ **O `::after` do `.btnico` NÃO é tocado, e quase foi.** Ele é o aro
+       * dourado que acende no hover, o mesmo dos slots de magia; zerá-lo
+       * deixaria a carinha como o único botão da fileira sem realce ao passar o
+       * mouse — e o único jeito de perceber seria comparando os sete lado a
+       * lado.
+       */
+      /*
+       * ⚠️ O botão em si NÃO é tocado — moldura, hover e press continuam os do
+       * `.btnico`. Quem desenha o rosto é o filho `.rosto`, encaixado por
+       * dentro da moldura.
+       */
+      .btnico.carinha .rosto {
+        position: absolute;
+        /* 20 % de recuo é o que sobra por dentro da faixa dourada da arte. */
+        inset: 20%;
+        border-radius: 3px;
+        /* 🔴 Opaco de propósito: a arte `config` traz uma ENGRENAGEM desenhada,
+           e a silhueta do personagem é vazada. Sem o fundo, a engrenagem
+           aparece entre os braços e as pernas do boneco. */
+        background-color: #17141d;
+        box-shadow: inset 0 0 0 1px #00000080;
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
@@ -4441,6 +4807,21 @@
         -->
         <aside id="ccattrs" style="display: none">
           <h3 class="ccpasso">4. DISTRIBUA SEUS PONTOS</h3>
+          <!--
+            🔴 O TEIA DE ATRIBUTOS (10/09), pedido do dono: *"tipo o do
+            ragnarok mesmo, quando vc coloca Strength, ele puxa pro lado dele"*.
+
+            Nasce vazio: quem desenha a grade, os eixos, os rótulos e a área é o
+            `montaRadar`/`pintaRadar` do `main.ts`. Deixar o esqueleto no HTML
+            duplicaria em dois lugares a geometria dos sete vértices, e é ela
+            que tem de bater exatamente entre a grade parada e a área que se
+            move.
+
+            ⚠️ `viewBox` de −130 a 130 nos dois eixos: a origem no CENTRO é o
+            que deixa o cálculo de cada vértice ser seno e cosseno puros, sem
+            somar meio-quadro em toda conta.
+          -->
+          <svg id="ccradar" viewBox="-130 -130 260 260" aria-hidden="true"></svg>
           <div id="ccattrs-head">
             <span>Pontos restantes</span>
             <b id="ccattrs-left">0</b>

@@ -174,7 +174,11 @@ import {
 import { loadKnightSprites, knightIconCss, type KnightArt } from './knight.js';
 import { retratoUrl } from './bestiario.js';
 import {
-  loadHeroArt, loadEquipArt, golpeDe, heroIconCss, retratoDeClasseCss, pecaDaArma, temCamada,
+  // ⚠️ `heroIconCss` e `retratoDeClasseCss` saíram do import em 10/09, quando
+  // os cartões e o palco passaram a usar `heroIdleCss`. As duas CONTINUAM
+  // exportadas pelo `heroes.ts` e a arte segue no disco — voltar atrás é
+  // repor os nomes aqui e trocar as três chamadas.
+  loadHeroArt, loadEquipArt, golpeDe, heroIdleCss, heroRostoCss, pecaDaArma, temCamada,
   HERO_ART_CLASSES,
   type HeroArt, type EquipArt, type EquipPiece, type ArtePorClasse,
 } from './heroes.js';
@@ -298,6 +302,19 @@ function alternaJanela(id: string): () => void {
  */
 function ligaJanelas(): void {
   for (const j of document.querySelectorAll<HTMLElement>('.janela')) {
+    /*
+     * 🔴 **As quatro janelas ganharam a ALÇA de redimensionar** (10/09), pelo
+     * pedido de "todos os menus". O arrasto delas continua sendo o daqui, que
+     * já existia e já funcionava — `ligaMovelRedimensionavel` entra só pelo
+     * tamanho, com o pegador apontado para a barra de título de sempre.
+     *
+     * ⚠️ **`mover: false` não é detalhe.** Dois ouvintes de arrasto na mesma
+     * barra fariam a janela andar o DOBRO do mouse — e `stopPropagation` não
+     * resolveria, porque ele não cala um irmão registrado no mesmo elemento.
+     * A posição continua na chave antiga (`elysia.janela.<id>`), preservando o
+     * que os jogadores já arrumaram; só o tamanho é novo.
+     */
+    ligaMovelRedimensionavel(j, { chave: j.id, minW: 220, minH: 140, mover: false });
     const chave = `elysia.janela.${j.id}`;
     try {
       const salvo = JSON.parse(localStorage.getItem(chave) ?? 'null') as { x: number; y: number } | null;
@@ -350,6 +367,231 @@ function ligaJanelas(): void {
 }
 
 /**
+ * 🔴 **MOVER E REDIMENSIONAR QUALQUER PAINEL DA HUD** — pedido do dono
+ * (2026-09-10): *"Os menus de dentro do game, como, mapa que fica na parte de
+ * cima, devem ser todos redimensionáveis (consigo aumentar e diminuir o tamanho
+ * deles no game) e também devo conseguir reposicionar eles na tela. (igual é
+ * com os menus onde ficam os atalhos de magias)."*
+ *
+ * ✅ **UMA função para os seis painéis, e não seis cópias.** Antes havia dois
+ * sistemas de arrastar quase iguais e nenhum de redimensionar: `ligaJanelas`
+ * (as quatro janelas, arrasta pela barra de título) e o pegador da barra de
+ * magias (`#spellgrip`). Este generaliza os dois e acrescenta o tamanho.
+ *
+ * ⚠️ **O tamanho é gravado como CSS `width`/`height` no elemento**, o que
+ * significa que ele passa a vencer o que a folha de estilo diz. É o
+ * comportamento pretendido — o jogador mandou —, mas quer dizer que mudanças
+ * futuras no CSS de tamanho não alcançam quem já redimensionou. O reset está no
+ * duplo-clique da alça.
+ *
+ * 🔴 **`escala` existe porque nem todo painel é elástico.** O minimapa desenha
+ * num `<canvas>` de tamanho fixo: esticar a caixa deixaria o mapa do mesmo
+ * tamanho num quadro maior. Quem passa um `escala` recebe o fator de zoom e
+ * decide o que fazer com ele — no minimapa, um `transform: scale`.
+ *
+ * @param elemento O painel.
+ * @param opcoes.chave Sufixo do `localStorage`. Sem ele nada é lembrado.
+ * @param opcoes.pegador Seletor do que arrasta. Ausente = cria uma faixa no topo.
+ * @param opcoes.minW,minH Tamanho mínimo, para não sumir de vez.
+ * @param opcoes.escala Chamado com o fator de tamanho a cada mudança.
+ */
+function ligaMovelRedimensionavel(
+  elemento: HTMLElement,
+  opcoes: {
+    chave: string;
+    pegador?: string;
+    minW?: number;
+    minH?: number;
+    escala?: (fator: number) => void;
+    /**
+     * 🔴 `false` liga SÓ o redimensionar.
+     *
+     * É o caso das quatro `.janela`, que já tinham arrasto próprio em
+     * `ligaJanelas` — com posição salva numa chave antiga que os jogadores já
+     * têm. Ligar o daqui por cima poria DOIS ouvintes na mesma barra de título
+     * (e `stopPropagation` não cala o irmão registrado no mesmo elemento: isso
+     * é `stopImmediatePropagation`), então a janela andaria o dobro do mouse.
+     */
+    mover?: boolean;
+  },
+): void {
+  const { chave, minW = 120, minH = 80, mover: podeMover = true } = opcoes;
+  const armazem = `elysia.painel.${chave}`;
+  elemento.classList.add('movivel');
+
+  // O tamanho de fábrica, lido ANTES de qualquer restauração — é para ele que
+  // o duplo-clique na alça volta, e é a base do fator de escala.
+  const base = elemento.getBoundingClientRect();
+  const baseW = base.width || minW;
+  const baseH = base.height || minH;
+
+  const aplicaEscala = (): void => {
+    if (!opcoes.escala) return;
+    const w = elemento.offsetWidth || baseW;
+    opcoes.escala(w / baseW);
+  };
+
+  /*
+   * ⚠️ **Prende na tela, mas pelo canto de cima-esquerda.** Prender a caixa
+   * inteira impediria de encostar um painel grande na borda direita; prender só
+   * a origem garante que sempre sobra pegador visível para trazer de volta.
+   */
+  const poe = (x: number, y: number): void => {
+    const w = elemento.offsetWidth || baseW;
+    const h = elemento.offsetHeight || baseH;
+    /*
+     * 🔴 **`left`/`top` são medidos a partir do PAI POSICIONADO, e o ponteiro
+     * a partir da JANELA.** Os dois só coincidem quando o pai começa em (0,0), e
+     * nenhum destes painéis está nessa situação: o minimapa e o painel do
+     * personagem são filhos do `#viewport`. Sem descontar a origem do pai, o
+     * painel salta para longe da mão no primeiro pixel de arrasto.
+     */
+    const pai = (elemento.offsetParent as HTMLElement | null)?.getBoundingClientRect();
+    const ox = pai?.left ?? 0;
+    const oy = pai?.top ?? 0;
+    const larguraPai = pai?.width ?? window.innerWidth;
+    const alturaPai = pai?.height ?? window.innerHeight;
+    elemento.style.left = `${Math.round(Math.max(0, Math.min(larguraPai - Math.min(w, 80), x - ox)))}px`;
+    elemento.style.top = `${Math.round(Math.max(0, Math.min(alturaPai - Math.min(h, 40), y - oy)))}px`;
+    // 🔴 Zerar as âncoras opostas é obrigatório: o minimapa nasce ancorado à
+    // direita e o painel do personagem à esquerda. Com `right` e `left` ao
+    // mesmo tempo o elemento ESTICA em vez de andar.
+    elemento.style.right = 'auto';
+    elemento.style.bottom = 'auto';
+    elemento.style.transform = 'none';
+  };
+
+  const grava = (): void => {
+    try {
+      localStorage.setItem(armazem, JSON.stringify({
+        x: parseInt(elemento.style.left, 10) || 0,
+        y: parseInt(elemento.style.top, 10) || 0,
+        w: elemento.offsetWidth,
+        h: elemento.offsetHeight,
+      }));
+    } catch { /* armazenamento bloqueado: vale só nesta sessão */ }
+  };
+
+  try {
+    const salvo = JSON.parse(localStorage.getItem(armazem) ?? 'null') as
+      { x: number; y: number; w: number; h: number } | null;
+    if (salvo && Number.isFinite(salvo.w) && Number.isFinite(salvo.h)) {
+      elemento.style.width = `${salvo.w}px`;
+      elemento.style.height = `${salvo.h}px`;
+      // ⚠️ Quem não move por aqui também não restaura posição por aqui: a das
+      // janelas vive na chave antiga, e escrever as duas brigaria por ela.
+      if (podeMover) poe(salvo.x, salvo.y);
+      aplicaEscala();
+    }
+  } catch { /* preferência corrompida: fica onde o CSS pôs */ }
+
+  /** Pegador de mover: o que foi pedido, ou uma faixa criada no topo. */
+  let pegador: HTMLElement | null = null;
+  if (podeMover) {
+    pegador = opcoes.pegador ? elemento.querySelector<HTMLElement>(opcoes.pegador) : null;
+    if (!pegador) {
+      pegador = document.createElement('div');
+      pegador.className = 'jmover';
+      pegador.title = 'Arraste para mover · duplo-clique volta ao lugar';
+      elemento.appendChild(pegador);
+    }
+  }
+
+  const alca = document.createElement('div');
+  alca.className = 'jresize';
+  alca.title = 'Arraste para redimensionar · duplo-clique volta ao tamanho normal';
+  elemento.appendChild(alca);
+
+  /*
+   * ⚠️ **`setPointerCapture` e não ouvintes no `window`.** Os dois funcionam,
+   * mas com captura o arrasto sobrevive ao ponteiro passar por cima do canvas
+   * do Pixi — que come eventos para andar e para mirar magia. Foi o que fazia o
+   * painel "escapar" da mão no meio do movimento.
+   */
+  const arrasta = (
+    disparador: HTMLElement,
+    aoMover: (dx: number, dy: number) => void,
+  ): void => {
+    disparador.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      /*
+       * 🔴 **Barra de título costuma ter BOTÃO dentro**, e o arrasto não pode
+       * engoli-lo: o `#chtopo` traz o ✕ de recolher o painel e o `h3` do painel
+       * de habilidades traz o de fechar. Com `preventDefault` no `pointerdown`
+       * o clique deles nunca chegava a acontecer — o botão ficava morto e a
+       * única pista era o painel não fechar mais.
+       */
+      if ((ev.target as HTMLElement).closest('button, input, select, a')) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const x0 = ev.clientX;
+      const y0 = ev.clientY;
+      disparador.setPointerCapture(ev.pointerId);
+      elemento.classList.add('mexendo');
+      const mover = (e: PointerEvent): void => aoMover(e.clientX - x0, e.clientY - y0);
+      const soltar = (): void => {
+        disparador.removeEventListener('pointermove', mover);
+        disparador.removeEventListener('pointerup', soltar);
+        disparador.removeEventListener('pointercancel', soltar);
+        elemento.classList.remove('mexendo');
+        grava();
+      };
+      disparador.addEventListener('pointermove', mover);
+      disparador.addEventListener('pointerup', soltar);
+      disparador.addEventListener('pointercancel', soltar);
+    });
+  };
+
+  const caixaAoPegar = { x: 0, y: 0, w: 0, h: 0 };
+  const lembra = (): void => {
+    const r = elemento.getBoundingClientRect();
+    caixaAoPegar.x = r.left; caixaAoPegar.y = r.top;
+    caixaAoPegar.w = r.width; caixaAoPegar.h = r.height;
+  };
+
+  if (pegador) {
+    pegador.addEventListener('pointerdown', lembra);
+    arrasta(pegador, (dx, dy) => poe(caixaAoPegar.x + dx, caixaAoPegar.y + dy));
+  }
+
+  alca.addEventListener('pointerdown', lembra);
+  arrasta(alca, (dx, dy) => {
+    /*
+     * 🔴 **A PROPORÇÃO É TRAVADA quando há `escala`.** O minimapa é quadrado e
+     * o canvas dentro dele também; deixar esticar só a largura daria um mapa
+     * oval. Quem não usa `escala` (as janelas) redimensiona nos dois eixos à
+     * vontade, porque ali o conteúdo é texto e reflui.
+     */
+    if (opcoes.escala) {
+      const lado = Math.max(minW, caixaAoPegar.w + Math.max(dx, dy));
+      elemento.style.width = `${Math.round(lado)}px`;
+      elemento.style.height = `${Math.round(lado * (caixaAoPegar.h / caixaAoPegar.w))}px`;
+    } else {
+      elemento.style.width = `${Math.round(Math.max(minW, caixaAoPegar.w + dx))}px`;
+      elemento.style.height = `${Math.round(Math.max(minH, caixaAoPegar.h + dy))}px`;
+    }
+    aplicaEscala();
+  });
+
+  // Duplo-clique em qualquer um dos dois pegadores devolve o painel de fábrica.
+  // ⚠️ É a única saída para quem encolheu um painel a ponto de não achar mais a
+  // alça, e para quem o arrastou para um canto e trocou de resolução.
+  const restaura = (): void => {
+    elemento.style.width = '';
+    elemento.style.height = '';
+    elemento.style.left = '';
+    elemento.style.top = '';
+    elemento.style.right = '';
+    elemento.style.bottom = '';
+    elemento.style.transform = '';
+    try { localStorage.removeItem(armazem); } catch { /* idem */ }
+    aplicaEscala();
+  };
+  alca.addEventListener('dblclick', restaura);
+  pegador?.addEventListener('dblclick', restaura);
+}
+
+/**
  * Liga os quatro estados de um botão de arte.
  *
  * ⚠️ **Uma função, e não quatro `setProperty` espalhados.** Os nomes dos
@@ -369,6 +611,20 @@ function aplicaEstadoDoPainel(expandida: boolean): void {
   const painel = el('charhud');
   painel.classList.toggle('recolhido', !expandida);
   painel.classList.toggle('expandido', expandida);
+  /*
+   * 🔴 **RECOLHER MANDA NA ALTURA, e o redimensionar não pode brigar com ele.**
+   *
+   * A altura deste painel é do CONTEÚDO: recolhido ele esconde XP, Job e os sete
+   * atalhos, e encolhe. Se o jogador tiver arrastado a alça, sobra uma altura
+   * fixa no elemento — e aí recolher deixaria o painel do mesmo tamanho, com um
+   * vão vazio embaixo, que é exatamente o defeito que o redimensionar veio
+   * consertar.
+   *
+   * ⚠️ **Só a altura é largada; a LARGURA sobrevive**, e é a que o jogador
+   * costuma querer mexer. Ele perde a altura escolhida ao recolher e expandir —
+   * é o preço de o botão continuar fazendo o que promete.
+   */
+  painel.style.height = '';
   const b = el('chtoggle');
   /*
    * ⚠️ Troca a ARTE, não o texto — escrever `textContent` aqui deixaria um
@@ -390,6 +646,47 @@ function ligaPainelDoPersonagem(): void {
   } catch { /* armazenamento bloqueado: começa expandida */ }
   aplicaEstadoDoPainel(expandida);
   ligaJanelas();
+
+  /*
+   * 🔴 **OS PAINÉIS DA HUD GANHARAM MOVER E REDIMENSIONAR** (10/09). Ver
+   * `ligaMovelRedimensionavel`.
+   *
+   * ⚠️ **O minimapa precisa de `escala`, e os outros não.** O mapa é desenhado
+   * num `<canvas>` de 130×130 fixos: esticar a caixa daria um quadro maior com
+   * o mesmo mapinha no meio. O `transform: scale` no canvas é o que faz o
+   * conteúdo crescer junto, e `transform-origin` no canto de cima-esquerda o
+   * mantém colado onde a moldura o espera.
+   *
+   * ⚠️ **O canvas NÃO é redimensionado de verdade** (mexer em `width`/`height`
+   * limparia o desenho a cada quadro de arrasto, e o minimapa é repintado pelo
+   * laço do jogo). `scale` é aproximação de pixel, o que num minimapa de pixel
+   * art é exatamente o que se quer.
+   */
+  const mapaCanvas = document.getElementById('minimap') as HTMLCanvasElement | null;
+  const minimapaEl = document.getElementById('minimapa');
+  if (minimapaEl) {
+    ligaMovelRedimensionavel(minimapaEl, {
+      chave: 'minimapa',
+      pegador: '#mmtopo',
+      minW: 120,
+      minH: 120,
+      escala: (f) => {
+        if (!mapaCanvas) return;
+        mapaCanvas.style.transformOrigin = 'top left';
+        mapaCanvas.style.transform = `scale(${f})`;
+      },
+    });
+  }
+
+  // O painel do personagem arrasta pela própria barra de nome e nível.
+  const charhudEl = document.getElementById('charhud');
+  if (charhudEl) {
+    ligaMovelRedimensionavel(charhudEl, { chave: 'charhud', pegador: '#chtopo', minW: 200, minH: 90 });
+  }
+
+  // O painel de habilidades já tinha barra de título com o ✕; reusa como pegador.
+  const skillEl = document.getElementById('skillpanel');
+  if (skillEl) ligaMovelRedimensionavel(skillEl, { chave: 'skillpanel', pegador: 'h3', minW: 240, minH: 200 });
   el('chtoggle').addEventListener('click', () => {
     expandida = !expandida;
     aplicaEstadoDoPainel(expandida);
@@ -433,14 +730,17 @@ function ligaPainelDoPersonagem(): void {
    * mesmo desenho que no macOS, e nenhum dos dois combina com moldura dourada.
    */
   const ATALHOS: Array<{
-    arte: string; nome: string; abre: () => void; futuro?: boolean;
+    arte: string; nome: string; abre: () => void; futuro?: boolean; marca?: string;
   }> = [
     { arte: 'inventario', nome: 'Inventário', abre: alternaJanela('jan-inventario') },
     { arte: 'skills', nome: 'Habilidades (K)', abre: alterna('skillpanel', 'flex') },
     { arte: 'amigos', nome: 'Amigos', abre: alternaJanela('jan-amigos') },
     { arte: 'quests', nome: 'Missões', abre: porVir('O diário de missões'), futuro: true },
     { arte: 'conquistas', nome: 'Conquistas', abre: porVir('A janela de conquistas'), futuro: true },
-    { arte: 'config', nome: 'Personagem (C)', abre: alternaJanela('jan-personagem') },
+    // ⚠️ `marca: 'ficha'` é como o repintor da carinha acha este botão depois
+    // do login — ver o bloco em `startGame`. A arte `config` fica de reserva:
+    // é o que aparece se a classe não tiver pack HD.
+    { arte: 'config', nome: 'Personagem (C)', abre: alternaJanela('jan-personagem'), marca: 'ficha' },
     { arte: 'correio', nome: 'Correio', abre: porVir('O correio'), futuro: true },
   ];
 
@@ -451,7 +751,7 @@ function ligaPainelDoPersonagem(): void {
     b.type = 'button';
     b.title = a.nome;
     b.setAttribute('aria-label', a.nome);
-    b.className = a.futuro ? 'btnico futuro' : 'btnico';
+    b.className = (a.futuro ? 'btnico futuro' : 'btnico') + (a.marca ? ' ' + a.marca : '');
     poeIcone(b, a.arte);
     b.addEventListener('click', a.abre);
     caixa.appendChild(b);
@@ -1280,7 +1580,9 @@ function renderCharList(chars: CharacterSlot[], error?: string): void {
       ? `<small class="prazo">Excluindo em ${horas}h${String(minutos).padStart(2, '0')}</small>`
       : '';
     row.innerHTML =
-      `<div class="cicon" style="${classIconCss(c.charClass, 36)}"></div>` +
+      `<div class="cicon" style="${HERO_ART_CLASSES.has(c.charClass)
+        ? heroIdleCss(c.charClass, 52)
+        : classIconCss(c.charClass, 52)}"></div>` +
       `<div class="cnome"><b>${c.name}</b><small>${def?.name ?? c.charClass} · nível ${c.level}</small>${prazo}</div>` +
       `<button class="cdel">${marcado ? 'Cancelar' : 'Excluir'}</button>`;
     row.onclick = () => {
@@ -1302,6 +1604,7 @@ function renderCharList(chars: CharacterSlot[], error?: string): void {
       }
       pedeExclusao(c);
     };
+    row.style.setProperty('--i', String(chars.indexOf(c)));
     listEl.appendChild(row);
   }
 
@@ -1371,8 +1674,7 @@ function setupStartScreen(): void {
       // cinco classes apontam para o mesmo pack universal, então as cinco
       // mudam junto. Quem não tem pack HD segue no ícone MiniWorld.
       for (const [cls, card] of cards) {
-        const css = retratoDeClasseCss(cls, 48, g, 'busto')
-          ?? (HERO_ART_CLASSES.has(cls) ? heroIconCss(cls, 48, g) : null);
+        const css = HERO_ART_CLASSES.has(cls) ? heroIdleCss(cls, 56, g) : null;
         if (css) card.querySelector('.cicon')?.setAttribute('style', css);
       }
       if (knightIcon) knightIcon.setAttribute('style', knightIconCss(gender, 48));
@@ -1401,10 +1703,29 @@ function setupStartScreen(): void {
    * (`flex: 1`) e `contain` faz o retrato caber sozinho na altura que sobrar,
    * sem esticar. Com `<img>` seria preciso calcular essa altura na mão.
    */
+  /*
+   * 🔴 **O PALCO PASSOU A MOSTRAR O SPRITE DO JOGO, RESPIRANDO** (10/09). O
+   * dono pediu: *"Tire os personagens que estão lá hoje... coloque os bandidos
+   * que usamos hoje. (pode deixar a animação dele parado respirando, se
+   * houver...)"* — e há: a tira `idle.png` do pack tem doze quadros.
+   *
+   * ⚠️ **O boneco virou um FILHO do palco, e não o `background` dele.** O
+   * `::before` e o `::after` do palco desenham o halo giratório e o chão de
+   * luz; com o sprite no fundo do próprio palco ele ficaria ATRÁS dos dois.
+   *
+   * ⚠️ `retratoDeClasseCss` continua exportada e a arte segue em
+   * `/assets/retratos/` — trocar de volta é uma linha, e por isso nada foi
+   * apagado.
+   */
   function pintaPalco(): void {
     const palco = document.getElementById('ccpalco');
     if (!palco) return;
-    palco.style.cssText = chosen ? (retratoDeClasseCss(chosen, 0, gender, 'palco') ?? '') : '';
+    palco.textContent = '';
+    if (!chosen) return;
+    const boneco = document.createElement('div');
+    boneco.className = 'palcoboneco';
+    boneco.setAttribute('style', heroIdleCss(chosen, 256, gender));
+    palco.appendChild(boneco);
   }
 
   // A ordem da arte de referência que o dono trouxe. As CINCO desde 02/09.
@@ -1422,8 +1743,16 @@ function setupStartScreen(): void {
     // mostra o desenho da classe, não o boneco top-down. Classe sem retrato cai
     // no sprite, e classe sem pack HD cai no ícone MiniWorld — a cadeia inteira
     // existe porque imagem de CSS que falta não dá erro, só cartão vazio.
-    const iconStyle = retratoDeClasseCss(id, 48, gender, 'busto')
-      ?? (HERO_ART_CLASSES.has(id) ? heroIconCss(id, 48, gender) : classIconCss(id, 48));
+    /*
+     * 🔴 **O SPRITE DO JOGO ganhou do retrato ilustrado** (10/09, pedido do
+     * dono). O cartão mostra o mesmo boneco que vai andar no mundo, respirando
+     * — que era, aliás, a intenção original de 02/09, antes de os retratos
+     * existirem. Classe sem pack HD ainda cai no ícone do MiniWorld: imagem de
+     * CSS que falta não dá erro, só cartão vazio.
+     */
+    const iconStyle = HERO_ART_CLASSES.has(id)
+      ? heroIdleCss(id, 56, gender)
+      : classIconCss(id, 56);
     card.innerHTML =
       `<div class="cicon" style="${iconStyle}"></div>` +
       `<div class="cinfo"><b>${def.name.toUpperCase()}</b><p>${def.blurb}</p></div>`;
@@ -1436,6 +1765,8 @@ function setupStartScreen(): void {
       // Repinta em vez de so chamar refresh: a previa muda com a classe.
       pintaAtributos();
     };
+    // `--i` escalona a entrada: os cinco cartoes surgem em cascata, nao juntos.
+    card.style.setProperty('--i', String(order.indexOf(id)));
     classesEl.appendChild(card);
     cards.set(id, card);
   }
@@ -1496,6 +1827,144 @@ function setupStartScreen(): void {
     return CREATION_POINTS - creationCost(atributos as Attributes);
   }
 
+  /* ---- 🕸️ O TEIA DE ATRIBUTOS ---------------------------------------
+   *
+   * 🔴 Pedido do dono (10/09): *"Coloque 1 gráfico montando os atributos, tipo
+   * o do ragnarok mesmo, quando vc coloca Strength, ele puxa pro lado dele.. e
+   * vai equilibrando (tipo o do ragnarok mesmo)."*
+   *
+   * ⚠️ **São SETE vértices, não seis como no jogo de referência.**
+   * `ATTRIBUTE_KEYS` traz STR, VIT, AGI, DEX, INT, WIS e LUK — o Ragnarok não
+   * tem WIS separado. O polígono sai do `.length`, então nada aqui precisa
+   * saber o número: um atributo a mais ou a menos redesenha a figura inteira
+   * sozinho, incluindo eixos, rótulos e a área.
+   *
+   * 🔴 **"Vai equilibrando" é a parte que o gráfico faz e os números não.** O
+   * orçamento é fechado (`CREATION_POINTS`) e o degrau encarece
+   * (`attributeCost`), então subir um atributo é sempre tirar de outro. Na lista
+   * de números isso é aritmética; no polígono é uma ponta esticando enquanto as
+   * outras encolhem, que é a leitura que o dono descreveu.
+   */
+  const radarEl = document.getElementById('ccradar');
+
+  /** Raio da moldura. Casa com o `viewBox` de −130..130, com folga p/ rótulo. */
+  const RADAR_R = 88;
+  /**
+   * 🔴 **O TETO DA ESCALA, e por que ele não é o maior atributo do momento.**
+   *
+   * Escalar pelo maior valor faria o polígono ficar do MESMO tamanho sempre:
+   * gastar todos os pontos em Strength daria a mesma figura de não gastar
+   * nenhum, só girada. O teto é fixo para a área crescer quando o jogador
+   * investe — é o gráfico dizer "você está mais forte", não só "mais torto".
+   *
+   * ⚠️ O valor é o maior que a tela de criação alcança na prática: todo o
+   * orçamento num atributo só. Passar disso é impossível aqui, então o
+   * polígono nunca vaza a moldura.
+   */
+  const RADAR_MAX = (() => {
+    let v = 1, gasto = 0;
+    while (gasto + attributeCost(v) <= CREATION_POINTS) { gasto += attributeCost(v); v++; }
+    return v;
+  })();
+
+  /** Vértice `i` de `ATTRIBUTE_KEYS.length`, a uma fração `f` do raio. Topo = 0. */
+  const radarPonto = (i: number, f: number): [number, number] => {
+    // −90° põe o primeiro vértice no TOPO; sem isso o polígono nasce deitado.
+    const a = (Math.PI * 2 * i) / ATTRIBUTE_KEYS.length - Math.PI / 2;
+    return [Math.cos(a) * RADAR_R * f, Math.sin(a) * RADAR_R * f];
+  };
+
+  const svgEl = (nome: string, attrs: Record<string, string>): SVGElement => {
+    const e = document.createElementNS('http://www.w3.org/2000/svg', nome);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  };
+
+  /** Os pontos de um anel, no formato que o `points` do polígono quer. */
+  const radarAnel = (f: number): string =>
+    ATTRIBUTE_KEYS.map((_, i) => radarPonto(i, f).map((n) => n.toFixed(1)).join(',')).join(' ');
+
+  /** A área preenchida e as bolinhas — o que se move. Preenchidos por `pintaRadar`. */
+  let radarArea: SVGElement | null = null;
+  const radarBolas: SVGElement[] = [];
+  const radarValores: SVGElement[] = [];
+
+  function montaRadar(): void {
+    if (!radarEl) return;
+    radarEl.textContent = '';
+    // Quatro anéis de referência, como o papel milimetrado do gráfico do RO.
+    for (const f of [0.25, 0.5, 0.75, 1]) {
+      radarEl.appendChild(svgEl('polygon', { class: 'grade', points: radarAnel(f) }));
+    }
+    ATTRIBUTE_KEYS.forEach((key, i) => {
+      const [x, y] = radarPonto(i, 1);
+      radarEl.appendChild(svgEl('line', {
+        class: 'eixo', x1: '0', y1: '0', x2: x.toFixed(1), y2: y.toFixed(1),
+      }));
+      /*
+       * ⚠️ O rótulo sai 26 % ALÉM do vértice, e o `text-anchor` acompanha o
+       * lado: à direita do centro ancora no começo, à esquerda no fim. Ancorar
+       * tudo no meio faria os rótulos das quinas invadirem a moldura.
+       */
+      const [rx, ry] = radarPonto(i, 1.26);
+      const ancora = Math.abs(rx) < 1 ? 'middle' : rx > 0 ? 'start' : 'end';
+      const rot = svgEl('text', {
+        class: 'rot', x: rx.toFixed(1), y: ry.toFixed(1),
+        'text-anchor': ancora, 'dominant-baseline': 'middle',
+      });
+      // Três letras: o nome inteiro não cabe na quina e o jogo já os abrevia.
+      rot.textContent = ATTRIBUTE_INFO[key].name.slice(0, 3).toUpperCase();
+      radarEl.appendChild(rot);
+
+      const val = svgEl('text', {
+        class: 'rotval', x: rx.toFixed(1), y: (ry + 12).toFixed(1),
+        'text-anchor': ancora, 'dominant-baseline': 'middle',
+      });
+      radarEl.appendChild(val);
+      radarValores.push(val);
+    });
+    radarArea = svgEl('polygon', { class: 'area', points: radarAnel(0) });
+    radarEl.appendChild(radarArea);
+    ATTRIBUTE_KEYS.forEach(() => {
+      const c = svgEl('circle', { class: 'ponto', cx: '0', cy: '0', r: '3' });
+      radarEl.appendChild(c);
+      radarBolas.push(c);
+    });
+  }
+
+  /**
+   * 🔴 **O VALOR 1 NÃO DESENHA UM PONTO NO CENTRO, e é escolha, não erro.**
+   *
+   * O orçamento de criação é grande (`CREATION_POINTS`), então um atributo
+   * recém-nascido vale 1 num teto de dezenas: proporcional puro daria uma teia
+   * do tamanho de um grão, e os primeiros cliques do jogador — justamente os
+   * que ele está tentando comparar — não moveriam nada visível.
+   *
+   * ✅ O piso reserva os primeiros 18 % do raio para a base comum e distribui o
+   * resto pelo que foi INVESTIDO. A figura nasce como um heptágono pequeno e
+   * regular (que é a verdade: os sete começam iguais) e cada ponto gasto
+   * empurra uma ponta de um tanto que se enxerga.
+   */
+  const PISO_RADAR = 0.18;
+
+  function pintaRadar(): void {
+    if (!radarArea) return;
+    const pontos: string[] = [];
+    ATTRIBUTE_KEYS.forEach((key, i) => {
+      const investido = (atributos[key] - 1) / Math.max(1, RADAR_MAX - 1);
+      const f = Math.min(1, PISO_RADAR + (1 - PISO_RADAR) * investido);
+      const [x, y] = radarPonto(i, f);
+      pontos.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+      radarBolas[i]?.setAttribute('cx', x.toFixed(1));
+      radarBolas[i]?.setAttribute('cy', y.toFixed(1));
+      const v = radarValores[i];
+      if (v) v.textContent = String(atributos[key]);
+    });
+    radarArea.setAttribute('points', pontos.join(' '));
+  }
+
+  montaRadar();
+
   function pintaAtributos(): void {
     const resta = sobrando();
     attrLeft.textContent = String(resta);
@@ -1527,6 +1996,7 @@ function setupStartScreen(): void {
       attrPrev.innerHTML =
         `No nível 1: <b>${d.maxHp}</b> de vida · <b>${d.maxMana}</b> de mana`;
     }
+    pintaRadar();
     refresh();
   }
 
@@ -1627,6 +2097,25 @@ function mostraFalhaFatal(origem: string, err: unknown): void {
 }
 
 /*
+ * 🔴 EXTENSÃO DO NAVEGADOR NÃO É FALHA DO JOGO.
+ *
+ * MetaMask, carteiras e afins injetam script DENTRO da página, então o que eles
+ * quebram chega aos nossos ouvintes globais como se fosse nosso. O caso real: a
+ * `inpage.js` do MetaMask solta "Failed to connect to MetaMask" a cada carga, e
+ * o painel fatal cobria o jogo inteiro com um erro que não é nosso e que o
+ * jogador não tem como consertar.
+ *
+ * O sinal é o ESQUEMA na pilha (`chrome-extension://` e primos). Sem pilha não
+ * dá para saber de quem é — nesse caso o painel aparece, que é o lado seguro:
+ * esconder falha nossa é pior que mostrar falha alheia.
+ */
+const ESQUEMA_DE_EXTENSAO = /(?:chrome|moz|safari-web|ms-browser)-extension:\/\//;
+function ehDeExtensao(err: unknown): boolean {
+  const pilha = err instanceof Error && err.stack ? err.stack : '';
+  return ESQUEMA_DE_EXTENSAO.test(pilha);
+}
+
+/*
  * Redes de segurança para o que escapar do `catch` do `startGame`: erro solto
  * no laço de render e promessa rejeitada em qualquer canto.
  *
@@ -1637,9 +2126,18 @@ function mostraFalhaFatal(origem: string, err: unknown): void {
  */
 window.addEventListener('error', (e) => {
   if (!(e instanceof ErrorEvent)) return;
-  mostraFalhaFatal('erro não tratado', e.error ?? e.message);
+  const err = e.error ?? e.message;
+  if (ehDeExtensao(err) || ESQUEMA_DE_EXTENSAO.test(e.filename ?? '')) {
+    console.warn('[Elysia] erro de extensão do navegador, ignorado', err);
+    return;
+  }
+  mostraFalhaFatal('erro não tratado', err);
 });
 window.addEventListener('unhandledrejection', (e) => {
+  if (ehDeExtensao(e.reason)) {
+    console.warn('[Elysia] promessa rejeitada por extensão do navegador, ignorada', e.reason);
+    return;
+  }
   mostraFalhaFatal('promessa rejeitada', e.reason);
 });
 
@@ -1660,6 +2158,48 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   hud.charname.textContent = playerName;
   hud.charname.title = playerName; // o nome é cortado por `ellipsis` se for longo
   hud.charclass.textContent = CLASSES[charClass].name;
+
+  /*
+   * 🔴 **A ENGRENAGEM VIROU A CARINHA DO PERSONAGEM** (10/09, pedido do dono:
+   * *"esse ícone deve ser trocado por um ícone tipo da carinha do
+   * personagem"*).
+   *
+   * O botão nunca abriu configuração nenhuma — ele abre a ficha do personagem
+   * (atributos, vitais, battle, PvP), e a engrenagem prometia a coisa errada.
+   * Agora ele mostra o SEU boneco, respirando.
+   *
+   * ⚠️ **A troca acontece AQUI, e não em `ligaPainelDoPersonagem`**, que é onde
+   * o botão nasce: aquela função roda no bootstrap, antes do login, quando a
+   * classe e o sexo ainda não existem. Repintar depois é o único momento em que
+   * há o que pintar.
+   *
+   * ⚠️ Zera as quatro variáveis de arte do `poeIcone`. Sem isso o `--ico` da
+   * engrenagem continuaria desenhado por cima do sprite — os dois são
+   * `background` no mesmo botão.
+   */
+  const botaoFicha = document.querySelector<HTMLElement>('#chbtns .btnico.ficha');
+  if (botaoFicha && HERO_ART_CLASSES.has(charClass)) {
+    /*
+     * 🔴 **O ROSTO É UM FILHO, e a MOLDURA continua sendo a do botão.** Foi o
+     * conserto do que entrei em 10/09, que trocava o `background` do próprio
+     * botão: aquilo apagava a arte de estado (`--ico`, `--ico-hover`,
+     * `--ico-press`) e a carinha ficava sendo o único dos sete atalhos sem
+     * moldura e sem reação ao mouse. O dono viu e pediu *"dentro do
+     * enquadramento igual aos demais menus"*.
+     *
+     * Assim o botão segue idêntico aos irmãos — mesma moldura, mesmo hover,
+     * mesmo afundar no clique — e só o miolo mudou de desenho.
+     *
+     * ⚠️ O fundo escuro do `.rosto` (no CSS) não é enfeite: sem ele a
+     * engrenagem que a arte `config` traz desenhada apareceria por trás da
+     * silhueta do personagem, que é vazada.
+     */
+    botaoFicha.classList.add('carinha');
+    const rosto = document.createElement('i');
+    rosto.className = 'rosto';
+    rosto.setAttribute('style', heroRostoCss(charClass, 26, gender));
+    botaoFicha.appendChild(rosto);
+  }
 
   // Sprites de personagem gerados uma vez (você = azul, outros = vermelho).
   const selfTex = generateCharacterTextures(app.renderer, PALETTE_SELF);
@@ -4550,8 +5090,48 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         const d = e.dataTransfer?.getData('text/plain') ?? '';
         const [prefOrigem, iOrigem] = d.split(':');
         const [prefDestino, iDestino] = destino.split(':');
-        if (!prefOrigem || prefOrigem !== prefDestino) return;
-        const where = prefOrigem === 'bp' ? 'backpack' : 'depot';
+        if (!prefOrigem || !prefDestino) return;
+
+        /*
+         * 🏹 **MOCHILA ↔ ALJAVA, e era o bug que o dono relatou em 2026-09-11:**
+         * *"eu compro flechas e tento colocar dentro do Aljava, mas elas não
+         * entram."*
+         *
+         * 🔴 A causa era a linha que exigia `prefOrigem === prefDestino`.
+         * Arrastar `bp:3` para `qv:0` tem prefixos diferentes, então a função
+         * **saía calada** — sem mensagem, sem recusa, sem nada. O jogador larga
+         * a flecha em cima da aljava e o jogo simplesmente ignora, que é o pior
+         * jeito de dizer "não".
+         *
+         * ⚠️ A trava existia por um bom motivo (não misturar mochila com
+         * depósito, que tem caminho próprio com validação de proximidade). Ela
+         * continua valendo — o que entrou foi a exceção da aljava, que o
+         * servidor JÁ sabia tratar por `equip`/`unquiver`. Nenhuma mensagem
+         * nova de rede foi criada.
+         */
+        if (prefOrigem === 'bp' && prefDestino === 'qv') {
+          net.send({ t: 'equip', index: Number(iOrigem) });
+          return;
+        }
+        if (prefOrigem === 'qv' && prefDestino === 'bp') {
+          net.send({ t: 'unquiver', index: Number(iOrigem) });
+          return;
+        }
+
+        if (prefOrigem !== prefDestino) return;
+
+        /*
+         * 🔴 **ARRASTAR DENTRO DA ALJAVA MEXIA NO DEPÓSITO.** Achado ao
+         * consertar o de cima, e nunca relatado porque o estrago é invisível:
+         * `where` saía de `prefOrigem === 'bp' ? 'backpack' : 'depot'`, um
+         * ternário escrito quando só existiam essas duas listas. Com a aljava,
+         * `qv` caía no `else` — e reordenar duas flechas TROCAVA dois slots do
+         * depósito, enquanto as flechas ficavam paradas.
+         *
+         * ✅ Agora a lista é nomeada, e prefixo desconhecido não manda nada.
+         */
+        const where = prefOrigem === 'bp' ? 'backpack' : prefOrigem === 'dp' ? 'depot' : null;
+        if (!where) return;
         net.send({
           t: 'moveitem',
           from: Number(iOrigem),
