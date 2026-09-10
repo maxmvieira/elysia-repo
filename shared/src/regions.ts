@@ -171,6 +171,13 @@ export const REGIONS: RegionDef[] = [
     bounds: { x0: 122, y0: 132, x1: 182, y1: 186 },
     level: { min: 1, max: 15 },
     species: ['grey_wolf', 'boar', 'goblin_warrior', 'goblin_archer', 'slime', 'rabbit'],
+    /*
+     * ⚠️ **Bandido continua na lista de DESEJO, e agora sem arte para voltar.**
+     * As três espécies foram removidas em 2026-09-10 porque o sprite delas virou
+     * o do personagem principal (ver `PACK_PRINCIPAL`, em `heroes.ts`). Quem for
+     * atender este desejo precisa de **arte nova** — reusar o pack de espadachim
+     * poria um monstro com a cara do jogador na tela.
+     */
     wanted: ['Bandidos'],
   },
   {

@@ -424,21 +424,6 @@
       "type": "boar",
       "x": 156,
       "y": 138
-    },
-    {
-      "type": "bandit",
-      "x": 134,
-      "y": 166
-    },
-    {
-      "type": "bandit_raider",
-      "x": 132,
-      "y": 164
-    },
-    {
-      "type": "bandit_chief",
-      "x": 134,
-      "y": 164
     }
   ],
   "_removidos": [

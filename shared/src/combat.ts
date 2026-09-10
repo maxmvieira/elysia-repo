@@ -472,7 +472,6 @@ export const CREATURE_FAMILY: Record<string, CreatureFamily> = {
   // --- Quarta leva, 02/09 ---------------------------------------------------
   deer: 'fauna', fox: 'fauna', hare: 'fauna',
   black_grouse: 'ave',
-  bandit: 'humano', bandit_raider: 'humano', bandit_chief: 'humano',
   village_guard: 'humano', village_sergeant: 'humano', village_captain: 'humano',
   city_guard: 'humano', city_sergeant: 'humano', city_captain: 'humano',
   chicken: 'ave',
@@ -2331,55 +2330,6 @@ export const CREATURES_BASE: Record<string, CreatureDef> = {
     xpReward: 18,
     goldMin: 0,
     goldMax: 5,
-  },
-
-  // --- Bandidos: os três primeiros níveis do pack de espadachim ------------
-  // 🔴 Gente hostil, e é a primeira do jogo: até aqui todo inimigo era bicho ou
-  // morto-vivo. Eles largam pano e osso, como qualquer humano.
-  bandit: {
-    type: 'bandit',
-    name: 'Bandido',
-    behavior: 'hostile',
-    maxHp: 400,
-    strength: 38,
-    defense: 12,
-    magicDefense: 4,
-    aggroRange: 6,
-    attackCooldownMs: 1100,
-    moveCooldownMs: SPEED.alta,
-    xpReward: 90,
-    goldMin: 30,
-    goldMax: 70,
-  },
-  bandit_raider: {
-    type: 'bandit_raider',
-    name: 'Saqueador',
-    behavior: 'hostile',
-    maxHp: 520,
-    strength: 46,
-    defense: 16,
-    magicDefense: 6,
-    aggroRange: 6,
-    attackCooldownMs: 1050,
-    moveCooldownMs: SPEED.alta,
-    xpReward: 120,
-    goldMin: 45,
-    goldMax: 100,
-  },
-  bandit_chief: {
-    type: 'bandit_chief',
-    name: 'Chefe Bandido',
-    behavior: 'hostile',
-    maxHp: 680,
-    strength: 56,
-    defense: 20,
-    magicDefense: 8,
-    aggroRange: 7,
-    attackCooldownMs: 1000,
-    moveCooldownMs: SPEED.alta,
-    xpReward: 170,
-    goldMin: 70,
-    goldMax: 150,
   },
 
   // --- GUARDAS: definidos, mas SEM COMPORTAMENTO DE GUARDA ainda -----------

@@ -252,9 +252,16 @@ const TIPOS = {
   'caca/Fox': { tipo: 'fox', escala: 2 },
   'caca/Hare': { tipo: 'hare', escala: 2 },
   'caca/Black_grouse': { tipo: 'black_grouse', escala: 2 },
-  'bandido/Swordsman_lvl1': { tipo: 'bandit', escala: 2 },
-  'bandido/Swordsman_lvl2': { tipo: 'bandit_raider', escala: 2 },
-  'bandido/Swordsman_lvl3': { tipo: 'bandit_chief', escala: 2 },
+  /*
+   * 🔴 **OS TRÊS BANDIDOS SAÍRAM daqui em 2026-09-10.** O dono mandou usar o
+   * sprite deles no personagem principal, e monstro com a cara do herói é a
+   * pior confusão possível num jogo visto de cima. As três espécies foram
+   * removidas de `CREATURES` junto, e quem monta as patentes lvl1–3 agora é
+   * `tools/principal2strip.mjs`.
+   *
+   * ⚠️ **Não reintroduza estas três linhas sem trocar a arte.** Elas voltariam
+   * a escrever em `monsters/bandit*`, e o jogador encontraria a si mesmo.
+   */
   'gvila/lvl4': { tipo: 'village_guard', escala: 2 },
   'gvila/lvl5': { tipo: 'village_sergeant', escala: 2 },
   'gvila/lvl6': { tipo: 'village_captain', escala: 2 },

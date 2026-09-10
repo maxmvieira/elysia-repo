@@ -67,3 +67,17 @@ __MACOSX/
 # Saída de conferência do conversor da fazenda (`npm run farm:overlay`).
 # É imagem de depuração gerada na raiz, não arte do jogo.
 farm-colisao.png
+
+# 🔴 Pack de CORPO BASE da CraftPix, avaliado e NÃO USADO em 2026-09-11.
+#
+# O dono o trouxe para virar o personagem principal, e a troca chegou a ser
+# implementada — mas o boneco é o TEMPLATE nu e careca da CraftPix (sem roupa,
+# sem cabelo, 4 direções), e vendo em tela ele mandou usar os espadachins no
+# lugar. O herói de hoje sai de `assets/monstros-craftpix` por
+# `tools/principal2strip.mjs`.
+#
+# ⚠️ 49 MB, e nenhum arquivo do jogo aponta para cá. Fica ignorado em vez de
+# apagado pelo mesmo motivo do `map/Tiled/` logo acima: para não ser baixado de
+# novo por engano, e para a decisão ficar registrada. Se um dia servir de base
+# para o sistema de outfit em camadas, é só apagar estas linhas.
+assets/personagem-principal/

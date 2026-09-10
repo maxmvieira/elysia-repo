@@ -583,9 +583,16 @@ export const CREATURE_SHEETS: Record<string, CreatureSheetCfg> = {
   fox: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.875, labelTop: -54 }, // 24px -> 48px
   hare: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.875, labelTop: -52 }, // 23px -> 46px
   black_grouse: { cell: 32, scale: 2, anchorX: 0.5, anchorY: 0.78125, labelTop: -50 }, // 22px -> 44px
-  bandit: { cell: 64, scale: 2, anchorX: 0.4921875, anchorY: 0.6875, labelTop: -60 }, // 27px -> 54px
-  bandit_raider: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.6875, labelTop: -60 }, // 27px -> 54px
-  bandit_chief: { cell: 64, scale: 2, anchorX: 0.4921875, anchorY: 0.703125, labelTop: -62 }, // 28px -> 56px
+  /*
+   * 🔴 **Os três BANDIDOS saíram em 2026-09-10** — a arte deles virou a do
+   * personagem principal (ver `PACK_PRINCIPAL`, em `heroes.ts`), e monstro com a
+   * cara do herói é a pior confusão possível num jogo visto de cima.
+   *
+   * ⚠️ **As medidas deles eram estas, e valem para as cinco classes agora:**
+   * `cell: 64, scale: 2`, 27 px de conteúdo desenhados a 54. É o mesmo rig, e é
+   * de onde saiu o `PACK_PRINCIPAL` — se um dia o herói parecer fora de escala
+   * ao lado de um guarda, é aqui que se compara.
+   */
   village_guard: { cell: 64, scale: 2, anchorX: 0.4921875, anchorY: 0.71875, labelTop: -62 }, // 28px -> 56px
   village_sergeant: { cell: 64, scale: 2, anchorX: 0.5, anchorY: 0.71875, labelTop: -62 }, // 28px -> 56px
   village_captain: { cell: 64, scale: 2, anchorX: 0.4921875, anchorY: 0.734375, labelTop: -66 }, // 30px -> 60px

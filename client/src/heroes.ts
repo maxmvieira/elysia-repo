@@ -241,80 +241,97 @@ const PACK_ANTIGO: Pack = {
  * maior que o das colegas. É o preço de ter os cinco golpes de volta.
  */
 /**
- * 🔴 **O PERSONAGEM UNIVERSAL — entrou em 2026-09-09, a pedido do dono**, que
- * o gerou no autosprite.io e pediu para vê-lo no jogo em TODAS as classes.
+ * 🔴 **O PERSONAGEM PRINCIPAL — trocado em 2026-09-10, a pedido do dono:**
+ * *"remova os bandidos do jogo, e use o sprite dele para ser o do personagem
+ * principal. Use conforme cada classe o personagem."*
  *
- * Montado por `tools/universal2strip.mjs`. As folhas de origem vêm com uma
- * direção por arquivo e **56 quadros** de 128 px; o conversor tira delas os
- * quatro que o motor exige e monta a tira de sempre.
+ * Montado por `tools/principal2strip.mjs` a partir do pack de espadachins da
+ * CraftPix — o MESMO de onde saíam os bandidos, que por isso deixaram de existir
+ * como criatura (`combat.ts`, `creatures.json`). Um monstro com a cara do herói
+ * seria a pior confusão possível num jogo visto de cima.
  *
- * 🔴 **`feetY: 74` é o mesmo número do `GROUND_Y` do conversor.** Estão em dois
+ * 🔴 **UMA ARTE POR CLASSE, e é a primeira vez desde 09/09.** O pack vem em nove
+ * patentes e cada classe recebeu a que a ROUPA descreve, não a de número mais
+ * alto: `assassin` lvl1 (o mais leve), `archer` lvl2 (couro e capa), `druid`
+ * lvl3 (túnica verde), `knight` lvl6 (elmo alado e placa), `sorcerer` lvl9
+ * (azul e dourado). A tabela e o porquê de cada uma estão no conversor.
+ *
+ * ⚠️ **`arteUnica` saiu.** A tira agora mora em `classes-principal/<classe>/`, e
+ * é o `p()` de `carregaClasse` que já sabia montar esse caminho.
+ *
+ * 🔴 **O SEXO DEIXOU DE TROCAR O SPRITE**, e é a perda que mais se nota. O pack
+ * tem um corpo só por patente; não existe variante feminina para gerar. Até
+ * ontem `e.gender` escolhia entre dois bonecos (era assim desde 07/09) — agora
+ * quem escolhe é a CLASSE, e `packDe` ignora o `gender` que continua recebendo.
+ * ⚠️ O parâmetro ficou de propósito: os packs antigos podem voltar a usá-lo, e
+ * tirá-lo da assinatura mexeria em `heroIconCss` e nos chamadores à toa.
+ *
+ * 🔴 **`feetY: 43` é o mesmo número do `SOLA` do conversor.** Estão em dois
  * arquivos e têm de andar juntos — mudar um sem o outro enterra ou levita o
- * boneco.
+ * boneco. ⚠️ E 43 é a **sola**, não o fundo do desenho: nas patentes vestidas a
+ * capa e a bainha penduram até seis pixels abaixo do pé.
  *
- * 🔴 **`targetH === contentH`, escala 1,0×.** As folhas foram reduzidas de 128
- * para 80 px por célula com ffmpeg (`flags=lanczos`), OFFLINE e uma vez só, o
- * que leva o conteúdo de 93 px para 62 — perto dos 58 das outras classes. Não
- * há escala em tempo de desenho, que é o melhor caso e o que evita o serrilhado
- * que custou a sessão de 10/08.
+ * 🔴 **`targetH` é `contentH × 2`, e o 2 é o do resto da tela.** Toda criatura
+ * deste mesmo pack é desenhada a 2,0× (`CREATURE_SHEETS`, em `miniworld.ts`), e
+ * o herói a 2× fica com o pixel do mesmo tamanho que o goblin ao lado — coisa
+ * que o personagem anterior nunca teve. ⚠️ A escala TEM que ser inteira: em
+ * escala fracionária com `nearest` cada pixel do desenho vira 2 ou 3 de tela, em
+ * faixas alternadas (ver `PACK_ANTIGO`).
  *
- * ⚠️ **Está incompleto de propósito:** tem `walk`, `idle` e — só no masculino —
- * `attack_sword`. Não há morte, então morrer não tomba.
+ * ⚠️ **Ele ficou MENOR que o anterior** — 54 px de altura contra 67. É
+ * consequência de valer o mesmo 2,0× das criaturas, e não um número escolhido à
+ * parte; subir para 3,0× o deixaria maior que tudo no mundo.
  *
- * 🔴 **DUAS VARIANTES DE SEXO desde 2026-09-07.** O dono gerou o personagem
- * feminino no autosprite e pediu os dois no jogo. A tira de cada um mora em
- * `classes-universal/<sexo>/`, e o `base` é a ÚNICA coisa que muda: as medidas
- * saíram idênticas nos dois (`contentH` 67, `centerX` 39,5, topo em 9), o que o
- * `universal2strip.mjs` imprime a cada build para conferência.
+ * ⚠️ **`contentH` sai do Knight e das três leves, que medem 27.** O `sorcerer`
+ * mede 30 por causa do elmo alado e por isso desenha 60 px em vez de 54 — está
+ * certo, ele É mais alto. O que precisa ser igual entre as cinco é a ESCALA.
+ *
+ * ✅ **Ganhou `hurt` e `death` nas cinco classes** — o personagem anterior não
+ * tinha nenhum dos dois, em sexo nenhum, e morrer não tombava.
+ *
+ * 🔴 **Perdeu as DIAGONAIS, o arco e a conjuração.** O pack traz 4 direções (o
+ * anterior tinha 8) e nenhum gesto de arco ou de cajado. As três ausências caem
+ * sozinhas e sem erro: a diagonal vira a cardinal vertical (`CARDINAL_OF`, em
+ * `main.ts`) e as duas poses caem no golpe de espada (`attackPoseFallback`).
+ *
+ * ⚠️ **Nada do anterior foi apagado.** `universal2strip.mjs` e a arte em
+ * `classes-universal/` continuam no disco — é o único caminho que produz arco,
+ * conjuração e as oito direções, e é para lá que se volta se este pack for
+ * descartado.
  */
-const PACK_UNIVERSAL: Pack = {
-  base: '/assets/classes-universal/male',
-  arteUnica: true,
-  cell: 80, contentH: 67, feetY: 74, centerX: 39.5, targetH: 67,
+const PACK_PRINCIPAL: Pack = {
+  base: '/assets/classes-principal',
+  cell: 64, contentH: 27, feetY: 43, centerX: 31.5, targetH: 54,
 };
 
 /**
- * O pack universal apontando para a pasta do sexo.
- *
- * ⚠️ Só o masculino tem `attack_sword`. A feminina cai no `fatiaOpcional`, que
- * devolve `undefined` sem erro, e o motor volta ao pulinho de investida — o
- * mesmo caminho de qualquer classe sem golpe.
- */
-const universalDoSexo = (gender: Gender): Pack => ({
-  ...PACK_UNIVERSAL,
-  base: `/assets/classes-universal/${gender}`,
-});
-
-/**
- * ⚠️ **TODAS as classes apontam para o universal desde 2026-09-09.** Foi pedido
- * explícito: *"faça a implementação dele para todas as classes, substituindo
- * todas por esse"* — o dono quer ver como ele fica dentro do jogo.
+ * ⚠️ **As cinco classes usam o mesmo PACK, e mesmo assim têm arte diferente** —
+ * a subpasta é a classe. Foi isso que substituiu o `arteUnica` de 09/09.
  *
  * 🔴 **Nada foi apagado.** `PACK_ANTIGO` e `PACK_PIXELLAB` continuam aqui, e a
  * arte das cinco classes continua no disco. Voltar atrás é trocar as cinco
  * linhas abaixo por `knight: PACK_ANTIGO` e mais nada.
  */
 const PACK_DA_CLASSE: Partial<Record<PlayerClass, Pack>> = {
-  knight: PACK_UNIVERSAL,
-  sorcerer: PACK_UNIVERSAL,
-  archer: PACK_UNIVERSAL,
-  assassin: PACK_UNIVERSAL,
-  druid: PACK_UNIVERSAL,
+  knight: PACK_PRINCIPAL,
+  sorcerer: PACK_PRINCIPAL,
+  archer: PACK_PRINCIPAL,
+  assassin: PACK_PRINCIPAL,
+  druid: PACK_PRINCIPAL,
 };
 
 /**
- * O pack desta classe, na variante deste sexo.
+ * O pack desta classe.
  *
- * 🔴 Só o universal tem variante de sexo. Os packs antigos (PixelLab e o
- * original) têm um corpo só, e receber `gender` não os muda — é de propósito:
- * inventar uma pasta `female/` que não existe deixaria a classe sem arte, e
+ * 🔴 **`gender` não é mais lido por nenhum pack**, desde que o principal passou
+ * a ser por classe — ver o bloco de `PACK_PRINCIPAL`. Ele continua na assinatura
+ * porque os chamadores o passam e porque um pack futuro pode voltar a querê-lo;
+ * inventar aqui uma pasta `female/` que não existe deixaria a classe sem arte, e
  * imagem que falta cai calada no MiniWorld.
  */
-const packDe = (cls: PlayerClass, gender: Gender = 'male'): Pack => {
-  const pack = PACK_DA_CLASSE[cls];
-  if (!pack) return PACK_PIXELLAB;
-  return pack === PACK_UNIVERSAL ? universalDoSexo(gender) : pack;
-};
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const packDe = (cls: PlayerClass, _gender: Gender = 'male'): Pack =>
+  PACK_DA_CLASSE[cls] ?? PACK_PIXELLAB;
 
 /** Uma classe com arte HD carregada. */
 export interface HeroArt {
@@ -782,5 +799,135 @@ export function heroIconCss(cls: PlayerClass, boxPx: number, gender: Gender = 'm
     `background-image:${urls.join(',')};image-rendering:pixelated;` +
     `background-repeat:no-repeat;background-position:0 0;` +
     `background-size:${urls.map(() => tamanho).join(',')};`
+  );
+}
+
+/**
+ * 🔴 **O SPRITE DO JOGO, ANIMADO, COMO IMAGEM DE CSS** — entrou em 2026-09-10
+ * a pedido do dono: *"tire os personagens que estão lá hoje... coloque os
+ * bandidos que usamos hoje. (pode deixar a animação dele parado respirando, se
+ * houver, no lugar)."*
+ *
+ * Substitui `retratoDeClasseCss` nos cartões de classe, no palco da criação e
+ * na lista de personagens. Os retratos ILUSTRADOS não foram apagados — a função
+ * continua exportada e a arte segue em `/assets/retratos/`, porque a troca é de
+ * escolha visual e pode ser desfeita numa linha.
+ *
+ * ✅ **A animação é CSS puro, sem um quadro de JavaScript.** A tira `idle.png`
+ * tem 12 quadros lado a lado; a caixa mostra UM, e `steps(12)` empurra o
+ * `background-position` de quadro em quadro. Nada disso passa pelo laço de
+ * render do Pixi, então a tela de criação continua sem custo de GPU.
+ *
+ * 🔴 **`background-size` cresce com a caixa, e é o que faz a conta fechar:** a
+ * folha inteira é dimensionada para `12 × caixa` de largura e `4 × caixa` de
+ * altura, então cada célula ocupa exatamente uma caixa. O deslocamento final da
+ * animação é `-12 × caixa`, ou seja a tira inteira.
+ *
+ * ⚠️ **`steps(12)` e não `steps(12, end)` por acaso:** com a variante padrão o
+ * primeiro quadro aparece imediatamente e o último dura o seu tempo antes de
+ * voltar ao zero. Qualquer outra faz um dos doze piscar mais curto que os
+ * outros, e a respiração ganha um tranco.
+ *
+ * ⚠️ **A LINHA é a 0 (`down`), sempre.** É a única que olha para a câmera, e
+ * numa tela de menu o personagem tem de encarar quem escolhe.
+ *
+ * @param linha Linha da tira a mostrar. O padrão (0) é o de frente; as outras
+ *   existem porque a mesma função serve um dia a uma prévia que gira.
+ */
+export function heroIdleCss(
+  cls: PlayerClass, boxPx: number, gender: Gender = 'male', linha = 0,
+): string {
+  const pack = packDe(cls, gender);
+  const url = pack.arteUnica
+    ? `${pack.base}/idle.png`
+    : `${pack.base}/${cls}/idle.png`;
+  /*
+   * ⚠️ A contagem de quadros é CONSTANTE aqui, e no conversor ela é medida.
+   * São 12 nas nove patentes do pack de espadachim, e o `principal2strip.mjs`
+   * imprime a contagem a cada build — se um pack futuro vier com outra, a
+   * animação anda em passo errado e o número a corrigir é este.
+   */
+  const quadros = 12;
+  /*
+   * 🔴 **O ENQUADRAMENTO É PELO CONTEÚDO, NÃO PELA CÉLULA**, e a diferença é
+   * enorme: o personagem ocupa 27 px de uma célula de 64, ou seja 42 % dela.
+   * Encaixando a célula inteira na caixa, um medalhão de 52 px mostrava um
+   * boneco de 22 — visto em tela, parecia um erro de carregamento.
+   *
+   * Ampliando até o CONTEÚDO ocupar a fração abaixo, o resto da célula
+   * simplesmente transborda da caixa (que é `overflow: hidden` pelo medalhão)
+   * e o personagem chega no tamanho que a caixa promete.
+   */
+  const OCUPACAO = 0.8;
+  const escala = (boxPx * OCUPACAO) / pack.contentH;
+  /*
+   * 🔴 **Centrar é levar o centro do PERSONAGEM ao centro da caixa**, e o
+   * centro dele não é o centro da célula: verticalmente ele vai da sola
+   * (`feetY`) para cima por `contentH`, então o meio está meia altura acima do
+   * pé. Usar `cell / 2` cortaria a cabeça e sobraria vão embaixo.
+   */
+  const meioY = pack.feetY - pack.contentH / 2;
+  const x0 = boxPx / 2 - pack.centerX * escala;
+  const y0 = boxPx / 2 - meioY * escala - linha * pack.cell * escala;
+  return (
+    `background-image:url('${url}');image-rendering:pixelated;`
+    + `background-repeat:no-repeat;`
+    + `background-size:${(pack.cell * quadros * escala).toFixed(2)}px ${(pack.cell * 4 * escala).toFixed(2)}px;`
+    + `background-position:${x0.toFixed(2)}px ${y0.toFixed(2)}px;`
+    + `--quadros-x0:${x0.toFixed(2)}px;`
+    + `--quadros-x:${(x0 - pack.cell * quadros * escala).toFixed(2)}px;`
+    + `animation:respira-${quadros} 1.6s steps(${quadros}) infinite;`
+  );
+}
+
+/**
+ * 🔴 **A CARINHA: o rosto do personagem, PARADO** — pedido do dono em
+ * 2026-09-11, corrigindo o que entrei em 10/09: *"está a animação do
+ * personagem. eu preciso apenas da imagem estática ali dentro do ícone, não a
+ * animação. Tem que ser um ícone da carinha de um personagem estático, sem
+ * mexer, e dentro do enquadramento igual aos demais menus."*
+ *
+ * Três diferenças em relação ao `heroIdleCss`, e cada uma é um pedaço do
+ * pedido:
+ *
+ * | | `heroIdleCss` | aqui |
+ * |---|---|---|
+ * | Folha | `idle.png`, 12 quadros | **`pose.png`, 1 quadro** |
+ * | Movimento | `animation: respira` | **nenhum** |
+ * | Enquadramento | o corpo inteiro | **cabeça e ombros** |
+ *
+ * ✅ **`pose.png` em vez de `idle.png` não é detalhe de otimização.** Parar a
+ * animação numa tira de doze quadros exigiria travar o `background-position`
+ * num deles, e qualquer regra futura que reative a animação voltaria a mexer.
+ * Apontando para a folha de um quadro só, "sem mexer" passa a ser propriedade
+ * do ARQUIVO, e não de uma regra que alguém pode desfazer sem perceber.
+ *
+ * 🔴 **"Carinha" é o rosto, e por isso o corte é diferente.** O sprite tem 27 px
+ * de altura, dos quais a cabeça é a fatia de cima; mostrar o corpo inteiro num
+ * botão de 34 px daria um bonequinho de 12 px, ilegível. `FATIA_ROSTO`
+ * enquadra a parte de cima, que é o que um retrato mostra.
+ */
+export function heroRostoCss(cls: PlayerClass, boxPx: number, gender: Gender = 'male'): string {
+  const pack = packDe(cls, gender);
+  const url = pack.arteUnica ? `${pack.base}/pose.png` : `${pack.base}/${cls}/pose.png`;
+  /**
+   * Que fração da altura do personagem é "rosto" para efeito de retrato.
+   *
+   * ⚠️ Meio corpo, e não só a cabeça: a cabeça sozinha (uns 0,3) cortaria o
+   * elmo do Knight e a gola do Feiticeiro, que é justamente o que distingue uma
+   * classe da outra num ícone deste tamanho.
+   */
+  const FATIA_ROSTO = 0.55;
+  const alturaRosto = pack.contentH * FATIA_ROSTO;
+  const escala = (boxPx * 0.96) / alturaRosto;
+  // O topo do conteúdo, e daí o meio da fatia que vira retrato.
+  const topo = pack.feetY - pack.contentH;
+  const meioY = topo + alturaRosto / 2;
+  return (
+    `background-image:url('${url}');image-rendering:pixelated;`
+    + `background-repeat:no-repeat;`
+    + `background-size:${(pack.cell * escala).toFixed(2)}px ${(pack.cell * 4 * escala).toFixed(2)}px;`
+    + `background-position:${(boxPx / 2 - pack.centerX * escala).toFixed(2)}px `
+    + `${(boxPx / 2 - meioY * escala).toFixed(2)}px;`
   );
 }
