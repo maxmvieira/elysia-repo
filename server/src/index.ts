@@ -5819,30 +5819,84 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       const dx = msg.dx > 0 ? 1 : msg.dx < 0 ? -1 : 0;
       const dy = msg.dy > 0 ? 1 : msg.dy < 0 ? -1 : 0;
       if (dx === 0 && dy === 0) return;
-      player.direction = dirFromDelta(dx, dy, player.direction);
       const now = Date.now();
-      // Diagonal percorre √2 de distância e custa mais tempo, para não virar
-      // atalho de velocidade. O número mora no `shared` desde 10/09: o cliente
-      // usa o MESMO para o deslize durar o passo inteiro. Ver `CUSTO_DIAGONAL`.
-      const diagonal = dx !== 0 && dy !== 0;
       // Etapa 8: Congelamento, Petrificação, Stun e Aprisionamento prendem os
       // pés. A checagem vem antes de tudo — o servidor é a autoridade, então
       // não basta o cliente não mandar a intenção.
       const restr = restrictionsOf(player.conditions);
       if (!restr.canMove) return;
+
+      /*
+       * 🔴 **DIAGONAL BLOQUEADA CAI PARA A CARDINAL** (dono, 11/09).
+       *
+       * Segurando duas teclas, o cliente manda a diagonal. Se ela esbarrava numa
+       * quina, o servidor simplesmente recusava — e o jogador ficava PRESO,
+       * apertando duas teclas contra um canto onde um dos dois lados estava
+       * livre. É o que todo jogo de tile faz e este não fazia.
+       *
+       * ⚠️ A ordem das tentativas é diagonal → horizontal → vertical, e não é
+       * arbitrária: a diagonal primeiro porque é o que se pediu; a horizontal
+       * antes da vertical porque, empatado, contornar uma quina andando de lado
+       * lê melhor num jogo visto de cima do que subir/descer.
+       */
+      const tentativas: Array<[number, number]> = dx !== 0 && dy !== 0
+        ? [[dx, dy], [dx, 0], [0, dy]]
+        : [[dx, dy]];
+      let passo: [number, number] | null = null;
+      for (const [tx, ty] of tentativas) {
+        const px = player.tileX + tx;
+        const py = player.tileY + ty;
+        if (!podeAndarPara(px, py, player.floor)) continue;
+        // Monstro é obstáculo, como parede (pedido do dono). Antes o jogador
+        // atravessava criatura, e o sprite passava por cima dela.
+        if (tileOccupied(px, py, player.floor, player.id)) continue;
+        passo = [tx, ty];
+        break;
+      }
+      /*
+       * Sem saída nenhuma: VIRA para onde tentou ir e fica. Encarar a parede é o
+       * certo — é como o jogador entende que bateu, e não que o comando sumiu.
+       */
+      if (!passo) {
+        player.direction = dirFromDelta(dx, dy, player.direction);
+        return;
+      }
+
       // Postura Defensiva cobra o preço também na mobilidade, e a Lentidão soma
       // por cima dela.
       const base = player.derived.moveIntervalMs
         * (player.stance ? 1 + STANCE_SLOW : 1)
         * (1 + restr.slowPct);
-      const interval = diagonal ? base * CUSTO_DIAGONAL : base;
+      /*
+       * Diagonal percorre √2 de distância e custa mais tempo, para não virar
+       * atalho de velocidade. O número mora no `shared` desde 10/09: o cliente
+       * usa o MESMO para o deslize durar o passo inteiro. Ver `CUSTO_DIAGONAL`.
+       *
+       * ⚠️ Cobrado sobre o passo ESCOLHIDO, não sobre o pedido: quem pediu a
+       * diagonal e recebeu a cardinal andou reto, e pagar 1,5× por um passo reto
+       * seria punir quem esbarrou numa quina.
+       */
+      const interval = passo[0] !== 0 && passo[1] !== 0 ? base * CUSTO_DIAGONAL : base;
+      /*
+       * 🔴 **A RECUSA POR RELÓGIO NÃO VIRA O PERSONAGEM** (dono, 11/09): *"se eu
+       * apertar duas direções ao mesmo tempo ele anda para um lado e vira o
+       * personagem para outro."*
+       *
+       * O `player.direction` era escrito no ALTO deste bloco, antes de qualquer
+       * conferência. Só que o cliente repete a intenção a cada 120 ms e o passo
+       * só sai a cada ~450 ms — então de cada quatro pedidos, três eram
+       * recusados aqui e MESMO ASSIM giravam o sprite. Bastava um pedido
+       * diagonal passar no meio de uma caminhada reta (as duas teclas se cruzam
+       * por um quadro ao trocar de direção) para o personagem ficar virado num
+       * rumo enquanto andava noutro.
+       *
+       * ✅ Agora quem gira é o passo que ACONTECEU, e a única recusa que ainda
+       * gira é a de parede — de propósito.
+       */
       if (now - player.lastMoveAt < interval) return;
-      const nx = player.tileX + dx;
-      const ny = player.tileY + dy;
-      if (!podeAndarPara(nx, ny, player.floor)) return;
-      // Monstro é obstáculo, como parede (pedido do dono). Antes o jogador
-      // atravessava criatura, e o sprite passava por cima dela.
-      if (tileOccupied(nx, ny, player.floor, player.id)) return;
+      player.direction = dirFromDelta(passo[0], passo[1], player.direction);
+      const nx = player.tileX + passo[0];
+      const ny = player.tileY + passo[1];
       player.tileX = nx;
       player.tileY = ny;
       player.lastMoveAt = now;
