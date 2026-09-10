@@ -450,6 +450,21 @@ export interface SkillDef {
   /** Quantos golpes por lançamento (Fire Bolt, Lightning Ball). Ausente = 1. */
   hits?: number;
   hitsAtLv10?: number;
+  /**
+   * 🌬️ **A área EMPURRA quem está dentro, a cada pulso.** Tiles por pulso.
+   *
+   * Pedido do dono em 11/09, para a Nevasca: *"aplique um leve knockback
+   * (1 tile na direção oposta ao centro da tempestade)"*.
+   *
+   * ⚠️ **Empurrar é separado de causar dano** — é o que `DD-SOR-018` já dizia
+   * da Bola de Raio: *"knockback é tratado separado do dano, resistir ao
+   * empurrão não evita o dano"*. Aqui vale igual: quem não tem para onde ser
+   * empurrado (parede, outro bicho) leva o dano do mesmo jeito.
+   *
+   * ⚠️ Só faz sentido em área de CHÃO com pulso. Numa magia de impacto único
+   * o empurrão é a condição `knockback`, que já existe.
+   */
+  empurraPorPulso?: number;
   /** Condição aplicada pela habilidade. */
   applies?: SkillCondition;
   /** Modificadores concedidos (buff) ou impostos (debuff). */
@@ -1881,8 +1896,9 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     manaCost: 130,
     manaPerLevel: 16,
     cooldownMs: 20000,
-    power: 0.45,
-    powerPerLevel: 0.06,
+    // ⚠️ Compensa o pulso 2,5× mais rápido — ver a nota em `ground.tickMs`.
+    power: 0.18,
+    powerPerLevel: 0.024,
     shape: 'ground',
     range: 3,
     rangeEvery: 5,
@@ -1892,17 +1908,54 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     damageType: 'ice',
     ground: {
       kind: 'damage',
-      tickMs: 1000,
+      /*
+       * 🌬️ **400 ms, e não 1000** (dono, 11/09, pedindo a cadência do Ragnarok).
+       * A tempestade passa a pulsar duas vezes e meia mais rápido — o que ela
+       * ganha é sensação de VENTANIA em vez de goteira.
+       *
+       * 🔴 **E por isso o `power` caiu junto**, de 0,45+0,06 para 0,18+0,024.
+       * Não é reequilíbrio: é ARITMÉTICA. O dano da área é por pulso, então
+       * acelerar sem compensar multiplicaria o dano total por 2,5 em silêncio.
+       * O total ao longo da tempestade ficou o mesmo de antes.
+       */
+      tickMs: 400,
       durationAtLv1: 6000,
       durationAtLv10: 12000,
       hitsPlayers: true,
       hitsCreatures: true,
     },
+    // 🌬️ Um tile por pulso, para longe do centro. Ver `empurraPorPulso`.
+    empurraPorPulso: 1,
     applies: {
       id: 'freeze',
-      // 🔴 8 % → 12 %: a faixa exata do `DD-SOR-012`. Não é chute.
-      chanceAtLv1: 0.08,
-      chanceAtLv10: 0.12,
+      /**
+       * 🔴 **3,3 % → 5 %, e o número do documento continua sendo respeitado.**
+       *
+       * O `DD-SOR-012` fixa *"8–12 % de chance por impacto"* e diz por quê, na
+       * mesma frase: *"por isso a Nevasca foi rebalanceada de 25 % para 8–12 %"*.
+       * O que ele está fixando é o quanto a Nevasca congela AO LONGO da
+       * tempestade — a porcentagem por impacto era o jeito de dizer isso quando
+       * o pulso era de 1 s.
+       *
+       * O pulso passou para 400 ms em 11/09, e manter os 12 % literais teria
+       * sido um buff enorme e silencioso:
+       *
+       * | | pulsos | por pulso | ACUMULADO |
+       * |---|---|---|---|
+       * | Lv.1 antes | 6 | 8 % | 39 % |
+       * | Lv.1 com 8 % literal | 15 | 8 % | **71 %** |
+       * | Lv.1 compensado | 15 | 3,3 % | 39 % |
+       * | Lv.10 antes | 12 | 12 % | 78 % |
+       * | Lv.10 com 12 % literal | 30 | 12 % | **98 %** |
+       * | Lv.10 compensado | 30 | 5 % | 78 % |
+       *
+       * ⚠️ **Seguir a letra teria contrariado o documento**, que existe para a
+       * Nevasca não ser controle garantido. Seguir o resultado o preserva. Se um
+       * dia o pulso mudar de novo, estes dois números mudam junto — é a mesma
+       * conta, e ela está aqui em cima.
+       */
+      chanceAtLv1: 0.033,
+      chanceAtLv10: 0.05,
       durationAtLv1: 10000,
       durationAtLv10: 10000,
     },

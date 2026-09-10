@@ -186,12 +186,44 @@ test('a Ice Wall é a ÚNICA magia que bloqueia passagem', () => {
   }
 });
 
-test('DD-SOR-012: a Nevasca congela 8–12 % por impacto, e o gelo dura 10 s', () => {
-  // Correção registrada: a proposta antiga era 25 %, e caiu para 8–12 % quando
-  // o Congelamento passou a durar ~10 s.
+test('DD-SOR-012: o gelo dura 10 s, e a Nevasca congela ~39 % a ~78 % por uso', () => {
+  /*
+   * Citação: *"CONGELAMENTO DURA ~10 SEGUNDOS… por isso a Nevasca foi
+   * rebalanceada de 25 % para 8–12 % de chance por impacto."*
+   *
+   * 🔴 **Este teste travava os 8–12 % literais, e passou a travar o ACUMULADO.**
+   * A razão está na própria citação: o documento fixa a porcentagem por impacto
+   * PARA limitar o quanto a Nevasca congela ao longo da tempestade — a segunda
+   * metade da frase diz o porquê. Enquanto o pulso era de 1 s, as duas coisas
+   * eram a mesma; quando ele foi para 400 ms (11/09), deixaram de ser.
+   *
+   * Com os 12 % literais e 30 pulsos, o Lv.10 congelaria em 98 % dos usos —
+   * controle garantido, exatamente o que a correção de 25 % veio impedir.
+   * Manter a LETRA teria contrariado o documento; manter o RESULTADO o preserva.
+   *
+   * ⚠️ Por isso a conta é feita aqui, e não copiada: se o pulso mudar de novo,
+   * este teste continua medindo a coisa certa.
+   */
   const n = SKILLS.blizzard;
-  assert.ok(Math.abs(skillConditionChance(n, 1) - 0.08) < 1e-9);
-  assert.ok(Math.abs(skillConditionChance(n, 10) - 0.12) < 1e-9);
+  const tick = n.ground?.tickMs ?? 1000;
+
+  const acumulado = (nivel: number): number => {
+    const pulsos = Math.floor(skillGroundDuration(n, nivel) / tick);
+    return 1 - (1 - skillConditionChance(n, nivel)) ** pulsos;
+  };
+
+  // As faixas vêm do que os 8–12 % davam com o pulso de 1 s: 39 % e 78 %.
+  assert.ok(
+    Math.abs(acumulado(1) - 0.39) < 0.06,
+    `Lv.1 congela ${(acumulado(1) * 100).toFixed(0)} % dos usos, e o alvo é ~39 %`,
+  );
+  assert.ok(
+    Math.abs(acumulado(10) - 0.78) < 0.06,
+    `Lv.10 congela ${(acumulado(10) * 100).toFixed(0)} % dos usos, e o alvo é ~78 %`,
+  );
+  assert.ok(acumulado(10) > acumulado(1), 'congela mais com o nível');
+
+  // O que o documento crava e ninguém mexeu: dez segundos de gelo.
   assert.equal(skillConditionDuration(n, 10), 10000);
   assert.equal(CONDITIONS.freeze.referenceDurationMs, 10000);
 });

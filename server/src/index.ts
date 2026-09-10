@@ -4474,6 +4474,34 @@ function aplicaCondicaoDaSkill(
   }
 }
 
+/**
+ * 🌬️ Empurra a criatura para longe do CENTRO de uma área, se houver para onde.
+ *
+ * ⚠️ Quem está exatamente no centro não tem direção para ir — e aí sorteia uma,
+ * em vez de ficar imune ao empurrão por sorte de posição.
+ */
+function empurraDoCentro(a: GroundArea, c: Creature, tiles: number): void {
+  let dx = Math.sign(c.tileX - a.x);
+  let dy = Math.sign(c.tileY - a.y);
+  if (dx === 0 && dy === 0) {
+    const eixo = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(Math.random() * 4)]!;
+    dx = eixo[0]!;
+    dy = eixo[1]!;
+  }
+  /*
+   * ⚠️ Anda tile a tile e PARA no primeiro obstáculo, em vez de teleportar para
+   * o destino final. Saltar por cima de uma parede é o defeito clássico de
+   * empurrão implementado como soma.
+   */
+  for (let i = 0; i < tiles; i++) {
+    const nx = c.tileX + dx;
+    const ny = c.tileY + dy;
+    if (!isWalkable(map, nx, ny, c.floor) || tileOccupied(nx, ny, c.floor, c.id)) return;
+    c.tileX = nx;
+    c.tileY = ny;
+  }
+}
+
 /** Empurra a criatura um tile para longe de quem bateu, se houver para onde. */
 function empurra(player: Player, c: Creature): void {
   const dx = Math.sign(c.tileX - player.tileX);
@@ -4619,6 +4647,7 @@ function plantaArea(
     tickMs: g.tickMs,
     power: poder,
     damageType: def.damageType,
+    ...(def.empurraPorPulso ? { empurraPorPulso: def.empurraPorPulso } : {}),
     hitsPlayers: g.hitsPlayers,
     hitsCreatures: g.hitsCreatures,
     blocks: g.blocks ?? false,
@@ -4911,6 +4940,17 @@ function golpeDeArea(dono: Player, a: GroundArea, c: Creature, now: number): voi
   const perfil = creatureDefenseProfile(c, now, dono, a.damageType !== 'physical');
   const bruto = resolveDamage(a.power, a.damageType ?? 'physical', perfil).amount;
   const dano = Math.max(1, Math.round(bruto));
+  /*
+   * 🌬️ **O EMPURRÃO VEM ANTES DO DANO, e a ordem importa.**
+   *
+   * Depois do dano, uma criatura que morre no pulso ainda seria empurrada — e
+   * o corpo apareceria um tile ao lado de onde o jogador viu o golpe. Antes,
+   * ela é empurrada, apanha onde parou, e o corpo cai ali.
+   *
+   * ⚠️ Empurra a partir do CENTRO DA ÁREA, não de quem lançou: a tempestade
+   * sopra para fora dela mesma, e o mago pode estar em qualquer lugar.
+   */
+  if (a.empurraPorPulso) empurraDoCentro(a, c, a.empurraPorPulso);
   damageCreature(dono, c, dano, false, now, a.damageType ?? 'physical');
   if (a.condition) {
     applyConditionTo(c, a.condition.id, a.condition.chance, a.condition.durationMs, now, a.condition.power, dono.id);

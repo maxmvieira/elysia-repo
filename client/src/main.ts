@@ -2863,6 +2863,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   const groundAreaNodes = new Map<string, Container>();
 
+  /**
+   * ❄️ **Os VÓRTICES em cena** — as áreas que giram, com o que cada uma precisa
+   * para girar. Só a Nevasca tem um, por enquanto.
+   *
+   * ⚠️ Lista separada do mapa de nós porque a maioria das áreas é estática: um
+   * laço por quadro sobre todas as áreas do andar giraria muralhas e círculos
+   * arcanos à toa.
+   */
+  const vortices = new Map<string, { anel: Container; lascas: Container }>();
+
   /** Cor de cada área, pela habilidade que a criou. */
   const CORES_AREA: Record<string, [number, number]> = {
     fire_wall: [0xff6a1a, 0xffc74a],
@@ -2900,6 +2910,52 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       c.y = (sy * lado) / 2;
       node.addChild(c);
     }
+    /*
+     * ❄️ **A NEVASCA GIRA.** Pedido do dono em 11/09: *"um círculo translúcido
+     * azul-gelo rotacionando lentamente na base, com partículas de névoa e
+     * estilhaços de gelo subindo em espiral"*.
+     *
+     * ⚠️ Dois nós, e eles giram em SENTIDOS OPOSTOS: o anel de névoa devagar
+     * para um lado, as lascas mais rápido para o outro. Girar tudo junto lê
+     * como uma imagem só rodando; contrário lê como turbulência.
+     *
+     * ⚠️ `screen` no anel e `add` nas lascas. A névoa tem de CLAREAR o chão sem
+     * estourar (screen satura devagar); a lasca é brilho pontual e pede a soma.
+     */
+    if (fx === 'blizzard') {
+      const anel = new Container();
+      anel.blendMode = 'screen';
+      for (const [r, alpha] of [[0.46, 0.30], [0.32, 0.22], [0.2, 0.16]] as const) {
+        const nevoa = new Graphics();
+        nevoa.ellipse(0, 0, lado * r, lado * r * 0.55).fill({ color: brilho, alpha });
+        anel.addChild(nevoa);
+      }
+      node.addChild(anel);
+
+      const lascas = new Container();
+      lascas.blendMode = 'add';
+      /*
+       * ⚠️ Posições SORTEADAS uma vez, e não por quadro: recalcular espalharia
+       * as lascas a cada frame e o efeito viraria chuvisco de TV. Elas ficam
+       * paradas no nó e quem se move é o nó.
+       */
+      const quantas = 10 + radius * 4;
+      for (let i = 0; i < quantas; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const raio = (0.2 + Math.random() * 0.28) * lado;
+        const L = 3 + Math.random() * 5;
+        const lasca = new Graphics();
+        lasca.poly([0, -L, L * 0.34, 0, 0, L, -L * 0.34, 0])
+          .fill({ color: brilho, alpha: 0.5 + Math.random() * 0.4 });
+        lasca.x = Math.cos(ang) * raio;
+        lasca.y = Math.sin(ang) * raio * 0.55;
+        lasca.rotation = ang;
+        lascas.addChild(lasca);
+      }
+      node.addChild(lascas);
+      vortices.set(id, { anel, lascas });
+    }
+
     fxLayer.addChild(node);
     groundAreaNodes.set(id, node);
     // Rede de segurança: se o `areagone` se perder, a área some sozinha um
@@ -2908,6 +2964,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   function removeGroundArea(id: string): void {
+    vortices.delete(id);
     const node = groundAreaNodes.get(id);
     if (!node) return;
     groundAreaNodes.delete(id);
@@ -6868,6 +6925,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         view.container.addChild(strip.node);
       }
       strip?.set(e.conditions);
+      /*
+       * ❄️ **CONGELADO**: corpo azulado e animação parada. Ver `setFrozen`.
+       *
+       * ⚠️ Lido da lista de condições que já vem no snapshot — não há pacote
+       * novo para isto. O servidor já manda quem está congelado; faltava o
+       * cliente fazer alguma coisa com a informação além do ícone.
+       */
+      view.setFrozen?.(!!e.conditions?.includes('freeze'));
       // ⚪ Caveira Branca. Mesmo padrão da fita, e pela mesma razão: quase
       // ninguém tem uma, e um Graphics por sprite seria desperdício puro.
       let skull = skullMarks.get(e.id);
@@ -7853,6 +7918,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       }
     }
 
+
     // Interpolação + animação de caminhada de todas as entidades.
     for (const view of sprites.values()) view.update();
 
@@ -7891,6 +7957,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
     // Números de dano flutuantes (sobem e desaparecem).
     const dt = app.ticker.deltaMS;
+    /*
+     * ❄️ Os vórtices giram. Sentidos opostos: névoa devagar para um lado,
+     * lascas mais rápido para o outro — ver `addGroundArea`.
+     */
+    for (const v of vortices.values()) {
+      v.anel.rotation += dt * 0.00035;
+      v.lascas.rotation -= dt * 0.0011;
+    }
     for (let i = floaters.length - 1; i >= 0; i--) {
       const f = floaters[i]!;
       f.life -= dt;
@@ -8176,6 +8250,13 @@ interface EntityView {
    * fallbacks antigos não conjuram.
    */
   setCasting?: (frac: number | null, nome?: string) => void;
+  /**
+   * ❄️ Liga/desliga o CONGELAMENTO: o corpo fica azulado e a animação para.
+   *
+   * ⚠️ Opcional pelo mesmo motivo de `setCasting`: item e nó de recurso não
+   * congelam.
+   */
+  setFrozen?: (gelado: boolean) => void;
   /** Toca a animação de dano uma vez. */
   playHurt?: () => void;
   /**
@@ -9287,7 +9368,8 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     const t = Math.min(1, (now - moveStart) / stepMs);
     c.x = fromX + (toX - fromX) * t;
     c.y = fromY + (toY - fromY) * t;
-    setBase(now < movingUntil ? 'walk' : 'idle');
+    // ❄️ Congelado não muda de base: ele fica onde parou. Ver `setFrozen`.
+    if (!gelado) setBase(now < movingUntil ? 'walk' : 'idle');
 
     /*
      * 🔴 O PASSO É REGIDO PELO CHÃO, NÃO POR UM RELÓGIO PRÓPRIO.
@@ -9374,7 +9456,14 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     const hop = now < attackUntil ? Math.sin(((attackUntil - now) / 140) * Math.PI) : 0;
     sprite.y = baseY - hop * 3 - bob;
     const monstroNoturno = !!opts.creatureTint && nightMode;
-    sprite.tint = now < hurtUntil ? 0xff6a6a : monstroNoturno ? 0xff5a4a : (opts.tint ?? 0xffffff);
+    /*
+     * ❄️ O gelo vence a noite e a cor da variante, mas NÃO o flash de dano: quem
+     * está apanhando precisa piscar mesmo congelado, senão o jogador não vê que
+     * o gelo está sendo quebrado — e dano quebra o gelo (`DD-SOR-012`).
+     */
+    sprite.tint = now < hurtUntil
+      ? 0xff6a6a
+      : gelado ? 0x88ccff : monstroNoturno ? 0xff5a4a : (opts.tint ?? 0xffffff);
     // Aura neon pulsante à noite.
     if (monstroNoturno) {
       const pulse = 0.55 + 0.25 * Math.sin(now * 0.006);
@@ -9475,6 +9564,34 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     castName.y = castBar.y + H / 2;
   }
 
+  /**
+   * ❄️ **CONGELADO: azul e PARADO.**
+   *
+   * Pedido do dono em 11/09: *"o sprite do inimigo fica azulado e a animação de
+   * corrida/ataque pausa"*.
+   *
+   * 🔴 **Parar a animação é mais importante que a cor.** Congelado não anda,
+   * não ataca e não conjura (`DD-SOR-012`) — e um bicho azul continuando a
+   * correr no lugar diz ao jogador que a magia não pegou. A cor confirma; o
+   * congelamento do movimento é o que INFORMA.
+   *
+   * ⚠️ O `tint` é guardado e devolvido, e não zerado para branco: monstro
+   * noturno tem aura vermelha e as variantes de slime têm cor própria. Zerar
+   * apagaria a identidade deles ao descongelar.
+   */
+  let gelado = false;
+  function setFrozen(v: boolean): void {
+    if (v === gelado) return;
+    gelado = v;
+    if (v) {
+      sprite.stop();
+      for (const { s: camada } of camadas) camada.stop();
+    } else {
+      // `applyState` decide o que ele volta a fazer — andar, parado ou golpe.
+      applyState();
+    }
+  }
+
   return {
     container: c,
     setDirection,
@@ -9482,6 +9599,7 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     setHp,
     update,
     setCasting,
+    setFrozen,
     // Com folha de ataque, toca a animação; sem ela, cai no pulinho de sempre.
     // Os dois efeitos coexistem de propósito: o pulinho continua dando peso ao
     // golpe mesmo quando há animação.

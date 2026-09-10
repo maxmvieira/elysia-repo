@@ -64,6 +64,14 @@ export interface GroundArea {
   power: number;
   damageType?: DamageType;
   /**
+   * 🌬️ Quantos tiles esta área empurra, por pulso, para longe do centro.
+   *
+   * ⚠️ Vem de `empurraPorPulso` na ficha, e o empurrão é SEPARADO do dano:
+   * quem não tem para onde ir (parede, outro bicho) leva o dano do mesmo
+   * jeito. É a regra que `DD-SOR-018` já fixava para a Bola de Raio.
+   */
+  empurraPorPulso?: number;
+  /**
    * Condição que cada tique tenta aplicar (a Nevasca congela, a Ira petrifica).
    *
    * ⚠️ **`power` não é opcional por acaso quando a condição é DoT.**
