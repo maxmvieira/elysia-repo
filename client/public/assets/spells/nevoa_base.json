@@ -1,0 +1,14 @@
+{
+  "frames": {
+    "nevoa_0": { "frame": { "x": 0, "y": 0, "w": 64, "h": 32 } },
+    "nevoa_1": { "frame": { "x": 64, "y": 0, "w": 64, "h": 32 } },
+    "nevoa_2": { "frame": { "x": 128, "y": 0, "w": 64, "h": 32 } },
+    "nevoa_3": { "frame": { "x": 192, "y": 0, "w": 64, "h": 32 } },
+    "nevoa_4": { "frame": { "x": 256, "y": 0, "w": 64, "h": 32 } },
+    "nevoa_5": { "frame": { "x": 320, "y": 0, "w": 64, "h": 32 } }
+  },
+  "animations": {
+    "vortex": ["nevoa_0", "nevoa_1", "nevoa_2", "nevoa_3", "nevoa_4", "nevoa_5"]
+  },
+  "meta": { "image": "nevoa_base_sheet.png", "size": { "w": 384, "h": 32 } }
+}

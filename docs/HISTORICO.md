@@ -213,6 +213,37 @@ vale; a projeção 2:1, não.
 ⚠️ **Elipses e órbitas achatadas em `y` (× 0,5).** O chão é visto de viés; círculo lê como
 bola de luz flutuando, elipse lê como névoa deitada.
 
+**As formas desenhadas por código viraram FOLHAS** no fim do dia, quando o dono trouxe os
+assets prontos em base64 (`tools/export_storm_gust_assets.mjs`) e os três atlas. As três
+camadas agora são `AnimatedSprite` no mesmo pool.
+
+🔴 **Vieram DUAS das três folhas.** O script grava `gelo_grande_sheet.png` e
+`particulas_menores_sheet.png`; o atlas `nevoa_base.json` aponta para
+`nevoa_base_sheet.png`, **que nenhum script gerava** — a camada de base sumiria em silêncio.
+Ela passou a ser gerada por `tools/nevoa-nevasca.mjs`.
+
+⚠️ **Névoa é gerada e não desenhada à mão, e o motivo é a borda.** As outras duas folhas são
+formas duras com contorno; esta precisa do oposto, um borrão sem borda. Em 64×32 desenhada
+à mão viraria um disco com degraus, e o degrau é o que denuncia o efeito.
+
+⚠️ **Cinco lóbulos, e o número é aritmético.** Com três, a massa tem simetria de 120° e os
+seis quadros a 60° de passo caem em cima de si mesmos — a folha inteira tem só DUAS formas
+distintas, e em tela lê como uma seta piscando esquerda-direita, não como rodopio. Cinco
+têm período de 72°, que não divide 60.
+
+⚠️ **A grade sai do JSON, não de uma constante no código.** Repetir os retângulos criaria
+duas verdades sobre o mesmo arquivo, e a errada cortaria os quadros pela metade sem erro.
+
+⚠️ **O cristal é ancorado em `(0.5, 0.85)`.** A ponta é o que toca o chão; centrado, metade
+do desenho afundaria no tile e o estilhaço sairia enterrado.
+
+⚠️ **Na batida o relógio REINICIA.** A vida sorteada no nascimento media a queda; o estouro
+precisa dos quatro quadros dele. Sem isso um cristal que caiu tarde estilhaçaria em meio
+quadro. E o giro para — explosão que continua rodando lê como pião.
+
+⚠️ **O cristal reciclado do pool volta para `falling`.** Ele pode ter morrido estilhaçado, e
+sem trocar as texturas de volta nasceria já quebrado no ar.
+
 🔴 **O congelamento foi INVERTIDO, e o argumento anterior estava certo sobre a regra e
 errado sobre a magia.** A versão de ontem rolava uma vez e deixava o alvo imune ao resto da
 tempestade, para o gelo não se quebrar sozinho. Mas o quique **é** a Nevasca: *"se sofrer

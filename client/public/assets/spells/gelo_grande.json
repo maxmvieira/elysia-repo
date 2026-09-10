@@ -1,0 +1,15 @@
+{
+  "frames": {
+    "falling_0": { "frame": { "x": 0, "y": 0, "w": 48, "h": 48 } },
+    "falling_1": { "frame": { "x": 48, "y": 0, "w": 48, "h": 48 } },
+    "impact_0": { "frame": { "x": 96, "y": 0, "w": 48, "h": 48 } },
+    "impact_1": { "frame": { "x": 144, "y": 0, "w": 48, "h": 48 } },
+    "impact_2": { "frame": { "x": 192, "y": 0, "w": 48, "h": 48 } },
+    "impact_3": { "frame": { "x": 240, "y": 0, "w": 48, "h": 48 } }
+  },
+  "animations": {
+    "falling": ["falling_0", "falling_1"],
+    "shatter": ["impact_0", "impact_1", "impact_2", "impact_3"]
+  },
+  "meta": { "image": "gelo_grande_sheet.png", "size": { "w": 288, "h": 48 } }
+}

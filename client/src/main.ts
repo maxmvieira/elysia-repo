@@ -2321,8 +2321,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * desenho sem mexer no lugar onde ela vai bater.
    */
   interface Particula {
-    node: Graphics;
+    node: AnimatedSprite;
     camada: CamadaP;
+    /** ❄️ O cristal já bateu no chão e está tocando `shatter`? */
+    estilhacando: boolean;
     /** O próprio índice no pool. Guardado para a morte não custar um `indexOf`. */
     idx: number;
     x: number; y: number; z: number;
@@ -2363,40 +2365,69 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const livres: Record<CamadaP, number[]> = { nevoa: [], cristal: [], floco: [] };
 
   /** A forma UNITÁRIA de cada camada, desenhada uma vez por nó. */
-  function desenhaForma(g: Graphics, camada: CamadaP): void {
-    if (camada === 'nevoa') {
-      /*
-       * ⚠️ **Elipse achatada (`0.5` em y), e não círculo.** O chão é visto de
-       * viés; um círculo lê como bola de luz flutuando, uma elipse lê como
-       * névoa deitada no solo.
-       *
-       * ⚠️ Três anéis no lugar de desfoque: em soma aditiva isso dá o
-       * esfumaçado de graça, e um filtro custaria um passe de render por elipse.
-       */
-      g.ellipse(0, 0, 30, 15).fill({ color: 0xffffff, alpha: 0.05 });
-      g.ellipse(0, 0, 20, 10).fill({ color: 0xffffff, alpha: 0.06 });
-      g.ellipse(0, 0, 10, 5).fill({ color: 0xffffff, alpha: 0.07 });
-      return;
-    }
-    if (camada === 'cristal') {
-      // Ponta de gelo IRREGULAR: as duas metades têm larguras diferentes, senão
-      // o losango perfeito lê como pipa e a queda fica geométrica demais.
-      g.poly([0, -10, 4.2, -1, 1.6, 10, -3.4, 1]).fill({ color: 0xffffff, alpha: 0.95 });
-      g.poly([0, -5, 1.6, 0, 0, 5, -1.6, 0]).fill({ color: 0xffffff, alpha: 1 });
-      return;
-    }
-    // Floco: um ponto com cruz, para ele ter brilho sem virar quadrado.
-    g.circle(0, 0, 1.6).fill({ color: 0xffffff, alpha: 1 });
-    g.rect(-3, -0.4, 6, 0.8).fill({ color: 0xffffff, alpha: 0.5 });
-    g.rect(-0.4, -3, 0.8, 6).fill({ color: 0xffffff, alpha: 0.5 });
+  /**
+   * ❄️ **AS FOLHAS DAS TRÊS CAMADAS**, fatiadas pelos atlas de
+   * `client/public/assets/spells/`.
+   *
+   * ⚠️ **A grade sai do JSON, e não de uma constante daqui.** Os atlas vieram
+   * junto com as folhas; repetir os retângulos no código criaria duas verdades
+   * sobre o mesmo arquivo, e a que estivesse errada cortaria pela metade sem
+   * dar erro nenhum.
+   *
+   * ⚠️ **Folha ausente = a camada não nasce.** Mesma convenção de
+   * `folhasQueda`: sem `catch` barulhento, sem meia-tempestade travando o resto
+   * do jogo.
+   */
+  const folhasP = new Map<string, Texture[]>();
+
+  interface Atlas {
+    frames: Record<string, { frame: { x: number; y: number; w: number; h: number } }>;
+    animations: Record<string, string[]>;
+    meta: { image: string };
   }
 
+  function carregaAtlas(nome: string): void {
+    fetch(`assets/spells/${nome}.json`)
+      .then((r) => r.json() as Promise<Atlas>)
+      .then(async (atlas) => {
+        const tex = await Assets.load<Texture>(`assets/spells/${atlas.meta.image}`);
+        for (const [anim, quadros] of Object.entries(atlas.animations)) {
+          folhasP.set(anim, quadros.map((q) => {
+            const f = atlas.frames[q]!.frame;
+            return new Texture({
+              source: tex.source,
+              frame: new Rectangle(f.x, f.y, f.w, f.h),
+            });
+          }));
+        }
+      })
+      .catch(() => { /* folha ausente: a camada simplesmente não nasce */ });
+  }
+  for (const a of ['nevoa_base', 'gelo_grande', 'particulas_menores']) carregaAtlas(a);
+
+  /** Qual animação cada camada usa ao nascer. */
+  const ANIM_DA_CAMADA: Record<CamadaP, string> = {
+    nevoa: 'vortex',
+    cristal: 'falling',
+    floco: 'shimmer',
+  };
+
   function nasceParticula(camada: CamadaP): Particula | undefined {
+    const quadros = folhasP.get(ANIM_DA_CAMADA[camada]);
+    if (!quadros) return undefined;
     const i = livres[camada].pop();
     if (i !== undefined) {
       const p = particulas[i]!;
       p.viva = true;
+      p.estilhacando = false;
       p.node.visible = true;
+      // ⚠️ O cristal reciclado pode ter morrido ESTILHAÇADO — volta para a
+      // animação de queda, senão ele nasce já quebrado no ar.
+      if (camada === 'cristal') {
+        p.node.textures = quadros;
+        p.node.loop = true;
+        p.node.gotoAndPlay(0);
+      }
       return p;
     }
     /*
@@ -2406,14 +2437,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * chega aqui.
      */
     if (particulas.length >= TETO_PARTICULAS) return undefined;
-    const g = new Graphics();
-    desenhaForma(g, camada);
+    const g = new AnimatedSprite(quadros);
     g.blendMode = 'add';
+    /*
+     * ⚠️ **O cristal é ancorado em 0,85 e não no meio.** A ponta dele é o que
+     * toca o chão; ancorado no centro, metade do desenho afundaria no tile no
+     * instante da batida e o estilhaço sairia enterrado. A névoa e o floco são
+     * centrados — nos dois o ponto de referência é o miolo.
+     */
+    g.anchor.set(0.5, camada === 'cristal' ? 0.85 : 0.5);
+    g.animationSpeed = camada === 'cristal' ? 0.35 : 0.18;
+    g.loop = true;
+    g.play();
     g.zIndex = camada === 'nevoa' ? 9998 : 10000;
     fxLayer.addChild(g);
     const p: Particula = {
       node: g, camada, idx: particulas.length, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0,
       ang: 0, raioOrb: 0, giro: 0, t: 0, dur: 1, escala: 1, viva: true,
+      estilhacando: false,
     };
     particulas.push(p);
     return p;
@@ -8374,20 +8415,44 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         p.node.scale.set(p.escala * (1 - r * 0.4));
       } else if (p.camada === 'cristal') {
         p.z += p.vz * dt;
-        p.node.rotation += p.giro * dt;
         p.node.x = p.x;
         p.node.y = p.y - Math.max(0, p.z);
-        p.node.alpha = 1 - r * r;
         p.node.scale.set(p.escala);
         /*
-         * 💥 **A BATIDA: o cristal toca o chão e cospe estilhaços.** Zerar o
-         * `vz` é o que impede a batida de disparar de novo no quadro seguinte —
-         * sem isso um cristal parado no chão viraria uma fonte de flocos.
+         * 💥 **A BATIDA: o cristal trava no chão e toca `shatter`.**
+         *
+         * ⚠️ Zerar o `vz` é o que impede a batida de disparar de novo no quadro
+         * seguinte — sem isso um cristal parado no chão viraria uma fonte
+         * infinita de estilhaços, e a tempestade não pararia mais.
+         *
+         * ⚠️ O relógio é REINICIADO aqui (`t = 0`): a vida sorteada no
+         * nascimento media a QUEDA, e o estouro precisa dos quatro quadros
+         * dele. Sem isto um cristal que caiu tarde estilhaçaria em meio quadro.
+         *
+         * ⚠️ E o giro para. Uma explosão que continua rodando lê como pião, não
+         * como gelo se partindo no chão.
          */
         if (p.z <= 0 && p.vz < 0) {
           p.vz = 0;
+          p.z = 0;
+          p.estilhacando = true;
+          p.node.rotation = 0;
+          const quebra = folhasP.get('shatter');
+          if (quebra) {
+            p.node.textures = quebra;
+            p.node.loop = false;
+            p.node.gotoAndPlay(0);
+          }
+          p.t = 0;
+          p.dur = 260;
+          // Umas centelhas junto, para a batida cuspir e não só piscar.
           cospeFlocos(p.x, p.y, 3, [p.node.tint as number]);
+        } else if (!p.estilhacando) {
+          p.node.rotation += p.giro * dt;
         }
+        // ⚠️ Caindo, o cristal fica CHEIO — desbotar no ar faria a queda parecer
+        // um erro de desenho. Só o estilhaço desaparece.
+        p.node.alpha = p.estilhacando ? 1 - r * r : 1;
       } else {
         // ☁️ A névoa ABRE e gira devagar, deitada no chão (`z` é sempre 0).
         p.node.rotation += p.giro * dt;

@@ -1,0 +1,14 @@
+{
+  "frames": {
+    "spark_0": { "frame": { "x": 0, "y": 0, "w": 16, "h": 16 } },
+    "spark_1": { "frame": { "x": 16, "y": 0, "w": 16, "h": 16 } },
+    "spark_2": { "frame": { "x": 32, "y": 0, "w": 16, "h": 16 } },
+    "spark_3": { "frame": { "x": 48, "y": 0, "w": 16, "h": 16 } },
+    "spark_4": { "frame": { "x": 64, "y": 0, "w": 16, "h": 16 } },
+    "spark_5": { "frame": { "x": 80, "y": 0, "w": 16, "h": 16 } }
+  },
+  "animations": {
+    "shimmer": ["spark_0", "spark_1", "spark_2", "spark_3", "spark_4", "spark_5"]
+  },
+  "meta": { "image": "particulas_menores_sheet.png", "size": { "w": 96, "h": 16 } }
+}
