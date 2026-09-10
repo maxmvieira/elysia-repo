@@ -490,6 +490,13 @@ interface Player {
   deadUntil: number;
   targetId: string | null;
   lastAttackAt: number;
+  /**
+   * Quando saiu o último aviso de "sem munição".
+   *
+   * ⚠️ Existe só para estrangular a mensagem: segurar o clique num alvo sem
+   * flechas mandaria uma linha de chat por tique do mundo.
+   */
+  avisoMunicaoEm?: number;
   lastMoveAt: number;
   lastAckSeq: number;
   joined: boolean;
@@ -1683,6 +1690,51 @@ function equippedWeapon(player: Player): { stack: ItemStack; identity: WeaponIde
   const def0 = getItem(eq.kind);
   if (!def0?.weaponType) return null;
   return { stack: eq, identity: WEAPON_IDENTITY[def0.weaponType] };
+}
+
+/**
+ * 🏹 **A MUNIÇÃO DO GOLPE BÁSICO, se houver.** `null` = este golpe não gasta.
+ *
+ * Sai da ARMA EQUIPADA (`WEAPON_IDENTITY.ammo`), e a nota lá explica por que
+ * não sai de `attackType`: a lança tem alcance 2 e é `ranged`, mas não atira
+ * nada. Desarmado também não gasta — a flecha pertence ao arco.
+ */
+function municaoDoGolpe(player: Player): string | null {
+  return equippedWeapon(player)?.identity.ammo ?? null;
+}
+
+/** Quanto o jogador tem de um `kind` na mochila. */
+function quantoTem(player: Player, kind: string): number {
+  let n = 0;
+  for (const s of player.backpack) if (s?.kind === kind) n += s.amount;
+  return n;
+}
+
+/**
+ * Confere e GASTA uma munição. Devolve `false` quando não havia — e nesse caso
+ * o golpe inteiro tem de ser abortado por quem chamou.
+ *
+ * ⚠️ **Gasta aqui dentro, junto da conferência.** Separar as duas em
+ * "temMunicao()" e "gastaMunicao()" convida ao golpe que confere, faz o dano e
+ * esquece de gastar — e um arqueiro com flechas infinitas não dá erro nenhum,
+ * só some do balanceamento.
+ *
+ * ⚠️ O aviso ao jogador é ESTRANGULADO: sem isso, segurar o clique num alvo
+ * fora de flechas encheria o chat com uma linha por tique.
+ */
+function gastaMunicao(player: Player, now: number): boolean {
+  const kind = municaoDoGolpe(player);
+  if (!kind) return true;
+  if (quantoTem(player, kind) <= 0) {
+    if (now - (player.avisoMunicaoEm ?? 0) > 3000) {
+      player.avisoMunicaoEm = now;
+      send(player, { t: 'denied', reason: `Sem ${getItem(kind)?.name ?? kind}. Compre no comerciante.` });
+    }
+    return false;
+  }
+  removeFromBackpack(player, kind, 1);
+  sendInventory(player);
+  return true;
 }
 
 function recompute(player: Player, healGain = false): void {
@@ -3057,6 +3109,10 @@ function playerAttack(player: Player, creature: Creature, now: number): void {
   if (!restr.canAttack) return;
   if (isMagic && !restr.canCast) return;
   if (isMagic && player.mana < d.manaCost) return; // sem mana, não conjura
+  // 🏹 Sem flecha, o arco não dispara — e o golpe nem começa. Fica ANTES de
+  // gastar mana e de marcar o relógio: recusar depois cobraria o preço de um
+  // ataque que não aconteceu.
+  if (!gastaMunicao(player, now)) return;
   if (isMagic) player.mana -= d.manaCost;
   player.lastAttackAt = now;
   marcaCombate(player, false, now); // 🚪 bater em monstro tranca a saída por 60 s
@@ -3215,6 +3271,8 @@ function playerAttackPlayer(player: Player, alvo: Player, now: number): void {
   if (!restr.canAttack) return;
   if (isMagic && !restr.canCast) return;
   if (isMagic && player.mana < d.manaCost) return;
+  // 🏹 A mesma munição do golpe em criatura. Ver `gastaMunicao`.
+  if (!gastaMunicao(player, now)) return;
 
   // 🔴 Reconferido AQUI, e não só no clique. Entre selecionar o alvo e o golpe
   // sair passam tiques inteiros: dá tempo de os dois entrarem no mesmo grupo, de
@@ -5376,6 +5434,15 @@ function createCharacterFor(
   // Kit inicial: poções + ouro, como era no fluxo antigo.
   addStackTo(ficha.backpack, 'health_potion', 5);
   addStackTo(ficha.backpack, 'mana_potion', 3);
+  /*
+   * 🏹 **Flechas para todo mundo, e não só para o arqueiro.**
+   *
+   * Qualquer classe pode pegar um arco (o GDD é explícito: afinidade não é
+   * bloqueio — ver `WEAPON_CLASS_AFFINITY`), e um arco sem flecha na primeira
+   * vez que o jogador equipa parece defeito, não regra. Cinquenta duram o
+   * suficiente para ele entender o sistema e voltar à cidade por conta própria.
+   */
+  addStackTo(ficha.backpack, 'arrow', 50);
 
   const stored = toStored(ficha, 0, player.accountId, cls.id, vila.id, [vila.id]);
   return store.createCharacter(stored);

@@ -2711,16 +2711,30 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       node.circle(0, 0, 5).fill(0x6fd0ff);
       node.circle(0, 0, 3).fill(0xe0f6ff);
     } else {
-      // flecha
-      node.rect(-6, -1, 12, 2).fill(0xd9b37a);
-      node.poly([6, -3, 11, 0, 6, 3]).fill(0x8a6a3a);
+      /*
+       * 🏹 **A flecha estava pequena demais para ser vista.** O dono: *"o
+       * arqueiro não está atirando flechas"* — ela era desenhada, mas com 12 px
+       * de haste num tile de 32, cruzando a tela em 180 ms. No tempo de olhar,
+       * já tinha acabado.
+       *
+       * Agora tem 22 px, ponta de metal clara contra a haste escura e uma
+       * empena atrás, que é o que dá o sentido de direção. Ver também a duração
+       * do voo, logo abaixo.
+       */
+      node.rect(-11, -1, 20, 2).fill(0x6b4f2f);           // haste
+      node.poly([9, -4, 15, 0, 9, 4]).fill(0xdfe7f2);      // ponta
+      node.poly([-11, -4, -5, 0, -11, 4]).fill(0xd8d0c0);  // empena
     }
     fxLayer.addChild(node);
     projectiles.push({
       node,
       fromX: fromWX + TS / 2, fromY: fromWY + TS / 2,
       toX: toTileX * TS + TS / 2, toY: toTileY * TS + TS / 2,
-      t: 0, dur: 180,
+      /*
+       * ⚠️ 260 ms, e não os 180 de antes. O voo continua rápido — é uma flecha —
+       * mas 180 ms num alcance de 5 tiles era um borrão de dois quadros a 60 Hz.
+       */
+      t: 0, dur: 260,
     });
   }
 
@@ -3729,6 +3743,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       g.fillStyle = hx(color); g.fillRect(S / 2 - 5, 13, 10, S - 3 - 13); // líquido
       g.fillStyle = 'rgba(255,255,255,0.4)'; g.fillRect(S / 2 - 4, 14, 2, S - 18); // brilho
       g.lineWidth = 1; g.strokeStyle = '#0a0908'; g.stroke();
+    } else if (def?.category === 'ammo') {
+      // 🏹 Um feixe de três flechas, apontando para cima. Desenhado por código
+      // como o resto do espólio: é um item de sistema, não de arte curada.
+      for (const ox of [-5, 0, 5]) {
+        const x = S / 2 + ox;
+        g.strokeStyle = hx(shade(color, 0.55)); g.lineWidth = 2;
+        g.beginPath(); g.moveTo(x, 6); g.lineTo(x, S - 4); g.stroke();
+        g.fillStyle = '#cdd3da'; // ponta de metal
+        g.beginPath(); g.moveTo(x, 2); g.lineTo(x - 3, 8); g.lineTo(x + 3, 8); g.closePath(); g.fill();
+        g.fillStyle = hx(color); // empena
+        g.fillRect(x - 3, S - 10, 6, 3);
+      }
     } else if (def?.category === 'equip' && def.slot) {
       drawEquipShape(g, def.slot, hx(color), hx(shade(color, 0.5)));
       g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(6, 6, S - 12, 2); // brilho topo

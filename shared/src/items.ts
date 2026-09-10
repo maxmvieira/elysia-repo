@@ -36,7 +36,13 @@ import { RARITY } from './weapons.js';
 import type { AffixId, ArmorClass, ItemRoll, WeaponType } from './weapons.js';
 import { GENERATED_EQUIP } from './catalog.js';
 
-export type ItemCategory = 'currency' | 'consumable' | 'equip' | 'loot';
+/**
+ * ⚠️ **`ammo` é categoria própria, e não `consumable`.** Parece a mesma coisa —
+ * empilha, some ao usar — mas o `case 'use'` do servidor GASTA um consumível
+ * com dois cliques e não faz nada com ele. Flecha como consumível seria um item
+ * que o jogador destrói sem querer ao clicar duas vezes na mochila.
+ */
+export type ItemCategory = 'currency' | 'consumable' | 'equip' | 'loot' | 'ammo';
 
 export interface ItemDef {
   kind: string;
@@ -136,6 +142,25 @@ const HAND_WRITTEN: Record<string, ItemDef> = {
   gold_silver: { kind: 'gold_silver', name: 'Ouro Prateado', category: 'currency', stackable: true, buyPrice: 0, value: 100, color: 0xcdd3da },
   gold_blue: { kind: 'gold_blue', name: 'Ouro Azul', category: 'currency', stackable: true, buyPrice: 0, value: 10000, color: 0x4a86d8 },
   gold_white: { kind: 'gold_white', name: 'Ouro Branco', category: 'currency', stackable: true, buyPrice: 0, value: 1000000, color: 0xeef1f6 },
+  /**
+   * 🏹 **A FLECHA** (dono, 11/09). Gasta uma por disparo de arco ou besta — ver
+   * `ammo` em `WEAPON_IDENTITY`.
+   *
+   * ⚠️ Barata de propósito: 2 de ouro. Ela não é uma decisão de build, é o custo
+   * de operar a arma; cara demais transformaria cada tiro numa conta e o arqueiro
+   * passaria o jogo somando. O que ela compra é a IDA À CIDADE — o arqueiro tem
+   * de voltar para reabastecer, e é isso que o dono pediu.
+   *
+   * ⚠️ A besta também gasta `arrow`, e não um `bolt` próprio. É simplificação
+   * assumida: dois tipos de munição dobrariam a lista da loja e o inventário
+   * para uma diferença que ninguém vê em tela. O dia em que virar decisão de
+   * jogo (virote perfurante, flecha elemental — `DD-ARC-019` prevê munição
+   * elemental como ITEM), o campo `ammo` da arma já aponta para o kind certo.
+   */
+  arrow: {
+    kind: 'arrow', name: 'Flecha', category: 'ammo',
+    stackable: true, buyPrice: 2, sellPrice: 1, color: 0x9a7a4a,
+  },
   health_potion: {
     kind: 'health_potion', name: 'Poção de Vida', category: 'consumable',
     stackable: true, buyPrice: 15, healHp: 75, color: 0xcf3b2e,
@@ -395,6 +420,9 @@ export const VENDOR_STOCK: string[] = [
   // tem como começar a minerar nem a colher.
   'pickaxe', 'sickle',
   'short_sword', 'hand_axe', 'club', 'dagger', 'spear', 'short_bow', 'light_crossbow',
+  // 🏹 A munição fica ao lado das armas que a gastam, para quem compra o arco
+  // ver a flecha na mesma tela.
+  'arrow',
   'apprentice_staff', 'wooden_shield',
   'leather_helmet', 'leather_armor', 'leather_pants', 'leather_boots', 'copper_necklace',
 ];

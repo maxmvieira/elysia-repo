@@ -52,6 +52,23 @@ export interface WeaponIdentity {
    * o Feiticeiro atirava firebolt de graça. Desde 03/09 não têm mais.
    */
   basicPhysical?: boolean;
+  /**
+   * 🔴 **A MUNIÇÃO que esta arma gasta no golpe básico.** Ausente = não gasta.
+   *
+   * Pedido do dono em 11/09: *"precisa fazer também o item flecha como munição,
+   * cada vez que ele atira reduz a munição."*
+   *
+   * ⚠️ **Mora na ARMA, e não em `attackType`.** É tentador dizer "todo ataque à
+   * distância gasta flecha", e estaria errado: a LANÇA tem alcance 2, logo
+   * `attackType: 'ranged'`, e é uma arma de haste — ela não atira nada. Amarrar
+   * a munição ao tipo de ataque faria a lança comer a aljava do jogador.
+   *
+   * ⚠️ E o DESARMADO não gasta. A flecha pertence ao arco, não ao personagem —
+   * sem isso, um arqueiro recém-criado e sem ouro ficaria sem poder atacar. O
+   * desarmado já paga o preço dele em dano: sai sem o bônus e sem o
+   * `damageMult` da arma.
+   */
+  ammo?: string;
   blurb: string;
 }
 
@@ -65,8 +82,8 @@ export const WEAPON_IDENTITY: Record<WeaponType, WeaponIdentity> = {
   mace:     { type: 'mace',     name: 'Maça',    hands: 1, damageMult: 1.15, speedMult: 1.2,  range: 1, magic: false, blurb: 'Alto impacto — boa contra armadura.' },
   dagger:   { type: 'dagger',   name: 'Adaga',   hands: 1, damageMult: 0.65, speedMult: 0.6,  range: 1, magic: false, blurb: 'Fraca por golpe, rapidíssima.' },
   spear:    { type: 'spear',    name: 'Lança',   hands: 2, damageMult: 1.2,  speedMult: 1.1,  range: 2, magic: false, blurb: 'Perfuração e alcance de 2 tiles.' },
-  bow:      { type: 'bow',      name: 'Arco',    hands: 2, damageMult: 1.0,  speedMult: 0.9,  range: 5, magic: false, blurb: 'Rápido e de longo alcance.' },
-  crossbow: { type: 'crossbow', name: 'Besta',   hands: 2, damageMult: 1.45, speedMult: 1.35, range: 5, magic: false, blurb: 'Lenta, dano alto, longo alcance.' },
+  bow:      { type: 'bow',      name: 'Arco',    hands: 2, damageMult: 1.0,  speedMult: 0.9,  range: 5, magic: false, ammo: 'arrow', blurb: 'Rápido e de longo alcance. Gasta uma flecha por disparo.' },
+  crossbow: { type: 'crossbow', name: 'Besta',   hands: 2, damageMult: 1.45, speedMult: 1.35, range: 5, magic: false, ammo: 'arrow', blurb: 'Lenta, dano alto, longo alcance. Gasta uma flecha por disparo.' },
   // 🔴 `range: 1` e `basicPhysical` desde 03/09: o cajado deixou de atirar. Ele
   // canaliza magia (`magic: true` → soma em `magicAtk`) e bate de perto.
   staff:    { type: 'staff',    name: 'Cajado',  hands: 1, damageMult: 1.0,  speedMult: 1.0,  range: 1, magic: true,  basicPhysical: true, blurb: 'Canaliza poder mágico. O golpe em si é uma bastonada.' },
