@@ -3402,7 +3402,7 @@ function tickGolpesPendentes(now: number): void {
  */
 function marcaConjuracao(
   player: Player, def: SkillDef, now: number, nivel?: number,
-): void {
+): number {
   /*
    * 🔴 **A RECARGA VAI ATÉ O ÚLTIMO IMPACTO** — pedido do dono em 09/09.
    *
@@ -3425,6 +3425,20 @@ function marcaConjuracao(
   }
   player.spellReadyAt[def.id] = now + recarga;
   if (def.magic) player.gcdUntil = now + GCD_MAGIA_MS;
+  /*
+   * 🔴 **DEVOLVE a recarga aplicada, e é para isso que o retorno existe.**
+   *
+   * O aviso `cast` mandava `def.cooldownMs` — o número da FICHA. Desde que a
+   * recarga do Fire Bolt passou a ser calculada (a série toda, não 1,5 s), esse
+   * número virou mentira: o servidor guardava 8,2 s e contava ao jogador 1,5 s.
+   * O relógio do HUD zerava, o dono apertava de novo e levava um `denied` —
+   * *"assim que eu solto a magia... eu consigo já lançar a mesma magia nele
+   * novamente"*. O bloqueio sempre funcionou; quem estava errado era o mostrador.
+   *
+   * ⚠️ Quem chama tem de USAR o retorno no `cast`. Repetir `def.cooldownMs` lá
+   * traz o defeito de volta sem erro de compilação.
+   */
+  return recarga;
 }
 
 function castSpell(
@@ -3623,9 +3637,9 @@ function executeSpell(
   // --- Habilidades que agem sobre o próprio personagem -----------------------
   if (def.kind === 'stance') {
     player.stance = !player.stance;
-    marcaConjuracao(player, def, now, nivel);
+    const recarga = marcaConjuracao(player, def, now, nivel);
     recompute(player);
-    send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
+    send(player, { t: 'cast', spell: def.id, cooldownMs: recarga });
     send(player, {
       t: 'chat', from: 'Sistema',
       text: player.stance ? 'Postura Defensiva ATIVADA.' : 'Postura Defensiva desativada.',
@@ -3637,8 +3651,7 @@ function executeSpell(
     // ✨ Proteção Mágica: liga e desliga, sem duração. Quem a desliga é o
     // jogador ou a falta de mana (ver `absorveComProtecaoMagica`).
     player.magicProtection = !player.magicProtection;
-    marcaConjuracao(player, def, now, nivel);
-    send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
+    send(player, { t: 'cast', spell: def.id, cooldownMs: marcaConjuracao(player, def, now, nivel) });
     send(player, {
       t: 'chat', from: 'Sistema',
       text: player.magicProtection ? `${def.name} ATIVADA.` : `${def.name} desativada.`,
@@ -3771,8 +3784,7 @@ function executeSpell(
   }
 
   player.mana -= custoMana;
-  marcaConjuracao(player, def, now, nivel);
-  send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
+  send(player, { t: 'cast', spell: def.id, cooldownMs: marcaConjuracao(player, def, now, nivel) });
   // 🥷 Qualquer habilidade OFENSIVA quebra a furtividade — o bônus do Ataque
   // Oculto já foi lido em `estavaOculto`, no topo da função.
   quebraFurtividade(player);
@@ -4030,8 +4042,7 @@ function lancaEmAliados(
   if (alvos.length === 0) alvos.push(player);
 
   player.mana -= custoMana;
-  marcaConjuracao(player, def, now, nivel);
-  send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
+  send(player, { t: 'cast', spell: def.id, cooldownMs: marcaConjuracao(player, def, now, nivel) });
 
   if (def.kind === 'heal') {
     // 🔴 A cura sai de `healPower` (WIS), nunca de ataque — `DD-PROG-024/025`.
@@ -4101,8 +4112,7 @@ function plantaArea(
   }
 
   player.mana -= custoMana;
-  marcaConjuracao(player, def, now, nivel);
-  send(player, { t: 'cast', spell: def.id, cooldownMs: def.cooldownMs });
+  send(player, { t: 'cast', spell: def.id, cooldownMs: marcaConjuracao(player, def, now, nivel) });
 
   const duracao = skillGroundDuration(def, nivel);
   const raio = skillRange(def, nivel);
