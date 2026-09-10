@@ -323,24 +323,69 @@ test('❄️ o Cold Bolt é o Fire Bolt de gelo: mesma mecânica, outro elemento
   );
 });
 
-test('🔴 magia que CAI DO CÉU é sempre de alvo único, e o Fire e o Cold caem', () => {
+test('🔴 magia que CAI DO CÉU: alvo único cadenciado, ou área com JANELA', () => {
   /*
-   * A bandeira `queda` custa três coisas ao servidor: o `fx` vai um por golpe
-   * (em vez do genérico no lançamento), a bola persegue o alvo pelo `targetId`,
-   * e o dano espera o estouro. Nada disso faz sentido em área — lá os impactos
-   * se espalham entre alvos diferentes.
+   * A bandeira `queda` custa três coisas ao servidor: o `fx` vai um por
+   * impacto (em vez do genérico no lançamento), a queda é agendada, e o dano
+   * espera o estouro.
    *
-   * ⚠️ E o cliente tem de ter a FOLHA de cada uma (`FOLHAS_QUEDA`, no
-   * `main.ts`). Marcar `queda` numa magia sem folha a deixa sem efeito nenhum:
-   * o `fx` genérico não sai mais, e não há queda para desenhar no lugar.
+   * 🔴 **A REGRA MUDOU EM 11/09, e a versão anterior deste teste dizia o
+   * contrário**: "queda é sempre de alvo único". Era verdade enquanto só o Fire
+   * e o Cold Bolt caíam, e o motivo escrito era que os impactos de área se
+   * espalham entre alvos diferentes. Só que o GDD sempre pediu ~4 s de
+   * tempestade para a Chuva de Meteoros, e espalhar no TEMPO é justamente o
+   * que faltava.
+   *
+   * ✅ O que separa os dois casos é a CADÊNCIA, não a forma: alvo único usa
+   * `INTERVALO_BOLT_MS` cravado; área divide a própria duração pelo número de
+   * impactos. Por isso a regra nova é: **queda de área OBRIGA duração.** Sem
+   * ela, a divisão daria zero e os meteoros voltariam a cair todos no mesmo
+   * tique — o defeito que a mudança veio corrigir, de volta em silêncio.
    */
   const caem = Object.values(SKILLS).filter((d) => d.queda);
   assert.deepEqual(
     caem.map((d) => d.id).sort(),
-    ['cold_bolt', 'fire_bolt'],
-    'mudou a lista? confira se o cliente tem a folha de queda da magia nova',
+    ['cold_bolt', 'fire_bolt', 'meteor_storm'],
+    'mudou a lista? confira se o cliente tem como desenhar a queda da magia nova',
   );
-  for (const d of caem) assert.equal(d.shape, 'target', `${d.id} cai do céu mas não é de alvo`);
+  for (const d of caem) {
+    assert.ok(
+      d.shape === 'target' || d.shape === 'area',
+      `${d.id}: queda só faz sentido em alvo ou área`,
+    );
+    if (d.shape === 'area') {
+      assert.ok(
+        skillDuration(d, 10) > 0 && skillDuration(d, 1) > 0,
+        `${d.id} cai em área e PRECISA de duração — é ela que espaça os impactos`,
+      );
+    }
+  }
+});
+
+test('🌠 a Chuva de Meteoros segue o documento: 10 meteoros e ~4 s no Lv.10', () => {
+  /*
+   * Citação do GDD: *"Lv.10: 10 meteoros, área grande, ~4 s, cast ~3 s,
+   * CD ~15 s, MP altíssimo."* Quando este teste cair, a pergunta certa é "o
+   * documento mudou?", não "ajusto o teste?".
+   *
+   * ⚠️ Existe porque em 11/09 chegou uma proposta de subir para 12 meteoros. O
+   * número é do documento, e mudá-lo é decisão de dono — não de quem
+   * implementa.
+   */
+  const c = SKILLS.meteor_storm;
+  assert.equal(skillHits(c, 10), 10, "o GDD diz DEZ meteoros no Lv.10");
+  assert.equal(skillDuration(c, 10), 4000, "o GDD diz ~4 s");
+  assert.equal(c.castMs, 3000);
+  assert.equal(c.cooldownMs, 15000);
+
+  /*
+   * 🔴 **E a queimadura continua sendo a condição dela.** A mesma proposta
+   * sugeria acrescentar STUN por impacto. Stun é a identidade do ramo RAIO —
+   * o GDD o dá à Ira de Thor ("pequena chance de stun por impacto") e o PROÍBE
+   * na Descarga Elétrica (`DD-SOR-018`). Pôr stun na suprema de fogo tomaria a
+   * identidade da suprema de raio.
+   */
+  assert.equal(c.applies?.id, 'burn');
 });
 
 test('🔴 o carregamento do Fire Bolt desce por DESTREZA, numa curva côncava', () => {

@@ -3602,7 +3602,10 @@ function tickGolpesPendentes(now: number): void {
     if (!g.fxFeito) {
       g.fxFeito = true;
       broadcastFloor(player.floor, {
-        t: 'fx', kind: g.skillId, x: c.tileX, y: c.tileY, floor: player.floor,
+        t: 'fx',
+        // 🌠 Ver `quedaFx`: a chuva desenha meteoro, não o círculo dela.
+        kind: SKILLS[g.skillId].quedaFx ?? g.skillId,
+        x: c.tileX, y: c.tileY, floor: player.floor,
         n: 1, targetId: c.id,
       });
     }
@@ -4085,9 +4088,30 @@ function executeSpell(
    * no chão, sem seguir ninguém. Com dez bolas sobrepostas ninguém via; com uma
    * de cada vez, virou a primeira coisa que se nota.
    */
-  const emQueda = def.queda === true && def.shape === 'target';
+  const emQueda = def.queda === true;
   // Área estoura no conjurador; alvo único estoura em cima de quem apanhou.
   const fxAt = def.shape === 'area' ? player : targets[0]!;
+
+  /**
+   * 🌠 **QUANTO SEPARA UM IMPACTO DO PRÓXIMO**, e a resposta depende da forma.
+   *
+   * - **Alvo único** (Fire Bolt, Cold Bolt): cadência fixa, `INTERVALO_BOLT_MS`.
+   *   Mais nível = mais bolts = série mais longa.
+   * - **Área** (Chuva de Meteoros): a JANELA é que é dada — o GDD pede ~4 s de
+   *   tempestade no Lv.10 — e os impactos se dividem dentro dela. Mais nível =
+   *   mais meteoros E mais tempo, com a cadência quase igual.
+   *
+   * ⚠️ **A divisão é por `golpes`, não por `golpes − 1`.** Com `− 1` o último
+   * meteoro cairia no instante exato do fim da janela, e o `fx` dele nasceria
+   * junto com o círculo do chão sumindo. Dividindo por `golpes`, sobra sempre
+   * um passo de folga no fim para o estouro ser visto.
+   */
+  const passoDaQueda = (): number => {
+    if (def.shape !== 'area') return INTERVALO_BOLT_MS;
+    const janela = skillDuration(def, nivel);
+    return Math.max(1, Math.floor(janela / Math.max(1, golpes)));
+  };
+
   if (!emQueda) {
     broadcastFloor(player.floor, {
       t: 'fx', kind: def.fx, x: fxAt.tileX, y: fxAt.tileY, floor: player.floor,
@@ -4173,6 +4197,21 @@ function executeSpell(
    * ⚠️ E por isso o primeiro bolt da série também vai para a fila, em vez de
    * resolver aqui — ver o laço abaixo.
    */
+/*
+   * 🌠 **A TEMPESTADE DE ÁREA MANDA UM `fx` DE CÍRCULO**, e é a exceção ao
+   * parágrafo acima: a queda de alvo único não manda `fx` nenhum daqui, mas a
+   * de área precisa de um — o círculo no chão que fica aceso enquanto ela dura.
+   * Sem ele o jogador vê meteoros caindo e não sabe onde é a área.
+   *
+   * ⚠️ Os meteoros em si continuam vindo um a um de `tickGolpesPendentes`.
+   */
+  if (emQueda && def.shape === 'area') {
+    broadcastFloor(player.floor, {
+      t: 'fx', kind: def.fx, x: fxAt.tileX, y: fxAt.tileY, floor: player.floor,
+      radius: alcance, n: golpes, durationMs: skillDuration(def, nivel),
+    });
+  }
+
   for (let i = 0; i < golpes; i++) {
     const lista = sorteiaAlvo
       ? [targets[Math.floor(Math.random() * targets.length)]!]
@@ -4196,7 +4235,7 @@ function executeSpell(
          * mesma conjuração passariam a bater diferente uns dos outros — e o
          * jogador não teria como entender por quê.
          */
-        const fxEm = now + i * INTERVALO_BOLT_MS;
+        const fxEm = now + i * passoDaQueda();
         golpesPendentes.push({
           playerId: player.id, creatureId: c.id, skillId: def.id, nivel,
           poderBase, critChance: d.critChance, critMult: d.critMult,

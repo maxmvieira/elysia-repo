@@ -2012,6 +2012,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ficha, então `bolts: 1` não é escolha — é o que a magia é.
      */
     { magia: 'cold_bolt', arquivo: 'coldbolt30', bolts: 1, quadros: 30, fracaoQueda: 18 / 30 },
+    /*
+     * 🌠 O METEORO da Chuva reusa a folha do Fire Bolt para o estouro — é fogo
+     * caindo, e a arte serve. O que o distingue é a ESCALA e a cor do risco,
+     * logo abaixo.
+     *
+     * ⚠️ `meteor_fall` é um nome só desta queda, e não o `fx` do Meteoro avulso
+     * (`meteor`). Reusar aquele faria mexer na chuva mudar a magia menor junto.
+     */
+    { magia: 'meteor_fall', arquivo: 'firebolt24', bolts: 1, quadros: 24, fracaoQueda: 14 / 24 },
   ] as const;
 
   /**
@@ -2159,7 +2168,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const CORES_RISCO: Record<string, [number, number, number]> = {
     fire_bolt: [0xd8501a, 0xffa03c, 0xfff2d0],
     cold_bolt: [0x1a58d8, 0x5ac8ff, 0xeaf8ff],
+    // 🌠 Meteoro: mais vermelho e mais escuro que o bolt — é pedra em brasa,
+    // não chama pura.
+    meteor_fall: [0xa03010, 0xff7a20, 0xffe0a0],
   };
+
+  /**
+   * 🌠 Quanto o risco de cada magia é mais grosso e mais longo que o padrão.
+   *
+   * ⚠️ O meteoro precisa ler como CORPO caindo, e o bolt como lança. Sem esta
+   * diferença a suprema de 140 de mana cai igual à magia de 8.
+   */
+  const PORTE_RISCO: Record<string, number> = { meteor_fall: 2.2 };
 
   function spawnQueda(
     magia: string, wx: number, wy: number, frames: Texture[], atraso: number,
@@ -2207,10 +2227,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * vez e movido — não redesenhado por quadro.
        */
       const [fora, meio, nucleo] = CORES_RISCO[magia] ?? CORES_RISCO.fire_bolt!;
+      const k = PORTE_RISCO[magia] ?? 1;
       const g = new Graphics();
-      g.rect(-5, -110, 10, 110).fill({ color: fora, alpha: 0.55 });
-      g.rect(-2.5, -104, 5, 104).fill({ color: meio, alpha: 0.9 });
-      g.rect(-1, -98, 2, 98).fill({ color: nucleo, alpha: 1 });
+      g.rect(-5 * k, -110, 10 * k, 110).fill({ color: fora, alpha: 0.55 });
+      g.rect(-2.5 * k, -104, 5 * k, 104).fill({ color: meio, alpha: 0.9 });
+      g.rect(-1 * k, -98, 2 * k, 98).fill({ color: nucleo, alpha: 1 });
       g.blendMode = 'add';
       g.x = wx;
       g.zIndex = 9999;
@@ -2564,7 +2585,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     return null;
   }
 
-  function spawnSpellFx(kind: string, tileX: number, tileY: number, radius: number): void {
+  function spawnSpellFx(
+    kind: string, tileX: number, tileY: number, radius: number, duracao?: number,
+  ): void {
     const node = new Container();
     node.x = tileX * TS + TS / 2;
     node.y = tileY * TS + TS / 2;
@@ -2718,7 +2741,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // Durações alongadas a pedido do dono: a 320 ms o talho mal era percebido,
     // e efeito que o jogador não vê não ensina nada. Área dura mais que golpe
     // porque cobre um espaço que precisa ser LIDO antes de reagir.
-    const dur = kind === 'bash' || kind === 'fury' ? 800 : 520;
+    /*
+     * 🌠 **A duração pode vir do SERVIDOR.** É o caso do círculo da Chuva de
+     * Meteoros: ele tem de ficar aceso os ~4 s da tempestade, enquanto os
+     * meteoros caem dentro dele. Com os 520 ms de estouro o círculo sumiria com
+     * nove meteoros ainda por cair, e o jogador perderia a única pista de ONDE
+     * é a área.
+     */
+    const dur = duracao ?? (kind === 'bash' || kind === 'fury' ? 800 : 520);
     spellFx.push({ node, t: 0, dur, kind });
   }
 
@@ -3342,7 +3372,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
              */
             const folha = folhaDoFx(msg.kind);
             if (folha) tocaEfeito(folha, msg.x * TS + TS / 2, msg.y * TS + TS);
-            else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1);
+            else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1, msg.durationMs);
           }
           break;
         case 'heal': {
@@ -7760,11 +7790,33 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         // Labaredas sobem e se afastam do corpo.
         f.node.scale.set(0.5 + r * 0.7);
         f.node.y -= dt * 0.02;
+      } else if (f.kind === 'meteor_storm') {
+        /*
+         * 🌠 **O CÍRCULO DA TEMPESTADE PULSA, e não cresce nem some.**
+         *
+         * Os outros efeitos são ESTOUROS: abrem, apagam, acabaram em meio
+         * segundo. Este fica ~4 s no chão dizendo "a área é aqui", e as regras
+         * de estouro o arruinariam — crescer o faria mentir sobre o raio, e o
+         * `1 − r²` o deixaria invisível na metade da tempestade, justamente
+         * quando ainda faltam cinco meteoros.
+         *
+         * ⚠️ Escala TRAVADA em 1: o raio desenhado é o raio real da magia. E o
+         * fade só nos últimos 20 %, para o sumiço coincidir com o fim.
+         */
+        f.node.scale.set(1);
+        const pulso = 0.72 + 0.28 * Math.abs(Math.sin(f.t * 0.006));
+        f.node.alpha = pulso * (r > 0.8 ? (1 - r) / 0.2 : 1);
       } else {
         f.node.scale.set(0.6 + r * 0.9);
         f.node.rotation = r * 0.5;
       }
-      f.node.alpha = 1 - r * r;
+      /*
+       * ⚠️ O fade vale para TODO efeito menos o círculo da tempestade, que tem o
+       * seu próprio (pulso + sumiço no fim). Deixar esta linha solta apagaria o
+       * pulso no quadro seguinte; movê-la para dentro de cada ramo tiraria o
+       * fade do `bash`, do `taunt`, do `stance` e do `fury` de uma vez.
+       */
+      if (f.kind !== 'meteor_storm') f.node.alpha = 1 - r * r;
       if (r >= 1) {
         f.node.destroy({ children: true });
         spellFx.splice(i, 1);

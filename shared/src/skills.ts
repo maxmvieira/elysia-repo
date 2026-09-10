@@ -398,6 +398,16 @@ export interface SkillDef {
    * impactos se espalham entre alvos diferentes.
    */
   queda?: boolean;
+  /**
+   * 🌠 **O `fx` de UMA unidade que cai**, quando ele não é o próprio `id`.
+   *
+   * O Fire Bolt e o Cold Bolt não precisam: o cliente tem folha de queda com
+   * o nome deles. A Chuva de Meteoros precisa, e por dois motivos: o `fx`
+   * dela (`meteor_storm`) já é o CÍRCULO do chão, e cada meteoro é outra
+   * coisa; e o `fx` do Meteoro avulso (`meteor`) não serve, senão mudar o
+   * desenho da chuva mudaria junto o da magia menor.
+   */
+  quedaFx?: string;
   /** Quantos golpes por lançamento (Fire Bolt, Lightning Ball). Ausente = 1. */
   hits?: number;
   hitsAtLv10?: number;
@@ -1578,7 +1588,31 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     shape: 'area',
     range: 4,
     rangeEvery: 4,
-    durationMs: 0,
+    /**
+     * 🔴 **A TEMPESTADE DURA, e não acontece num instante** (11/09).
+     *
+     * O GDD sempre disse *"Lv.10: 10 meteoros, área grande, **~4 s**"* — e os
+     * ~4 s nunca tinham sido implementados: `durationMs` era 0 e os dez
+     * impactos resolviam no MESMO tique do servidor. Uma suprema de 3 s de
+     * conjuração e 140 de mana terminava antes de o jogador ver.
+     *
+     * ⚠️ Os meteoros se espalham por esta janela — ver `passoDaQueda` no
+     * servidor. Não é enfeite: é o que dá ao alvo a chance de SAIR da área, que
+     * é o contrajogo natural de uma chuva.
+     *
+     * ⚠️ 1,6 s no Lv.1 e 4 s no Lv.10. O topo é o número do documento; a base é
+     * escolha, e ela mantém a cadência quase constante (4 meteoros em 1,6 s =
+     * 400 ms cada; 10 em 4 s = 400 ms cada). A magia cresce em VOLUME, não em
+     * ritmo.
+     */
+    durationMs: 1600,
+    durationAtLv10: 4000,
+    /*
+     * 🌠 Cai do céu, como o Fire Bolt — a bandeira liga o mesmo agendamento por
+     * impacto e o mesmo desenho. Ver `queda` em `SkillDef`.
+     */
+    queda: true,
+    quedaFx: 'meteor_fall',
     // 🔴 3 s de conjuração: o preço da maior magia do jogo é ficar parado e
     // interrompível. Sem isso ela não teria contrajogo nenhum.
     castMs: 3000,
