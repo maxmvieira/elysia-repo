@@ -75,8 +75,15 @@ const DIRECAO = {
 const LOTES = [
   { pasta: 'iddle', anim: 'idle', re: /-iso_idle_([a-z]+)\b/ },
   { pasta: 'walk', anim: 'walk', re: /-iso_walk_([a-z]+)\b/ },
-  { pasta: 'bow atack', anim: 'bow', re: /-iso_custom_bow_atack_([a-z]+)\b/ },
-  { pasta: 'spellcasting', anim: 'cast', re: /-iso_custom_casting_spell_([a-z]+)\b/ },
+  /*
+   * ⚠️ **`atack` OU `attack`, e as duas grafias são de propósito.** O primeiro
+   * lote veio com a animação batizada `bow atack` no autosprite, e o nome do
+   * arquivo herda o erro de digitação. Exigir a grafia errada obrigaria quem
+   * gera a próxima folha a REPETIR o engano — e escrever certo cairia em "nome
+   * fora do padrão, pulado", que é um aviso fácil de não ler.
+   */
+  { pastas: ['bow atack', 'bow attack'], anim: 'bow', re: /-iso_custom_bow_att?ack_([a-z]+)\b/ },
+  { pastas: ['spellcasting', 'casting spell'], anim: 'cast', re: /-iso_custom_casting_spell_([a-z]+)\b/ },
 ];
 
 /** Decodifica só o suficiente para medir: devolve um mapa de alpha. */
@@ -230,9 +237,12 @@ if (!existsSync(ORIGEM)) {
 
 let feitas = 0, pulos = 0;
 for (const sexo of ['male', 'female']) {
-  for (const { pasta, anim, re } of LOTES) {
-    const dir = join(ORIGEM, sexo, pasta);
-    if (!existsSync(dir)) { console.warn(`[fonte] sem ${sexo}/${pasta}`); continue; }
+  for (const { pasta, pastas, anim, re } of LOTES) {
+    // A pasta pode ter mais de um nome aceito — ver a nota em `LOTES`.
+    const candidatas = pastas ?? [pasta];
+    const achada = candidatas.find((c) => existsSync(join(ORIGEM, sexo, c)));
+    if (!achada) { console.warn(`[fonte] sem ${sexo}/${candidatas.join(' | ')}`); continue; }
+    const dir = join(ORIGEM, sexo, achada);
 
     for (const arquivo of readdirSync(dir).filter((f) => f.endsWith('.png'))) {
       const m = re.exec(arquivo);
