@@ -38,6 +38,15 @@ export interface Persistable {
   bankGold: number;
   backpack: (ItemStack | null)[];
   equipment: Partial<Record<EquipSlot, ItemStack>>;
+  /**
+   * 🏹 A ALJAVA. Entrou em 11/09.
+   *
+   * ⚠️ **Não precisou de migração**: `character_item.container` já era TEXT com
+   * três valores (`backpack | depot | equipment`), e a aljava é o quarto. Foi
+   * sorte do desenho de quem escreveu a tabela — a alternativa histórica, três
+   * tabelas quase iguais, teria custado uma quarta.
+   */
+  quiver: (ItemStack | null)[];
   depot: (ItemStack | null)[];
   tileX: number;
   tileY: number;
@@ -76,6 +85,15 @@ function itemsToRows(p: Persistable): StoredItem[] {
       });
     }
   });
+  p.quiver.forEach((it, slot) => {
+    if (it) {
+      rows.push({
+        container: 'quiver', slot, equipSlot: null,
+        kind: it.kind, amount: it.amount,
+        roll: it.roll ? JSON.stringify(it.roll) : null,
+      });
+    }
+  });
   p.depot.forEach((it, slot) => {
     if (it) {
       rows.push({
@@ -98,18 +116,21 @@ function itemsToRows(p: Persistable): StoredItem[] {
   return rows;
 }
 
-/** Remonta os três contêineres a partir das linhas. */
+/** Remonta os QUATRO contêineres a partir das linhas. */
 export function rowsToItems(
   rows: StoredItem[],
   backpackSize: number,
   depotSize: number,
+  quiverSize: number,
 ): {
   backpack: (ItemStack | null)[];
   depot: (ItemStack | null)[];
+  quiver: (ItemStack | null)[];
   equipment: Partial<Record<EquipSlot, ItemStack>>;
 } {
   const backpack: (ItemStack | null)[] = Array(backpackSize).fill(null);
   const depot: (ItemStack | null)[] = Array(depotSize).fill(null);
+  const quiver: (ItemStack | null)[] = Array(quiverSize).fill(null);
   const equipment: Partial<Record<EquipSlot, ItemStack>> = {};
 
   for (const r of rows) {
@@ -126,6 +147,18 @@ export function rowsToItems(
         const livre = backpack.indexOf(null);
         if (livre >= 0) backpack[livre] = stack;
       }
+    } else if (r.container === 'quiver') {
+      /*
+       * ⚠️ Munição que não cabe mais (o jogador desequipou a aljava entre uma
+       * sessão e outra, ou trocou por uma menor) NÃO se perde em silêncio: vai
+       * para o primeiro slot livre da mochila. Mesma regra da mochila que
+       * encolheu, logo acima.
+       */
+      if (r.slot >= 0 && r.slot < quiver.length) quiver[r.slot] = stack;
+      else {
+        const livre = backpack.indexOf(null);
+        if (livre >= 0) backpack[livre] = stack;
+      }
     } else if (r.container === 'depot') {
       if (r.slot >= 0 && r.slot < depot.length) depot[r.slot] = stack;
       else {
@@ -136,7 +169,7 @@ export function rowsToItems(
       equipment[r.equipSlot as EquipSlot] = stack;
     }
   }
-  return { backpack, depot, equipment };
+  return { backpack, depot, quiver, equipment };
 }
 
 /** Player em memória -> retrato para gravar. */

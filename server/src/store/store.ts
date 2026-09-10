@@ -26,7 +26,11 @@ import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEM
 
 /** Item persistido, já achatado para uma linha. */
 export interface StoredItem {
-  container: 'backpack' | 'depot' | 'equipment';
+  /**
+   * ⚠️ 'quiver' entrou em 11/09 sem migração: a coluna já era TEXT. Ver a nota
+   * de `quiver` em `Persistable`.
+   */
+  container: 'backpack' | 'depot' | 'equipment' | 'quiver';
   slot: number;
   equipSlot: string | null;
   kind: string;

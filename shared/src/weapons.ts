@@ -24,6 +24,19 @@ export const WEAPON_TYPES: WeaponType[] = [
   'sword', 'axe', 'mace', 'dagger', 'spear', 'bow', 'crossbow', 'staff',
 ];
 
+/**
+ * 🏹 **As famílias de munição.** Arco atira flecha; besta atira virote.
+ *
+ * ⚠️ Duas famílias, e não uma só chamada "munição": era a simplificação que
+ * estava no código até 11/09 (a besta gastava a flecha do arco), e o dono a
+ * desfez — *"o quiver também armazenará o virote, que é a munição da besta"*.
+ * Um virote não entra num arco, e o jogador espera que não entre.
+ *
+ * ⚠️ Mora AQUI, e não em `items.ts`, por causa da direção das dependências:
+ * `items.ts` importa de `weapons.ts`, nunca o contrário. Declarar do outro
+ * lado fecharia um ciclo entre os dois módulos.
+ */
+export type AmmoFamily = 'arrow' | 'bolt';
 export interface WeaponIdentity {
   type: WeaponType;
   name: string;
@@ -68,7 +81,7 @@ export interface WeaponIdentity {
    * desarmado já paga o preço dele em dano: sai sem o bônus e sem o
    * `damageMult` da arma.
    */
-  ammo?: string;
+  ammo?: AmmoFamily;
   blurb: string;
 }
 
@@ -83,7 +96,7 @@ export const WEAPON_IDENTITY: Record<WeaponType, WeaponIdentity> = {
   dagger:   { type: 'dagger',   name: 'Adaga',   hands: 1, damageMult: 0.65, speedMult: 0.6,  range: 1, magic: false, blurb: 'Fraca por golpe, rapidíssima.' },
   spear:    { type: 'spear',    name: 'Lança',   hands: 2, damageMult: 1.2,  speedMult: 1.1,  range: 2, magic: false, blurb: 'Perfuração e alcance de 2 tiles.' },
   bow:      { type: 'bow',      name: 'Arco',    hands: 2, damageMult: 1.0,  speedMult: 0.9,  range: 5, magic: false, ammo: 'arrow', blurb: 'Rápido e de longo alcance. Gasta uma flecha por disparo.' },
-  crossbow: { type: 'crossbow', name: 'Besta',   hands: 2, damageMult: 1.45, speedMult: 1.35, range: 5, magic: false, ammo: 'arrow', blurb: 'Lenta, dano alto, longo alcance. Gasta uma flecha por disparo.' },
+  crossbow: { type: 'crossbow', name: 'Besta',   hands: 2, damageMult: 1.45, speedMult: 1.35, range: 5, magic: false, ammo: 'bolt', blurb: 'Lenta, dano alto, longo alcance. Gasta um virote por disparo.' },
   // 🔴 `range: 1` e `basicPhysical` desde 03/09: o cajado deixou de atirar. Ele
   // canaliza magia (`magic: true` → soma em `magicAtk`) e bate de perto.
   staff:    { type: 'staff',    name: 'Cajado',  hands: 1, damageMult: 1.0,  speedMult: 1.0,  range: 1, magic: true,  basicPhysical: true, blurb: 'Canaliza poder mágico. O golpe em si é uma bastonada.' },

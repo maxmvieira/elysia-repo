@@ -13,10 +13,14 @@
 export type EquipSlot =
   | 'necklace' | 'helmet' | 'container'
   | 'weapon' | 'armor' | 'shield'
-  | 'ring' | 'pants' | 'boots';
+  | 'ring' | 'pants' | 'boots' | 'quiver';
 
 export const EQUIP_SLOTS: EquipSlot[] = [
   'necklace', 'helmet', 'container', 'weapon', 'armor', 'shield', 'ring', 'pants', 'boots',
+  // 🏹 A aljava entrou em 11/09. Vai no FIM da lista de propósito: quem itera
+  // `EQUIP_SLOTS` desenhando o boneco de equipamento já tinha nove posições
+  // arrumadas, e inserir no meio empurraria todas elas de lugar.
+  'quiver',
 ];
 
 /** Rótulo PT de cada slot (para tooltips/UI). */
@@ -24,6 +28,7 @@ export const EQUIP_SLOT_LABEL: Record<EquipSlot, string> = {
   necklace: 'Colar',
   helmet: 'Capacete',
   container: 'Mochila',
+  quiver: 'Aljava',
   weapon: 'Arma',
   armor: 'Armadura',
   shield: 'Escudo',
@@ -33,8 +38,9 @@ export const EQUIP_SLOT_LABEL: Record<EquipSlot, string> = {
 };
 
 import { RARITY } from './weapons.js';
-import type { AffixId, ArmorClass, ItemRoll, WeaponType } from './weapons.js';
+import type { AffixId, AmmoFamily, ArmorClass, ItemRoll, WeaponType } from './weapons.js';
 import { GENERATED_EQUIP } from './catalog.js';
+import type { DamageType } from './elements.js';
 
 /**
  * ⚠️ **`ammo` é categoria própria, e não `consumable`.** Parece a mesma coisa —
@@ -121,6 +127,40 @@ export interface ItemDef {
   tier?: number;
   /** Para containers (slot 'container'): quantos slots de mochila ele oferece. */
   capacity?: number;
+  /**
+   * 🏹 **Quantas UNIDADES de munição a aljava guarda ao todo.**
+   *
+   * ⚠️ Não confundir com `capacity`, que conta SLOTS. A aljava tem as duas
+   * medidas, e elas respondem perguntas diferentes: `capacity` diz quantos
+   * TIPOS de munição cabem lado a lado (comum, de fogo, de gelo…), e `ammoMax`
+   * diz quantas flechas somadas o personagem consegue carregar.
+   *
+   * O dono, 11/09: *"só consegue carregar até 10 mil flechas no quiver, mais do
+   * que isso ele precisaria de um segundo quiver"*.
+   */
+  ammoMax?: number;
+  /**
+   * 🏹 **A FAMÍLIA da munição** — `arrow` para arco, `bolt` para besta.
+   *
+   * ⚠️ É o que amarra munição e arma, e por isso o campo existe nos DOIS lados:
+   * aqui, no item que É munição, e em `WEAPON_IDENTITY.ammo`, na arma que a
+   * gasta. Um arco não atira virote.
+   */
+  ammoFamily?: AmmoFamily;
+  /**
+   * 🔥 **O ELEMENTO que esta munição imprime no golpe.** Ausente = físico.
+   *
+   * Pedido do dono em 11/09: *"faça variáveis de flechas também, tipo flecha de
+   * fogo, flecha de gelo, flecha sagrada, sombria. para que certos tipos de
+   * monstros tomem mais dano devido às propriedades extras."*
+   *
+   * ✅ **E não há tabela de bônus nova.** O elemento entra em `resolveDamage`
+   * como qualquer outro dano elemental, e quem decide se o monstro sofre mais
+   * ou menos é a resistência dele, que já existe. Uma flecha de fogo contra
+   * bicho de gelo bate mais pela MESMA conta que a magia de fogo — e é o certo:
+   * dois caminhos para o mesmo efeito acabariam discordando um dia.
+   */
+  element?: DamageType;
   /** Valor em ouro (para moedas: gold=1, silver=100, blue=10000, white=1e6). */
   value?: number;
   /** Cor base para o ícone desenhado por código no cliente. */
@@ -157,9 +197,76 @@ const HAND_WRITTEN: Record<string, ItemDef> = {
    * jogo (virote perfurante, flecha elemental — `DD-ARC-019` prevê munição
    * elemental como ITEM), o campo `ammo` da arma já aponta para o kind certo.
    */
+  /**
+   * 🏹 **A ALJAVA** (dono, 11/09): *"precisa equipar as flechas no quiver, que
+   * também é um item que precisa ter no jogo para guardar as flechas."*
+   *
+   * ⚠️ **Duas medidas, e são independentes.** `capacity: 4` são os SLOTS — quatro
+   * tipos de munição lado a lado, que é o que dá sentido às flechas elementais
+   * (comum + fogo + gelo + sagrada, e troca-se conforme o bicho). `ammoMax:
+   * 10000` é o TOTAL de unidades, que é o teto que o dono pediu.
+   *
+   * ⚠️ **Uma aljava equipada por vez.** "Precisar de um segundo quiver" quer
+   * dizer carregar outro na mochila e trocar — não existe um segundo slot. Abrir
+   * dois slots dobraria o teto sem custo nenhum, e aí o teto não é teto.
+   */
+  quiver: {
+    kind: 'quiver', name: 'Aljava', category: 'equip', stackable: false,
+    buyPrice: 60, slot: 'quiver', capacity: 4, ammoMax: 10000, color: 0x7a5a3a,
+  },
+
+  // --- 🏹 Munição ---------------------------------------------------------
+  //
+  // 🔴 **O elemento da munição É o dano do golpe.** Não há bônus somado por
+  // fora: `element` entra em `resolveDamage` e a resistência do monstro decide o
+  // resto — a mesma conta da magia. Ver a nota de `element` no `ItemDef`.
+  //
+  // ⚠️ **A elemental custa 5×.** Ela não é upgrade, é ESCOLHA: contra o bicho
+  // certo rende muito, contra o errado rende menos que a comum (resistência
+  // corta nos dois sentidos). Preço igual faria a comum não ter razão de existir.
+  //
+  // ⚠️ Virote é sempre um pouco mais caro que a flecha equivalente, como a besta
+  // é mais cara que o arco — ela troca cadência por impacto, e a munição
+  // acompanha.
   arrow: {
-    kind: 'arrow', name: 'Flecha', category: 'ammo',
+    kind: 'arrow', name: 'Flecha', category: 'ammo', ammoFamily: 'arrow',
     stackable: true, buyPrice: 2, sellPrice: 1, color: 0x9a7a4a,
+  },
+  arrow_fire: {
+    kind: 'arrow_fire', name: 'Flecha de Fogo', category: 'ammo', ammoFamily: 'arrow',
+    element: 'fire', stackable: true, buyPrice: 10, sellPrice: 5, color: 0xe06a2a,
+  },
+  arrow_ice: {
+    kind: 'arrow_ice', name: 'Flecha de Gelo', category: 'ammo', ammoFamily: 'arrow',
+    element: 'ice', stackable: true, buyPrice: 10, sellPrice: 5, color: 0x6fd0ff,
+  },
+  arrow_holy: {
+    kind: 'arrow_holy', name: 'Flecha Sagrada', category: 'ammo', ammoFamily: 'arrow',
+    element: 'holy', stackable: true, buyPrice: 10, sellPrice: 5, color: 0xf2e2a8,
+  },
+  arrow_dark: {
+    kind: 'arrow_dark', name: 'Flecha Sombria', category: 'ammo', ammoFamily: 'arrow',
+    element: 'dark', stackable: true, buyPrice: 10, sellPrice: 5, color: 0x6a4a8a,
+  },
+  bolt: {
+    kind: 'bolt', name: 'Virote', category: 'ammo', ammoFamily: 'bolt',
+    stackable: true, buyPrice: 3, sellPrice: 1, color: 0x8a8a92,
+  },
+  bolt_fire: {
+    kind: 'bolt_fire', name: 'Virote de Fogo', category: 'ammo', ammoFamily: 'bolt',
+    element: 'fire', stackable: true, buyPrice: 12, sellPrice: 6, color: 0xd85a2a,
+  },
+  bolt_ice: {
+    kind: 'bolt_ice', name: 'Virote de Gelo', category: 'ammo', ammoFamily: 'bolt',
+    element: 'ice', stackable: true, buyPrice: 12, sellPrice: 6, color: 0x5ac0f0,
+  },
+  bolt_holy: {
+    kind: 'bolt_holy', name: 'Virote Sagrado', category: 'ammo', ammoFamily: 'bolt',
+    element: 'holy', stackable: true, buyPrice: 12, sellPrice: 6, color: 0xe8d898,
+  },
+  bolt_dark: {
+    kind: 'bolt_dark', name: 'Virote Sombrio', category: 'ammo', ammoFamily: 'bolt',
+    element: 'dark', stackable: true, buyPrice: 12, sellPrice: 6, color: 0x5a3a7a,
   },
   health_potion: {
     kind: 'health_potion', name: 'Poção de Vida', category: 'consumable',
@@ -420,9 +527,11 @@ export const VENDOR_STOCK: string[] = [
   // tem como começar a minerar nem a colher.
   'pickaxe', 'sickle',
   'short_sword', 'hand_axe', 'club', 'dagger', 'spear', 'short_bow', 'light_crossbow',
-  // 🏹 A munição fica ao lado das armas que a gastam, para quem compra o arco
-  // ver a flecha na mesma tela.
-  'arrow',
+  // 🏹 A aljava e a munição ficam ao lado das armas que as gastam, para quem
+  // compra o arco ver a flecha na mesma tela.
+  'quiver',
+  'arrow', 'arrow_fire', 'arrow_ice', 'arrow_holy', 'arrow_dark',
+  'bolt', 'bolt_fire', 'bolt_ice', 'bolt_holy', 'bolt_dark',
   'apprentice_staff', 'wooden_shield',
   'leather_helmet', 'leather_armor', 'leather_pants', 'leather_boots', 'copper_necklace',
 ];
@@ -451,6 +560,21 @@ export function backpackSizeFor(containerKind?: string): number {
   if (!containerKind) return BACKPACK_SIZE;
   return ITEMS[containerKind]?.capacity ?? BACKPACK_SIZE;
 }
+/**
+ * 🏹 Quantos SLOTS a aljava equipada tem. Sem aljava, zero — e zero é a regra,
+ * não um caso de borda: sem aljava o personagem não carrega munição nenhuma.
+ */
+export function quiverSizeFor(quiverKind?: string): number {
+  if (!quiverKind) return 0;
+  return ITEMS[quiverKind]?.capacity ?? 0;
+}
+
+/** 🏹 Quantas UNIDADES de munição a aljava equipada guarda ao todo. */
+export function quiverMaxFor(quiverKind?: string): number {
+  if (!quiverKind) return 0;
+  return ITEMS[quiverKind]?.ammoMax ?? 0;
+}
+
 export const DEPOT_SIZE = 40;
 
 /**

@@ -3474,6 +3474,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     'necklace', 'helmet', 'container',
     'weapon', 'armor', 'shield',
     'ring', 'pants', 'boots',
+    /*
+     * 🏹 A aljava fecha a grade numa décima posição. As nove primeiras são o
+     * paperdoll clássico do Tibia e não se mexem — quem já jogou procura a
+     * armadura no meio, e mover tudo para centralizar a peça nova custaria mais
+     * do que a simetria vale.
+     */
+    'quiver', null, null,
   ];
   const hx = (color: number): string => `#${(color >>> 0).toString(16).padStart(6, '0').slice(-6)}`;
   const S = 28; // resolução dos ícones (desenhados por código, escalados nítidos)
@@ -3521,6 +3528,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       case 'pants':
         poly([cx - 6, 5, cx + 6, 5, cx + 6, S - 4, cx + 1, S - 4, cx + 1, 12, cx - 1, 12, cx - 1, S - 4, cx - 6, S - 4]);
         break;
+      case 'quiver': {
+        // Um cilindro com três hastes saindo, que é o desenho universal de aljava.
+        poly([cx - 4, 9, cx + 4, 9, cx + 3, S - 3, cx - 3, S - 3]);
+        g.lineWidth = 1.2;
+        for (const ox of [-3, 0, 3]) {
+          g.beginPath(); g.moveTo(cx + ox, 9); g.lineTo(cx + ox * 1.6, 2); g.stroke();
+        }
+        break;
+      }
       case 'boots':
         poly([cx - 5, 5, cx - 1, 5, cx - 1, S - 8, S - 6, S - 8, S - 6, S - 4, cx - 5, S - 4]);
         break;
@@ -3950,10 +3966,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (currentInv.atDepot) { net.send({ t: 'store', index: i, to: 'depot' }); return; }
     const def = getItem(stack.kind);
     if (def?.category === 'consumable') net.send({ t: 'use', index: i });
-    else if (def?.category === 'equip') net.send({ t: 'equip', index: i });
+    /*
+     * 🏹 Munição usa o MESMO comando de equipar: para o jogador, clicar numa
+     * flecha e ela ir para a aljava é o mesmo gesto de clicar numa espada e ela
+     * ir para a mão. Quem separa os dois casos é o servidor.
+     */
+    else if (def?.category === 'equip' || def?.category === 'ammo') {
+      net.send({ t: 'equip', index: i });
+    }
   }
 
   const bpSubhead = el('bpsubhead');
+  const qvSubhead = el('qvsubhead');
+  const qvGrid = el('qvgrid');
 
   function renderInventory(): void {
     if (!currentInv) return;
@@ -3987,6 +4012,34 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       }
       equipGrid.appendChild(cell);
     }
+    /*
+     * 🏹 A ALJAVA. Some inteira quando não há uma equipada — cabeçalho e grade —
+     * porque um bloco vazio permanente na barra lateral custa altura a todo
+     * mundo por uma coisa que só o arqueiro usa.
+     */
+    const aljava = currentInv.equipment.quiver;
+    const temAljava = !!aljava && currentInv.quiver.length > 0;
+    qvSubhead.hidden = !temAljava;
+    qvGrid.hidden = !temAljava;
+    if (temAljava) {
+      const total = currentInv.quiver.reduce((n, x) => n + (x?.amount ?? 0), 0);
+      const teto = getItem(aljava.kind)?.ammoMax ?? 0;
+      qvSubhead.textContent = `🏹 ${getItem(aljava.kind)?.name} · ${total}/${teto}`;
+      qvGrid.innerHTML = '';
+      currentInv.quiver.forEach((stack, i) => {
+        /*
+         * Clicar devolve a munição para a mochila. É o mesmo gesto do
+         * paperdoll (clicar na peça equipada a tira), e por isso reusa
+         * `unequip` — o servidor sabe que slot de aljava é esse pelo índice.
+         */
+        qvGrid.appendChild(makeItemCell(
+          stack,
+          () => { if (stack) net.send({ t: 'unquiver', index: i }); },
+          `qv:${i}`,
+        ));
+      });
+    }
+
     // Mochila (itens arrastáveis). O tamanho vem do container equipado.
     const cont = currentInv.equipment.container;
     const used = currentInv.backpack.filter(Boolean).length;

@@ -2532,6 +2532,7 @@
         cursor: default;
       }
       #bpgrid,
+      #qvgrid,
       #dpgrid {
         display: grid;
         grid-template-columns: repeat(5, var(--slot));
@@ -3991,6 +3992,17 @@
                   <div class="phead"><span>🛡️ Equipamentos</span><button class="pt" title="Minimizar">−</button></div>
                   <div class="pbody">
                     <div id="equipgrid"></div>
+                    <!--
+                      A ALJAVA fica ACIMA da mochila, e nao abaixo: e dela que o
+                      arco tira a municao, entao e o que o arqueiro confere no
+                      meio da caca. Enterrada embaixo da mochila cheia, ele teria
+                      de rolar a lista para ver quantas flechas restam.
+
+                      Some inteira quando nao ha aljava equipada — ver
+                      renderInventory no main.ts.
+                    -->
+                    <div class="subhead" id="qvsubhead" hidden>🏹 Aljava</div>
+                    <div id="qvgrid" hidden></div>
                     <div class="subhead" id="bpsubhead">🎒 Mochila</div>
                     <div id="bpgrid"></div>
                     <!--

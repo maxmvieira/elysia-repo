@@ -330,6 +330,19 @@ export interface C2S_Unequip {
   slot: EquipSlot;
 }
 
+/**
+ * 🏹 Tirar uma pilha de munição da ALJAVA e devolvê-la à mochila.
+ *
+ * ⚠️ Mensagem própria, e não `unequip` com um slot fingido: `unequip` endereça
+ * por SLOT DE EQUIPAMENTO (uma peça por slot) e a aljava endereça por ÍNDICE
+ * (várias pilhas). Forçar as duas na mesma mensagem faria o campo `slot`
+ * significar duas coisas conforme o caso.
+ */
+export interface C2S_Unquiver {
+  t: 'unquiver';
+  index: number;
+}
+
 /** Mover item entre mochila e depósito (só perto do baú/DP). `to` = destino. */
 export interface C2S_StoreMove {
   t: 'store';
@@ -594,6 +607,7 @@ export type ClientMessage =
   | C2S_UseItem
   | C2S_Equip
   | C2S_Unequip
+  | C2S_Unquiver
   | C2S_StoreMove
   | C2S_MoveItem
   | C2S_PickUp
@@ -1073,6 +1087,14 @@ export interface S2C_Inventory {
   t: 'inventory';
   backpack: (ItemStack | null)[];
   equipment: Partial<Record<EquipSlot, ItemStack>>;
+  /**
+   * 🏹 Os slots da ALJAVA. Vazio quando não há aljava equipada.
+   *
+   * ⚠️ Lista própria, e não um pedaço da mochila: a aljava tem teto de unidades
+   * (10 mil) e só aceita munição. Misturar as duas faria a regra do teto ter de
+   * saber quais slots da mochila são "de aljava".
+   */
+  quiver: (ItemStack | null)[];
   depot: (ItemStack | null)[];
   /** True quando o jogador está no Depósito (pode mover itens p/ o baú). */
   atDepot: boolean;

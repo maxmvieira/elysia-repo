@@ -20,6 +20,8 @@ import {
   attributeCost,
   BACKPACK_SIZE,
   backpackSizeFor,
+  quiverSizeFor,
+  quiverMaxFor,
   DROP_THROW_RANGE,
   CLASSES,
   CREATURES,
@@ -484,6 +486,14 @@ interface Player {
   backpack: (ItemStack | null)[];
   /** Itens equipados por slot. */
   equipment: Partial<Record<EquipSlot, ItemStack>>;
+  /**
+   * 🏹 A ALJAVA: os slots de munição, separados da mochila.
+   *
+   * ⚠️ Vazia quando não há aljava equipada — `quiverSizeFor(undefined)` é 0.
+   * Sem aljava o personagem simplesmente não carrega munição, e o arco não
+   * dispara. É a regra que o dono pediu, e ela não tem exceção.
+   */
+  quiver: (ItemStack | null)[];
   /** Depósito pessoal (acessível só na zona do DP). */
   depot: (ItemStack | null)[];
   alive: boolean;
@@ -1522,11 +1532,60 @@ function atDepot(player: Player): boolean {
   return player.floor === 0 && inDepotZone(map, player.tileX, player.tileY);
 }
 
+/**
+ * 🏹 Move uma pilha de munição da MOCHILA para a ALJAVA.
+ *
+ * ⚠️ **Move o que couber, e devolve o resto** — não é tudo ou nada. Quem clica
+ * em 8.000 flechas com 3.000 de espaço espera guardar 3.000, não levar um
+ * "não cabe" e ficar com as 8.000 na mochila.
+ */
+function guardaNaAljava(player: Player, indice: number): void {
+  const pilha = player.backpack[indice];
+  if (!pilha) return;
+  const aljava = player.equipment.quiver;
+  if (!aljava) {
+    send(player, { t: 'denied', reason: 'Equipe uma aljava para guardar munição.' });
+    return;
+  }
+  const def = getItem(pilha.kind);
+  if (def?.category !== 'ammo') return;
+
+  /*
+   * 🔴 **O TETO É DA ALJAVA, e conta as unidades SOMADAS.** Dez mil é o número
+   * do dono, e ele vale para o total: flecha comum, de fogo e de gelo dividem o
+   * mesmo teto. Contar por pilha faria quatro tipos virarem quarenta mil.
+   */
+  const teto = quiverMaxFor(aljava.kind);
+  const jaTem = player.quiver.reduce((n, x) => n + (x?.amount ?? 0), 0);
+  const cabe = Math.max(0, teto - jaTem);
+  if (cabe <= 0) {
+    send(player, { t: 'denied', reason: `A aljava está cheia (${teto}).` });
+    return;
+  }
+
+  const move = Math.min(pilha.amount, cabe);
+  const mesmo = player.quiver.find((x) => x?.kind === pilha.kind);
+  if (mesmo) {
+    mesmo.amount += move;
+  } else {
+    const livre = player.quiver.indexOf(null);
+    if (livre < 0) {
+      send(player, { t: 'denied', reason: 'A aljava não tem slot livre para outro tipo.' });
+      return;
+    }
+    player.quiver[livre] = { kind: pilha.kind, amount: move };
+  }
+  pilha.amount -= move;
+  if (pilha.amount <= 0) player.backpack[indice] = null;
+  sendInventory(player);
+}
+
 function sendInventory(player: Player): void {
   send(player, {
     t: 'inventory',
     backpack: player.backpack,
     equipment: player.equipment,
+    quiver: player.quiver,
     depot: player.depot,
     atDepot: atDepot(player),
     nearVendor: nearVendor(player),
@@ -1693,24 +1752,6 @@ function equippedWeapon(player: Player): { stack: ItemStack; identity: WeaponIde
 }
 
 /**
- * 🏹 **A MUNIÇÃO DO GOLPE BÁSICO, se houver.** `null` = este golpe não gasta.
- *
- * Sai da ARMA EQUIPADA (`WEAPON_IDENTITY.ammo`), e a nota lá explica por que
- * não sai de `attackType`: a lança tem alcance 2 e é `ranged`, mas não atira
- * nada. Desarmado também não gasta — a flecha pertence ao arco.
- */
-function municaoDoGolpe(player: Player): string | null {
-  return equippedWeapon(player)?.identity.ammo ?? null;
-}
-
-/** Quanto o jogador tem de um `kind` na mochila. */
-function quantoTem(player: Player, kind: string): number {
-  let n = 0;
-  for (const s of player.backpack) if (s?.kind === kind) n += s.amount;
-  return n;
-}
-
-/**
  * Confere e GASTA uma munição. Devolve `false` quando não havia — e nesse caso
  * o golpe inteiro tem de ser abortado por quem chamou.
  *
@@ -1722,19 +1763,68 @@ function quantoTem(player: Player, kind: string): number {
  * ⚠️ O aviso ao jogador é ESTRANGULADO: sem isso, segurar o clique num alvo
  * fora de flechas encheria o chat com uma linha por tique.
  */
-function gastaMunicao(player: Player, now: number): boolean {
-  const kind = municaoDoGolpe(player);
-  if (!kind) return true;
-  if (quantoTem(player, kind) <= 0) {
+/**
+ * 🏹 **O QUE O GOLPE VAI GASTAR, e o que isso imprime no dano.**
+ *
+ * Devolve o índice do slot da aljava escolhido e o ELEMENTO daquela munição —
+ * ou `null` quando não há nenhuma da família certa.
+ *
+ * 🔴 **A ESCOLHA É DO JOGADOR, e é por isso que a ordem dos slots importa.**
+ * Não há regra automática de "usa a mais forte" nem "usa a mais fraca": pega a
+ * PRIMEIRA da família que a arma aceita. Quem quiser flecha de fogo contra o
+ * bicho de gelo põe a de fogo no primeiro slot — trocar munição é a jogada, e
+ * o servidor escolhendo sozinho tiraria a jogada do jogador.
+ */
+function municaoEscolhida(
+  player: Player,
+): { indice: number; kind: string; elemento?: DamageType } | null {
+  const familia = equippedWeapon(player)?.identity.ammo;
+  if (!familia) return null;
+  for (let i = 0; i < player.quiver.length; i++) {
+    const slot = player.quiver[i];
+    if (!slot || slot.amount <= 0) continue;
+    const def = getItem(slot.kind);
+    if (def?.ammoFamily !== familia) continue;
+    return { indice: i, kind: slot.kind, ...(def.element ? { elemento: def.element } : {}) };
+  }
+  return null;
+}
+
+/**
+ * Confere e GASTA uma munição da aljava. Devolve o ELEMENTO que ela imprime no
+ * golpe (`undefined` = físico), ou `false` quando o golpe não pode sair.
+ *
+ * ⚠️ **Gasta aqui dentro, junto da conferência.** Separar as duas em "tem?" e
+ * "gasta!" convida ao golpe que confere, faz o dano e esquece de gastar — e um
+ * arqueiro com flechas infinitas não dá erro nenhum, só some do balanceamento.
+ *
+ * ⚠️ O aviso ao jogador é ESTRANGULADO: sem isso, segurar o clique num alvo sem
+ * munição encheria o chat com uma linha por tique do mundo.
+ */
+function gastaMunicao(
+  player: Player, now: number,
+): { ok: false } | { ok: true; elemento?: DamageType } {
+  const familia = equippedWeapon(player)?.identity.ammo;
+  if (!familia) return { ok: true };   // arma que não gasta munição
+
+  const escolhida = municaoEscolhida(player);
+  if (!escolhida) {
     if (now - (player.avisoMunicaoEm ?? 0) > 3000) {
       player.avisoMunicaoEm = now;
-      send(player, { t: 'denied', reason: `Sem ${getItem(kind)?.name ?? kind}. Compre no comerciante.` });
+      const oQue = familia === 'bolt' ? 'virotes' : 'flechas';
+      const porque = player.equipment.quiver
+        ? `Sem ${oQue} na aljava.`
+        : 'Sem aljava equipada — não dá para carregar munição.';
+      send(player, { t: 'denied', reason: porque });
     }
-    return false;
+    return { ok: false };
   }
-  removeFromBackpack(player, kind, 1);
+
+  const slot = player.quiver[escolhida.indice]!;
+  slot.amount -= 1;
+  if (slot.amount <= 0) player.quiver[escolhida.indice] = null;
   sendInventory(player);
-  return true;
+  return { ok: true, ...(escolhida.elemento ? { elemento: escolhida.elemento } : {}) };
 }
 
 function recompute(player: Player, healGain = false): void {
@@ -3109,10 +3199,17 @@ function playerAttack(player: Player, creature: Creature, now: number): void {
   if (!restr.canAttack) return;
   if (isMagic && !restr.canCast) return;
   if (isMagic && player.mana < d.manaCost) return; // sem mana, não conjura
-  // 🏹 Sem flecha, o arco não dispara — e o golpe nem começa. Fica ANTES de
-  // gastar mana e de marcar o relógio: recusar depois cobraria o preço de um
-  // ataque que não aconteceu.
-  if (!gastaMunicao(player, now)) return;
+  /*
+   * 🏹 Sem munição, o arco não dispara — e o golpe nem começa. Fica ANTES de
+   * gastar mana e de marcar o relógio: recusar depois cobraria o preço de um
+   * ataque que não aconteceu.
+   *
+   * ⚠️ **Testa `.ok`, e não a verdade do objeto.** Um objeto é sempre
+   * verdadeiro; `if (!gastaMunicao(...))` compila, roda e NUNCA bloqueia — o
+   * arqueiro atiraria sem flecha e nada acusaria.
+   */
+  const tiro = gastaMunicao(player, now);
+  if (!tiro.ok) return;
   if (isMagic) player.mana -= d.manaCost;
   player.lastAttackAt = now;
   marcaCombate(player, false, now); // 🚪 bater em monstro tranca a saída por 60 s
@@ -3124,7 +3221,18 @@ function playerAttack(player: Player, creature: Creature, now: number): void {
   const { amount, crit } = computeHit(power, d.critChance, d.critMult);
   // Etapa 8: o golpe do jogador também passa pelas camadas, e é aqui que a
   // resistência da criatura entra em jogo.
-  const tipo = playerDamageType(player);
+  /*
+   * 🔥 **A MUNIÇÃO MANDA NO ELEMENTO DO GOLPE.** Flecha de fogo faz dano de
+   * fogo, e a resistência do monstro decide o resto — a mesma conta da magia.
+   * É isso, e só isso, que faz "certos tipos de monstros tomarem mais dano
+   * devido às propriedades extras": nenhuma tabela de bônus nova.
+   *
+   * ⚠️ A munição vence a arma. Uma flecha de gelo numa Espada Flamejante não
+   * existe (arma de arremesso não é espada), mas a ordem fica escrita para o
+   * dia em que um arco elemental aparecer: quem toca o alvo é a ponta da
+   * flecha.
+   */
+  const tipo = tiro.elemento ?? playerDamageType(player);
   const dmg = resolveDamage(
     amount,
     tipo,
@@ -3271,8 +3379,10 @@ function playerAttackPlayer(player: Player, alvo: Player, now: number): void {
   if (!restr.canAttack) return;
   if (isMagic && !restr.canCast) return;
   if (isMagic && player.mana < d.manaCost) return;
-  // 🏹 A mesma munição do golpe em criatura. Ver `gastaMunicao`.
-  if (!gastaMunicao(player, now)) return;
+  // 🏹 A mesma munição do golpe em criatura. Ver `gastaMunicao` — e a mesma
+  // armadilha do `.ok`: testar o objeto nunca bloquearia.
+  const tiro = gastaMunicao(player, now);
+  if (!tiro.ok) return;
 
   // 🔴 Reconferido AQUI, e não só no clique. Entre selecionar o alvo e o golpe
   // sair passam tiques inteiros: dá tempo de os dois entrarem no mesmo grupo, de
@@ -3312,7 +3422,8 @@ function playerAttackPlayer(player: Player, alvo: Player, now: number): void {
     * offenseMult(player)
     * (1 + bonus.physDamage);
   const { amount, crit } = computeHit(power, d.critChance, d.critMult);
-  const tipo = playerDamageType(player);
+  // 🔥 A munição manda no elemento também no PvP. Ver a nota em `playerAttack`.
+  const tipo = tiro.elemento ?? playerDamageType(player);
   // Mesma pilha de defesa em camadas que o jogador usa contra monstro — é o
   // ponto do cap. 31: uma ordem só de resolução, não uma para PvE e outra para
   // PvP. Esquivável porque é golpe corpo a corpo/à distância de alguém visível.
@@ -5419,6 +5530,8 @@ function createCharacterFor(
     backpack: emptySlots(BACKPACK_SIZE),
     equipment: { container: { kind: 'backpack', amount: 1 } } as Partial<Record<EquipSlot, ItemStack>>,
     depot: emptySlots(DEPOT_SIZE),
+    // 🏹 Aljava vazia: o kit inicial equipa uma logo abaixo.
+    quiver: [] as (ItemStack | null)[],
     tileX: vila.spawn.x, tileY: vila.spawn.y, floor: vila.spawn.floor,
     // Pontos do próprio nível 1: nasce podendo aprender a primeira habilidade
     // da árvore em vez de esperar o nível 2.
@@ -5442,7 +5555,17 @@ function createCharacterFor(
    * vez que o jogador equipa parece defeito, não regra. Cinquenta duram o
    * suficiente para ele entender o sistema e voltar à cidade por conta própria.
    */
-  addStackTo(ficha.backpack, 'arrow', 50);
+  /*
+   * 🏹 **E a ALJAVA já vem equipada, com as flechas dentro.**
+   *
+   * Sem isso o kit seria uma pegadinha: cinquenta flechas na mochila e nenhum
+   * jeito de usá-las, porque o arco só dispara o que está na aljava. O jogador
+   * novo descobriria a regra pelo silêncio de um arco que não atira.
+   */
+  ficha.equipment.quiver = { kind: 'quiver', amount: 1 };
+  ficha.quiver = emptySlots(quiverSizeFor('quiver'));
+  ficha.quiver[0] = { kind: 'arrow', amount: 50 };
+  ficha.quiver[1] = { kind: 'bolt', amount: 30 };
 
   const stored = toStored(ficha, 0, player.accountId, cls.id, vila.id, [vila.id]);
   return store.createCharacter(stored);
@@ -5462,9 +5585,14 @@ function applyStoredCharacter(player: Player, c: ReturnType<typeof store.loadCha
   // Duas passadas porque há uma dependência circular: para saber o tamanho é
   // preciso saber qual container está equipado, e o container vem das mesmas
   // linhas. A primeira passada existe só para descobrir isso.
-  const equipPrevio = rowsToItems(c.items, BACKPACK_SIZE, DEPOT_SIZE).equipment;
+  const equipPrevio = rowsToItems(c.items, BACKPACK_SIZE, DEPOT_SIZE, 0).equipment;
   const capacidade = backpackSizeFor(equipPrevio.container?.kind);
-  const { backpack, depot, equipment } = rowsToItems(c.items, capacidade, DEPOT_SIZE);
+  // 🏹 A aljava tem a MESMA dependência circular da mochila: o tamanho dela sai
+  // do item equipado, que vem das mesmas linhas. Por isso as duas passadas.
+  const slotsAljava = quiverSizeFor(equipPrevio.quiver?.kind);
+  const { backpack, depot, quiver, equipment } = rowsToItems(
+    c.items, capacidade, DEPOT_SIZE, slotsAljava,
+  );
 
   player.characterId = c.id;
   player.name = c.name;
@@ -5505,6 +5633,7 @@ function applyStoredCharacter(player: Player, c: ReturnType<typeof store.loadCha
   player.bankGold = c.bankGold;
   player.backpack = backpack;
   player.depot = depot;
+  player.quiver = quiver;
   player.equipment = equipment;
   /*
    * 🔴 POSIÇÃO SALVA PODE NÃO EXISTIR MAIS — e a partir de 02/08 isso é certeza
@@ -6512,9 +6641,47 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       const slot = player.backpack[msg.index];
       if (!slot) return;
       const def = getItem(slot.kind);
+      /*
+       * 🏹 **MUNIÇÃO "equipa" indo para a ALJAVA.** Reusa este mesmo comando de
+       * propósito: para o jogador, clicar numa flecha na mochila e ela ir para
+       * a aljava é a mesma ação de clicar numa espada e ela ir para a mão.
+       * Inventar uma mensagem `quiver` própria seria outro caminho de rede e
+       * outro gesto para aprender, pela mesma ideia.
+       */
+      if (def?.category === 'ammo') {
+        guardaNaAljava(player, msg.index);
+        break;
+      }
       if (!def || def.category !== 'equip' || !def.slot) {
         send(player, { t: 'denied', reason: 'Item não equipável.' });
         return;
+      }
+      if (def.slot === 'quiver') {
+        /*
+         * Trocar de aljava: a antiga volta para a mochila, e o conteúdo dela
+         * volta junto. Trava se não couber — perder munição em silêncio seria
+         * pior que recusar a troca.
+         */
+        const cheia = player.quiver.filter((x) => x) as ItemStack[];
+        const nova = quiverSizeFor(slot.kind);
+        const prev = player.equipment.quiver;
+        const precisa = cheia.length - Math.min(cheia.length, nova) + (prev ? 1 : 0);
+        if (player.backpack.filter((x) => !x).length < precisa) {
+          send(player, { t: 'denied', reason: 'Mochila sem espaço para guardar a aljava antiga.' });
+          return;
+        }
+        player.equipment.quiver = { kind: slot.kind, amount: 1 };
+        player.backpack[msg.index] = prev ?? null;
+        const nq: (ItemStack | null)[] = new Array(nova).fill(null);
+        for (let i = 0; i < cheia.length; i++) {
+          if (i < nova) nq[i] = cheia[i]!;
+          else addToBackpack(player, cheia[i]!.kind, cheia[i]!.amount);
+        }
+        player.quiver = nq;
+        recompute(player);
+        sendStats(player);
+        sendInventory(player);
+        break;
       }
       if (def.slot === 'container') {
         // Trocar a MOCHILA equipada: redimensiona a lista de slots. O container
@@ -6568,6 +6735,24 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       sendInventory(player);
       break;
     }
+    /** 🏹 Tira uma pilha de munição da aljava e devolve à mochila. */
+    case 'unquiver': {
+      if (!player.joined) return;
+      const pilha = player.quiver[msg.index];
+      if (!pilha) return;
+      /*
+       * ⚠️ Devolve a pilha INTEIRA, e recusa se não couber. Devolver "o que
+       * couber" deixaria o resto na aljava sem o jogador perceber, e ele
+       * fecharia a janela achando que tirou tudo.
+       */
+      if (!addToBackpack(player, pilha.kind, pilha.amount)) {
+        send(player, { t: 'denied', reason: 'Mochila cheia.' });
+        return;
+      }
+      player.quiver[msg.index] = null;
+      sendInventory(player);
+      break;
+    }
     case 'unequip': {
       if (!player.joined) return;
       if (msg.slot === 'container') {
@@ -6576,11 +6761,23 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       }
       const eq = player.equipment[msg.slot];
       if (!eq) return;
+      /*
+       * 🏹 **Aljava com munição dentro não sai.** A alternativa seria despejar
+       * as flechas na mochila, e é pior: dez mil flechas em quatro tipos
+       * precisariam de quatro slots livres, e sem eles a munição sumiria ou a
+       * troca falharia no meio, com metade em cada lugar. Esvaziar primeiro é
+       * um passo a mais e nenhuma surpresa.
+       */
+      if (msg.slot === 'quiver' && player.quiver.some((x) => x)) {
+        send(player, { t: 'denied', reason: 'Esvazie a aljava antes de tirá-la.' });
+        return;
+      }
       if (!addToBackpack(player, eq.kind, 1, eq.roll)) {
         send(player, { t: 'denied', reason: 'Mochila cheia.' });
         return;
       }
       delete player.equipment[msg.slot];
+      if (msg.slot === 'quiver') player.quiver = [];
       recompute(player);
       sendStats(player);
       sendInventory(player);
@@ -7406,7 +7603,7 @@ wss.on('connection', (socket) => {
     derived: computeStats(cls, cls.base, 1, { kind: cls.skill, level: START_SKILL_LEVEL, progress: 0 }),
     level: 1, xp: 0, unspentPoints: 0, talentPoints: 0,
     hp: 100, maxHp: 100, mana: 30, maxMana: 30, gold: 0, bankGold: 0,
-    backpack: emptySlots(BACKPACK_SIZE), equipment: {}, depot: emptySlots(DEPOT_SIZE),
+    backpack: emptySlots(BACKPACK_SIZE), equipment: {}, depot: emptySlots(DEPOT_SIZE), quiver: [],
     alive: true, deadUntil: 0, targetId: null, lastAttackAt: 0, lastMoveAt: 0, lastAckSeq: 0, joined: false,
     conditions: [], cc: emptyCcState(), effects: [], hots: [],
     casting: null, magicProtection: false,
