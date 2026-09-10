@@ -245,7 +245,30 @@ for (const sexo of ['male', 'female']) {
     const dir = join(ORIGEM, sexo, achada);
 
     for (const arquivo of readdirSync(dir).filter((f) => f.endsWith('.png'))) {
-      const m = re.exec(arquivo);
+      /*
+       * 🔴 **QUANDO O NOME NÃO DIZ QUAL ANIMAÇÃO É, A PASTA DIZ.**
+       *
+       * O autosprite batizou o lote de magia de 11/09 como
+       * `-iso_custom_advanced_7d1d08211b3f_<direção>` — um hash, não o nome que
+       * o dono digitou. Exigir o nome inteiro faria as cinco folhas caírem em
+       * "nome fora do padrão, pulado", e o conversor terminaria dizendo que a
+       * magia continua AUSENTE, com os arquivos ali na pasta.
+       *
+       * ✅ Então a âncora da ANIMAÇÃO passou a ser a PASTA (que quem baixa
+       * escolhe) e o nome do arquivo responde só pela DIREÇÃO. A direção é
+       * lista fechada de cinco, casada no FIM do nome — não é "casar por
+       * continha", é ler o único campo que o gerador nunca inventa.
+       *
+       * ⚠️ O caminho estrito continua primeiro, e a queda avisa. Um lote com
+       * nome bom não muda de comportamento, e um lote com nome ruim entra
+       * dizendo que entrou pelo atalho.
+       */
+      let m = re.exec(arquivo);
+      if (!m) {
+        const cauda = new RegExp(`_(${Object.keys(DIRECAO).join('|')})(?:[-.]|$)`);
+        m = cauda.exec(arquivo);
+        if (m) console.warn(`[fonte] nome fora do padrão; direção lida do fim: ${arquivo}`);
+      }
       if (!m) { console.warn(`[fonte] nome fora do padrão, pulado: ${arquivo}`); pulos++; continue; }
       const dirArq = m[1];
       const animArq = anim;
