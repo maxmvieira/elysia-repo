@@ -8152,49 +8152,6 @@ function creatureStepMs(e: EntitySnapshot): number | null {
 type StepCadence = ReturnType<typeof makeStepCadence>;
 
 /**
- * 🔴 **EM QUE QUADRO DO MEIO-CICLO O PÉ TOCA O CHÃO, por direção.**
- *
- * O jogo prende o ciclo de passos ao chão: cada tile atravessado consome meio
- * ciclo, para o pé plantar no instante em que o personagem chega ao tile. Isso
- * pressupõe que o quadro de CONTATO esteja no fim do meio-ciclo — e na folha
- * universal ele **não está no mesmo lugar nas oito direções**:
- *
- * | direção            | contato | deslocamento |
- * |--------------------|---------|--------------|
- * | down               | q4      | 4            |
- * | up                 | q5      | 3            |
- * | right / left       | q7      | 1            |
- * | up_right / up_left | q7      | 1            |
- * | down_right/-_left  | q0      | 0            |
- *
- * De lado o pé planta na FRONTEIRA do tile (q7 ≈ q0); de frente, no MEIO dele
- * (q4). Meia passada de diferença — e é ela que o dono via como *"andando para
- * baixo ele parece estar correndo"* e *"sensação de que está deslizando"*: de
- * frente o personagem chegava a cada tile no ar, com as pernas juntas, e
- * plantava o pé no vazio entre dois tiles.
- *
- * ✅ O deslocamento gira o meio-ciclo para o contato cair sempre na fronteira,
- * igual em todas as direções. Nada de arte foi alterado — só a fase.
- *
- * ⚠️ **Os números são MEDIDOS, não escolhidos**, e valem para esta folha. Arte
- * nova = rodar `node tools/mede-passada.mjs <walk.png> <célula>` e atualizar a
- * tabela; a saída dele já vem com a coluna `deslocamento`.
- *
- * ⚠️ Direção ausente = 0, que é o comportamento de antes desta tabela. Os packs
- * antigos (4 quadros, criaturas) continuam como estavam.
- */
-const CONTATO_NO_QUADRO: Partial<Record<Direction, number>> = {
-  down: 4,
-  up: 3,
-  right: 1,
-  left: 1,
-  up_right: 1,
-  up_left: 1,
-  down_right: 0,
-  down_left: 0,
-};
-
-/**
  * 🔴 **DE QUANTO EM QUANTO O CLIENTE PEDE UM PASSO.**
  *
  * Ele não decide quando anda — pede, e o servidor concede a cada
@@ -8903,16 +8860,15 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
          * no fim do tile, o módulo daria a volta para o quadro 0 da metade — um
          * piscão de um quadro para trás bem na hora da pisada.
          *
-         * 🔴 **O deslocamento gira o meio-ciclo para o CONTATO cair na fronteira
-         * do tile** — ver `CONTATO_NO_QUADRO`. Sem ele, andar de frente chegava
-         * a cada tile com as pernas juntas e plantava o pé no meio do caminho.
-         *
-         * ⚠️ O `%` aqui é DENTRO da metade, então `paridade` continua escolhendo
-         * a perna: girar a fase não pode trocar de perna no meio do passo.
+         * 🔴 **A FASE JÁ VEM ALINHADA NA TIRA**, e por isso aqui não há
+         * deslocamento nenhum. Houve: uma tabela `CONTATO_NO_QUADRO` por
+         * direção viveu aqui por um dia. Ela quebrou assim que chegaram folhas
+         * novas, porque o quadro do contato **não cai no mesmo lugar no
+         * masculino e no feminino** — a fase é propriedade da ARTE, não do
+         * motor. Quem gira agora é `universal2strip.mjs`, no corte.
          */
-        const desloc = CONTATO_NO_QUADRO[dir] ?? 0;
         const dentro = Math.min(metade - 1, Math.floor(t * metade));
-        sprite.gotoAndStop((paridade ? 0 : metade) + (dentro + desloc) % metade);
+        sprite.gotoAndStop((paridade ? 0 : metade) + dentro);
         /*
          * O tronco sobe quando as pernas se cruzam e desce quando o pé bate. É
          * 1 px, e é o que separa "andando" de "recorte deslizando" — a escala é
@@ -8922,12 +8878,8 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
          * contato a contato, com as pernas cruzadas no meio, então o seno bate
          * exatamente onde o tronco deve estar mais alto.
          *
-         * ⚠️ E acompanha a fase JÁ GIRADA. Deixá-lo no `t` cru punha o tronco no
-         * alto justamente no quadro do contato, nas direções deslocadas — o
-         * personagem subia quando devia estar batendo o pé.
          */
-        const fase = ((t * metade + desloc) % metade) / metade;
-        bob = Math.round(Math.sin(fase * Math.PI));
+        bob = Math.round(Math.sin(t * Math.PI));
       }
     }
 

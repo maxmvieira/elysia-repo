@@ -285,6 +285,66 @@ function ciclosDe(f) {
 }
 
 /**
+ * Altura do personagem, DA SOLA AO TOPO.
+ *
+ * ⚠️ Da sola, e não do alto da célula: os quadros do autosprite não vêm
+ * alinhados ao chão — é `cola` que os alinha, depois. Medir o topo puro dá a
+ * posição do desenho dentro da célula, que não diz nada sobre a passada. Foi o
+ * primeiro jeito que tentei, e ele respondia "quadro 0" em todas as direções.
+ *
+ * 🔴 Encolhe no CONTATO (as pernas se afastam e o quadril desce) e estica na
+ * passagem (as pernas se juntam e o corpo sobe). É o mesmo evento que a
+ * abertura dos pés mede, visto por outro lado.
+ */
+function alturaDe(q) {
+  const chao = chaoDe(q);
+  if (chao < 0) return 0;
+  for (let y = 0; y < CELL; y++) {
+    for (let x = 0; x < CELL; x++) if (q[(y * CELL + x) * 4 + 3] > 8) return chao - y;
+  }
+  return 0;
+}
+
+/**
+ * 🔴 **EM QUE QUADRO O PÉ TOCA O CHÃO** — dentro do meio-ciclo já amostrado.
+ *
+ * O motor prende meio ciclo de passo a cada tile atravessado, para o pé plantar
+ * no instante da chegada. Isso pressupõe que o CONTATO esteja no começo do
+ * meio-ciclo, e as folhas do autosprite **não garantem isso**: medido nas de
+ * 10/09, de lado o contato cai no quadro 0 e de frente no 5. Meia passada de
+ * diferença — o personagem chegava a cada tile no ar, de pernas juntas, e
+ * plantava o pé no vazio entre dois tiles. O dono leu isso como *"andando para
+ * baixo ele parece estar correndo"* e *"sensação de que está deslizando"*.
+ *
+ * ✅ Alinhar aqui, e não no motor, porque a fase é propriedade da ARTE. A
+ * primeira tentativa foi uma tabela por direção em `main.ts`; ela quebrou no
+ * mesmo dia, porque o contato do masculino e o do feminino não caem no mesmo
+ * quadro. Girando a amostra no conversor, o motor não precisa saber que o
+ * problema existiu, e folha nova entra alinhada sem tocar em código.
+ *
+ * ⚠️ **DOIS SINAIS, e o segundo existe porque o primeiro é fraco de frente.**
+ * A abertura dos pés varia 60 px de perfil e só 6 de frente — pouca margem
+ * contra o ruído da reamostragem. O topo do conteúdo dá a mesma resposta por
+ * outro caminho: o tronco está mais BAIXO no contato e mais alto na passagem.
+ * Os dois são impressos, e uma divergência grande aparece no log em vez de
+ * virar animação torta.
+ */
+function contatoDe(f, idx) {
+  const meia = Math.floor(idx.length / 2);
+  const pernas = [];
+  const tronco = [];
+  for (let i = 0; i < meia; i++) {
+    const q = recorta(f, idx[i]);
+    pernas.push(aberturaDosPes(q) ?? 0);
+    tronco.push(alturaDe(q));
+  }
+  // Contato: pés mais ABERTOS, corpo mais BAIXO. Dois extremos opostos.
+  const maior = (xs) => xs.indexOf(Math.max(...xs));
+  const menor = (xs) => xs.indexOf(Math.min(...xs));
+  return { porPernas: maior(pernas), porTronco: menor(tronco), pernas, tronco };
+}
+
+/**
  * Escreve o quadro na tira, deslocado para a sola cair em `GROUND_Y`.
  *
  * ⚠️ **O alinhamento é por quadro, não por animação.** Dentro do ciclo o boneco
@@ -408,16 +468,35 @@ function monta(sexo) {
   const tiraW = CELL * N;
   const tiraH = CELL * LINHAS.length;
   const tira = Buffer.alloc(tiraW * tiraH * 4);
+  const fases = {};
   for (let row = 0; row < LINHAS.length; row++) {
     const [fonte, espelhado] = FONTE[LINHAS[row]];
     const f = walk[fonte];
     const { idx } = indicesDe(f, N);
-    idx.forEach((n, col) => {
-      const bruto = recorta(f, n);
+    /*
+     * 🔴 **GIRA a amostra para o CONTATO cair no quadro 0.** Ver `contatoDe`.
+     * Girar à esquerda por `c` leva o quadro `c` para o zero — e, como a tira
+     * tem dois meios-ciclos iguais, o segundo contato cai em `N/2` sozinho.
+     */
+    const fase = contatoDe(f, idx);
+    fases[fonte] = fase;
+    const giro = fase.porPernas;
+    idx.forEach((_, col) => {
+      const bruto = recorta(f, idx[(col + giro) % N]);
       cola(tira, tiraW, espelhado ? espelha(bruto) : bruto, col, row);
     });
   }
   writeFileSync(join(destino, 'walk.png'), encode(tiraW, tiraH, tira));
+  for (const d of DIRECOES) {
+    const f = fases[d];
+    if (!f) continue;
+    const desacordo = Math.abs(f.porPernas - f.porTronco);
+    console.log(
+      `        fase_${d.padEnd(10)} contato: pernas=q${f.porPernas} tronco=q${f.porTronco}` +
+        ` → girou ${f.porPernas}` +
+        (desacordo > 2 && desacordo < N / 2 - 2 ? '  ⚠️ SINAIS DISCORDAM, confira em tela' : ''),
+    );
+  }
 
   for (const d of DIRECOES) {
     const { ciclos, passo } = indicesDe(walk[d], N);
