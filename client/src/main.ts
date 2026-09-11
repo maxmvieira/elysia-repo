@@ -3989,12 +3989,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       esfera.anchor.set(0.5);
       esfera.blendMode = 'add';
       /*
-       * ⚠️ **0,62 de escala.** O quadro tem 192 px e a esfera desenhada ocupa
-       * quase toda a célula; a 1,0 ela ficaria com quatro tiles de largura e
-       * taparia o alvo. O dono foi explícito: *"a esfera deve permanecer
-       * compacta... NÃO deve parecer um raio gigantesco"*.
+       * ⚠️ **0,40 de escala, e era 0,62.** O quadro tem 192 px e a esfera ocupa
+       * quase toda a célula; a 1,0 ela teria SEIS tiles de largura e taparia o
+       * alvo. A 0,62, vista em voo em 12/09, ainda lia como um borrão pálido
+       * atravessando a tela em vez de uma bola — três tiles e meio de largura em
+       * mistura aditiva sobre grama lavam o desenho. A 0,40 são ~2,4 tiles, que
+       * é o que o dono pediu: *"compacta... NÃO deve parecer um raio
+       * gigantesco"*.
        */
-      esfera.scale.set(0.62);
+      esfera.scale.set(0.40);
       /*
        * ⚠️ Os oito quadros do voo tocam UMA vez ao longo da viagem: a esfera
        * nasce como fagulha e chega carregada. Em `loop` ela pulsaria, e pulsar
