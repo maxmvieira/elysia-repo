@@ -2591,16 +2591,32 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       fracaoQueda: 18 / 30, duracaoEstouro: 0,
     },
     /*
-     * 🌠 O METEORO da Chuva reusa a folha do Fire Bolt para o estouro — é fogo
-     * caindo, e a arte serve. O que o distingue é a ESCALA e a cor do risco,
-     * logo abaixo.
+     * 🌠 **O METEORO ganhou folha PRÓPRIA em 11/09.** Até então ele reusava a do
+     * Fire Bolt ampliada 5,2× — e era exatamente isso que se via em tela: uma
+     * explosão de bolt esticada, com o pixel cinco vezes maior que o do resto do
+     * jogo. A folha nova tem 40 quadros desenhados no tamanho certo.
+     *
+     * ⚠️ **16 de queda e 24 de impacto**, daí a fração. No modo risco os 16
+     * primeiros não tocam (a descida é o risco desenhado por código), mas ficam
+     * na tira: no dia em que o risco sair, a queda já está pronta.
+     *
+     * ⚠️ **`duracaoEstouro` explícito, e 520 ms é um MEIO-TERMO medido em
+     * tela.** Sem ele o estouro herdaria `DUR_QUEDA − quedaMs`, que no modo
+     * risco dá o piso de 160 ms — 24 quadros em 160 ms são 7 ms por quadro, um
+     * borrão. Mas 1100 ms, a primeira tentativa, foi pior: com 18 meteoros a
+     * cada ~290 ms, quatro estouros ficam vivos ao mesmo tempo e a tela inteira
+     * vira uma parede de fogo, sem se distinguir um impacto do outro.
+     *
+     * 🔴 A regra que sai disto: **o estouro não pode durar muito mais que o
+     * intervalo entre meteoros**, senão a chuva deixa de ler como chuva. 520 ms
+     * deixa dois no ar — o bastante para parecer contínuo, pouco para embolar.
      *
      * ⚠️ `meteor_fall` é um nome só desta queda, e não o `fx` do Meteoro avulso
      * (`meteor`). Reusar aquele faria mexer na chuva mudar a magia menor junto.
      */
     {
-      magia: 'meteor_fall', arquivo: 'firebolt24', bolts: 1, quadros: 24,
-      fracaoQueda: 14 / 24, duracaoEstouro: 0,
+      magia: 'meteor_fall', arquivo: 'meteoro40', bolts: 1, quadros: 40,
+      fracaoQueda: 16 / 40, duracaoEstouro: 520,
     },
     /*
      * ❄️ A BOLA DE NEVE da Nevasca. A folha do dono é uma coluna de gelo que
@@ -2813,7 +2829,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * ⚠️ A bola de neve é bem menor que a rocha: ela cobre 3×3 células, contra as
    * ~5×5 do meteoro, e o risco que cai tem de anunciar esse tamanho.
    */
-  const RAIO_ESFERA: Record<string, number> = { snowball: 20 };
+  const RAIO_ESFERA: Record<string, number> = {
+    snowball: 20,
+    /*
+     * 🌠 **24, e o padrão era 46 — metade.** Mudou quando o meteoro ganhou folha
+     * própria (11/09). A rocha desenhada por código tinha cabeça de 92 px e
+     * rastro de 230 (`R × 5`); com dezoito caindo juntas, o que se via em tela
+     * era uma parede de riscos amarelos, e a explosão nova ficava por baixo
+     * deles.
+     *
+     * 🔴 **O risco existia para SUPRIR a falta de arte de queda, e agora ela
+     * existe** — são os 16 primeiros quadros da folha, hoje sem uso. Encolher é
+     * o remendo; ver o pendente no handoff sobre trocá-lo pela arte.
+     */
+    meteor_fall: 24,
+  };
 
   /**
    * Quanto o ESTOURO de cada magia é maior que o padrão da folha.
@@ -2822,7 +2852,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * um eixo é o que deixa a explosão OVAL, que foi a queixa do dono.
    */
   const ESCALA_IMPACTO: Record<string, number> = {
-    meteor_fall: 5.2,
+    /**
+     * 🌠 **2,0, e era 5,2 — mas a conta não é a que parece.**
+     *
+     * A célula CRESCEU (a folha do Fire Bolt tinha 128 px de largura, a nova tem
+     * 192), então só para manter a pegada antiga bastaria 3,45 — `0,625 × 3,45 ×
+     * 192` dá os mesmos 414 px de antes. Foi o que entrou primeiro, e em tela
+     * ficou claro que a pegada antiga era o problema.
+     *
+     * 🔴 **O respingo do meteoro é raio 2, ou 160 px.** A 414 px a explosão era
+     * dois vezes e meia maior que a área que ela machuca — exatamente a queixa
+     * que o dono já tinha feito de outro jeito: *"são bem grandes, mas parece
+     * que acertam somente um pequeno ponto ao tocar o solo"*. A arte esticada
+     * escondia isso; a arte de verdade deixou à vista.
+     *
+     * ⚠️ 2,0 dá 240 px: uma vez e meia o quadrado de dano. Sobra drama sem
+     * mentir sobre onde o golpe pega.
+     */
+    meteor_fall: 2.0,
     /*
      * ❄️ A célula da folha da Nevasca tem 160 px de largura para 3 tiles (96 px)
      * de área de dano. 0,62 põe a coluna de gelo no tamanho da cratera dela.

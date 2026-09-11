@@ -41,6 +41,56 @@ que compila, roda e não faz nada:
 jogando, um medindo. Nenhum teste do repositório os pegaria, porque todos
 passavam.
 
+## 🌠 O METEORO GANHOU FOLHA PRÓPRIA (fim do dia)
+
+Até agora a Chuva de Meteoros **reusava a folha do Fire Bolt ampliada 5,2×** — e
+era exatamente isso que se via: uma explosão de bolt esticada, com o pixel cinco
+vezes maior que o do resto do jogo. O dono trouxe uma folha de 40 quadros
+(8×5, 1536×1024) e ela entrou como `meteoro40`.
+
+**`tools/folha-alfa2fx.mjs`**, novo, corta folhas que **já vêm com alfa** — o
+`contato2fx.mjs` não serve aqui porque ele joga fora o alfa do arquivo e
+recalcula tudo por croma, o que apagaria a fumaça cinza inteira.
+
+⚠️ **Piso de alfa em 24, e o número foi medido.** Folhas de IA costumam trazer um
+véu de alfa 10–40 cobrindo a célula; em mistura aditiva esse véu vira um
+**retângulo aceso** em volta do efeito. O histograma desta é bimodal — 787 mil
+pixels abaixo de 16 contra 468 mil em 255 —, então cortar embaixo não tira nada
+do desenho.
+
+⚠️ **Colunas de 192 exatos, fileiras MEDIDAS.** Os vales caem em 192, 384, 576…
+nas cinco fileiras; já 1024/5 daria 204,8 e o desenho transborda a célula
+teórica. Por isso o `y` de cada fileira é o limite do CONTEÚDO.
+
+### Duas correções que só a tela deu
+
+🔴 **1 100 ms de estouro floodou a tela.** Com 18 meteoros a cada ~290 ms, quatro
+estouros ficam vivos juntos e vira uma parede de fogo sem um impacto distinguível
+do outro. A regra que sai disto: **o estouro não pode durar muito mais que o
+intervalo entre meteoros.** Ficou em **520 ms** — dois no ar.
+
+🔴 **A escala revelou um problema antigo.** Manter a pegada de antes pedia 3,45
+(`0,625 × 3,45 × 192` = os mesmos 414 px de `5,2 × 128`). Mas o respingo do
+meteoro é raio 2, ou **160 px**: a explosão era duas vezes e meia maior que a área
+que machuca — a queixa que o dono já tinha feito de outro jeito (*"são bem
+grandes, mas parece que acertam somente um pequeno ponto"*). A arte esticada
+escondia; a arte de verdade deixou à vista. Ficou em **2,0** (240 px).
+
+🔴 **E o risco de código passou a atrapalhar.** A rocha desenhada tinha cabeça de
+92 px e rastro de 230; com dezoito caindo, o que se via era uma parede de riscos
+amarelos com a explosão nova por baixo. O raio caiu para 24.
+
+### ⚠️ PENDENTE: os 16 quadros de queda não tocam
+
+A folha tem **16 quadros de meteoro caindo** e eles estão na tira, sem uso — a
+descida continua sendo o risco desenhado por código, que existia justamente para
+suprir a falta dessa arte.
+
+Trocar não é uma linha: o `AnimatedSprite` tem **uma** velocidade, e a queda
+(780 ms para 16 quadros) e o estouro (520 ms para 24) pedem ritmos diferentes.
+Sincronizar exige ou duas animações em sequência, ou casar `quedaMs` com a
+fração da tira. É a próxima coisa a fazer no meteoro.
+
 ## ❄️ A NEVASCA, EM OITO VOLTAS
 
 A magia foi refeita do zero neste dia, e cada volta desfez parte da anterior.
