@@ -4456,7 +4456,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
              */
             conjurando.delete(msg.casterId);
             sprites.get(msg.casterId)?.setCasting?.(null);
+            // ⭕ *"Quando a magia soltar ele pode sumir."*
+            marcaConjuracao(msg.casterId);
           } else {
+            // ⭕ O círculo só nasce quando o servidor manda o ponto — ou seja,
+            // só em magia que mira o chão. Ver `S2C_Casting`.
+            marcaConjuracao(
+              msg.casterId,
+              msg.x !== undefined && msg.y !== undefined
+                ? { x: msg.x, y: msg.y, raio: msg.raio ?? 0 }
+                : undefined,
+            );
             conjurando.set(msg.casterId, {
               ate: performance.now() + msg.ms,
               total: msg.ms,
@@ -7126,6 +7136,67 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   miraMarca.visible = false;
   fxLayer.addChild(miraMarca);
 
+  /**
+   * ⭕ **O CÍRCULO DE CONJURAÇÃO** — pedido do dono em 11/09: *"esse círculo vai
+   * demarcar onde vou jogar a magia... consegue fazer ele ficar girando
+   * lentamente durante a conjuração? Quando a magia soltar ele pode sumir."*
+   *
+   * 🔴 **Não confundir com o círculo que foi REMOVIDO em 11/09.** Aquele
+   * marcava a área da Nevasca enquanto a tempestade caía, e o dono o tirou
+   * (*"remova o círculo agora"*) porque os meteoros caindo já diziam onde ela
+   * estava, e melhor: em movimento. Este é o oposto no tempo — existe ANTES do
+   * golpe, enquanto não há nada em tela dizendo onde ele vai cair, e some no
+   * instante em que o efeito começa. Um informa o que ainda não se vê; o outro
+   * repetia o que já se via.
+   *
+   * ⚠️ **Um nó só para o andar inteiro.** A conjuração de área é rara e curta;
+   * um sprite por conjurador seria alocação por evento — e, com a chave por
+   * `casterId`, dois magos conjurando ao mesmo tempo simplesmente disputam o
+   * mesmo círculo. É simplificação assumida: se um dia houver duelo de áreas,
+   * vira um mapa de nós, como os `castBar`.
+   */
+  const circuloConj = new Sprite();
+  circuloConj.anchor.set(0.5);
+  circuloConj.blendMode = 'add';
+  circuloConj.zIndex = 9997;
+  circuloConj.visible = false;
+  fxLayer.addChild(circuloConj);
+  /** Quem é o dono do círculo agora. Sem isto, um `casting: null` de OUTRO mago apagaria o círculo deste. */
+  let circuloDe: string | null = null;
+  void Assets.load<Texture>('/assets/fx/circulo_conjuracao.png')
+    .then((t) => { circuloConj.texture = t; })
+    .catch((e: unknown) => console.warn('[fx] círculo de conjuração não carregou:', e));
+
+  /** ⭕ Mostra o círculo no ponto e no tamanho da área, ou o esconde. */
+  function marcaConjuracao(
+    casterId: string, ponto?: { x: number; y: number; raio: number },
+  ): void {
+    if (!ponto) {
+      // ⚠️ Só o DONO do círculo pode apagá-lo.
+      if (circuloDe === casterId) { circuloConj.visible = false; circuloDe = null; }
+      return;
+    }
+    circuloDe = casterId;
+    circuloConj.x = ponto.x * TS + TS / 2;
+    circuloConj.y = ponto.y * TS + TS / 2;
+    /*
+     * ⚠️ **O diâmetro é `(raio × 2 + 1)` tiles, o QUADRADO real do dano.** O
+     * jogo mede alcance em Chebyshev, então raio 4 é um bloco 9×9 — e o
+     * círculo inscrito nele toca o meio dos lados e deixa as quinas de fora.
+     * É a mesma aproximação que a marca da mira já usava desde 08/09, e a nota
+     * de lá vale aqui: as quinas apanham mesmo estando fora do desenho.
+     */
+    const lado = (ponto.raio * 2 + 1) * TS;
+    circuloConj.width = lado;
+    // ⚠️ A arte já vem ACHATADA (o anel é uma elipse vista de viés). Manter a
+    // proporção dela é o que faz o círculo parecer deitado no chão em vez de
+    // em pé na frente da câmera.
+    circuloConj.height = lado * (circuloConj.texture.height / circuloConj.texture.width);
+    circuloConj.rotation = 0;
+    circuloConj.alpha = 0;
+    circuloConj.visible = true;
+  }
+
   const precisaMira = (def: SkillDef): boolean =>
     def.shape !== 'self' && def.shape !== 'party';
 
@@ -8891,9 +8962,38 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       if (resta <= 0) {
         conjurando.delete(id);
         view?.setCasting?.(null);
+        /*
+         * ⭕ **O círculo também some por AQUI, e não só pelo pacote do
+         * servidor.** Este ramo existe porque o `casting: null` pode se perder
+         * ou a entidade sair da tela no meio — a mesma razão que já limpava a
+         * aura e a pose. Sem a limpeza local, um círculo ficaria girando no
+         * chão para sempre, e ele é grande demais para passar despercebido.
+         */
+        marcaConjuracao(id);
         continue;
       }
       view?.setCasting?.(1 - resta / cj.total, cj.nome);
+    }
+
+    /*
+     * ⭕ **O CÍRCULO GIRA DEVAGAR enquanto a magia carrega.**
+     *
+     * ⚠️ 0,00035 rad/ms dá uma volta a cada ~30 s. Parece pouco de propósito: o
+     * pedido foi *"girando LENTAMENTE"*, e num anel cheio de estrelinhas uma
+     * volta rápida vira cintilação — o olho lê piscada, não rotação.
+     *
+     * ⚠️ **Ele nasce e morre em FADE.** Aparecer de uma vez, no tamanho cheio,
+     * lê como erro de desenho; 180 ms de entrada bastam para o olho entender
+     * que aquilo foi conjurado ali. O `alpha` sobe até 0,85 e para — chegar a 1
+     * competiria com o efeito da magia quando ele começar.
+     */
+    if (circuloConj.visible) {
+      // ⚠️ Lê o relógio direto: este bloco roda ANTES de o `dt` do laço ser
+      // declarado, e mover o bloco para depois dele separaria o círculo da
+      // varredura de quem conjura, que é onde ele nasce e morre.
+      const dtC = app.ticker.deltaMS;
+      circuloConj.rotation += dtC * 0.00035;
+      circuloConj.alpha = Math.min(0.85, circuloConj.alpha + dtC / 180 * 0.85);
     }
 
     // Anel de alvo sob o inimigo selecionado.

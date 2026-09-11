@@ -3999,8 +3999,21 @@ function castSpell(
       mira, nivel,
       fromX: player.tileX, fromY: player.tileY,
     };
+    /*
+     * ⭕ **A MIRA VIAJA JUNTO**, para o círculo de conjuração nascer onde a
+     * magia vai cair. Ver `S2C_Casting`.
+     *
+     * ⚠️ Só quando a magia MIRA O CHÃO e o jogador de fato apontou. Numa magia
+     * de alvo único o círculo mentiria — ela persegue a criatura, e o ponto do
+     * clique deixa de valer no instante seguinte.
+     */
+    const noChao = skillMiraNoChao(def)
+      && mira.tileX !== undefined && mira.tileY !== undefined;
     broadcastFloor(player.floor, {
       t: 'casting', casterId: player.id, spell: def.id, ms: castMs,
+      ...(noChao
+        ? { x: mira.tileX, y: mira.tileY, raio: skillRange(def, nivel) }
+        : {}),
     });
     return;
   }

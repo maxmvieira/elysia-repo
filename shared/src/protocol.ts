@@ -1001,6 +1001,20 @@ export interface S2C_Casting {
   casterId: string;
   spell: string | null;
   ms: number;
+  /**
+   * ⭕ **ONDE a magia vai cair, para o círculo de conjuração aparecer lá.**
+   * Ausente quando a magia não mira o chão (buff, alvo único, si mesmo).
+   *
+   * 🔴 **Vai para TODO MUNDO no andar, e é o ponto.** A conjuração já era
+   * pública porque os segundos parado são a janela de interrupção; sem saber
+   * ONDE ela vai cair, o adversário vê que algo vem e não tem o que fazer com
+   * isso. Com o círculo, dá para sair de perto — que é a decisão que a janela
+   * de interrupção deveria oferecer.
+   */
+  x?: number;
+  y?: number;
+  /** Raio da área, em tiles, para o círculo nascer do tamanho do estrago. */
+  raio?: number;
 }
 
 /** Uma área persistente nasceu no chão (muralha, nevasca, santuário…). */

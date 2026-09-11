@@ -41,6 +41,46 @@ que compila, roda e não faz nada:
 jogando, um medindo. Nenhum teste do repositório os pegaria, porque todos
 passavam.
 
+## ⭕ O CÍRCULO DE CONJURAÇÃO (fim do dia)
+
+*"Esse círculo vai demarcar onde vou jogar a magia… consegue fazer ele ficar
+girando lentamente durante a conjuração? Quando a magia soltar ele pode sumir."*
+
+🔴 **Não confundir com o círculo REMOVIDO neste mesmo dia.** Aquele marcava a
+área da Nevasca **enquanto a tempestade caía**, e o dono o tirou (*"remova o
+círculo agora"*) porque os meteoros já diziam onde ela estava, e melhor: em
+movimento. Este é o oposto no tempo — existe **antes** do golpe, quando não há
+nada em tela dizendo onde ele vai cair, e some no instante em que o efeito
+começa. Um informa o que ainda não se vê; o outro repetia o que já se via.
+
+**A mira passou a viajar no `S2C_Casting`** (`x`, `y`, `raio`), e vai para todo o
+andar. Isso não é detalhe: a conjuração já era pública porque os segundos parado
+são a janela de interrupção — mas, sem saber **onde** a magia vai cair, o
+adversário via que algo vinha e não tinha o que fazer com a informação. Com o
+círculo, dá para sair de perto.
+
+⚠️ **Só em magia que MIRA O CHÃO.** Em alvo único o círculo mentiria: a magia
+persegue a criatura, e o ponto do clique deixa de valer no instante seguinte.
+
+⚠️ **Um nó só para o andar**, com o `casterId` dono guardado — sem isso, o
+`casting: null` de um mago apagaria o círculo do outro. Dois conjurando ao mesmo
+tempo disputam o mesmo círculo; é simplificação assumida.
+
+⚠️ **Gira 0,00035 rad/ms** — uma volta a cada ~30 s. Parece pouco de propósito:
+num anel cheio de estrelinhas, volta rápida vira cintilação, e o olho lê piscada
+em vez de rotação.
+
+⚠️ **`tools/circulo2fx.mjs`** recorta pelo CONTEÚDO e mata o véu de alfa (piso
+40). É o terceiro asset do dia a vir com halo de alfa 16–60 muito além do
+desenho — em mistura aditiva isso acende um retângulo em volta.
+
+### 🔴 NÃO FOI VISTO EM TELA
+
+O login não autopreencheu a senha na última rodada e eu não digito senha. O
+arquivo serve (200), typecheck e build passam, mas **o círculo não foi conferido
+jogando**. O que olhar: se ele nasce no lugar certo, se o tamanho bate com a área
+(deve ser o quadrado `raio × 2 + 1`), e se some ao soltar a magia.
+
 ## 🌠 O METEORO GANHOU FOLHA PRÓPRIA (fim do dia)
 
 Até agora a Chuva de Meteoros **reusava a folha do Fire Bolt ampliada 5,2×** — e
