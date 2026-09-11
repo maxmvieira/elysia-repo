@@ -4690,13 +4690,7 @@ function executeSpell(
             playerId: player.id, creatureId: c.id, skillId: def.id, nivel,
             poderBase, critChance: d.critChance, critMult: d.critMult,
             fxEm,
-            /*
-             * ⚡ **Já nasce "feito" quando a ficha manda UM `fx` para a série.**
-             * Ver `fxUnico`: só o golpe de índice zero anuncia o efeito, e os
-             * seguintes entram na fila apenas para o dano. É o que separa o
-             * relâmpago único da Descarga dos doze choques da Esfera.
-             */
-            fxFeito: (def.fxUnico ?? false) && i > 0,
+            fxFeito: false,
             /*
            * 🎭 **Magia COM carregamento não pede gesto no impacto.**
            *

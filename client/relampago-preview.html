@@ -14,51 +14,73 @@
   canvas { display: block; image-rendering: pixelated; }
   p { padding: 6px 10px; margin: 0; opacity: .85; }
 </style>
-<canvas id="c" width="960" height="320"></canvas>
+<canvas id="c" width="960" height="420"></canvas>
 <p id="leg"></p>
 <script type="module">
   const c = document.getElementById('c');
   const g = c.getContext('2d');
   const img = await new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.src = '/assets/fx/relampago25.png'; });
   const N = 25, LW = img.width / N, LH = img.height;
-  const DUR = 840, ESCALA = 0.625 * 0.80, TS = 32;
-  const DANOS = [260, 400, 540, 680];   // Lv.10: quedaMs + i × 140
-  const CICLO = 1400;
+  const DUR = 840, ESCALA = 0.625 * 1.30, TS = 32;
+  // Lv.10 da ficha: 6 raios numa janela de 1900 ms, o dano de cada um aos 260 ms.
+  const RAIOS = 6, JANELA = 1900, PASSO = JANELA / RAIOS, QUEDA = 260;
+  const CICLO = JANELA + DUR + 600;
+  /*
+   * Pontos sorteados dentro do bloco 7×7 do Lv.10, em tiles a partir do centro.
+   * Fixos na bancada de propósito: com sorteio de verdade, duas execuções não
+   * dariam para comparar.
+   */
+  const PONTOS = [[0, 0], [-2, 1], [2, -1], [-1, -2], [1, 2], [3, 0]];
+  const CX = 460, CHAO = 352;
 
   function quadro(t) {
     g.fillStyle = '#3f5a34'; g.fillRect(0, 0, c.width, c.height);
     const ciclo = t % CICLO;
-    // chão de referência e um "monstro" do tamanho de um tile
-    g.fillStyle = '#00000030'; g.fillRect(0, 250, c.width, 2);
-    g.fillStyle = '#00000040'; g.fillRect(460 - 16, 250 - 40, 32, 40);
-    if (ciclo < DUR) {
-      const k = Math.min(N - 1, Math.floor((ciclo / DUR) * N));
-      const w = LW * ESCALA * 2, h = LH * ESCALA * 2;  // ×2: bancada 1:1, o jogo tem zoom
-      g.globalCompositeOperation = 'lighter';
-      g.drawImage(img, k * LW, 0, LW, LH, 460 - w / 2, 252 - h, w, h);
-      g.globalCompositeOperation = 'source-over';
-      // os números aparecendo, como no jogo
-      g.fillStyle = '#ffe36a'; g.font = 'bold 20px system-ui';
-      DANOS.forEach((ms, i) => {
-        if (ciclo < ms || ciclo > ms + 700) return;
-        g.globalAlpha = Math.max(0, 1 - (ciclo - ms) / 700);
-        g.fillText('412', 500 + i * 34, 210 - (ciclo - ms) * 0.03);
-      });
-      g.globalAlpha = 1;
-    }
+    // A ÁREA de dano (7×7 tiles no Lv.10) e dois "monstros" dentro dela.
+    const T = TS * 2;                       // ×2: bancada 1:1, o jogo tem zoom
+    g.strokeStyle = '#ffffff28'; g.lineWidth = 2;
+    g.strokeRect(CX - 3.5 * T, CHAO - 1.6 * T, 7 * T, 3.2 * T);
+    g.fillStyle = '#00000040';
+    g.fillRect(CX - 16, CHAO - 40, 32, 40);
+    g.fillRect(CX - 2 * T - 16, CHAO - 40, 32, 40);
+
+    g.globalCompositeOperation = 'lighter';
+    const w = LW * ESCALA * 2, h = LH * ESCALA * 2;
+    let vivos = 0;
+    PONTOS.forEach(([tx], i) => {
+      const nasce = i * PASSO;
+      const dt = ciclo - nasce;
+      if (dt < 0 || dt >= DUR) return;
+      vivos++;
+      const k = Math.min(N - 1, Math.floor((dt / DUR) * N));
+      g.drawImage(img, k * LW, 0, LW, LH, CX + tx * T - w / 2, CHAO - h, w, h);
+    });
+    g.globalCompositeOperation = 'source-over';
+
+    // Os números: cada raio castiga TODA a área aos 260 ms da queda dele.
+    g.fillStyle = '#ffe36a'; g.font = 'bold 20px system-ui';
+    PONTOS.forEach((_, i) => {
+      const ms = i * PASSO + QUEDA;
+      if (ciclo < ms || ciclo > ms + 700) return;
+      g.globalAlpha = Math.max(0, 1 - (ciclo - ms) / 700);
+      g.fillText('412', CX + 40 + i * 30, CHAO - 70 - (ciclo - ms) * 0.03);
+    });
+    g.globalAlpha = 1;
+
     document.getElementById('leg').textContent =
-      `${Math.round(ciclo)} ms / ${DUR} ms · quadro ${ciclo < DUR ? Math.floor((ciclo / DUR) * N) + 1 : '—'} de ${N}`
-      + ` · danos em ${DANOS.join(', ')} ms · tile = ${TS * 2} px na bancada`;
+      `${Math.round(ciclo)} ms · ${vivos} raio(s) no ar · ${RAIOS} em ${JANELA} ms`
+      + ` (${Math.round(PASSO)} ms entre um e outro, cada um durando ${DUR} ms)`
+      + ` · tile = ${T} px na bancada`;
   }
 
   if (location.hash === '#tiras') {
     const COL = 5, CEL = 190, N2 = 15;
     const alvo = document.createElement('canvas');
-    alvo.width = CEL * COL; alvo.height = 220 * Math.ceil(N2 / COL);
+    alvo.width = CEL * COL; alvo.height = 260 * Math.ceil(N2 / COL);
     const ag = alvo.getContext('2d');
     for (let i = 0; i < N2; i++) {
-      quadro((i / N2) * DUR);
-      ag.drawImage(c, 365, 40, 190, 220, (i % COL) * CEL, Math.floor(i / COL) * 220, CEL, 220);
+      quadro((i / N2) * (JANELA + DUR));
+      ag.drawImage(c, 290, 60, 340, 310, (i % COL) * CEL, Math.floor(i / COL) * 260, CEL, 260);
     }
     c.replaceWith(alvo);
   } else {

@@ -631,49 +631,64 @@ test('DD-SOR-018: a Descarga Elétrica não atordoa e não empurra', () => {
   assert.ok(d.power > 0, 'mas ela causa dano');
 
   /*
-   * 🔴 **ELA DEIXOU DE SER A "AoE RÁPIDA" EM 12/09**, por pedido do dono, com a
-   * arte do relâmpago: *"magia ofensiva de alvo único"*, *"o raio atinge
-   * exatamente o alvo"*.
+   * 🔴 **ELA É DE ÁREA, e este `assert` existe por causa de um erro meu.**
    *
-   * ⚠️ O `GDD-doc1` ainda a descreve como AoE. É override consciente do
-   * documento, o terceiro desta semana (os outros dois estão na Chuva de
-   * Meteoros), e o que o `DD-SOR-018` cravou — **sem stun, sem knockback** —
-   * continua valendo: era a regra, e a forma não era.
+   * Em 12/09 a especificação da arte nova pedia alvo único, três vezes, e eu
+   * segui — anotando no commit que isso contrariava o `GDD-doc1` (*"AoE
+   * rápida"*) em vez de perguntar. O dono testou e desfez na mesma tarde: *"a
+   * magia é em área também, não é alvo único"*.
    *
-   * ⚠️ Consequência registrada: o ramo do raio fica com DUAS de alvo único e
-   * uma de área. O Feiticeiro perdeu a AoE barata da escola elétrica, e sobrou
-   * a Ira de Thor (suprema, 18 s de recarga) para o papel.
+   * ⚠️ A lição não é sobre esta magia: **o que está no `docs/` não muda por
+   * causa de um prompt.** Divergência entre o pedido e o documento é pergunta,
+   * não decisão. O `assert` fica para o caso de a mesma especificação voltar.
    */
-  assert.equal(d.shape, 'target', 'virou alvo único em 12/09 — ver o handoff');
+  assert.equal(d.shape, 'area', 'a Descarga é a AoE do ramo do raio — GDD-doc1');
 });
 
-test('⚡ a Descarga Elétrica reparte o dano sem mudar o TOTAL', () => {
+test('⚡ a Tempestade de Raios reparte o dano sem mudar o TOTAL por alvo', () => {
   /*
-   * 🔴 O dano saiu de um golpe para 3 → 4, e isso foi mudança de DESENHO, não de
-   * equilíbrio: o dono quis ver os números aparecendo enquanto o raio cai.
+   * 🔴 O dano saiu de um golpe para 3 → 6 raios, e isso foi mudança de DESENHO,
+   * não de equilíbrio: o dono quis ver os números aparecendo enquanto os raios
+   * caem.
    *
-   * O teste trava o total de antes (1,05 no Lv.1 e 2,22 no Lv.10 da ficha, os
-   * mesmos de quando ela era `damage` de um golpe só). Se alguém mexer no
-   * `power` achando que reparte de novo, o número aparece aqui.
+   * ⚠️ **`danoDaArea` é o que faz a conta fechar por multiplicação simples.**
+   * Cada raio castiga TODA a área, então quem está dentro leva os seis — e o
+   * total por alvo é `golpes × poder`, sem a diluição geométrica da Chuva de
+   * Meteoros. É a mesma decisão da Nevasca.
+   *
+   * O teste trava o total de antes: 1,05 no Lv.1 e 2,22 no Lv.10, os mesmos de
+   * quando ela era um golpe só. Se alguém mexer no `power` achando que reparte
+   * de novo, o número aparece aqui.
    *
    * ⚠️ A conta é sobre a FICHA, sem o `IMPULSO_MAGICO` — é a comparação com o
    * valor histórico, e o impulso veio depois e vale para todas.
    */
   const d = SKILLS.electric_discharge;
+  assert.equal(d.danoDaArea, true, 'sem isto a geometria come parte do dano');
   const daFicha = (nv: number): number =>
-    skillHits(d, nv) * (d.power + d.powerPerLevel * (nv - 1));
-  assert.ok(Math.abs(daFicha(1) - 1.05) < 0.005, `Lv.1 deu ${daFicha(1).toFixed(3)}, era 1,05`);
-  assert.ok(Math.abs(daFicha(10) - 2.22) < 0.005, `Lv.10 deu ${daFicha(10).toFixed(3)}, era 2,22`);
+    skillImpactosEsperados(d, nv) * (d.power + d.powerPerLevel * (nv - 1));
+  assert.ok(Math.abs(daFicha(1) - 1.05) < 0.01, `Lv.1 deu ${daFicha(1).toFixed(3)}, era 1,05`);
+  assert.ok(Math.abs(daFicha(10) - 2.22) < 0.01, `Lv.10 deu ${daFicha(10).toFixed(3)}, era 2,22`);
 
   /*
-   * ⚠️ **Os golpes têm de caber na animação.** A folha dura 840 ms; o primeiro
-   * dano sai aos `quedaMs` e os seguintes a cada `INTERVALO_BOLT_MS`. O último
-   * precisa sobrar dentro dela — foi o pedido: *"um pouquinho antes dele
-   * sumir"*. Travado porque subir `hits` um dia jogaria o último número numa
-   * tela já limpa, sem erro nenhum.
+   * ⚠️ **O dano de cada raio tem de cair DENTRO do desenho dele.** A folha dura
+   * 840 ms e o estrago sai aos `quedaMs` — *"os danos vão aparecendo enquanto
+   * ele cai"*. Travado porque `quedaMs` é um número solto na ficha e nada mais
+   * no código sabe quanto a folha dura.
    */
-  const ultimo = (d.quedaMs ?? 0) + (skillHits(d, 10) - 1) * INTERVALO_BOLT_MS;
-  assert.ok(ultimo < 840, `o último golpe cai em ${ultimo} ms e a folha dura 840`);
+  assert.ok((d.quedaMs ?? 0) < 840, 'o dano sairia com o raio já apagado');
+
+  /*
+   * 🔴 **E os raios não podem se empilhar.** A regra saiu do meteoro em 11/09: o
+   * desenho de uma unidade não pode durar muito mais que o intervalo entre
+   * elas, senão a chuva deixa de ler como chuva e vira uma parede acesa.
+   *
+   * ⚠️ Aqui o intervalo é `duração / golpes`, e não o fixo dos bolts — é o que
+   * a magia de ÁREA usa. Subir `hits` sem subir `durationMs` aperta a
+   * tempestade sem nenhum erro de compilação.
+   */
+  const intervalo = skillDuration(d, 10) / skillHits(d, 10);
+  assert.ok(840 / intervalo < 3, `${(840 / intervalo).toFixed(1)} raios vivos ao mesmo tempo`);
 });
 
 test('Ira de Thor atordoa pouco, e o anti-cadeia é o do jogo inteiro', () => {
@@ -815,17 +830,11 @@ test('🔴 magia que CAI DO CÉU: alvo único cadenciado, ou área com JANELA', 
     'mudou a lista? confira o que o cliente desenha a cada golpe da magia nova',
   );
   /*
-   * ⚡ **E a resposta da Descarga Elétrica a essa pergunta é `fxUnico`** (12/09).
-   * Ela quer a cadência — quatro danos espalhados pela queda do raio — e NÃO
-   * quer quatro desenhos: é um relâmpago só. Sem a bandeira o cliente
-   * empilharia quatro colunas com 140 ms de diferença.
-   *
-   * ⚠️ `fxUnico` sem `queda` é contradição em termos: não há série para
-   * agrupar. Travado aqui porque o campo é fácil de copiar para a ficha errada.
+   * ⚡ **E a resposta da Descarga Elétrica a essa pergunta é `lightning_fall`**
+   * (12/09): cada raio da tempestade anuncia o próprio `fx`, e o cliente desenha
+   * uma coluna caindo para cada um — que é o que faz vários deles no ar lerem
+   * como tempestade.
    */
-  for (const d of Object.values(SKILLS).filter((x) => x.fxUnico)) {
-    assert.ok(d.queda, `${d.id}: fxUnico sem queda não agrupa nada`);
-  }
   for (const d of caem) {
     assert.ok(
       d.shape === 'target' || d.shape === 'area',

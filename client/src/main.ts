@@ -2955,21 +2955,25 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     snowball: 0.62,
     /**
-     * ⚡ **0,80, e o padrão (1,0) foi medido e recusado na bancada.**
+     * ⚡ **1,30, e a primeira medida foi 0,80.**
      *
-     * O quadro tem 128 × 284; a 1,0 isso dá 80 × 177 px, ou **2,5 tiles de
-     * clarão no chão** para uma magia que machuca UMA célula. É exatamente a
-     * queixa que o dono já fez do meteoro: *"são bem grandes, mas parece que
-     * acertam somente um pequeno ponto ao tocar o solo"*.
+     * 🔴 **O 0,80 saiu de uma conta que virou errada.** Eu dimensionei o clarão
+     * para não passar muito da célula, porque a magia era de ALVO ÚNICO e uma
+     * queixa antiga do dono dizia *"são bem grandes, mas parece que acertam
+     * somente um pequeno ponto ao tocar o solo"*. Em tela ele pediu o oposto:
+     * *"o raio está meio pequeno demais"* — e no mesmo teste corrigiu o resto,
+     * que ela é de ÁREA.
      *
-     * 0,80 dá 64 × 142 px: o clarão fica em ~1,8 tile e a coluna em 4,4 — alta o
-     * bastante para ler como raio vindo de cima, sem mentir sobre onde ela pega.
+     * ✅ Com a área de volta a conta inverte: o dano pega um bloco 5×5 (160 px),
+     * então um raio de 104 px de clarão está DENTRO do que a magia machuca, e
+     * não passando dos limites. 1,30 dá 104 × 230 px — 3,2 tiles de clarão e 7,2
+     * de coluna.
      *
      * ⚠️ **Isotrópica, e a arte não permite outra coisa.** A coluna ficaria mais
      * fiel estreita e alta, mas esticar só um eixo deixa o clarão do chão OVAL —
      * a regra que já vale para o meteoro e para a Nevasca.
      */
-    lightning_fall: 0.80,
+    lightning_fall: 1.30,
   };
 
   /**

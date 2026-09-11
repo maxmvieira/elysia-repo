@@ -436,19 +436,6 @@ export interface SkillDef {
    */
   quedaFx?: string;
   /**
-   * ⚡ **UM `fx` para a série inteira**, em vez de um por golpe pendente.
-   *
-   * 🔴 A diferença é a de "uma magia com vários danos" contra "vários golpes
-   * pequenos", e as duas existem de propósito. A Esfera Elétrica quer um `fx`
-   * por choque — cada descarga É uma descarga, e é ela que faz a bola pulsar.
-   * O relâmpago da Descarga quer o contrário: **um** raio despencando, com o
-   * estrago aparecendo enquanto ele cai. Sem esta bandeira o cliente
-   * desenharia quatro colunas empilhadas com 140 ms de diferença.
-   *
-   * ⚠️ Só faz sentido com `queda`; sem ela não há série para agrupar.
-   */
-  fxUnico?: boolean;
-  /**
    * 💥 **RAIO DE RESPINGO de CADA impacto, em tiles.** Ausente = só o alvo.
    *
    * Pedido do dono em 11/09, jogando: *"se ele pegar em dois monstros juntos,
@@ -2397,10 +2384,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     name: 'Descarga Elétrica',
     /*
      * ⚡ **`multihit`, e era `damage`.** Não é mudança de equilíbrio: o TOTAL foi
-     * preservado (ver `power`). O que mudou é que o estrago agora sai em quatro
-     * números ao longo da queda do raio, em vez de um só no fim — pedido do
-     * dono em 12/09: *"os danos vão aparecendo enquanto ele cai e um pouquinho
-     * antes dele sumir"*.
+     * preservado (ver `power`). O que mudou é que o estrago sai em vários
+     * números ao longo da tempestade, um por raio que cai, em vez de um só.
      */
     kind: 'multihit',
     branch: 'raio',
@@ -2411,41 +2396,42 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     manaPerLevel: 5,
     cooldownMs: 5000,
     /**
-     * 🔴 **O TOTAL É O MESMO DE ANTES, repartido em golpes.**
+     * 🔴 **O TOTAL POR ALVO É O MESMO DE SEMPRE, repartido entre os raios.**
      *
      * Era `1,05 + 0,13/nível` num golpe só: 1,05 no Lv.1 e 2,22 no Lv.10. Com
-     * 3 → 4 golpes, cada um vale `total / golpes` — 0,35 no Lv.1 e 0,555 no
-     * Lv.10, que é `0,35 + 0,0228 × 9`.
+     * 3 → 6 raios e `danoDaArea` (cada raio castiga TODA a área), cada um vale
+     * `total / raios` — 0,35 no Lv.1 e 0,37 no Lv.10.
+     *
+     * ⚠️ **O poder por raio quase não sobe; quem cresce é a CONTAGEM.** É a
+     * mesma forma da Esfera Elétrica, e cai bem numa tempestade: subir de nível
+     * faz chover mais, não faz cada raio doer mais.
      *
      * ⚠️ Os decimais são feios porque saíram de uma DIVISÃO, e ficam assim de
-     * propósito: arredondar para 0,35/0,025 daria 2,26 no Lv.10 e teria mexido
-     * no equilíbrio por descuido, num commit que era de arte.
+     * propósito: arredondar teria mexido no equilíbrio por descuido, num commit
+     * que era de arte.
      */
     power: 0.35,
-    powerPerLevel: 0.0228,
+    powerPerLevel: 0.00222,
     hits: 3,
-    hitsAtLv10: 4,
+    hitsAtLv10: 6,
     /**
-     * 🔴 **DE ÁREA PARA ALVO ÚNICO — pedido do dono em 12/09**, na especificação
-     * do relâmpago: *"magia ofensiva de alvo único"*, *"o raio atinge exatamente
-     * o alvo"*, *"não transformar a habilidade em uma área de dano aleatória"*.
+     * 🔴 **CONTINUA EM ÁREA, e o desvio de 12/09 foi desfeito no mesmo dia.**
      *
-     * ⚠️ **Isto tira do Feiticeiro a AoE rápida do ramo do raio**, que era como
-     * o `GDD-doc1` a descrevia (*"AoE rápida"*, `DD-SOR-018`). O ramo fica com
-     * duas de alvo único (Esfera, Descarga) e uma de área (Ira de Thor). A
-     * REGRA do `DD-SOR-018` — sem atordoar, sem empurrar — continua valendo, e é
-     * o que o teste trava; o que mudou foi a forma.
+     * A especificação do relâmpago pedia alvo único (*"magia ofensiva de alvo
+     * único"*, três vezes), e eu segui. O dono testou e corrigiu na hora: *"a
+     * magia é em área também, não é alvo único; a área não é tão grande"*.
      *
-     * ⚠️ Voltar é `shape: 'area'` mais o `range`/`rangeEvery` antigos (2 e 5).
+     * ⚠️ **O `GDD-doc1` estava certo e eu tratei o documento como negociável.**
+     * Ele descrevia a Descarga como a *"AoE rápida"* do ramo do raio, e eu
+     * anotei a divergência em vez de perguntar. A regra de sempre continua
+     * valendo: o que está no `docs/` não muda por causa de um prompt.
+     *
+     * Raio 2 (5×5) subindo a 3 (7×7) no Lv.6 — os números originais, e o
+     * *"a área não é tão grande"* do dono confirma que a escala está certa.
      */
-    shape: 'target',
-    /**
-     * ⚡ **8 tiles fixos, e antes o 2 aqui era RAIO de área.** Uma célula a menos
-     * que a Esfera (9): as duas são de alvo único e a Esfera é a que abre o
-     * ramo, então ela fica sendo a de alcance máximo.
-     */
-    range: 8,
-    rangeEvery: 0,
+    shape: 'area',
+    range: 2,
+    rangeEvery: 5,
     /**
      * ⚡ **GANHOU CONJURAÇÃO, e ela não tinha nenhuma.**
      *
@@ -2459,13 +2445,28 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * ⚠️ **Curta de propósito.** 0,9 s → 1,6 s contra os 2 s → 3,8 s da Esfera:
      * ela continua sendo a rápida do ramo, que era a identidade dela no GDD.
      *
-     * ⚠️ Somado à perda da área, a magia ficou MAIS FRACA do que era. Está
-     * registrado aqui para a conta não sumir: era um golpe instantâneo em área,
-     * virou quatro golpes em alvo único depois de ~1,5 s parado.
+     * ⚠️ **Com a área de volta, o que sobra de custo é só a conjuração.** Era um
+     * golpe instantâneo; virou uma tempestade depois de ~1,5 s parado. O dano
+     * por alvo é o mesmo, então o preço é o tempo — e é o preço de a magia ter
+     * virado um espetáculo em vez de um clarão.
      */
     castMs: 900,
     castMsAtLv10: 1600,
-    durationMs: 0,
+    /**
+     * ⚡ **A JANELA DA TEMPESTADE, e ela é o que espaça os raios.**
+     *
+     * Em magia de área a cadência sai de `duração / golpes` (ver
+     * `passoDaQueda` no servidor), e não do intervalo fixo dos bolts. 1,2 s para
+     * 3 raios e 1,9 s para 6 dão 400 e 317 ms entre um e outro.
+     *
+     * 🔴 **A conta que manda aqui é a do meteoro (11/09): o desenho de um raio
+     * não pode durar muito mais que o intervalo entre eles**, senão a chuva
+     * deixa de ler como chuva e vira uma parede. A folha dura 840 ms, então
+     * ficam 2 a 2,6 raios vivos ao mesmo tempo — o bastante para parecer
+     * contínuo, pouco para embolar.
+     */
+    durationMs: 1200,
+    durationAtLv10: 1900,
     magic: true,
     damageType: 'electric',
     /**
@@ -2477,22 +2478,28 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     queda: true,
     quedaFx: 'lightning_fall',
     /**
-     * ⚡ **260 ms até o primeiro dano.** A folha tem 25 quadros em 840 ms; aos
-     * 260 ms a coluna está formada e tocando o chão (fim da segunda fileira). Os
-     * quatro golpes do Lv.10 caem em 260, 400, 540 e 680 — dentro da animação, o
-     * último 160 ms antes de ela apagar.
+     * ⚡ **260 ms do raio nascer até ele machucar.** A folha tem 25 quadros em
+     * 840 ms; aos 260 ms a coluna está formada e tocando o chão (fim da segunda
+     * fileira). Cada raio castiga no meio da própria queda — que era o pedido:
+     * *"os danos vão aparecendo enquanto ele cai"*.
      */
     quedaMs: 260,
     /**
-     * ⚡ **UM relâmpago, quatro danos.** Sem isto cada golpe pendente anunciaria
-     * o próprio `fx` e o cliente desenharia quatro colunas empilhadas com 140 ms
-     * de diferença — que é o certo para a Esfera (cada choque é um choque) e o
-     * errado aqui: *"um grande relâmpago vertical cai do céu"*, no singular.
+     * 🔴 **OS RAIOS SÃO O VISUAL; O DANO É DA ÁREA.** A mesma decisão da Nevasca,
+     * e pelo mesmo motivo medido lá: com o dano saindo do respingo de cada
+     * unidade, uma tempestade de N unidades num quadrado de M células entrega
+     * uma fração do que a ficha promete, e a fração depende da geometria — não
+     * da ficha.
+     *
+     * ⚠️ Em tela: os raios caem em pontos SORTEADOS da área (é o que faz parecer
+     * tempestade), mas quem está dentro dela apanha de todos. Um bicho na quina
+     * leva o mesmo que um no centro; é simplificação assumida, herdada da
+     * Nevasca.
      */
-    fxUnico: true,
+    danoDaArea: true,
     // Sem `applies`, e isso é a ficha inteira: `DD-SOR-018` proíbe.
     fx: 'discharge',
-    desc: 'Um relâmpago despenca sobre o alvo e o castiga enquanto cai.',
+    desc: 'Uma tempestade de raios despenca sobre a área e castiga quem está nela.',
   },
   /**
    * 🔴 A suprema de raio: "múltiplos raios, **pequena chance de stun por
