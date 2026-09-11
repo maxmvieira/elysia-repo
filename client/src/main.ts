@@ -2808,19 +2808,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * peso vindo de fora: tremor, clarão, rachaduras e 28 estilhaços. Se o dono
      * achar o impacto curto, é aqui que se vê o porquê — não há mais desenho.
      *
-     * ⚠️ **`queda: 540` são DEZESSETE tiles de altura**, e eram treze — *"poderia
-     * vir de mais alto o meteoro"* (dono, 13/09).
+     * ⚠️ **`queda: 640` são VINTE tiles de altura** — 430, 540 e agora 640, os
+     * três pedidos do dono no mesmo dia (*"mais alto"*).
      *
      * 🔴 **E a TELA é o teto disto.** A 1,0× de zoom a janela mostra uns 24 tiles
-     * na vertical, com o jogador no meio: sobram cerca de doze tiles acima do
-     * alvo. Passando disso, a pedra NASCE FORA DO QUADRO e entra em cena já em
-     * movimento — o que, a esta velocidade, ainda lê bem (*"veio de muito alto"*),
-     * mas o preço é perder o começo da animação, que é justamente onde a nuvem
-     * aparece. A 540 são uns 190 ms de mergulho fora da tela, de 650.
+     * na vertical, com o jogador no meio: sobram cerca de doze tiles (384 px)
+     * acima do alvo. A 640, **40 % do mergulho acontece fora do quadro** — 208 ms
+     * dos 520. A pedra entra em cena já em movimento, o que a esta velocidade lê
+     * como *"veio de muito alto"*; o preço é que o começo da animação, onde a
+     * nuvem se forma, o jogador não vê.
      *
-     * ⚠️ Subir muito mais devolve o problema que o dono levantou em 12/09 pelo
-     * outro lado: a pedra deixa de *"vir do céu"* e passa a simplesmente surgir na
-     * borda de cima.
+     * ⚠️ **Daqui para cima o número deixa de comprar altura e passa a comprar só
+     * espera.** Quem quiser mais céu de verdade precisa de mais JANELA — zoom
+     * menor ou viewport maior —, não de mais pixels aqui.
      *
      * ⚠️ **`ancoraY: 0.88` é MEDIDO pelo cortador**, e é o mesmo nos DOIS sprites
      * — é ele que faz a pedra e a cratera caírem no mesmo ponto. O rodapé puro
@@ -2854,7 +2854,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * régua desde que o degrau foi consertado, mas `cresce` é o que separa um
        * do outro. Baixar a régua encolheria a cratera junto, que ele já aprovou.
        */
-      trajetoria: { queda: 540, cresce: [0.55, 0.75] },
+      trajetoria: { queda: 640, cresce: [0.55, 0.75] },
       /*
        * 🔴 **MISTURA NORMAL, e é a segunda folha do jogo com ela.**
        *

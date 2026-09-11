@@ -208,11 +208,19 @@ tirada de dois casos é palpite com currículo.
 
 *"Poderia vir de mais alto o meteoro e mostrar um pouco mais de nuvens."*
 
-**Alto:** `queda` de 430 para **540 px (17 tiles)**. 🔴 **E a TELA é o teto disto**: a 1,0× de
-zoom a janela mostra uns 24 tiles na vertical com o jogador no meio, então sobram cerca de
-doze acima do alvo. A 540 a pedra já nasce fora do quadro e entra em cena em movimento —
-uns 190 ms dos 650. Subir muito mais devolve, pelo outro lado, o problema de 12/09: ela
-deixa de *vir do céu* e passa a surgir na borda de cima.
+**Alto:** `queda` de 430 para 540 e, no pedido seguinte, para **640 px (20 tiles)**.
+🔴 **E a TELA é o teto disto**: a 1,0× de zoom a janela mostra uns 24 tiles na vertical com o
+jogador no meio, então sobram cerca de doze (384 px) acima do alvo. A 640, **40 % do
+mergulho acontece fora do quadro** — 208 ms dos 520. A pedra entra em cena já em movimento,
+o que a esta velocidade lê como *"veio de muito alto"*; o preço é que o começo da animação,
+onde a nuvem se forma, o jogador não vê. Daqui para cima o número deixa de comprar altura e
+passa a comprar espera: quem quiser mais céu precisa de mais JANELA, não de mais pixels.
+
+⚡ **E a queda foi a 520 ms** — quarto *"mais rápido"* do dia, e com a altura subindo junto a
+pedra passou de 12 para **38 tiles/s**. 🔴 Aqui também há piso: são 19 quadros de mergulho, e
+a 520 ms cada um dura 27 contra o tique de 16,7 do monitor. Abaixo de uns 320 ms a animação
+passa a PULAR quadros — o desenho fica mais pobre e a queda não fica mais rápida, só mais
+curta.
 
 **Nuvem:** o recorte a deixava em **0,19 de alfa**. Ela é escura (mediana 35–43 de
 luminância, com o fundo em 11–25) e a rampa do brilho ia de 34 a 80 — longa demais para uma

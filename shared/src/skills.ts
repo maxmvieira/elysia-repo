@@ -1816,18 +1816,21 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     queda: true,
     quedaFx: 'meteor_solo',
     /**
-     * ⚠️ **650 ms até o dano, e é o tempo do MERGULHO.** O meteoro nasce treze
+     * ⚠️ **520 ms até o dano, e é o tempo do MERGULHO.** O meteoro nasce VINTE
      * tiles acima do alvo e desce até ele; o estrago sai no quadro em que toca o
      * chão. O cliente usa o mesmo número para a viagem — ver `trajetoria` na
      * folha —, então mexer aqui move a pedra e o dano juntos, e não há segunda
      * cópia para desencontrar.
      *
-     * ⚠️ **1100 → 850 → 650, e as três vezes o dono pediu em tela** (13/09). Os treze
-     * tiles saíam a 12 tiles/s, depois 15, agora **20** — que é quando a queda
-     * deixa de parecer uma folha planando. Abaixo disso a pedra vira um risco:
-     * são 19 quadros de mergulho, e a 650 ms cada um dura 34.
+     * ⚠️ **1100 → 850 → 650 → 520, quatro pedidos do dono no mesmo dia.** Com a
+     * altura subindo junto, a pedra passou de 12 para **38 tiles/s**.
+     *
+     * 🔴 **E aqui há um piso técnico**: são 19 quadros de mergulho, e a 520 ms
+     * cada um dura 27. O tique de 60 Hz é 16,7 ms, então abaixo de uns 320 ms a
+     * animação passa a PULAR quadros — o desenho fica mais pobre e a queda não
+     * fica mais rápida, só mais curta.
      */
-    quedaMs: 650,
+    quedaMs: 520,
     quedaUnica: true,
     /**
      * 💥 **3 células de empurrão, para LONGE do conjurador** — a ficha do dono.
