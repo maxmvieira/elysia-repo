@@ -65,7 +65,24 @@ const MAGIAS = {
 
   // ⚡ Raio — amarelo e azul elétrico.
   electric_sphere: 13, //   esfera de raios, literal (id renomeado em 12/09)
-  electric_discharge: 48, // anel elétrico que se abre em volta
+  /*
+   * ⛈️ **48 → 2, e a troca é com o Silêncio** (dono, 12/09: *"não tem um ícone
+   * mais condizente para essa magia?"*).
+   *
+   * O 48 é um ORBE amarelo crepitando: o desenho de uma bola de eletricidade —
+   * ou seja, da Esfera Elétrica, não desta. A Descarga virou um RAIO que desce
+   * e bate num ponto, e o 2 é exatamente isso: um relâmpago ciano caindo num
+   * clarão branco.
+   *
+   * ⚠️ **O Silêncio pagou a conta, e vale saber por quê.** Ele usava o 2 pelo
+   * ANEL ESCURO no pé do raio (*"o selo que cala"*), e o raio era acessório. Só
+   * que na barra o 2 lê como relâmpago, não como selo — e agora havia duas
+   * magias elétricas disputando o mesmo desenho. As 36 artes do pacote estão
+   * todas alocadas, uma por magia, então melhorar uma é necessariamente piorar
+   * outra: o Silêncio ficou com o 48, que tem um miolo escuro e nenhum
+   * significado próprio. É o elo mais fraco desta tabela hoje.
+   */
+  electric_discharge: 2, //  relâmpago que desce e estoura num ponto
   thor_wrath: 35, //        vários raios de uma vez
 
   // 🔮 Arcano — roxo.
@@ -93,7 +110,9 @@ const MAGIAS = {
   vulnerability: 28, //   anel de buraco negro: a defesa que se abre
   curse_slowness: 45, //  vórtice magenta lento
   curse_weakness: 1, //   arco magenta que drena
-  silence: 2, //          raio com anel escuro: o selo que cala
+  // ⚠️ Era o 2 (raio com anel escuro). Cedeu para a Descarga Elétrica em 12/09 —
+  // ver a nota lá. O 48 fica pelo miolo escuro; é o elo fraco da tabela.
+  silence: 48, //         orbe de miolo escuro: o selo que cala
   nature_plague: 11, //   dardo verde-azulado doentio
 
   // 🌿 Natureza — verde e terra.

@@ -2507,6 +2507,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     batida?: { em: number; t: number; feita: boolean };
     /**
+     * 🌫️ Apagar por alfa depois do último quadro, em vez de sumir de estalo.
+     * `t` corre só depois que a animação termina. Ver `desvanece`.
+     */
+    apaga?: { em: number; t: number };
+    /**
      * 🧪 **MODO RISCO** (ver `QUEDA_RISCO`): o traço desenhado por código que
      * cai antes do estouro. Ausente no modo folha, em que a própria animação já
      * contém a descida — e **apagado no impacto**, para não sobreviver a ele.
@@ -2567,7 +2572,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * que já estava no ar. **Degrada para o comportamento de ontem**, em vez de
    * degradar para uma bola só.
    */
-  const folhasQueda = new Map<string, Array<{
+  interface FolhaDeQueda {
     bolts: number; frames: Texture[];
     /** Onde a DESCIDA acaba dentro da tira. Ver `FOLHAS_QUEDA`. */
     fracaoQueda: number;
@@ -2575,7 +2580,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     duracaoEstouro: number;
     /** Como a folha se mistura ao mundo. Ver `mistura` em `FOLHAS_QUEDA`. */
     mistura: 'add' | 'normal';
-  }>>();
+    /** Quantos quadros do COMEÇO tocar. Ausente = a tira inteira. */
+    quadrosUsados?: number;
+    /** Quanto tempo o desenho leva para apagar depois do último quadro. */
+    desvanece?: number;
+  }
+  const folhasQueda = new Map<string, FolhaDeQueda[]>();
 
   /**
    * Duração de uma queda inteira, do céu à dissipação.
@@ -2741,9 +2751,32 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * desenhá-las por cima traria o próprio preto junto. Esta chegou com alfa de
      * verdade — é o que permite a exceção.
      */
+    /*
+     * 🔴 **SÓ OS 15 PRIMEIROS QUADROS TOCAM, e os 9 do fim ficam na folha.**
+     *
+     * Defeito relatado pelo dono em 12/09: *"pouco antes da magia terminar o
+     * raio começa a ficar menor; não precisa, assim que ele cair pode
+     * desaparecer naturalmente, sem precisar encolher"*.
+     *
+     * A causa está na ARTE: a terceira fileira da folha (a dissipação) está
+     * desenhada em cerca de METADE do tamanho — medido, a distância da nuvem ao
+     * chão cai de ~404 px para ~200. Alinhada pelo chão, como tem de ser, ela
+     * encolhe em tela. Não é erro de corte: é o que a folha desenha.
+     *
+     * ✅ A animação para no fim da descarga (quadro 15) e o desenho APAGA por
+     * alfa em 350 ms. É o *"desaparecer naturalmente"* — some sem retrair.
+     *
+     * ⚠️ **Os nove quadros continuam no arquivo, de propósito.** É a mesma
+     * decisão do `firebolt10.png` em 08/09: voltar a usá-los é acrescentar uma
+     * linha aqui, e apagar a arte faria a próxima tentativa recomeçar do zero.
+     *
+     * ⚠️ **750 ms para 15 quadros mantém os 50 ms por quadro** dos 1200/24
+     * anteriores. A cadência não mudou; o que saiu foi o fim.
+     */
     {
       magia: 'lightning_fall', arquivo: 'relampago24', bolts: 1, quadros: 24,
-      fracaoQueda: 0, duracaoEstouro: 1200, mistura: 'normal',
+      fracaoQueda: 0, duracaoEstouro: 750, mistura: 'normal',
+      quadrosUsados: 15, desvanece: 350,
     },
   ] as const;
 
@@ -2787,6 +2820,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           fracaoQueda: folha.fracaoQueda,
           duracaoEstouro: folha.duracaoEstouro,
           mistura: 'mistura' in folha ? folha.mistura : 'add',
+          ...('quadrosUsados' in folha ? { quadrosUsados: folha.quadrosUsados } : {}),
+          ...('desvanece' in folha ? { desvanece: folha.desvanece } : {}),
           frames: Array.from({ length: folha.quadros }, (_, i) => new Texture({
             source: tex.source,
             frame: new Rectangle(i * cw, 0, cw, ch),
@@ -2860,10 +2895,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   /** A folha desta magia que melhor representa `n` bolts, ou a menor que há. */
   function folhaPara(
     magia: string, n: number,
-  ): {
-    bolts: number; frames: Texture[]; fracaoQueda: number;
-    duracaoEstouro: number; mistura: 'add' | 'normal';
-  } | null {
+  ): FolhaDeQueda | null {
     const lista = folhasQueda.get(magia);
     if (!lista || lista.length === 0) return null;
     return lista.find((f) => f.bolts <= n) ?? lista[lista.length - 1]!;
@@ -3342,11 +3374,26 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
   }
 
+  /**
+   * ⚠️ **Recebe a FICHA da folha, e não dez parâmetros soltos.** Eram dez
+   * posicionais quando a mistura e o desvanecimento entraram, e mais um teria
+   * passado dos onze — a essa altura trocar dois de lugar na chamada não dá erro
+   * de tipo nenhum (são quase todos `number`). Com um único chamador, o
+   * argumento nomeado sai de graça.
+   */
   function spawnQueda(
-    magia: string, wx: number, wy: number, frames: Texture[], atraso: number,
-    fracaoQueda: number, alvo?: string, quedaMs?: number, duracaoEstouro = 0,
-    mistura: 'add' | 'normal' = 'add',
+    magia: string, wx: number, wy: number, folha: FolhaDeQueda, atraso: number,
+    alvo?: string, quedaMs?: number,
   ): void {
+    const { fracaoQueda, duracaoEstouro, mistura, desvanece } = folha;
+    /*
+     * ⚠️ **`quadrosUsados` corta o FIM da tira, e `fracaoQueda` corta o começo.**
+     * São duas perguntas diferentes: uma é *"onde a descida acaba"*, a outra é
+     * *"até onde vale a pena tocar"*. Ver `quadrosUsados` em `FOLHAS_QUEDA`.
+     */
+    const frames = folha.quadrosUsados
+      ? folha.frames.slice(0, folha.quadrosUsados)
+      : folha.frames;
     const node = new AnimatedSprite(frames);
     node.loop = false;
     /*
@@ -3492,11 +3539,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * `quedaMs` já é o instante em que a arte encosta no chão, e é o mesmo
      * número que o servidor usa para soltar o dano.
      */
-    const q = {
+    const q: (typeof quedas)[number] = {
       node, atraso, morto: false, magia, alvo, risco,
       ...(risco ? {} : { batida: { em: tempoQueda, t: 0, feita: false } }),
+      ...(desvanece ? { apaga: { em: desvanece, t: 0 } } : {}),
     };
-    node.onComplete = () => { q.morto = true; };
+    /*
+     * ⚠️ **Com desvanecimento, o fim da animação não mata o desenho: começa o
+     * apagar.** Ver `desvanece` em `FOLHAS_QUEDA` — é o *"desaparecer
+     * naturalmente"* que o dono pediu em 12/09, no lugar dos quadros que
+     * encolhiam.
+     */
+    node.onComplete = () => { if (!q.apaga) q.morto = true; };
     quedas.push(q);
   }
 
@@ -3552,10 +3606,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     if (!folha) return;
     const copias = Math.max(1, Math.ceil(n / folha.bolts));
     for (let i = 0; i < copias; i++) {
-      spawnQueda(
-        magia, wx, wy, folha.frames, i * INTERVALO_BOLT_MS, folha.fracaoQueda, alvo, quedaMs,
-        folha.duracaoEstouro, folha.mistura,
-      );
+      spawnQueda(magia, wx, wy, folha, i * INTERVALO_BOLT_MS, alvo, quedaMs);
     }
   }
 
@@ -9991,6 +10042,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           // 🧪 O traço persegue junto: ele mira onde a bola vai cair.
           if (q.risco) q.risco.node.x = q.node.x;
         }
+      }
+      /*
+       * 🌫️ **O APAGAR.** Ver `desvanece`: a folha do relâmpago para no fim da
+       * descarga e some por alfa, em vez de tocar os quadros que encolhem.
+       *
+       * ⚠️ O relógio só corre depois do ÚLTIMO quadro (`playing` falso), e não
+       * junto com a animação: apagar em paralelo deixaria a descarga pálida
+       * justamente quando ela tem de estar no auge.
+       */
+      if (q.apaga && !q.node.playing && q.node.visible) {
+        q.apaga.t += dt;
+        q.node.alpha = Math.max(0, 1 - q.apaga.t / q.apaga.em);
+        if (q.apaga.t >= q.apaga.em) q.morto = true;
       }
       if (q.morto) {
         q.node.destroy();
