@@ -7320,7 +7320,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       circuloMira.width = lado;
       circuloMira.height = lado;
       circuloMira.tint = cor;
-      circuloMira.alpha = fora ? 0.5 : 0.8;
+      /*
+       * ⚠️ Mais discreto que a primeira versão (0,8 / 0,5), a pedido do dono:
+       * o anel fica em cena o tempo todo em que se está mirando, e opaco demais
+       * ele competia com o cenário em vez de só marcar o chão.
+       */
+      circuloMira.alpha = fora ? 0.32 : 0.5;
       circuloMira.visible = true;
     } else {
       circuloMira.visible = false;
@@ -9058,8 +9063,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      *
      * ⚠️ **Ele nasce e morre em FADE.** Aparecer de uma vez, no tamanho cheio,
      * lê como erro de desenho; 180 ms de entrada bastam para o olho entender
-     * que aquilo foi conjurado ali. O `alpha` sobe até 0,85 e para — chegar a 1
-     * competiria com o efeito da magia quando ele começar.
+     * que aquilo foi conjurado ali.
+     *
+     * ⚠️ **Para em 0,55, e era 0,85** (dono, 11/09: *"gostaria dele mais
+     * transparente um pouco"*). O anel cobre a área inteira da magia, então
+     * quanto mais opaco, mais ele esconde o chão e os bichos que estão lá — que
+     * é justamente o que se quer olhar enquanto a magia carrega.
      */
     if (circuloConj.visible) {
       // ⚠️ Lê o relógio direto: este bloco roda ANTES de o `dt` do laço ser
@@ -9067,7 +9076,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       // varredura de quem conjura, que é onde ele nasce e morre.
       const dtC = app.ticker.deltaMS;
       circuloConj.rotation += dtC * 0.0008;
-      circuloConj.alpha = Math.min(0.85, circuloConj.alpha + dtC / 180 * 0.85);
+      circuloConj.alpha = Math.min(0.55, circuloConj.alpha + dtC / 180 * 0.55);
     }
 
     // Anel de alvo sob o inimigo selecionado.

@@ -55,11 +55,48 @@ for (let y = 0; y < img.h; y++) {
 }
 if (x1 < 0) { console.error('[circulo] nada acima do piso de alfa'); process.exit(1); }
 
-const CW = x1 - x0 + 1;
-const CH = y1 - y0 + 1;
 /*
- * REDONDO, e nao a proporcao da imagem. Ver a nota do cabecalho.
+ * 🔴 **O ACHATAMENTO SAI DA MASSA, e não da moldura** — e a diferença foi o
+ * defeito relatado em 11/09 (*"o anel não está redondo"*).
+ *
+ * A primeira versão esticava a CAIXA do recorte até virar quadrada. Parece a
+ * mesma coisa e não é: a caixa inclui os losangos das quatro pontas, e eles não
+ * são simétricos — os de leste e oeste avançam mais que os de norte e sul.
+ * Medido nesta arte, a caixa dá 1,64:1 enquanto o ANEL é 1,95:1, e o resultado
+ * ficou 19 % oval.
+ *
+ * ✅ O desvio-padrão do alfa em cada eixo mede o anel, não a moldura: massa
+ * espalhada de verdade, sem se importar com o que sobressai numa ponta.
+ *
+ * ⚠️ A correção ALARGA o recorte em vez de encurtá-lo. Encurtar a altura até a
+ * proporção certa cortaria os losangos de cima e de baixo; alargar só acrescenta
+ * transparência nas laterais, que não custa nada.
  */
+let sx = 0, sy = 0, sw = 0;
+for (let y = y0; y <= y1; y++) {
+  for (let x = x0; x <= x1; x++) {
+    const a = img.px[(y * img.w + x) * 4 + 3];
+    if (a < PISO_ALFA) continue;
+    sx += x * a; sy += y * a; sw += a;
+  }
+}
+const mx = sx / sw, my = sy / sw;
+let vx = 0, vy = 0;
+for (let y = y0; y <= y1; y++) {
+  for (let x = x0; x <= x1; x++) {
+    const a = img.px[(y * img.w + x) * 4 + 3];
+    if (a < PISO_ALFA) continue;
+    vx += a * (x - mx) ** 2; vy += a * (y - my) ** 2;
+  }
+}
+const achatamento = Math.sqrt(vx / sw) / Math.sqrt(vy / sw);
+
+const CH = y1 - y0 + 1;
+const CW = Math.max(x1 - x0 + 1, Math.round(CH * achatamento));
+/* ⚠️ Centrado na MASSA, não na caixa: a arte não é perfeitamente simétrica, e
+ * centrar pela caixa deslocaria o anel dentro do quadro. */
+const cx0 = Math.round(mx - CW / 2);
+const cy0 = Math.round(my - CH / 2);
 const ALT = LARG;
 const out = Buffer.alloc(LARG * ALT * 4);
 
@@ -70,14 +107,16 @@ for (let y = 0; y < ALT; y++) {
      * Amostrar um pixel a cada N comeria as estrelinhas finas do anel, e somar
      * a cor de pixel invisível sujaria a borda.
      */
-    const sx0 = x0 + Math.floor((x * CW) / LARG);
-    const sy0 = y0 + Math.floor((y * CH) / ALT);
-    const sx1 = x0 + Math.floor(((x + 1) * CW) / LARG);
-    const sy1 = y0 + Math.floor(((y + 1) * CH) / ALT);
+    const sx0 = cx0 + Math.floor((x * CW) / LARG);
+    const sy0 = cy0 + Math.floor((y * CH) / ALT);
+    const sx1 = cx0 + Math.floor(((x + 1) * CW) / LARG);
+    const sy1 = cy0 + Math.floor(((y + 1) * CH) / ALT);
     let r = 0, g = 0, b = 0, a = 0, n = 0, total = 0;
     for (let sy = sy0; sy < Math.max(sy0 + 1, sy1); sy++) {
       for (let sx = sx0; sx < Math.max(sx0 + 1, sx1); sx++) {
         total += 1;
+        // ⚠️ Fora da imagem = transparente. É o alargamento do recorte.
+        if (sx < 0 || sy < 0 || sx >= img.w || sy >= img.h) continue;
         const o = (sy * img.w + sx) * 4;
         const al = img.px[o + 3] < PISO_ALFA ? 0 : img.px[o + 3];
         const peso = al / 255;
@@ -95,4 +134,4 @@ for (let y = 0; y < ALT; y++) {
 
 mkdirSync(DESTINO, { recursive: true });
 writeFileSync(join(DESTINO, `${nome}.png`), encode(LARG, ALT, out));
-console.log(`[circulo] ${nome}.png  ${LARG}x${ALT}  (recorte ${CW}x${CH} de ${img.w}x${img.h})`);
+console.log(`[circulo] ${nome}.png  ${LARG}x${ALT}  (recorte ${CW}x${CH}, achatamento ${achatamento.toFixed(3)})`);
