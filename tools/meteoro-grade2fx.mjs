@@ -1,39 +1,51 @@
 /**
- * ☄️ Corta a folha VERTICAL do Meteoro — fundo cinza embutido, sem grade.
+ * ☄️ Corta as folhas VERTICAIS do Meteoro — fundo opaco, com ou sem grade.
  *
- * 🔴 **Duas coisas novas aqui, e nenhum dos cinco cortadores anteriores tem as
- * duas.**
+ * 🔴 **Por que é um cortador novo: aqui o fundo NÃO É TRANSPARENTE.**
  *
- * **1. O fundo NÃO é transparente.** Os outros têm uma chave cada um — croma,
- * alfa existente, brilho sobre preto, chão-ou-nuvem, cabeça-contra-chão. Esta
- * folha chegou (13/09) com um cinza de fumaça OPACO cobrindo a tela: medida, a
- * mediana da luminância é 37,9 e um quarto dos pixels é cinza escuro com alfa
- * acima de 230. A chave é o BRILHO ACIMA DO FUNDO, e a arte já é aditiva.
+ * Os cinco cortadores anteriores têm uma chave cada um — croma, alfa existente,
+ * brilho sobre preto, chão-ou-nuvem, cabeça-contra-chão. As folhas verticais do
+ * Meteoro chegam com o fundo CHAPADO: a primeira num cinza de fumaça (mediana
+ * 37,9 de luminância), as seguintes em preto (11–29). A chave de alfa existente
+ * devolveria a folha inteira, com fundo e tudo.
  *
- * **2. NÃO HÁ GRADE.** Parece 5×5 e não é: medidas as distâncias entre o topo de
- * uma fileira e o da seguinte, dão 211, 333, 470 e 215 px. O gerador desenha os
- * meteoros cada vez maiores e empurra o resto para baixo, e os quadros de uma
- * fileira invadem a de baixo. Tentei divisão exata (o quadro seguinte aparece no
- * rodapé da célula), divisão deslocada por um número medido (quatro pedras
- * decepadas) e divisas medidas com altura presa a ±12 % (três quadros vazios).
- * Nenhuma grade descreve esta folha, porque ela não foi desenhada numa.
+ * ✅ **A chave é a maior entre SATURAÇÃO, BRILHO e BRANCO-QUENTE**, e as três
+ * são necessárias:
  *
- * ✅ **Então cada quadro é achado pelo próprio desenho e reenquadrado.** As
- * COLUNAS separam limpo, e dentro de cada uma os quadros saem das ilhas do
- * perfil de linha.
+ *   saturação  salva a PEDRA, que é escura mas muito colorida (0,90 contra 0,09
+ *              do fundo cinza) — sem ela o meteoro sai transparente;
+ *   brilho     salva a NUVEM, que é cinza como o fundo mas mais clara (35–43
+ *              contra 11–25) — sem ele a fumaça some;
+ *   branco     salva o NÚCLEO do impacto, que é quase sem cor e não passaria
+ *              por nenhuma das outras duas.
  *
- * 🔴 **A âncora é o RODAPÉ do desenho, e ela serve para os dois tipos de
- * quadro.** No meteoro caindo o rodapé é a pedra — o rastro sobe atrás dela. No
- * estouro é o chão. Uma regra só, e ela põe no mesmo lugar as duas coisas que
- * têm de cair no tile.
+ * 🔴 **E a GRADE é uma PERGUNTA MEDIDA, não uma suposição.** Das três folhas que
+ * passaram por aqui, duas não tinham grade nenhuma (as fileiras derivavam de 211
+ * a 470 px, com quadros invadindo a fileira de baixo) e a terceira tinha uma
+ * cravada, com vales VAZIOS de 307 em 307 px.
+ *
+ * ⚠️ **Eu tirei uma regra dos dois primeiros casos e ela quebrou no terceiro.**
+ * As ilhas, que salvaram as duas primeiras, embaralham a terceira: são trinta
+ * quadros, cada um com uma nuvem destacada no alto, e juntar ilha pequena com a
+ * vizinha erra metade. Hoje o cortador pergunta — *existe um vale vazio perto de
+ * cada divisa teórica?* — e usa a grade quando ela existe, as ilhas quando não.
+ *
+ * 🔴 **A âncora é o RODAPÉ do desenho, e serve para os dois tipos de quadro.** No
+ * meteoro caindo o rodapé é a pedra (o rastro sobe atrás dela); no estouro é o
+ * chão. Uma regra só, e ela põe no mesmo lugar as duas coisas que têm de cair no
+ * tile.
  *
  * ⚠️ **Com os quadros reenquadrados a QUEDA sai do desenho** — cada quadro passa
- * a mostrar o meteoro parado, crescendo — e quem move passa a ser o cliente, pela
- * `trajetoria` vertical. É de propósito: é o que faz a pedra chegar no tile
- * certo em qualquer ponto da tela, em vez de cair dentro do próprio quadro.
+ * a mostrar o meteoro parado — e quem move passa a ser o cliente, pela
+ * `trajetoria` vertical. É de propósito: é o que faz a pedra chegar no tile certo
+ * em qualquer ponto da tela, em vez de cair dentro do próprio quadro.
+ *
+ * ⚠️ **`COL`, `POR_COL` e a janela mudam A CADA FOLHA.** Não há como adivinhar:
+ * as três vieram 5×5, 3×3 e 6×5, com células de tamanhos diferentes. Trocar a
+ * folha é medir e ajustar estas constantes — e conferir a tira de contato.
  *
  * Uso:
- *   node tools/meteoro-grade2fx.mjs arte-fonte/fx/meteoro_vertical.png meteoro_queda16
+ *   node tools/meteoro-grade2fx.mjs arte-fonte/fx/meteoro_vertical3.png meteoro_queda
  */
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -80,7 +92,7 @@ const BRANCO_TETO = 240;
  * saturação e saíam OPACOS E PRETOS — um quadro inteiro virou um retângulo
  * preto. A pedra (mediana 69) e a fumaça (70) passam folgadas deste valor.
  */
-const ESCURO = 34;
+const ESCURO = 26;
 
 /** A janela recortada da FONTE, em pixels dela. Cabe o maior quadro (218×446). */
 const JAN_W = 200;
@@ -122,9 +134,18 @@ function alfaDe(o) {
    * fumaça (mediana 60) se separa por brilho com folga, e é bom que seja assim:
    * a saturação sozinha deixa de fora a fumaça cinzenta que o dono quer ver.
    */
+  /*
+   * 🔴 **A RAMPA DA NUVEM é curta de propósito: 26 → 56, e era 34 → 80.**
+   *
+   * *"Mostrar um pouco mais de nuvens"* (dono, 13/09). A nuvem desta folha é
+   * escura — medida, mediana entre 35 e 43 de luminância, com o fundo em 11–25.
+   * Com a rampa longa a nuvem mediana saía com 0,19 de alfa, quase invisível;
+   * com a curta sai com 0,57. **É pouca margem de propósito**: 26 fica logo acima
+   * do p95 do fundo, e é o alfa mínimo (0,09) que segura o resto.
+   */
   const a = Math.max(
     presa((sat - SAT_PISO) / (SAT_TETO - SAT_PISO)),
-    presa((L - ESCURO) / 46),
+    presa((L - 26) / 30),
     presa((L - BRANCO_PISO) / (BRANCO_TETO - BRANCO_PISO)),
   );
   /*

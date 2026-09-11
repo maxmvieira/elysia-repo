@@ -2808,10 +2808,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * peso vindo de fora: tremor, clarão, rachaduras e 28 estilhaços. Se o dono
      * achar o impacto curto, é aqui que se vê o porquê — não há mais desenho.
      *
-     * ⚠️ **`queda: 430` são treze tiles de altura.** Perto o bastante para a
-     * pedra nascer dentro da janela do jogador, longe o bastante para ler como
-     * *"veio do céu"* — e não como *"uma pedra apareceu em cima do inimigo"*, que
-     * é o que o dono não quer desde 12/09.
+     * ⚠️ **`queda: 540` são DEZESSETE tiles de altura**, e eram treze — *"poderia
+     * vir de mais alto o meteoro"* (dono, 13/09).
+     *
+     * 🔴 **E a TELA é o teto disto.** A 1,0× de zoom a janela mostra uns 24 tiles
+     * na vertical, com o jogador no meio: sobram cerca de doze tiles acima do
+     * alvo. Passando disso, a pedra NASCE FORA DO QUADRO e entra em cena já em
+     * movimento — o que, a esta velocidade, ainda lê bem (*"veio de muito alto"*),
+     * mas o preço é perder o começo da animação, que é justamente onde a nuvem
+     * aparece. A 540 são uns 190 ms de mergulho fora da tela, de 650.
+     *
+     * ⚠️ Subir muito mais devolve o problema que o dono levantou em 12/09 pelo
+     * outro lado: a pedra deixa de *"vir do céu"* e passa a simplesmente surgir na
+     * borda de cima.
      *
      * ⚠️ **`ancoraY: 0.88` é MEDIDO pelo cortador**, e é o mesmo nos DOIS sprites
      * — é ele que faz a pedra e a cratera caírem no mesmo ponto. O rodapé puro
@@ -2845,7 +2854,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * régua desde que o degrau foi consertado, mas `cresce` é o que separa um
        * do outro. Baixar a régua encolheria a cratera junto, que ele já aprovou.
        */
-      trajetoria: { queda: 430, cresce: [0.55, 0.75] },
+      trajetoria: { queda: 540, cresce: [0.55, 0.75] },
       /*
        * 🔴 **MISTURA NORMAL, e é a segunda folha do jogo com ela.**
        *

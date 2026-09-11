@@ -204,6 +204,26 @@ tirada de dois casos é palpite com currículo.
 ⚡ **E a queda foi a 650 ms** — terceiro pedido de *"mais rápido"* no mesmo dia: 12 → 15 →
 **20 tiles/s**. São 19 quadros de mergulho, 34 ms cada.
 
+### ☁️ Mais alto, e mais nuvem — com um teto que não é escolha nossa
+
+*"Poderia vir de mais alto o meteoro e mostrar um pouco mais de nuvens."*
+
+**Alto:** `queda` de 430 para **540 px (17 tiles)**. 🔴 **E a TELA é o teto disto**: a 1,0× de
+zoom a janela mostra uns 24 tiles na vertical com o jogador no meio, então sobram cerca de
+doze acima do alvo. A 540 a pedra já nasce fora do quadro e entra em cena em movimento —
+uns 190 ms dos 650. Subir muito mais devolve, pelo outro lado, o problema de 12/09: ela
+deixa de *vir do céu* e passa a surgir na borda de cima.
+
+**Nuvem:** o recorte a deixava em **0,19 de alfa**. Ela é escura (mediana 35–43 de
+luminância, com o fundo em 11–25) e a rampa do brilho ia de 34 a 80 — longa demais para uma
+faixa tão estreita. Encurtada para 26–56, a mesma nuvem sai com **0,57**. É pouca margem de
+propósito: 26 fica logo acima do p95 do fundo, e quem segura o resto é o piso de alfa.
+
+⚠️ **O cabeçalho do cortador foi reescrito junto.** Ele ainda descrevia a primeira folha
+("5×5 sobre cinza, sem grade") e contradizia o próprio código, que hoje atende três folhas
+diferentes e decide a grade por medida. Comentário que descreve o passado é pior que
+comentário nenhum: ele é lido como verdade.
+
 ---
 
 ## 2026-09-11 — O Meteoro ganha oito direções de entrada
