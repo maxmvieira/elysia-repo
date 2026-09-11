@@ -17,6 +17,7 @@ import {
   skillsOfClass,
   branchesOfClass,
   skillHits,
+  skillEmpurrao,
   skillImpactosEsperados,
   skillRange,
   INTERVALO_BOLT_MS,
@@ -518,8 +519,45 @@ test('Explosão Glacial é 360° ao redor de si — a resposta a quem colou', ()
 // ⚡ Raio
 // ---------------------------------------------------------------------------
 
-test('Esfera Elétrica dá 8 impactos no Lv.10', () => {
-  assert.equal(skillHits(SKILLS.lightning_ball, 10), 8);
+test('⚡ Esfera Elétrica: a ficha da Jupitel Thunder', () => {
+  /*
+   * ⚡ **Ficha trazida pelo dono em 12/09** (`WZ_JUPITEL`), copiada quase
+   * inteira. O que este teste guarda são os números que vieram dela e a FORMA
+   * do crescimento, que é o que a distingue das outras.
+   */
+  const lb = SKILLS.lightning_ball;
+
+  // 3 → 12 choques, e 9 células de alcance fixo.
+  assert.equal(skillHits(lb, 1), 3);
+  assert.equal(skillHits(lb, 10), 12);
+  assert.equal(skillRange(lb, 10), 9);
+
+  /*
+   * 🔴 **O PODER É FIXO e quem cresce é a CONTAGEM** — *"100 % do seu ATQM por
+   * choque"*. É o oposto da Nevasca (contagem fixa, poder crescente), e as duas
+   * formas existem de propósito: uma magia fica mais forte ficando mais densa,
+   * a outra ficando mais longa. Se alguém puser `powerPerLevel` aqui, a Esfera
+   * deixa de ser a Jupitel e vira mais um Fire Bolt.
+   */
+  assert.equal(skillPower(lb, 1), skillPower(lb, 10));
+  assert.ok(Math.abs(skillPower(lb, 10) - 1.0) < 1e-9, '100 % de ATQM por choque');
+
+  /*
+   * ⚡ **2 → 7 tiles de arremesso, e é o TOTAL do lançamento.** Se fosse por
+   * choque, o Lv.10 mandaria o alvo a 84 tiles — a ficha tem doze choques e
+   * sete células de empurrão, e são colunas independentes.
+   */
+  assert.equal(skillEmpurrao(lb, 1), 2);
+  assert.equal(skillEmpurrao(lb, 10), 7);
+
+  /*
+   * ⚡ **E a conjuração CRESCE com o nível** (2,5 s → 4,3 s), a segunda magia do
+   * jogo assim depois da Nevasca. É o contrajogo: quanto mais forte, mais tempo
+   * parado e interrompível.
+   */
+  assert.ok(skillCastMs(lb, 10, 0, 0) > skillCastMs(lb, 1, 0, 0));
+  assert.equal(skillCastMs(lb, 1, 0, 0), 2500);
+  assert.equal(skillCastMs(lb, 10, 0, 0), 4300);
 });
 
 test('o empurrão é tratado SEPARADO do dano', () => {

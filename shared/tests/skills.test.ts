@@ -19,6 +19,7 @@ import {
   skillPointsAtLevel,
   skillPointsTotalUpTo,
   skillPower,
+  skillHits,
   skillRange,
   skillResetCost,
   skillTotalCost,
@@ -81,10 +82,27 @@ test('níveis de marco valem mais que os outros', () => {
 });
 
 test('subir o nível aumenta o dano das habilidades ofensivas', () => {
+  /*
+   * 🔴 **A CONTA É `golpes × poder`, e não o poder sozinho** — mudou em 12/09,
+   * quando a Esfera Elétrica recebeu a ficha da Jupitel Thunder.
+   *
+   * O teste media `skillPower` e passou a acusar a Esfera, que agora tem poder
+   * FIXO (100 % de ATQM por choque) e cresce pela CONTAGEM (3 choques no Lv.1,
+   * 12 no Lv.10). Ela ficou quatro vezes mais forte e o teste dizia que não
+   * ficou — porque olhava metade da conta.
+   *
+   * ⚠️ As duas formas de crescer convivem de propósito: a Nevasca tem contagem
+   * fixa e poder crescente, a Esfera o inverso. Um teste que só conhece uma
+   * delas veta a outra sem motivo.
+   */
   const ofensivas = Object.values(SKILLS).filter((d) => d.power > 0);
   assert.ok(ofensivas.length >= 5, 'o Knight tem várias habilidades de dano');
   for (const def of ofensivas) {
-    assert.ok(skillPower(def, 10) > skillPower(def, 1), `${def.id} deveria dar mais dano no Lv.10`);
+    const total = (nivel: number): number => skillHits(def, nivel) * skillPower(def, nivel);
+    assert.ok(
+      total(10) > total(1),
+      `${def.id} deveria dar mais dano no Lv.10 (${total(1).toFixed(2)} → ${total(10).toFixed(2)})`,
+    );
   }
 });
 

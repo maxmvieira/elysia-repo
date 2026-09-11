@@ -138,6 +138,7 @@ import {
   skillBarFor,
   skillCastMs,
   skillConditionChance,
+  skillEmpurrao,
   skillConditionDuration,
   skillDuration,
   skillGroundDuration,
@@ -4657,8 +4658,14 @@ function aplicaCondicaoDaSkill(
       continue;
     }
     applyConditionTo(c, def.applies.id, chance, duracao, now, def.applies.power, player.id);
-    // Empurrão move de verdade: a condição só marca a janela sem ação.
-    if (def.applies.id === 'knockback') empurra(player, c);
+    /*
+     * Empurrão move de verdade: a condição só marca a janela sem ação.
+     *
+     * ⚡ A DISTÂNCIA vem da ficha (`empurraTiles`) — a Esfera Elétrica arremessa
+     * de 2 a 7 tiles conforme o nível, e o resto do jogo continua no tile único
+     * de sempre.
+     */
+    if (def.applies.id === 'knockback') empurra(player, c, skillEmpurrao(def, nivel));
   }
 }
 
@@ -4699,15 +4706,24 @@ function empurraAoAcaso(c: Creature, tiles: number): void {
 }
 
 /** Empurra a criatura um tile para longe de quem bateu, se houver para onde. */
-function empurra(player: Player, c: Creature): void {
+function empurra(player: Player, c: Creature, tiles = 1): void {
   const dx = Math.sign(c.tileX - player.tileX);
   const dy = Math.sign(c.tileY - player.tileY);
   if (dx === 0 && dy === 0) return;
-  const nx = c.tileX + dx;
-  const ny = c.tileY + dy;
-  if (!isWalkable(map, nx, ny, c.floor) || tileOccupied(nx, ny, c.floor, c.id)) return;
-  c.tileX = nx;
-  c.tileY = ny;
+  /*
+   * ⚠️ **Anda tile a tile e PARA no primeiro obstáculo**, como o empurrão da
+   * Nevasca. Saltar para o destino final é o defeito clássico de empurrão
+   * implementado como soma: o alvo atravessaria a parede e apareceria do outro
+   * lado. Com a Esfera Elétrica chegando a SETE tiles, a diferença deixou de
+   * ser teórica.
+   */
+  for (let i = 0; i < tiles; i++) {
+    const nx = c.tileX + dx;
+    const ny = c.tileY + dy;
+    if (!isWalkable(map, nx, ny, c.floor) || tileOccupied(nx, ny, c.floor, c.id)) return;
+    c.tileX = nx;
+    c.tileY = ny;
+  }
 }
 
 /**

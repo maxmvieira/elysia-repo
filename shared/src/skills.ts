@@ -470,6 +470,21 @@ export interface SkillDef {
    */
   danoDaArea?: boolean;
   /**
+   * ⚡ **Quantos tiles o alvo é empurrado PARA LONGE DO CONJURADOR**, por
+   * conjuração. Ausente = o empurrão de sempre, de um tile.
+   *
+   * 🔴 **É o TOTAL do lançamento, não por golpe.** Na ficha da Jupitel Thunder
+   * a coluna "Empurra" vai de 2 a 7 células enquanto os choques vão de 3 a 12;
+   * se fosse por choque, o Lv.10 arremessaria o alvo 84 tiles. O que cresce com
+   * o nível é a DISTÂNCIA do arremesso, não a soma de doze empurrõezinhos.
+   *
+   * ⚠️ E continua valendo o `DD-SOR-018`: o empurrão é separado do dano. Bater
+   * numa parede no primeiro tile não tira um ponto do estrago.
+   */
+  empurraTiles?: number;
+  /** ⚡ O empurrão no Lv.10, quando ele cresce. Ausente = fixo. */
+  empurraTilesAtLv10?: number;
+  /**
    * 🌠 **Quanto UMA unidade leva do céu ao chão**, em ms. Ausente = o padrão
    * de `ATRASO_IMPACTO_MS`.
    *
@@ -2197,29 +2212,79 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     branch: 'raio',
     classes: ['sorcerer'],
     reqLevel: 15,
-    manaCost: 30,
-    manaPerLevel: 5,
+    /*
+     * ⚡ **A FICHA É A DA JUPITEL THUNDER** (`WZ_JUPITEL`), trazida pelo dono em
+     * 12/09. SP 17 + (Nv × 3) dá 20 no Lv.1 e 47 no Lv.10 — copiado exato.
+     */
+    manaCost: 20,
+    manaPerLevel: 3,
     cooldownMs: 7000,
-    power: 0.4,
-    powerPerLevel: 0.05,
+    /**
+     * ⚡ **100 % de ATQM por choque, FIXO** — *"causa dano mágico equivalente a
+     * 100 % do seu ATQM por choque"*.
+     *
+     * 🔴 **O que cresce com o nível é a CONTAGEM, não o poder de cada choque.**
+     * É o oposto da Nevasca, onde os dez impactos são fixos e o poder sobe. As
+     * duas formas existem de propósito: uma magia fica mais forte ficando mais
+     * longa, a outra ficando mais densa.
+     *
+     * ⚠️ **No Lv.10 isso dá 1200 % num alvo só, e é preciso saber o que isso
+     * significa.** A Ira de Thor, a suprema da mesma escola, concentra 856 % num
+     * alvo — a Esfera passa dela. Copiei mesmo assim porque é o número da ficha
+     * e porque o Fire Bolt já faz 1180 % por conjuração, com 26 de mana e 1,5 s
+     * de recarga, contra 47 e 7 s daqui. A Esfera não é a mais eficiente; é a
+     * que bate mais forte de uma vez, e paga com 4,3 s parado.
+     */
+    power: 1.0,
+    powerPerLevel: 0,
     shape: 'target',
-    range: 5,
-    // Cresce como o Fire Bolt: +1 tile a cada 3 níveis. Ver a nota lá.
-    rangeEvery: 3,
+    // ⚡ Nove células, fixo — a ficha não faz o alcance crescer.
+    range: 9,
+    rangeEvery: 0,
     durationMs: 0,
+    /**
+     * ⚡ **2,5 s → 4,3 s de conjuração**, a soma das duas colunas da ficha: o
+     * fixo de 0,5 s mais a variável de 1,8 + (Nv × 0,2).
+     *
+     * 🔴 **É a SEGUNDA magia do jogo cujo cast cresce com o nível**, e a
+     * primeira foi a Nevasca. Nas duas o motivo é o mesmo e vem do Ragnarok:
+     * são magias que se pagam com TEMPO PARADO, e quanto mais fortes, mais
+     * tempo. Ver `castMsAtLv10`.
+     */
+    castMs: 2500,
+    castMsAtLv10: 4300,
     magic: true,
+    /*
+     * ⚠️ **A ficha diz propriedade VENTO; aqui é `electric`.** Não é descuido:
+     * este jogo não tem elemento vento, e a escola inteira do Raio usa
+     * `electric` — inclusive as resistências dos monstros. Trocar exigiria um
+     * tipo de dano novo e um perfil de resistência em cada bicho do bestiário,
+     * por uma diferença que ninguém vê em tela.
+     */
     damageType: 'electric',
     hits: 3,
-    hitsAtLv10: 8,
+    hitsAtLv10: 12,
+    /*
+     * ⚡ **2 a 7 tiles de arremesso**, a coluna "Empurra" da ficha. Ver
+     * `empurraTiles`: é o total do lançamento, não por choque.
+     */
+    empurraTiles: 2,
+    empurraTilesAtLv10: 7,
     applies: {
       id: 'knockback',
-      chanceAtLv1: 0.10,
-      chanceAtLv10: 0.30,
+      /*
+       * ⚡ **Garantido, e era 10 %–30 %.** A ficha não fala em chance: *"empurra
+       * o oponente para trás"*, ponto. A condição fica porque é ela que dá a
+       * janela sem ação e o gancho de resistência — o `DD-SOR-018` continua
+       * valendo: resistir ao empurrão não evita o dano.
+       */
+      chanceAtLv1: 1,
+      chanceAtLv10: 1,
       durationAtLv1: 400,
       durationAtLv10: 400,
     },
     fx: 'lightning_ball',
-    desc: 'Esfera que acerta várias vezes e vai empurrando. 8 impactos no Lv.10.',
+    desc: 'Descarrega choques de alta tensão e arremessa o alvo para trás.',
   },
   /**
    * 🔴 `DD-SOR-018` **sem stun, sem knockback** — citação, e é o que a
@@ -3694,6 +3759,18 @@ export function skillImpactosEsperados(def: SkillDef, nivel: number): number {
   const celulasArea = (2 * raio + 1) ** 2;
   const celulasRespingo = (2 * (def.splash ?? 0) + 1) ** 2;
   return Math.min(golpes, (golpes * celulasRespingo) / celulasArea);
+}
+
+/**
+ * ⚡ Quantos tiles o empurrão arremessa, no nível informado.
+ *
+ * ⚠️ Arredondado, e não truncado: a ficha da Jupitel sobe de tile em tile a
+ * cada dois níveis, e truncar comeria metade dos degraus.
+ */
+export function skillEmpurrao(def: SkillDef, nivel: number): number {
+  if (def.empurraTiles === undefined) return 1;
+  if (def.empurraTilesAtLv10 === undefined) return def.empurraTiles;
+  return Math.max(1, Math.round(porNivel(nivel, def.empurraTiles, def.empurraTilesAtLv10)));
 }
 
 /** Chance (0..1) de a condição pegar, antes das resistências do alvo. */
