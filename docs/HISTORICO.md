@@ -56,7 +56,7 @@ mesma família de erro do dia: **medir um passo antes de onde o defeito aparece*
 
 ### ☄️ O que o cliente ficou fazendo
 
-Sobraram **16 quadros**: onze de queda e cinco de estouro. Como os quadros foram
+Sobraram **15 quadros**: onze de queda e quatro de estouro. Como os quadros foram
 reenquadrados, a descida saiu do desenho — quem move o meteoro voltou a ser o cliente, com
 uma `trajetoria` agora **vertical** (`queda: 430`, treze tiles) e sem giro nenhum.
 
@@ -64,6 +64,45 @@ uma `trajetoria` agora **vertical** (`queda: 430`, treze tiles) e sem giro nenhu
 exatamente o fim do mergulho: os dois lados usam o mesmo número. Na versão anterior era
 preciso casar `duracaoEstouro` com a fração em que o impacto aparecia na tira — um número
 copiado que ninguém conseguia conferir.
+
+### 🔴 Testado em tela: "muito transparente, e sem as nuvens" — uma causa só
+
+O dono jogou e trouxe três queixas: *"ele está muito transparente, faça ele ser maior e
+mais forte o impacto, aparecendo as nuvens que mandei também"*. Duas delas são o MESMO
+defeito, e é um que este projeto já tinha cometido: **soma aditiva só sabe clarear.** A
+pedra é escura e a fumaça é cinza; somadas à grama, quase não mudam nada, e sobra só o
+contorno aceso. Foi o que a nuvem do relâmpago fez em 12/09, e eu repeti no dia seguinte.
+
+A correção veio em três lugares, e nenhum deles sozinho resolveria:
+
+1. **`mistura: 'normal'`** no cliente — a segunda folha do jogo com ela.
+2. **A chave do cortador virou SATURAÇÃO**, porque por brilho a pedra sai com alfa baixo e
+   a fumaça fica na mesma faixa do fundo. Medidas: fundo 0,09 · fumaça 0,35 · fogo 0,79 ·
+   pedra 0,90. O núcleo branco do impacto, que é quase sem cor, entra por um corte de
+   brilho alto (200) que só ele alcança.
+3. **Alfa abaixo de 9 % vira zero.** Em soma ninguém via o véu de fundo; em mistura normal
+   ele virou um retângulo de névoa em volta do estouro.
+
+⚠️ **E o recorte passou a precisar de DOIS critérios**: saturação para desenhar, brilho
+para medir. Com a fumaça no perfil, as colunas deixam de separar — ela se espalha para os
+lados e faz ponte; medido, cinco colunas viraram três.
+
+### 💥 O tamanho e o peso do impacto
+
+🔴 **A CÉLULA ENCOLHEU e ninguém avisou.** `ESCALA_IMPACTO` valia 2,1 para células de
+192 px; a folha nova tem 144, e os mesmos 2,1 passaram a dar 189 px de estouro contra os
+252 de antes — menor que o próprio quadrado de dano. **É uma razão entre a arte e o TILE, e
+toda folha nova a desatualiza em silêncio.** Agora são 3,4, que dá 306 px.
+
+⚠️ **O Meteoro não tinha entrada em `PARTICULAS`** — o mesmo silêncio do relâmpago em
+12/09: o tremor e o clarão disparavam, mas nada VOAVA. Entraram 28 estilhaços num raio de
+2,5 tiles, com tinta de brasa (a tabela ganhou um campo `cor`; a branco-azulada dos outros
+dois leria como gelo). O tremor foi de 13 px para 22.
+
+💥 **E o primeiro quadro do estouro saiu da tira.** O gerador desenha um lampejo no chão
+enquanto a pedra ainda está chegando — 1985 de massa contra 11 253 do quadro seguinte.
+Tocado em sequência, ele fazia o efeito ENCOLHER no instante em que devia bater mais forte:
+a pedra de nove tiles sumia e sobrava uma chama de dois.
 
 ---
 

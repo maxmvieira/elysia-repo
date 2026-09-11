@@ -8,6 +8,9 @@
   quadros, onze de queda e cinco de estouro, todos ancorados pelo RODAPÉ do
   desenho (a pedra no voo, o chão no impacto).
 
+  ⚠️ A mistura aqui é NORMAL, como no cliente desde 13/09: aditiva apagava a
+  pedra e a fumaça, e a bancada mentiria a favor.
+
   A bancada confere as duas coisas que decidem se funciona:
     1. a pedra e a cratera caem NO MESMO ponto — a linha do chão;
     2. a pedra chega lá no fim do mergulho, que é quando o dano do servidor cai.
@@ -36,9 +39,9 @@
   // Da ficha: `quedaMs` (o mergulho, e quando o dano chega) e a área 7×7.
   const MERGULHO = 1100, RAIO = 3;
   // Do cliente: `trajetoria`, `fracaoQueda`, `duracaoEstouro` e `ancoraY`.
-  const QUEDA = 430, CRESCE = [0.42, 1], FRACAO = 11 / 16;
-  const ESTOURO = 700, ANCORA_Y = 0.88;
-  const ESCALA_QUEDA = 0.625, ESCALA_IMPACTO = 2.1;
+  const QUEDA = 430, CRESCE = [0.42, 1], FRACAO = 11 / 15;
+  const ESTOURO = 560, ANCORA_Y = 0.88;
+  const ESCALA_QUEDA = 0.625, ESCALA_IMPACTO = 3.4;
   const ESCALA = ESCALA_QUEDA * ESCALA_IMPACTO;
   const CICLO = MERGULHO + ESTOURO + 600;
 
@@ -83,7 +86,6 @@
   function desenha(t) {
     cenario();
     const ciclo = t % CICLO;
-    g.globalCompositeOperation = 'lighter';
     if (ciclo < MERGULHO) {
       /*
        * O MERGULHO: a pedra nasce `QUEDA` px acima do alvo e desce até ele,
@@ -94,7 +96,6 @@
       const k = Math.min(VOO - 1, Math.floor(frac * VOO));
       const s = ESCALA * (CRESCE[0] + (CRESCE[1] - CRESCE[0]) * frac);
       const [w, h] = poe(k, CX, CHAO - QUEDA * (1 - frac), s);
-      g.globalCompositeOperation = 'source-over';
       document.getElementById('leg').textContent =
         `MERGULHO ${Math.round(ciclo)}/${MERGULHO} ms · quadro ${k + 1} de ${VOO}`
         + ` · ${Math.round(w)}×${Math.round(h)} px`
@@ -103,13 +104,11 @@
       const dt = ciclo - MERGULHO;
       const k = VOO + Math.min(N - VOO - 1, Math.floor((dt / ESTOURO) * (N - VOO)));
       const [w] = poe(k, CX, CHAO, ESCALA);
-      g.globalCompositeOperation = 'source-over';
       document.getElementById('leg').textContent =
         `ESTOURO ${Math.round(dt)}/${ESTOURO} ms · quadro ${k + 1} de ${N}`
         + ` · ${Math.round(w)} px de largura (${(w / TS).toFixed(1)} tiles)`
         + ` contra ${(RAIO * 2 + 1)} de dano`;
     } else {
-      g.globalCompositeOperation = 'source-over';
       document.getElementById('leg').textContent = 'fim do ciclo';
     }
   }
@@ -123,7 +122,6 @@
     const ag = alvo.getContext('2d');
     ag.fillStyle = '#3f5a34';
     ag.fillRect(0, 0, alvo.width, alvo.height);
-    ag.globalCompositeOperation = 'lighter';
     for (let k = 0; k < N; k++) {
       ag.drawImage(img, k * LW, 0, LW, LH, (k % COL) * w, Math.floor(k / COL) * h, w, h);
     }

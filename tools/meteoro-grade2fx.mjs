@@ -47,17 +47,40 @@ const COL = 5;
 const POR_COL = 5;
 
 /**
- * Abaixo disto o pixel é FUNDO.
+ * 🔴 **A CHAVE É A SATURAÇÃO, e não o brilho.**
  *
- * ⚠️ 48 e não 12: o fundo desta folha não é preto, é um cinza de fumaça com
- * luminância mediana 37,9. Um piso de preto deixaria a tela inteira acesa a 15 %
- * — um retângulo cinza pairando sobre a grama, que é o defeito que a Descarga
- * Elétrica teve em 12/09.
+ * A primeira versão recortou por brilho e o dono viu o resultado em tela: *"ele
+ * está muito transparente… aparecendo as nuvens que mandei também"*. As duas
+ * queixas são o mesmo defeito. Por brilho, a PEDRA (escura) sai com alfa baixo e
+ * a FUMAÇA (cinza-média, na mesma faixa do fundo) sai quase toda fora — e o que
+ * sobra some na mistura aditiva, que não sabe escurecer.
+ *
+ * ✅ Medidas as quatro coisas na folha, a saturação separa as três que interessam
+ * do fundo, e separa com folga:
+ *
+ *   fundo   0,09 (p90 0,18)   ← cinza neutro
+ *   fumaça  0,35 (p90 0,74)   ← ela é quente, tem marrom dentro
+ *   fogo    0,79
+ *   pedra   0,90
+ *
+ * ⚠️ **Mas o NÚCLEO BRANCO do impacto é quase sem cor** (branco-quente tem
+ * saturação perto de zero), e ele é o que dá o clarão. Por isso a chave é o maior
+ * entre a saturação e um corte de brilho ALTO, que só ele alcança: o fundo mais
+ * claro medido chega a 115, e o núcleo passa de 200.
  */
-const PISO = 48;
-
-/** Acima disto o pixel é desenho cheio. Entre os dois, a borda macia. */
-const TETO = 132;
+const SAT_PISO = 0.20;
+const SAT_TETO = 0.40;
+const BRANCO_PISO = 200;
+const BRANCO_TETO = 240;
+/**
+ * Abaixo desta luminância é preto de fundo, por mais colorido que o pixel seja.
+ *
+ * ⚠️ **46, e era 20.** O fundo tem mediana 29 a 44 e não é perfeitamente neutro:
+ * com o piso baixo, pixels escuros e levemente tingidos passavam pela chave de
+ * saturação e saíam OPACOS E PRETOS — um quadro inteiro virou um retângulo
+ * preto. A pedra (mediana 69) e a fumaça (70) passam folgadas deste valor.
+ */
+const ESCURO = 46;
 
 /** A janela recortada da FONTE, em pixels dela. Cabe o maior quadro (218×446). */
 const JAN_W = 288;
@@ -83,8 +106,44 @@ if (!arq || !nome) {
 
 const img = decode(arq);
 const lum = (o) => 0.299 * img.px[o] + 0.587 * img.px[o + 1] + 0.114 * img.px[o + 2];
-/** Alfa recortado deste pixel: 0 no fundo, 1 no fogo cheio. */
-const alfa = (x, y) => Math.max(0, Math.min(1, (lum((y * img.w + x) * 4) - PISO) / (TETO - PISO)));
+const presa = (v) => Math.max(0, Math.min(1, v));
+/** Alfa recortado deste pixel: 0 no fundo, 1 na pedra, no fogo e na fumaça densa. */
+function alfaDe(o) {
+  const L = lum(o);
+  if (L < ESCURO) return 0;
+  const mx = Math.max(img.px[o], img.px[o + 1], img.px[o + 2]);
+  const mn = Math.min(img.px[o], img.px[o + 1], img.px[o + 2]);
+  const sat = mx > 0 ? (mx - mn) / mx : 0;
+  const a = Math.max(
+    presa((sat - SAT_PISO) / (SAT_TETO - SAT_PISO)),
+    presa((L - BRANCO_PISO) / (BRANCO_TETO - BRANCO_PISO)),
+  );
+  /*
+   * 🔴 **Alfa fraco vira ZERO, e em mistura normal isso não é detalhe.**
+   *
+   * O fundo da folha não é perfeitamente neutro: sobra um véu de 2 a 6 % de alfa
+   * espalhado pela célula inteira. Em soma aditiva ninguém via; com mistura
+   * normal (a troca de 13/09) ele virou um RETÂNGULO de névoa em volta do
+   * estouro, visível contra a grama. É o mesmo defeito do recorte quadrado das
+   * nuvens da Descarga, em 12/09, e a mesma cura.
+   */
+  return a < 0.09 ? 0 : a;
+}
+/**
+ * 🔴 **UM critério para MEDIR, outro para DESENHAR — e os dois são necessários.**
+ *
+ * A saturação é a chave certa para o recorte (é ela que salva a pedra e a
+ * fumaça), mas é péssima para achar a grade: a fumaça se espalha para os lados e
+ * faz ponte de uma coluna para a vizinha — medido, cinco colunas viraram três. E
+ * o núcleo aceso sozinho se parte no meio: cinco viraram sete.
+ *
+ * ✅ O BRILHO, que não serve para recortar, serve muito bem para medir: ele pega
+ * o corpo do meteoro e ignora a fumaça, que é o que separa um quadro do outro.
+ * Mesma divisão de trabalho do `anel2fx`.
+ */
+const MEDE_PISO = 48;
+const MEDE_TETO = 132;
+const alfa = (x, y) => presa((lum((y * img.w + x) * 4) - MEDE_PISO) / (MEDE_TETO - MEDE_PISO));
 
 /** Faixas contíguas acima do limiar. */
 function faixas(arr, limiar) {
@@ -97,33 +156,40 @@ function faixas(arr, limiar) {
   return o;
 }
 
-/*
- * 🔴 **O limiar é RELATIVO ao pico, e não um valor absoluto.**
- *
- * Com limiar perto de zero as cinco colunas saem como UMA ilha só: medido, o vão
- * mais cheio entre duas colunas ainda tem 56 de perfil, contra 6 do mais vazio —
- * é fumaça do fundo que a chave não zera. Oito por cento do pico passa folgado
- * acima dos quatro vãos e bem abaixo das bordas de coluna.
- *
- * ⚠️ E as ilhas achadas assim são MENORES que o quadro — o limiar come as bordas
- * fracas. Por isso a cerca de cada coluna é esticada até o MEIO DO VÃO com a
- * vizinha: achar é uma coisa, recortar é outra.
- */
 const perfilCol = new Float64Array(img.w);
 for (let x = 0; x < img.w; x++) {
   let s = 0;
   for (let y = 0; y < img.h; y++) s += alfa(x, y);
   perfilCol[x] = s;
 }
-const picoCol = perfilCol.reduce((m, v) => Math.max(m, v), 0);
-const ilhasCol = faixas(perfilCol, picoCol * 0.08);
-if (ilhasCol.length !== COL) {
-  console.warn(`[meteoro] ⚠️ ${ilhasCol.length} colunas achadas, esperava ${COL}.`);
+/*
+ * ⚠️ **As colunas são achadas por VALE perto da divisa teórica, e não por ilha.**
+ *
+ * Contar ilhas dá o número errado nos dois sentidos: com a fumaça no perfil, a
+ * ponte entre colunas junta cinco em três; só com o núcleo, o miolo aceso se
+ * parte e cinco viram sete. O que é firme é que as colunas SÃO regulares — as
+ * cinco começam de 200 em 200 px, medido. Então cada divisa é o ponto mais vazio
+ * perto de onde ela deveria estar, e a busca fica presa a ±16 % do passo.
+ *
+ * 🔴 Isto vale para as COLUNAS e não valeria para as fileiras: são as fileiras
+ * que derivam nesta folha (211 a 470 px), e foi lá que a grade regular falhou.
+ */
+const passoCol = img.w / COL;
+const divisasX = [0];
+for (let k = 1; k < COL; k++) {
+  const alvo = k * passoCol;
+  const j0 = Math.max(1, Math.round(alvo - passoCol * 0.16));
+  const j1 = Math.min(img.w - 2, Math.round(alvo + passoCol * 0.16));
+  let menor = Infinity;
+  let melhor = Math.round(alvo);
+  for (let x = j0; x <= j1; x++) {
+    const v = perfilCol[x - 1] + perfilCol[x] + perfilCol[x + 1];
+    if (v < menor) { menor = v; melhor = x; }
+  }
+  divisasX.push(melhor);
 }
-const colunas = ilhasCol.map(([a, b], i) => [
-  i === 0 ? 0 : Math.round((ilhasCol[i - 1][1] + a) / 2),
-  i === ilhasCol.length - 1 ? img.w - 1 : Math.round((b + ilhasCol[i + 1][0]) / 2),
-]);
+divisasX.push(img.w - 1);
+const colunas = divisasX.slice(0, -1).map((a, i) => [a, divisasX[i + 1]]);
 
 /** Os desenhos de UMA coluna: ilhas do perfil de linha, com a contagem acertada. */
 function desenhosDaColuna(x0, x1) {
@@ -218,20 +284,28 @@ function pinta(q, destino, larguraTotal, k) {
           total += 1;
           // A cerca do quadro: nada do vizinho entra na célula.
           if (sx < q.cx0 || sx > q.cx1 || sy < q.cy0 || sy > q.cy1) continue;
+          /*
+           * ⚠️ **E a cerca DESVANECE em vez de cortar reto.** Enquanto o recorte
+           * era por brilho, a fumaça ficava de fora e a cerca caía sempre no
+           * vazio; com a fumaça dentro (a queixa do dono), o corte seco deixa uma
+           * BORDA RETA no meio dela — o quadrado que a Descarga Elétrica também
+           * mostrou em 12/09. Vinte pixels de transição a escondem.
+           */
+          const beira = Math.min(sx - q.cx0, q.cx1 - sx, sy - q.cy0, q.cy1 - sy);
+          const suave = presa(beira / 20);
           if (sx < 0 || sy < 0 || sx >= img.w || sy >= img.h) continue;
           const o = (sy * img.w + sx) * 4;
           /*
-           * 🔴 O alfa sai do brilho, **E A COR PERDE O FUNDO JUNTO.** Só levantar
-           * o alfa deixaria o cinza colado no fogo — a chama sairia lavada, com
-           * névoa por dentro. Descontado o piso, o que era fundo volta a ser
-           * preto, e em mistura aditiva preto não acrescenta nada.
+           * ⚠️ **A COR SAI INTEIRA, sem desconto.** A versão aditiva descontava o
+           * piso do fundo para o cinza não somar névoa; em mistura NORMAL isso
+           * vira o contrário — escurece a pedra e apaga a fumaça, que é
+           * exatamente o que se quer ver. Ver `mistura` em `FOLHAS_QUEDA`.
            */
-          const a = Math.max(0, Math.min(1, (lum(o) - PISO) / (TETO - PISO)));
+          const a = alfaDe(o) * suave;
           if (a <= 0) continue;
-          const desconto = PISO * 0.9;
-          sr += Math.max(0, img.px[o] - desconto) * a;
-          sg += Math.max(0, img.px[o + 1] - desconto) * a;
-          sb += Math.max(0, img.px[o + 2] - desconto) * a;
+          sr += img.px[o] * a;
+          sg += img.px[o + 1] * a;
+          sb += img.px[o + 2] * a;
           sa += a;
           peso += a;
         }
@@ -271,14 +345,33 @@ const massas = ordem.map((q) => pinta(q, null, 0, 0));
 const mediana = [...massas].sort((a, b) => a - b)[massas.length >> 1];
 const vivos = ordem.filter((_, i) => massas[i] >= mediana * 0.45);
 
-const N = vivos.length;
+/*
+ * 💥 **E o PRIMEIRO quadro do estouro também sai, quando ele é uma fagulha.**
+ *
+ * A última fileira começa com um lampejo no chão que o gerador desenha enquanto
+ * a pedra ainda está chegando — medido, 1985 de massa contra 11 253 do quadro
+ * seguinte. Tocado em sequência, ele faz o efeito ENCOLHER no instante em que
+ * devia bater mais forte: a pedra de nove tiles some e sobra uma chama de dois.
+ * Era metade do *"mais forte o impacto"* que o dono pediu em 13/09.
+ *
+ * ⚠️ O critério é relativo ao próprio estouro, e não à folha inteira: o que
+ * importa é o degrau entre um quadro e os vizinhos DELE.
+ */
+const massaViva = vivos.map((q) => massas[ordem.indexOf(q)]);
+const doEstouro = massaViva.slice(-POR_COL);
+const picoEstouro = Math.max(...doEstouro);
+const finais = vivos.filter((_, i) => (
+  i < vivos.length - POR_COL || massaViva[i] >= picoEstouro * 0.4
+));
+
+const N = finais.length;
 const W = LARG * N;
 const out = Buffer.alloc(W * ALT * 4);
-vivos.forEach((q, k) => pinta(q, out, W, k));
+finais.forEach((q, k) => pinta(q, out, W, k));
 
 mkdirSync(DESTINO, { recursive: true });
 writeFileSync(join(DESTINO, `${nome}.png`), encode(W, ALT, out));
-console.log(`[meteoro] ${ordem.length - N} nuvens de fagulha descartadas`
+console.log(`[meteoro] ${ordem.length - N} desenhos descartados`
   + ` (massa < ${Math.round(mediana * 0.45)})`);
 console.log(`[meteoro] ${nome}.png  ${W}x${ALT}  (${N} quadros de ${LARG}x${ALT})`);
 console.log(`[meteoro] ancoraY ${ANCORA} — confira o nome: a ficha do cliente`

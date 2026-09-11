@@ -2568,7 +2568,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * 🌠 **O avulso sacode mais que os da Chuva, pela mesma razão do relâmpago:**
      * lá são dezoito por conjuração e o tremor se emenda; aqui cai UM.
      */
-    meteor_solo: { px: 13, ms: 260 },
+    /*
+     * ⚠️ **22 px, e eram 13** — *"mais forte o impacto"* (dono, 13/09, depois de
+     * ver em tela). O tremor é o que diz PESO; o clarão diz onde. Treze pixels
+     * num meteoro de nove tiles de largura lê como um tropeço.
+     */
+    meteor_solo: { px: 22, ms: 380 },
     /*
      * ❄️ A bola de neve mal sacode: são dez em 4,5 s, e o peso dela é o de uma
      * bola de neve. Tremor de meteoro aqui deixaria a tela em convulsão por
@@ -2795,7 +2800,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      *
      * ⚠️ **Nove dos 25 desenhos são NUVEM DE FAGULHA solta**, enfeite do rastro
      * que o gerador pôs fora do quadro a que pertence. O cortador os descarta
-     * pela massa, e sobram 16: onze de queda e cinco de estouro.
+     * pela massa, e sobram 15: onze de queda e quatro de estouro.
      *
      * ⚠️ **`queda: 430` são treze tiles de altura.** Perto o bastante para a
      * pedra nascer dentro da janela do jogador, longe o bastante para ler como
@@ -2813,9 +2818,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * número.
      */
     {
-      magia: 'meteor_solo', arquivo: 'meteoro_queda', bolts: 1, quadros: 16,
-      fracaoQueda: 11 / 16, duracaoEstouro: 700, ancoraY: 0.88,
+      magia: 'meteor_solo', arquivo: 'meteoro_queda', bolts: 1, quadros: 15,
+      fracaoQueda: 11 / 15, duracaoEstouro: 560, ancoraY: 0.88,
       trajetoria: { queda: 430, cresce: [0.42, 1] },
+      /*
+       * 🔴 **MISTURA NORMAL, e é a segunda folha do jogo com ela.**
+       *
+       * O dono viu em tela: *"ele está muito transparente… aparecendo as nuvens
+       * que mandei também"*. As duas queixas são a MESMA: soma aditiva só sabe
+       * CLAREAR. A pedra é escura e a fumaça é cinza — somadas à grama, quase não
+       * mudam nada, e o que sobra é o contorno aceso. Era o mesmo defeito da
+       * nuvem do relâmpago, em 12/09.
+       *
+       * ⚠️ O preço é o recorte ficar exposto: em soma, um alfa mal medido só
+       * clareia de leve; em mistura normal, ele TAPA o mundo. É por isso que a
+       * chave do cortador mudou junto — ver `meteoro-grade2fx.mjs`.
+       */
+      mistura: 'normal' as const,
     },
     /*
      * ❄️ A BOLA DE NEVE da Nevasca. A folha do dono é uma coluna de gelo que
@@ -3212,10 +3231,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     /*
      * 🌠 **O Meteoro avulso estoura MAIOR que os da Chuva**, e a conta é a área:
      * ele pega um bloco 7×7 (224 px) contra o respingo 5×5 (160 px) de cada
-     * rocha da chuva. 2,1 dá 252 px de estouro — um pouco mais que o quadrado de
-     * dano, que é a margem de drama que o meteoro já tinha em 2,0.
+     * rocha da chuva.
+     *
+     * 🔴 **3,4, e era 2,1 — a CÉLULA ENCOLHEU junto com a folha nova.** O número
+     * antigo valia para células de 192 px de largura; a folha vertical de 13/09
+     * tem 144, e os mesmos 2,1 passaram a dar 189 px de estouro contra os 252 de
+     * antes. Menor que o próprio quadrado de dano — foi metade da queixa do dono
+     * (*"faça ele ser maior"*), e a outra metade era a transparência.
+     *
+     * ⚠️ É por isso que o número mora aqui e não na folha: ele é uma razão entre
+     * a arte e o TILE, e toda folha nova o desatualiza em silêncio. 3,4 dá 306 px
+     * — uma vez e meia o quadrado de dano, a mesma margem de drama da Chuva.
      */
-    meteor_solo: 2.1,
+    meteor_solo: 3.4,
     /*
      * ❄️ A célula da folha da Nevasca tem 160 px de largura para 3 tiles (96 px)
      * de área de dano. 0,62 põe a coluna de gelo no tamanho da cratera dela.
@@ -3502,7 +3530,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const naFaixa = ([a, b]: [number, number]): number => a + Math.random() * (b - a);
 
   /** Quantos cristais cada impacto solta, e em que raio eles se espalham. */
-  const PARTICULAS: Record<string, { cristais: number; espalha: number }> = {
+  const PARTICULAS: Record<
+    string, { cristais: number; espalha: number; cor?: number }
+  > = {
     /*
      * ❄️ **DEZESSEIS POR IMPACTO, e são dez impactos: ~160 na tempestade.**
      *
@@ -3532,6 +3562,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * some.
      */
     lightning_fall: { cristais: 22, espalha: 64 },
+    /*
+     * ☄️ **E o Meteoro avulso também não tinha entrada — o mesmo silêncio.**
+     * *"Mais forte o impacto"* (dono, 13/09): o tremor e o clarão já disparavam,
+     * mas nada VOAVA. É a diferença entre o chão tremer e a pedra estourar.
+     *
+     * ⚠️ **28 num raio de 2,5 tiles**, o maior dos três: o estouro dele tem nove
+     * tiles de largura, e estilhaço espalhado em raio menor que o clarão some
+     * dentro dele — foi a lição do relâmpago.
+     *
+     * ⚠️ **Tinta de BRASA**, e não a branco-azulada dos outros dois. A folha de
+     * cristal é a mesma; o que muda a leitura é o tom.
+     */
+    meteor_solo: { cristais: 28, espalha: 80, cor: 0xffb066 },
   };
 
   /**
@@ -3563,10 +3606,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       p.giro = (Math.random() - 0.5) * 0.02;
       p.node.rotation = Math.random() * Math.PI * 2;
       /*
-       * ⚠️ **Tinta quase branca.** A folha já vem colorida, e tingir de
-       * azul-médio uma arte que já é azul escurece duas vezes — some no chão.
+       * ⚠️ **Tinta quase branca, por padrão.** A folha já vem colorida, e tingir
+       * de azul-médio uma arte que já é azul escurece duas vezes — some no chão.
+       * Quem precisa de outro tom declara em `PARTICULAS.cor`: é o caso da brasa
+       * do Meteoro, que de branco-azulado leria como gelo.
        */
-      p.node.tint = 0xdff2ff;
+      p.node.tint = cfg.cor ?? 0xdff2ff;
       /*
        * 🔴 **0,7–1,2, e o caminho até aqui vale registrar.** Quando o cristal
        * sumiu em tela, subi a escala para 2,0–3,2 achando que era tamanho. Não
