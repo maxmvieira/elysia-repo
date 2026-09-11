@@ -6648,7 +6648,25 @@ function handleMessage(player: Player, msg: ClientMessage): void {
       // duas conexões salvando por cima uma da outra.
       for (const outro of players.values()) {
         if (outro !== player && outro.characterId === stored.id) {
-          send(outro, { t: 'denied', reason: 'Este personagem entrou em outra sessão.' });
+          /*
+           * 🔴 **`final: true` — esta sessão NÃO pode voltar sozinha.**
+           *
+           * Defeito medido em 12/09: o cliente reconecta 1,5 s depois de
+           * qualquer `close`, e o auto-login o traz de volta ao mundo. Com duas
+           * abas no mesmo personagem isso virava um **laço infinito de expulsão
+           * mútua**: A entra e chuta B, B reconecta e chuta A, para sempre, a
+           * cada segundo e meio. Foi o que inutilizou o teste em jogo o dia
+           * inteiro — 73 auto-logins numa sessão só.
+           *
+           * ⚠️ O `close()` sozinho nunca ia resolver: do lado do cliente, uma
+           * queda deliberada e uma queda de rede são o MESMO evento. Quem sabe a
+           * diferença é quem fechou, e é por isso que a bandeira vem daqui.
+           */
+          send(outro, {
+            t: 'denied',
+            reason: 'Este personagem entrou em outra sessão.',
+            final: true,
+          });
           outro.socket.close();
         }
       }

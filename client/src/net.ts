@@ -30,6 +30,18 @@ export class NetClient {
   private onMessage: ServerHandler;
   private onStatus: StatusHandler;
   private reconnectTimer: number | null = null;
+  /**
+   * 🔴 **Despejado: não volta sozinho.** Ver `final` no `denied` do protocolo.
+   *
+   * A reconexão automática existe para queda de REDE, e para ela está certa.
+   * Mas o cliente não distingue uma queda de rede de um despejo deliberado —
+   * os dois chegam como `onclose` —, e em 12/09 isso virou um laço infinito:
+   * duas abas no mesmo personagem se expulsando a cada 1,5 s, para sempre.
+   *
+   * ⚠️ Quem resolve é o servidor dizendo `final: true` antes de fechar. Aqui só
+   * se guarda o recado.
+   */
+  private despejado = false;
 
   /** Guardadas só em memória, para poder reautenticar após queda. */
   private username = '';
@@ -50,6 +62,13 @@ export class NetClient {
   }
 
   connect(): void {
+    /*
+     * ⚠️ **Conectar À MÃO limpa o despejo.** A trava é contra a reconexão
+     * AUTOMÁTICA; quem recarregar a página ou apertar para entrar de novo está
+     * decidindo voltar, e aí a decisão é dele. Sem esta linha, um despejo
+     * deixaria o cliente morto até o F5 — trocando um defeito por outro.
+     */
+    this.despejado = false;
     this.socket = new WebSocket(this.url);
 
     this.socket.onopen = () => {
@@ -74,6 +93,12 @@ export class NetClient {
       // jogo -> volta direto para ele, sem passar pela tela de seleção.
       // 🔑 Guarda o token mais recente para a PRÓXIMA reconexão. Cada entrada
       // emite um novo, então o guardado é sempre o que ainda não foi usado.
+      /*
+       * 🔴 **O despejo chega ANTES do `close`, e é a única pista que existe.**
+       * Ver `despejado`: sem isto, a expulsão vira laço infinito entre duas
+       * abas do mesmo personagem.
+       */
+      if (msg.t === 'denied' && msg.final) this.despejado = true;
       if (msg.t === 'authresult' && msg.ok && msg.token) this.ultimoToken = msg.token;
       if (msg.t === 'authresult' && msg.ok && this.characterId !== null) {
         this.enterGame(this.characterId);
@@ -92,6 +117,8 @@ export class NetClient {
   }
 
   private scheduleReconnect(): void {
+    // 🔴 Despejo não se reconecta. Ver `despejado`.
+    if (this.despejado) return;
     if (this.reconnectTimer !== null) return;
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;

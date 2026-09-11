@@ -721,6 +721,20 @@ export interface S2C_Denied {
   t: 'denied';
   /** Feedback claro quando o servidor recusa uma ação (doc 16). */
   reason: string;
+  /**
+   * 🔴 **Recusa DEFINITIVA: o cliente não deve voltar sozinho.**
+   *
+   * Quase toda recusa é sobre uma AÇÃO — mana curta, alvo longe, recarga. A
+   * conexão segue viva e reconectar nem entra na história. Esta bandeira é para
+   * o caso oposto: o servidor está DESPEJANDO esta sessão de propósito, e a
+   * reconexão automática vira briga.
+   *
+   * ⚠️ Existe por um defeito real, medido em 12/09: duas abas no mesmo
+   * personagem entravam num laço infinito de expulsão mútua a cada 1,5 s — a
+   * aba expulsa reconectava, expulsava a outra, e assim para sempre. O dia
+   * inteiro de teste foi perdido nisso. Ver `Rede.scheduleReconnect`.
+   */
+  final?: boolean;
 }
 
 /** Resposta ao `auth`. Em caso de erro, `message` já vem pronta para a tela. */
