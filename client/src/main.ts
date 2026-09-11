@@ -2615,6 +2615,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     /** Desenha ACIMA das entidades, e não na camada do chão. Ver `porCima`. */
     porCima?: boolean;
     /**
+     * ☄️ A arte JÁ vem desenhada no rumo certo — não girar.
+     *
+     * ⚠️ Girar é o que se faz quando há uma folha só; com arte por direção,
+     * girar por cima seria virar duas vezes.
+     */
+    preRotacionada?: boolean;
+    /**
      * Onde, na altura do quadro, fica o ponto que tem de cair NO TILE.
      * Ausente = 1 (o rodapé). Ver `ancoraY` em `FOLHAS_QUEDA`.
      */
@@ -2681,6 +2688,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * `'fire_bolt'` no meio do tratador; com a segunda, isso viraria uma lista de
    * ifs que envelhece a cada folha nova.
    */
+  /**
+   * ☄️ **A FORMA DA ENTRADA DO METEORO, num lugar só.**
+   *
+   * 🔴 Mora fora das entradas porque agora são NOVE folhas com a mesma forma —
+   * a girada e as oito desenhadas por rumo. Repetir os três números em cada uma
+   * seria nove cópias de um valor que o dono ainda vai querer ajustar em tela, e
+   * a próxima mudança acertaria oito das nove. Ver `trajetoria` em `meteor_solo`
+   * para o porquê de cada número.
+   */
+  const METEORO_TRAJETO = { dist: 420, subida: 160, cresce: [0.25, 1.15] as const };
+
+  /**
+   * ☄️ **OS OITO RUMOS DE ENTRADA, na ordem dos oitavos de volta a partir do
+   * LESTE.** É essa ordem que deixa `rumoDaEntrada` ser uma divisão, e não uma
+   * escada de ifs: o índice sai do ângulo dividido por 45°.
+   */
+  const RUMOS_QUEDA = ['e', 'se', 's', 'sw', 'w', 'nw', 'n', 'ne'] as const;
+
   const FOLHAS_QUEDA = [
     /*
      * ⚠️ `fracaoQueda` é onde a DESCIDA acaba dentro da tira, e ela é MEDIDA em
@@ -2772,8 +2797,40 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     {
       magia: 'meteor_solo', arquivo: 'meteoro40', bolts: 1, quadros: 40,
       fracaoQueda: 16 / 40, duracaoEstouro: 1400,
-      trajetoria: { dist: 420, subida: 160, cresce: [0.25, 1.15] },
+      trajetoria: METEORO_TRAJETO,
     },
+    /*
+     * ☄️ **AS OITO FOLHAS POR RUMO, e por que a girada acima continua.**
+     *
+     * 🔴 **Girar uma folha só gira A FUMAÇA JUNTO.** Foi o argumento do dono em
+     * 12/09, e eu tinha defendido o contrário: *"uma folha girada cobre as oito
+     * direções e todos os ângulos entre elas"*. Cobre a ROCHA. Não cobre o
+     * rastro: fumaça sobe, ela não acompanha a trajetória. O meteoro girado para
+     * o norte fica com o rastro apontando para o chão, e é visível.
+     *
+     * ✅ Por isso são oito desenhos, um por rumo, com `preRotacionada` — a arte
+     * já vem no ângulo certo, com a fumaça subindo, e o cliente não gira nada.
+     *
+     * ⚠️ **As oito estão listadas, e só quatro existem no disco.** `se`, `sw`,
+     * `ne` e `nw` chegaram em 13/09; as quatro cardeais ainda não. O `catch` do
+     * carregador engole a ausência, `folhaPara` devolve `null` para o que falta,
+     * e o rumo sem arte cai na `meteor_solo` GIRADA — o efeito de ontem, não uma
+     * magia sem animação. O dia em que o arquivo chegar, ele entra sozinho.
+     *
+     * ⚠️ **`quadros: 0` porque a contagem DIFERE entre elas** — 24, 24, 24 e 21
+     * nas quatro medidas, apesar de o gerador do dono prometer *"mesmo número de
+     * frames"*. Ver o carregador.
+     *
+     * ⚠️ **`fracaoQueda: 1/3` é MEDIDO e vale nas quatro**: o voo é sempre a
+     * primeira das três fileiras (8 de 24, 7 de 21). É a única coisa que as
+     * quatro realmente têm em comum, e por isso é o único número que dá para
+     * escrever uma vez.
+     */
+    ...RUMOS_QUEDA.map((rumo) => ({
+      magia: `meteor_solo_${rumo}`, arquivo: `meteoro_${rumo}`, bolts: 1, quadros: 0,
+      fracaoQueda: 1 / 3, duracaoEstouro: 1400,
+      trajetoria: METEORO_TRAJETO, preRotacionada: true,
+    })),
     /*
      * ❄️ A BOLA DE NEVE da Nevasca. A folha do dono é uma coluna de gelo que
      * cresce (0–8), gira (9–26) e some (27–35).
@@ -2924,7 +2981,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
          * declarado na entrada, e a altura é a da imagem. Dividir por 64 aqui
          * cortaria a folha alta em quatro fatias de personagem nenhum.
          */
-        const cw = Math.max(1, Math.round(tex.width / folha.quadros));
+        /*
+         * ☄️ **`quadros: 0` = conte pela TEXTURA, não pela ficha.**
+         *
+         * 🔴 As folhas direcionais do Meteoro saem com contagens diferentes umas
+         * das outras — medidas, 24, 24, 24 e 21 nas quatro primeiras, porque o
+         * gerador não repete o número de quadros entre as variações. Declarar
+         * cada uma à mão seria oito números copiados, e mais oito a cada folha
+         * regerada; e um número errado aqui não dá erro: corta a tira no lugar
+         * errado e a animação sai picotada, em silêncio.
+         *
+         * ✅ O `meteoro2fx` emite sempre células QUADRADAS, então a contagem é
+         * `largura ÷ altura`. É a única folha do jogo com essa garantia, e é por
+         * isso que a opção existe em vez de valer para todas.
+         */
+        const quantos = folha.quadros > 0
+          ? folha.quadros
+          : Math.max(1, Math.round(tex.width / tex.height));
+        const cw = Math.max(1, Math.round(tex.width / quantos));
         const ch = tex.height;
         const lista = folhasQueda.get(folha.magia) ?? [];
         lista.push({
@@ -2937,7 +3011,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           ...('porCima' in folha ? { porCima: folha.porCima } : {}),
           ...('ancoraY' in folha ? { ancoraY: folha.ancoraY } : {}),
           ...('trajetoria' in folha ? { trajetoria: folha.trajetoria } : {}),
-          frames: Array.from({ length: folha.quadros }, (_, i) => new Texture({
+          ...('preRotacionada' in folha ? { preRotacionada: folha.preRotacionada } : {}),
+          frames: Array.from({ length: quantos }, (_, i) => new Texture({
             source: tex.source,
             frame: new Rectangle(i * cw, 0, cw, ch),
           })),
@@ -3005,6 +3080,34 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const q = { node, atraso: 0, morto: false, magia: '', risco: undefined };
     node.onComplete = () => { q.morto = true; };
     quedas.push(q);
+  }
+
+  /**
+   * ☄️ **Por qual dos oito rumos a coisa ENTRA NA TELA.**
+   *
+   * 🔴 O ângulo é o da viagem VISTA, e não o da linha conjurador → alvo. São
+   * diferentes: a partida é o alvo recuado ao longo da linha **mais `subida`**,
+   * então a viagem é `(u·dist, u·dist + subida)` — sempre um pouco mais para
+   * baixo que a linha. É o que se quer: o meteoro vem do alto mesmo indo para o
+   * lado. Classificar pela linha crua escolheria a folha `e` para uma entrada
+   * que em tela desce a 21°.
+   *
+   * ⚠️ **Y cresce para BAIXO**, então `atan2` positivo é SUL. Já errei o sinal
+   * deste mesmo eixo duas vezes no giro do voo; aqui a ordem de `RUMOS_QUEDA`
+   * (leste, depois no sentido do sul) é o que mantém o acordo.
+   *
+   * Os oito rumos puros caem cada um no seu oitavo — conferido: com `dist` 420 e
+   * `subida` 160, o nordeste sai a −25° e o noroeste a −155°, dentro dos seus
+   * por pouco. Se `subida` crescer muito, os dois de cima escorregam para leste
+   * e oeste; é o mesmo número que decide a forma da entrada, e não há dois.
+   */
+  function rumoDaEntrada(
+    vx: number, vy: number, t: { dist: number; subida: number },
+  ): string {
+    const comp = Math.hypot(vx, vy) || 1;
+    const ang = Math.atan2((vy / comp) * t.dist + t.subida, (vx / comp) * t.dist);
+    const i = Math.round(ang / (Math.PI / 4));
+    return RUMOS_QUEDA[((i % 8) + 8) % 8]!;
   }
 
   /** A folha desta magia que melhor representa `n` bolts, ou a menor que há. */
@@ -3715,7 +3818,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * espelhava o meteoro, e em tela ele descia para o lado errado com a
        * trajetória certa.
        */
-      voo.rotation = Math.atan2(deYreal, -deXreal) - Math.PI * 0.75;
+      /*
+       * ☄️ **E com arte POR DIREÇÃO o giro some.**
+       *
+       * 🔴 Girar uma folha só gira **a fumaça junto** — e fumaça sobe, ela não
+       * acompanha a trajetória. Foi o argumento do dono em 12/09 quando ele
+       * decidiu desenhar as oito variações em vez de aceitar uma girada, e ele
+       * estava certo: a rocha a 135° girada para o norte fica com o rastro
+       * apontando para o chão. Nas folhas `meteor_solo_<rumo>` a arte já vem no
+       * rumo certo, com a fumaça desenhada subindo — girar por cima seria virar
+       * duas vezes. Ver `preRotacionada`.
+       */
+      voo.rotation = folha.preRotacionada
+        ? 0
+        : Math.atan2(deYreal, -deXreal) - Math.PI * 0.75;
       voo.zIndex = 9999;
       fxLayer.addChild(voo);
       risco = { node: voo, t: 0, deX: deXreal, deY: deYreal, dur: tempoQueda, cresce: t.cresce };
@@ -3979,8 +4095,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     magia: string, wx: number, wy: number, n: number, alvo?: string, quedaMs?: number,
     raioDano?: number, deOnde?: { x: number; y: number },
   ): void {
-    const folha = folhaPara(magia, n);
+    let folha = folhaPara(magia, n);
     if (!folha) return;
+    /*
+     * ☄️ **A ARTE POR RUMO, quando ela existe.**
+     *
+     * ⚠️ **A base é consultada PRIMEIRO de propósito**: é dela que sai a
+     * `trajetoria`, e é a trajetória que diz para onde o meteoro vai na TELA.
+     * Classificar pelo vetor cru conjurador → alvo daria outra resposta, porque
+     * `subida` inclina toda entrada para baixo — um alvo a leste não é atingido
+     * na horizontal, e sim descendo uns 20°.
+     *
+     * ⚠️ Sem `deOnde` (servidor antigo, ou alvo em cima do próprio mago) fica a
+     * folha girada: sem linha não há rumo para escolher.
+     */
+    if (folha.trajetoria && deOnde) {
+      const rumo = rumoDaEntrada(deOnde.x, deOnde.y, folha.trajetoria);
+      folha = folhaPara(`${magia}_${rumo}`, n) ?? folha;
+    }
     const copias = Math.max(1, Math.ceil(n / folha.bolts));
     for (let i = 0; i < copias; i++) {
       spawnQueda(magia, wx, wy, folha, i * INTERVALO_BOLT_MS, alvo, quedaMs, raioDano, deOnde);

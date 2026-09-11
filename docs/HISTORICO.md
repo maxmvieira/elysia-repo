@@ -9,6 +9,79 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-11 — O Meteoro ganha oito direções de entrada
+
+**Onde mora:** `tools/meteoro2fx.mjs` · `METEORO_TRAJETO`/`RUMOS_QUEDA`/`FOLHAS_QUEDA`/
+`rumoDaEntrada`/`spawnQuedaDaConjuracao`/`preRotacionada` em `client/src/main.ts` ·
+`arte-fonte/fx/meteoro_<rumo>.png` → `client/public/assets/fx/`
+
+### ☄️ Uma folha girada não cobre oito direções, e o argumento era meu
+
+🔴 **Girar gira a FUMAÇA junto — e fumaça sobe.** A primeira versão tinha uma folha só,
+girada pelo rumo, e o argumento parecia fechado: *"um meteoro é uma pedra com rastro
+atrás; girar o conjunto continua certo em qualquer ângulo"*. Está errado na metade que
+não é pedra. O rastro de fumaça é desenhado SUBINDO, e a 90° ele sai deitado. O dono viu
+antes de mim e desenhou as oito variações.
+
+✅ **O cliente escolhe a folha pelo rumo da VIAGEM VISTA**, e não pela linha conjurador →
+alvo. São ângulos diferentes: a partida é o alvo recuado ao longo da linha **mais
+`subida`**, então até um alvo a leste é atingido descendo uns 20°. `rumoDaEntrada` divide
+esse ângulo por 45° e indexa `RUMOS_QUEDA` — sem escada de ifs, e os oito rumos puros
+caem cada um no seu oitavo (conferido).
+
+⚠️ **As oito entradas estão listadas mesmo antes de os arquivos existirem.** Faltando uma,
+`Assets.load` falha calado, `folhaPara` devolve `null` e o rumo cai na folha GIRADA — o
+efeito de ontem, não uma magia sem animação.
+
+### 🔪 O cortador: três medidas que a folha não entrega de graça
+
+O dono garantiu *"mesmo padrão visual, escala e sequência; mesmo número de frames"* para
+as oito. Medidas, elas vieram com **24, 24, 24, 21, 21, 21, 21 e 24 quadros**, uma com a
+fileira de voo escrita da direita para a esquerda, e uma (norte→sul) com **contagens
+diferentes DENTRO da mesma folha**: 7 de voo, 6 de impacto, 8 de dissipação. Nada disso
+dá erro — dá animação picotada, que só aparece jogando.
+
+🔴 **A contagem de cada fileira sai por AUTOCORRELAÇÃO.** Contar ilhas não serve (no auge
+as chamas se tocam: a mesma fileira de 8 quadros dá 2, 3 ou 6 ilhas), e usar a última
+fileira para todas não serve desde a folha norte→sul. A fileira é periódica, e o passo
+aparece no deslocamento de maior correlação — estejam os quadros grudados ou não. As
+ilhas ficam como desempate, para quando `vão / passo` cai em 7,42 numa fileira de 8.
+
+🔴 **A pedra é achada pelo MAIOR CÍRCULO INSCRITO, depois de um fechamento.** A rocha é
+uma malha — tem veias de lava ACESAS atravessando —, então o círculo inscrito medido
+direto cabia ENTRE duas veias: 24 px numa pedra de 82. Dilatar 9 px, medir e descontar
+resolve. É o que também dá a âncora certa quando a pedra vem grudada nos estilhaços numa
+mancha só, o que acontece em quatro das oito folhas.
+
+⚠️ **E a âncora errada erra POR TRÁS.** Antes disso o cortador ancorava na mancha mais
+LARGA, que é a casca de fumaça fria — 23 951 px contra 14 536 da pedra no último quadro.
+Ancorar nela pendura o rastro no ponto interpolado e a pedra chega adiantada: o impacto
+sai na frente do alvo. Mesmo defeito do relâmpago em 12/09, e de novo a causa estava uma
+etapa ANTES do cliente.
+
+🔴 **A sequência sai por programação dinâmica, com três amarras.** Varredura gulosa fica
+presa na primeira bolha que couber. A DP maximiza a soma de `raio²` entre cadeias que
+(1) não encolhem, (2) não põem dois quadros no mesmo x e (3) atravessam a fileira de
+ponta a ponta. Cada amarra entrou por um defeito medido: sem (2) a folha norte→sul saiu
+com quatro quadros contados duas vezes (pedra e fumaça, três pixels ao lado); sem (3) a
+nordeste devolveu oito CACOS amontoados no canto.
+
+⚠️ **E a escolha é pela NOTA, não pelo comprimento.** Na nordeste existe uma cadeia de
+oito cacos, que fecha a contagem, e uma de sete pedras, que não fecha porque a mais
+distante não aparece. A de cacos ganhava por um quadro.
+
+### 🧱 Duas travas para o defeito não voltar calado
+
+✅ **`quadros: 0` no cliente = conte pela TEXTURA.** As células do `meteoro2fx` são
+quadradas, então a contagem é `largura ÷ altura`. Oito números copiados à mão seriam
+oito chances de errar, e mais oito a cada folha regerada.
+
+✅ **O cortador confere o contrato.** O voo é amarrado à média das duas fileiras de
+estouro, e no fim ele verifica que a tira tem `3 × voo` quadros — porque
+`fracaoQueda: 1/3` está escrito na ficha do cliente e lá não há como conferir.
+
+---
+
 ## 2026-09-11 — Munição, aljava, e as duas tempestades virarem bombardeio
 
 **Onde mora:** `arrow`/`bolt` e `quiver` em `shared/src/items.ts` · `ammo`/`splash`/
