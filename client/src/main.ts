@@ -3702,7 +3702,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     return null;
   }
 
-  function spawnSpellFx(kind: string, tileX: number, tileY: number, radius: number): void {
+  function spawnSpellFx(
+    kind: string, tileX: number, tileY: number, radius: number, alvo?: string,
+  ): void {
     const node = new Container();
     node.x = tileX * TS + TS / 2;
     node.y = tileY * TS + TS / 2;
@@ -3828,6 +3830,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         c.rotation = a;
         node.addChild(c);
       }
+    } else if (kind === 'electric_sphere' && alvo && pulsaOrbe(alvo)) {
+      /*
+       * ⚡ **O choque da Esfera não desenha um estouro novo: PULSA a esfera que
+       * já está no alvo.** Ver `orbes`. Se não houver alvo vivo para pulsar, cai
+       * no ziguezague de código logo abaixo — é o que acontece quando o efeito
+       * chega sem `targetId`.
+       */
+      return;
     } else if (kind === 'electric_sphere' && quadrosEsfera()) {
       /*
        * ⚡ **CADA CHOQUE usa os quadros de IMPACTO da folha da esfera** (os oito
@@ -3968,7 +3978,77 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * novo no caminho do coletor.
    */
   const QUADROS_ESFERA = 16;
-  const QUADROS_VOO = 8;
+  /**
+   * ⚡ **SÓ OS QUATRO PRIMEIROS QUADROS VOAM, e não os oito.**
+   *
+   * 🔴 Defeito relatado pelo dono em 12/09: *"está dando muitas pontas nos
+   * quadros da magia"*. Do quinto quadro em diante a folha desenha um RASTRO
+   * cada vez mais longo — arcos compridos saindo para trás. Em movimento isso
+   * não lê como rastro: lê como espinhos brotando da bola, porque o desenho já
+   * está se deslocando e o rastro some no borrão.
+   *
+   * ✅ Os quatro primeiros são a esfera nascendo e carregando, compactos. É o
+   * que o dono pediu desde o começo: *"uma bola de eletricidade viajando"*.
+   */
+  const QUADROS_VOO = 4;
+  /**
+   * ⚡ Os quadros que a esfera fica PULSANDO no alvo — a bola carregada, sem
+   * cauda. Ver `orbes`.
+   */
+  const ORBE_DE = 2;
+  const ORBE_ATE = 4;
+
+  /**
+   * ⚡ **A ESFERA FICA NO ALVO, PULSANDO** — pedido do dono em 12/09: *"é para
+   * ser uma esfera que vai até o alvo e fica pulsando nele; se ele morrer antes
+   * da magia acabar, ela some"*.
+   *
+   * 🔴 **Antes, cada choque desenhava um estouro novo e a esfera sumia na
+   * chegada.** Doze estouros em sequência no mesmo lugar leem como doze magias
+   * pequenas, não como uma só — que é exatamente o que a spec pedia para evitar
+   * (*"deve parecer UMA ÚNICA MAGIA contínua"*).
+   *
+   * ⚠️ **Um orbe por ALVO, e não por conjuração.** Dois feiticeiros na mesma
+   * criatura compartilham a bola; é simplificação assumida, e a alternativa
+   * (uma por lançador) empilharia duas esferas no mesmo pixel.
+   *
+   * ⚠️ **Ele expira sozinho**, e é isso que resolve o "se morrer, some": o
+   * servidor para de mandar choques quando a criatura morre, ninguém renova o
+   * prazo, e a bola apaga. Sem depender de um pacote de "acabou" que pode não
+   * chegar.
+   */
+  const orbes = new Map<string, { node: AnimatedSprite; ate: number; pulso: number }>();
+
+  /**
+   * Acende ou renova a esfera no alvo. Devolve `false` quando não há como —
+   * folha ausente ou alvo que saiu da tela —, e aí o efeito cai no desenho
+   * por código.
+   */
+  function pulsaOrbe(alvoId: string): boolean {
+    const q = quadrosEsfera();
+    const view = sprites.get(alvoId);
+    if (!q || !view) return false;
+    let orbe = orbes.get(alvoId);
+    if (!orbe) {
+      const node = new AnimatedSprite(q.slice(ORBE_DE, ORBE_ATE));
+      node.anchor.set(0.5);
+      node.blendMode = 'add';
+      node.animationSpeed = 0.18;
+      node.play();
+      node.zIndex = 10000;
+      fxLayer.addChild(node);
+      orbe = { node, ate: 0, pulso: 0 };
+      orbes.set(alvoId, orbe);
+    }
+    /*
+     * ⚠️ **O prazo é renovado a cada choque, e sobra pouco depois do último.**
+     * 320 ms é mais que o intervalo entre choques (140) e menos que o tempo que
+     * o olho leva para achar que a bola ficou presa ali.
+     */
+    orbe.ate = performance.now() + 320;
+    orbe.pulso = 1;
+    return true;
+  }
   let esferaCache: Texture[] | null = null;
   function quadrosEsfera(): Texture[] | undefined {
     if (esferaCache) return esferaCache;
@@ -4577,7 +4657,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
              */
             const folha = folhaDoFx(msg.kind);
             if (folha) tocaEfeito(folha, msg.x * TS + TS / 2, msg.y * TS + TS);
-            else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1);
+            else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1, msg.targetId);
           }
           break;
         case 'heal': {
@@ -7651,6 +7731,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       }
       conjurarAoChegar = null;
     }
+    /*
+     * 🔴 **CONJURAR PARA DE ANDAR** — defeito relatado pelo dono em 12/09: *"se
+     * eu clicar para ele ir para algum lugar e soltar a magia, ele está andando
+     * e cancelando a magia antes de soltar"*.
+     *
+     * Andar interrompe conjuração (é o contrajogo das magias grandes, e tem de
+     * continuar sendo). Mas quem clicou no chão e DEPOIS apertou a magia não
+     * está mudando de ideia sobre a magia — está mudando de ideia sobre o
+     * passeio. O cliente seguia mandando os passos da rota antiga e o servidor,
+     * corretamente, derrubava a conjuração.
+     *
+     * ⚠️ O caminho "andar até o alcance e conjurar" já cancelava a rota antes de
+     * lançar (ver `conjurarAoChegar`); o que faltava era o caso simples — rota
+     * em andamento, magia apertada agora.
+     */
+    cancelarRota();
     net.send({
       t: 'cast', spell: id,
       ...(mira ? { tileX: mira.tileX, tileY: mira.tileY } : {}),
@@ -9560,6 +9656,36 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         q.risco?.node.destroy();
         quedas.splice(i, 1);
       }
+    }
+
+    /*
+     * ⚡ **AS ESFERAS PULSANDO NOS ALVOS.** Ver `orbes`: elas seguem o sprite,
+     * dão um tranco a cada choque e apagam quando ninguém renova o prazo — que
+     * é o que acontece assim que a criatura morre.
+     */
+    for (const [id, orbe] of orbes) {
+      const view = sprites.get(id);
+      /*
+       * ⚠️ **Sem sprite, sem orbe.** A criatura saiu da tela ou foi removida do
+       * mapa; deixar a bola no último lugar conhecido é o tipo de sujeira que
+       * fica para sempre — foi o que aconteceu com o feixe vertical do Fire Bolt
+       * em 10/09.
+       */
+      if (!view || now >= orbe.ate) {
+        orbe.node.destroy();
+        orbes.delete(id);
+        continue;
+      }
+      orbe.node.x = view.container.x + TS / 2;
+      orbe.node.y = view.container.y + TS * 0.55;
+      /*
+       * ⚠️ O tranco decai rápido e a bola volta ao tamanho de repouso. É ele que
+       * transforma "uma bola parada" em "uma bola levando descarga" — sem o
+       * pulso, doze choques passariam sem nada mudar em tela.
+       */
+      orbe.pulso = Math.max(0, orbe.pulso - dt / 160);
+      orbe.node.scale.set(0.34 + orbe.pulso * 0.16);
+      orbe.node.alpha = 0.75 + orbe.pulso * 0.25;
     }
 
     /*
