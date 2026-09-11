@@ -7173,7 +7173,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * mesmo círculo. É simplificação assumida: se um dia houver duelo de áreas,
    * vira um mapa de nós, como os `castBar`.
    */
-  const circuloConj = new Sprite();
+  const circuloConj = new AnimatedSprite([Texture.EMPTY]);
   circuloConj.anchor.set(0.5);
   circuloConj.blendMode = 'add';
   circuloConj.zIndex = -0.73;
@@ -7195,7 +7195,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * um nó acoplaria o `tint` e a rotação de dois estados diferentes — e o
    * primeiro quadro depois do clique mostraria o anel da mira com a cor errada.
    */
-  const circuloMira = new Sprite();
+  const circuloMira = new AnimatedSprite([Texture.EMPTY]);
   circuloMira.anchor.set(0.5);
   circuloMira.blendMode = 'add';
   circuloMira.zIndex = -0.74;
@@ -7203,15 +7203,52 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   objects.addChild(circuloMira);
   /** Quem é o dono do círculo agora. Sem isto, um `casting: null` de OUTRO mago apagaria o círculo deste. */
   let circuloDe: string | null = null;
-  void Assets.load<Texture>('/assets/fx/circulo_conjuracao.png')
-    .then((t) => { circuloConj.texture = t; circuloMira.texture = t; })
-    .catch((e: unknown) => console.warn('[fx] círculo de conjuração não carregou:', e));
+  /*
+   * ⭕ **O ANEL É ANIMADO** (11/09): 30 quadros de 256×256 numa tira, com o
+   * brilho varrendo a circunferência. Substituiu a imagem estática de uma hora
+   * antes — *"ficou mais bonito que o que está implementado"*.
+   *
+   * ⚠️ **A animação e a rotação por código CONVIVEM, e fazem coisas
+   * diferentes.** A folha varre o BRILHO em volta do anel sem mexer no desenho;
+   * a rotação vira o desenho inteiro, estrelas e losangos junto. Uma sozinha lê
+   * como luz piscando, a outra como adesivo girando.
+   */
+  const QUADROS_ANEL = 30;
+  void Assets.load<Texture>('/assets/fx/anel_conjuracao.png')
+    .then((t) => {
+      const lado = t.height;
+      const quadros = Array.from({ length: QUADROS_ANEL }, (_, i) => new Texture({
+        source: t.source,
+        frame: new Rectangle(i * lado, 0, lado, lado),
+      }));
+      for (const a of [circuloConj, circuloMira]) {
+        a.textures = quadros;
+        /*
+         * ⚠️ **0,2 = os 30 quadros em ~2,5 s** (`animationSpeed` é quadros por
+         * tique de 60 Hz: 30 ÷ 150 tiques). Mais rápido vira estroboscópio num
+         * desenho cheio de linha fina; mais lento não se percebe numa
+         * conjuração de três segundos.
+         */
+        a.animationSpeed = 0.2;
+        a.play();
+      }
+    })
+    .catch((e: unknown) => console.warn('[fx] anel de conjuração não carregou:', e));
 
   /** ⭕ Mostra o círculo no ponto e no tamanho da área, ou o esconde. */
   function marcaConjuracao(
     casterId: string, ponto?: { x: number; y: number; raio: number },
   ): void {
-    if (!ponto) {
+    /*
+     * ⭕ **SÓ MAGIA DE ÁREA** — dono, 11/09: *"ajuste o tamanho conforme a área
+     * das magias em área somente"*.
+     *
+     * 🔴 `raio 0` não é "um círculo pequeno": é magia que NÃO tem área. O
+     * servidor manda o ponto para tudo que mira o chão, e sem esta guarda uma
+     * magia de ponto desenharia um anel de um tile — que mente sobre o alcance
+     * do golpe e ainda some debaixo do próprio personagem.
+     */
+    if (!ponto || ponto.raio <= 0) {
       // ⚠️ Só o DONO do círculo pode apagá-lo.
       if (circuloDe === casterId) { circuloConj.visible = false; circuloDe = null; }
       return;
@@ -7234,7 +7271,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * no chão"*. O chão deste jogo NÃO tem perspectiva — a marca de mira sempre
      * foi um círculo perfeito —, e pior: **elipse girando em 2D lê como anel
      * INCLINADO mudando de inclinação**, não como disco rodando. A arte foi
-     * reesticada para redonda (`tools/circulo2fx.mjs`) e aqui os dois eixos são
+     * reesticada para redonda (`tools/anel2fx.mjs`) e aqui os dois eixos são
      * iguais.
      */
     circuloConj.width = lado;

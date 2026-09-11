@@ -70,9 +70,20 @@ tempo disputam o mesmo círculo; é simplificação assumida.
 num anel cheio de estrelinhas, volta rápida vira cintilação, e o olho lê piscada
 em vez de rotação.
 
-⚠️ **`tools/circulo2fx.mjs`** recorta pelo CONTEÚDO e mata o véu de alfa (piso
-40). É o terceiro asset do dia a vir com halo de alfa 16–60 muito além do
-desenho — em mistura aditiva isso acende um retângulo em volta.
+⚠️ **O anel virou ANIMADO no fim da noite** — 30 quadros com o brilho varrendo a
+circunferência, no lugar da imagem estática de uma hora antes (*"ficou mais
+bonito que o que está implementado"*). `tools/anel2fx.mjs` corta a folha nova: o
+fundo é preto e a arte é monocromática, então **o recorte é pelo BRILHO** (alfa =
+brilho). Nem o recorte por croma do `contato2fx` serve (croma zero na folha
+inteira), nem o de alfa (o arquivo chegou em `rgb24`).
+
+⚠️ **A animação e a rotação por código convivem e fazem coisas diferentes:** a
+folha varre o BRILHO sem mexer no desenho; a rotação vira o desenho inteiro,
+estrelas e losangos junto.
+
+⚠️ **`raio 0` não desenha nada** (*"em área somente"*): o servidor manda o ponto
+para tudo que mira o chão, e sem a guarda uma magia de ponto desenharia um anel
+de um tile — que mente sobre o alcance e some debaixo do personagem.
 
 ### Três correções, todas vindas da tela
 
