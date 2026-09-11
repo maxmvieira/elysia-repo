@@ -3013,22 +3013,26 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ✅ Com a área, a conta inverte de vez: quem manda no tamanho é o BLOCO DE
      * DANO, não a célula.
      *
-     * ⚠️ **2,40, e era 1,80** — *"um raio maior e robusto"* (dono, 12/09). Dá
-     * 240 × 432 px em tela, ou **7,5 × 13,5 tiles**, com o estouro do chão em
-     * ~150 px (4,7 tiles). A largura passou a cobrir o bloco de dano 7×7 do
-     * Lv.10 quase inteiro, que é o máximo que ela pode prometer sem mentir.
+     * ⚠️ **2,90, e a escada foi 0,80 → 1,30 → 1,80 → 2,40 → 2,90.** A última
+     * subida é do dono em 12/09: *"aumente o tamanho dele, pode vir um pouco
+     * mais de cima"*. Dá 290 × 522 px em tela, ou **9,1 × 16,3 tiles**, com o
+     * estouro do chão em ~180 px (5,7 tiles).
      *
-     * ⚠️ **Treze tiles de altura tem consequência em tela.** A janela do jogo tem
-     * ~18 tiles e o herói fica no meio dela; com o alvo na metade de cima, a
-     * NUVEM sai pelo topo. É o preço da proporção da arte — ela é 1 para 1,8, e
-     * a maior parte da altura é o vão entre a nuvem e o chão, então não dá para
-     * engrossar o raio sem esticá-lo junto.
+     * 🔴 **"Vir mais de cima" e "maior" são o MESMO botão**, e é por isso que os
+     * dois pedidos viraram um número só: a nuvem fica no alto do quadro, então
+     * crescer o desenho é exatamente afastá-la do chão. Não há como atender um
+     * sem o outro sem redesenhar a arte.
+     *
+     * ⚠️ **Dezesseis tiles de altura numa janela de ~18.** A nuvem passa a nascer
+     * fora da tela em quase todo lançamento, e ela ENTRA descendo — que é o que
+     * "vir de cima" quer dizer. Está registrado porque é o efeito colateral
+     * óbvio e foi pedido de propósito, não um descuido.
      *
      * ⚠️ **Isotrópica, e a arte não permite outra coisa.** A coluna ficaria mais
      * fiel estreita e alta, mas esticar só um eixo deixa o estouro do chão OVAL
      * — a regra que já vale para o meteoro e para a Nevasca.
      */
-    lightning_fall: 2.40,
+    lightning_fall: 2.90,
   };
 
   /**
@@ -4037,21 +4041,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       choque.animationSpeed = q.length / (260 / (1000 / 60));
       choque.play();
       node.addChild(choque);
-    } else if (
-      kind === 'electric_sphere' || kind === 'discharge'
-      || kind === 'thor_wrath' || kind === 'chain_arc'
-    ) {
-      /*
-       * ⚡ Ziguezagues saindo do centro.
-       *
-       * ⚠️ **A CORRENTE (`chain_arc`) reusa este desenho, e é o certo para ela.**
-       * Ela é um arco elétrico batendo num bicho — exatamente o que este código
-       * já desenha. Folha própria seria arte nova para um efeito de 300 ms que
-       * só aparece quando o sorteio deixa; e o azul-claro contra o amarelo das
-       * outras é o que diz, sem texto, que aquele dano veio de outro lugar.
-       */
-      const arco = kind === 'chain_arc';
-      const R = kind === 'electric_sphere' || arco ? TS * 0.6 : (radius + 0.5) * TS;
+    } else if (kind === 'electric_sphere' || kind === 'discharge' || kind === 'thor_wrath') {
+      // ⚡ Ziguezagues amarelos saindo do centro.
+      const R = kind === 'electric_sphere' ? TS * 0.6 : (radius + 0.5) * TS;
       const raios = new Graphics();
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2;
@@ -4059,7 +4051,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         raios.lineTo(Math.cos(a) * R * 0.45 + 6, Math.sin(a) * R * 0.45 - 5);
         raios.lineTo(Math.cos(a) * R, Math.sin(a) * R);
       }
-      raios.stroke({ width: arco ? 2 : 2.5, color: arco ? 0x9fe0ff : 0xffe96a, alpha: 0.95 });
+      raios.stroke({ width: 2.5, color: 0xffe96a, alpha: 0.95 });
       node.addChild(raios);
     } else {
       // Golpe Poderoso / Investida / Execução: talho de espada.

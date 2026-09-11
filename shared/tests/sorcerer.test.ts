@@ -29,7 +29,6 @@ import {
   skillConditionDuration,
   skillPower,
   skillCooldown,
-  skillCorrenteChance,
   IMPULSO_MAGICO,
   skillManaCost,
   skillCastMs,
@@ -733,26 +732,17 @@ test('⛈️ o relâmpago é UM só, e as descargas cabem dentro dele', () => {
   }
 
   /*
-   * ⚡ **A CORRENTE, e o que ela NÃO pode virar.**
+   * ⚡ **A CORRENTE ELÉTRICA foi pedida e desfeita no mesmo dia (12/09)**:
+   * *"esqueça a chance de gerar corrente elétrica"*. Saiu inteira — campo,
+   * helper, função do servidor e desenho do arco.
    *
-   * Os números do dono: teto de 10 alvos e de 35 % do dano. O teste trava os
-   * dois e mais duas coisas que o tornariam outra magia:
-   *
-   *  - **é sorteio, não regra** — uma chance que nunca chega perto de 1;
-   *  - **é bônus, não o dano principal** — mesmo no melhor caso a corrente vale
-   *    menos que metade do que o raio faz a quem está na área.
+   * ⚠️ Este `assert` é o que impede que ela volte pela metade. Um campo de ficha
+   * sem ninguém lendo é o defeito que custou um dia nesta semana.
    */
-  const cor = d.corrente;
-  assert.ok(cor, 'a corrente é a peculiaridade da magia — ver a ficha');
-  assert.equal(cor.maxAlvos, 10, 'o teto de alvos é do dono');
-  assert.ok(Math.abs(cor.fracaoMax - 0.35) < 1e-9, 'o teto de dano é do dono');
-  assert.ok(cor.fracaoMin > 0 && cor.fracaoMin < cor.fracaoMax, 'o piso precisa caber abaixo do teto');
   assert.ok(
-    skillCorrenteChance(d, 10) < 0.6,
-    `${(skillCorrenteChance(d, 10) * 100).toFixed(0)} % deixa de ser "existe uma chance"`,
+    !Object.values(SKILLS).some((x) => 'corrente' in x),
+    'a corrente saiu em 12/09 — se voltar, tem de voltar com servidor e cliente',
   );
-  assert.ok(skillCorrenteChance(d, 10) > skillCorrenteChance(d, 1), 'subir de nível melhora');
-  assert.ok(cor.fracaoMax < 0.5, 'a corrente é bônus, não o dano principal');
 });
 
 test('Ira de Thor atordoa pouco, e o anti-cadeia é o do jogo inteiro', () => {

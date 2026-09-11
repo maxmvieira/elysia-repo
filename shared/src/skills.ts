@@ -450,30 +450,17 @@ export interface SkillDef {
    * servidor que ela dobra. Travado em teste.
    */
   quedaUnica?: boolean;
-  /**
-   * ⚡ **CORRENTE: uma chance de o choque pular para quem está PERTO da área.**
+  /*
+   * ⚡ **A CORRENTE ELÉTRICA viveu uma hora e saiu inteira.** O dono pediu e
+   * desistiu no mesmo dia (12/09): *"esqueça a chance de gerar corrente
+   * elétrica"*.
    *
-   * Pedido do dono em 12/09: *"existe uma chance do choque elétrico gerar uma
-   * corrente elétrica que pula para um alvo próximo com dano reduzido de até
-   * 35 % do raio principal, sendo aleatório o dano e a quantidade de alvos, no
-   * máximo até 10 mais próximos da área de conjuração."*
-   *
-   * ⚠️ **Ela pula para FORA da área, e essa é a graça.** Quem está dentro já
-   * levou o raio inteiro; a corrente é o que estende o alcance da magia por
-   * acaso, e é o que faz valer a pena mirar na beirada de um bando.
+   * ⚠️ Saiu o campo, o `skillCorrenteChance`, a função no servidor, o desenho do
+   * arco no cliente e as asserções do teste. Desligar deixando o campo na ficha
+   * seria plantar de novo o defeito que custou um dia nesta semana — dois campos
+   * (`empurraPorPulso`, `congelaEmAcertos`) mudos por estarem escritos num lugar
+   * que ninguém mais lia.
    */
-  corrente?: {
-    /** Chance de a corrente nascer, uma vez por conjuração. */
-    chanceAtLv1: number;
-    chanceAtLv10: number;
-    /** Teto de vítimas. O número de verdade é sorteado entre 1 e este. */
-    maxAlvos: number;
-    /** Piso e teto do dano, como fração do que o raio faz a um alvo. */
-    fracaoMin: number;
-    fracaoMax: number;
-    /** Quantos tiles ALÉM do raio de dano a corrente alcança. */
-    alcanceExtra: number;
-  };
   /**
    * 💥 **RAIO DE RESPINGO de CADA impacto, em tiles.** Ausente = só o alvo.
    *
@@ -2466,11 +2453,17 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * anotei a divergência em vez de perguntar. A regra de sempre continua
      * valendo: o que está no `docs/` não muda por causa de um prompt.
      *
-     * Raio 2 (5×5) subindo a 3 (7×7) no Lv.6 — os números originais, e o
-     * *"a área não é tão grande"* do dono confirma que a escala está certa.
+     * ⚠️ **Raio 3 (7×7) subindo a 4 (9×9) no Lv.6, e eram 2 → 3.** O dono pediu
+     * em 12/09, vendo o relâmpago novo: *"só aumente um pouco mais a área de
+     * conjuração do raio"*.
+     *
+     * ⚠️ **No Lv.10 ela empata em área com a Nevasca**, que é uma suprema de
+     * Lv.50. O que separa as duas passou a ser o resto da ficha — a Nevasca dura
+     * 4,5 s, congela e empurra; a Descarga bate uma vez e vai embora. Fica
+     * anotado porque é o tipo de empate que alguém vai querer desfazer um dia.
      */
     shape: 'area',
-    range: 2,
+    range: 3,
     rangeEvery: 5,
     /**
      * ⚡ **GANHOU CONJURAÇÃO, e ela não tinha nenhuma.**
@@ -2556,35 +2549,9 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * assumida, herdada da Nevasca.
      */
     danoDaArea: true,
-    /**
-     * ⚡ **A CORRENTE.** Ver o campo `corrente` — o pedido do dono está citado lá.
-     *
-     * 🔴 **Três números são dele e dois são meus, e vale saber quais.**
-     *
-     * Dele: **10 alvos** no teto, **35 %** de dano no teto, e as duas coisas
-     * sorteadas.
-     *
-     * Meus, por ele não ter dito:
-     *  - **A chance, 18 % → 40 %.** Uma vez por conjuração, não por descarga:
-     *    com quatro descargas no Lv.10, rolar em cada uma daria 87 % de chance
-     *    de acontecer — e aí não é mais *"existe uma chance"*, é uma regra.
-     *  - **O piso de 12 % do dano.** *"Até 35 %"* deixa o piso em aberto, e um
-     *    sorteio de 0 a 35 gastaria a raridade da corrente em números de dois
-     *    dígitos. Doze por cento é pouco e ainda é notícia.
-     *  - **4 tiles além da área.** Precisa alcançar quem ficou de fora sem virar
-     *    uma segunda magia de área.
-     */
-    corrente: {
-      chanceAtLv1: 0.18,
-      chanceAtLv10: 0.40,
-      maxAlvos: 10,
-      fracaoMin: 0.12,
-      fracaoMax: 0.35,
-      alcanceExtra: 4,
-    },
     // Sem `applies`, e isso é a ficha inteira: `DD-SOR-018` proíbe.
     fx: 'discharge',
-    desc: 'Um relâmpago enorme despenca sobre a área. Às vezes a corrente pula para quem está por perto.',
+    desc: 'Um relâmpago enorme despenca sobre a área e castiga quem está nela.',
   },
   /**
    * 🔴 A suprema de raio: "múltiplos raios, **pequena chance de stun por
@@ -3955,19 +3922,6 @@ export const IMPULSO_MAGICO = 1.2;
 export function skillPower(def: SkillDef, nivel: number): number {
   const base = def.power + def.powerPerLevel * Math.max(0, nivel - 1);
   return def.magic ? base * IMPULSO_MAGICO : base;
-}
-
-/**
- * ⚡ Chance de a CORRENTE nascer, no nível informado. `0` quando a ficha não tem.
- *
- * ⚠️ Existe como helper, e não como conta no servidor, pela mesma razão de todos
- * os outros `skill*`: a interpolação por nível mora ao lado da ficha. Foi o que
- * a dica de conjuração não tinha em 11/09, e ela anunciou o valor do Lv.1 por um
- * dia inteiro.
- */
-export function skillCorrenteChance(def: SkillDef, nivel: number): number {
-  if (!def.corrente) return 0;
-  return porNivel(nivel, def.corrente.chanceAtLv1, def.corrente.chanceAtLv10);
 }
 
 /**

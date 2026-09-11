@@ -21,7 +21,7 @@
   const g = c.getContext('2d');
   const img = await new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.src = '/assets/fx/relampago24.png'; });
   const N = 24, LW = img.width / N, LH = img.height;
-  const DUR = 1200, ESCALA = 0.625 * 2.40, TS = 32;
+  const DUR = 1200, ESCALA = 0.625 * 2.90, TS = 32;
   /*
    * Lv.10 da ficha: UM relâmpago, 4 descargas numa janela de 460 ms, a primeira
    * aos 400 ms (é quando o raio toca o chão). Ver `quedaUnica`.
@@ -34,10 +34,10 @@
   function quadro(t) {
     g.fillStyle = '#3f5a34'; g.fillRect(0, 0, c.width, c.height);
     const ciclo = t % CICLO;
-    // A ÁREA de dano (7×7 tiles no Lv.10) e dois "monstros" dentro dela.
+    // A ÁREA de dano (9×9 tiles no Lv.10) e dois "monstros" dentro dela.
     const T = TS;   // a bancada desenha em pixels DO JOGO: um tile aqui e lá são 32 px
     g.strokeStyle = '#ffffff28'; g.lineWidth = 2;
-    g.strokeRect(CX - 3.5 * T, CHAO - 1.6 * T, 7 * T, 3.2 * T);
+    g.strokeRect(CX - 4.5 * T, CHAO - 2 * T, 9 * T, 4 * T);
     g.fillStyle = '#00000040';
     g.fillRect(CX - 16, CHAO - 40, 32, 40);
     g.fillRect(CX - 2 * T - 16, CHAO - 40, 32, 40);
