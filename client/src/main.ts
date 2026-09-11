@@ -51,6 +51,7 @@ import {
   skillGroundDuration,
   skillGroundMax,
   skillHits,
+  skillImpactosEsperados,
   skillModifiers,
   hotTickMs,
   MODIFIER_KEYS,
@@ -7074,9 +7075,26 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
             `${pulsos} pulsos em ${(dur / 1000).toFixed(0)}s`;
     } else if (def.kind === 'multihit') {
       const golpes = skillHits(def, efetivo);
+      const poder = skillPower(def, efetivo);
+      /*
+       * 🔴 **O TOTAL É O QUE O ALVO LEVA, não a soma dos golpes.**
+       *
+       * A Chuva de Meteoros anunciava *"Total 1872 %"* — 18 meteoros × 104 %.
+       * Mas eles caem em pontos SORTEADOS de um 13×13 e cada um só pega 5×5 em
+       * volta: um alvo leva 2,7 deles, ou ~277 %. A dica prometia quase sete
+       * vezes o que a magia entrega, e o número chegou a virar base de uma
+       * decisão de equilíbrio no histórico. Ver `skillImpactosEsperados`.
+       *
+       * ⚠️ Quando os dois números batem (Fire Bolt, Nevasca — todo golpe acerta)
+       * a segunda linha não aparece: repetir "18 de 18" só ocuparia espaço.
+       */
+      const esperados = skillImpactosEsperados(def, efetivo);
+      const espalha = esperados < golpes - 0.05;
       efeito =
-        `${golpes} impactos de ${(skillPower(def, efetivo) * 100).toFixed(0)}%<br>` +
-        `Total ${(skillPower(def, efetivo) * golpes * 100).toFixed(0)}%`;
+        `${golpes} impactos de ${(poder * 100).toFixed(0)}%<br>`
+        + (espalha
+          ? `~${esperados.toFixed(1)} acertam cada alvo · <b>~${(poder * esperados * 100).toFixed(0)}%</b>`
+          : `Total ${(poder * golpes * 100).toFixed(0)}%`);
     } else {
       efeito = `Dano ${(skillPower(def, efetivo) * 100).toFixed(0)}%`;
     }

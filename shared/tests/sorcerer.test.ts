@@ -17,6 +17,7 @@ import {
   skillsOfClass,
   branchesOfClass,
   skillHits,
+  skillImpactosEsperados,
   skillRange,
   INTERVALO_BOLT_MS,
   DUR_QUEDA_MS,
@@ -288,6 +289,62 @@ test('❄️ Nevasca no modelo do RO: congela a cada 3º acerto, e o quique é a
     passo * n.congelaEmAcertos! < n.durationMs,
     'a tempestade acaba antes do terceiro acerto — a regra nunca roda',
   );
+});
+
+test('🌠 o dano da Chuva por ALVO é 2,7 impactos, e não 18', () => {
+  /*
+   * 🔴 **ESTE TESTE EXISTE PORQUE UM NÚMERO ERRADO SOBREVIVEU UM DIA E QUASE
+   * VIROU DECISÃO DE EQUILÍBRIO.**
+   *
+   * Dois comentários da ficha afirmavam que um bando colado levava
+   * *"praticamente TODOS os 18 meteoros, cada um"*, e o histórico de 11/09
+   * abriu um pendente de rebalanceamento com base nisso — *"o poder total por
+   * alvo foi de 10,4 para 18,7"*.
+   *
+   * Ninguém tinha feito a conta geométrica. Os meteoros caem em pontos
+   * SORTEADOS de um 13×13 (169 células) e cada um pega 5×5 (25): são **2,66
+   * acertos por alvo**. O "18,7" nunca existiu, e o pendente se desfez sozinho
+   * quando a conta apareceu.
+   *
+   * ⚠️ O que este teste trava NÃO é o 2,66 — é a RELAÇÃO: o que um alvo leva
+   * tem de ser muito menor que a soma dos golpes, sempre que a magia espalha
+   * impactos por uma área. No dia em que alguém trocar o respingo ou o alcance,
+   * é aqui que a conta é refeita.
+   */
+  const c = SKILLS.meteor_storm;
+  const golpes = skillHits(c, 10);
+  const esperados = skillImpactosEsperados(c, 10);
+
+  assert.equal(golpes, 18, 'a contagem de meteoros mudou — refaça a conta abaixo');
+  assert.ok(
+    esperados < golpes / 4,
+    `um alvo leva ${esperados.toFixed(2)} de ${golpes} meteoros — se isto se aproximar `
+    + 'do total, a magia virou outra coisa e o `power` precisa de revisão',
+  );
+
+  /*
+   * ⚠️ A fórmula fechada tem de bater com a geometria, senão ela é só outro
+   * número inventado: golpes × células do respingo ÷ células da área.
+   */
+  const raio = skillRange(c, 10);
+  const conta = (golpes * (2 * c.splash! + 1) ** 2) / ((2 * raio + 1) ** 2);
+  assert.ok(Math.abs(esperados - conta) < 1e-9);
+
+  /*
+   * 🔴 **E `danoDaArea` é a exceção, por definição.** Na Nevasca cada bola fere
+   * todo mundo dentro da área, então todo golpe conta — se esta linha cair,
+   * alguém aplicou a diluição onde ela não vale e a Nevasca perdeu 80 % do dano
+   * na dica sem perder nada no servidor.
+   */
+  const n = SKILLS.blizzard;
+  assert.equal(skillImpactosEsperados(n, 10), skillHits(n, 10));
+
+  /*
+   * ⚠️ E magia que não espalha impacto nenhum não é diluída: o Fire Bolt
+   * persegue o alvo, e os dez bolts dele acertam os dez.
+   */
+  const fb = SKILLS.fire_bolt;
+  assert.equal(skillImpactosEsperados(fb, 10), skillHits(fb, 10));
 });
 
 test('❄️ a Nevasca troca TEMPO por MANA — o override do dono sobre a ficha', () => {

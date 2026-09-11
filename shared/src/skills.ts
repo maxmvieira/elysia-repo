@@ -1700,8 +1700,24 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     manaCost: 140,
     manaPerLevel: 18,
     cooldownMs: 15000,
-    // 10 impactos × 1,04 = 10,4 de poder por alvo no Lv.10. É o teto do jogo, e
-    // é contra este número que `DD-DRU-021` mede a suprema do Druida.
+    /**
+     * 🔴 **1,04 por impacto, e o ALVO leva 2,7 impactos — não 18.**
+     *
+     * O comentário antigo aqui dizia *"10 impactos × 1,04 = 10,4 de poder por
+     * alvo, o teto do jogo"*, e o do `splash` logo abaixo dizia que um bando
+     * colado leva *"praticamente TODOS os 18 meteoros"*. **Os dois estavam
+     * errados**, e o erro sobreviveu um dia inteiro porque ninguém fez a conta
+     * geométrica: os meteoros caem em pontos sorteados de um 13×13 (169
+     * células) e cada um pega 5×5 (25). São **2,66 acertos por alvo**, ou ~277 %
+     * — medido em 120 mil conjurações simuladas e confirmado pela fórmula em
+     * `skillImpactosEsperados`.
+     *
+     * ⚠️ **E isso desfaz o pendente de rebalanceamento aberto em 11/09**, que
+     * partia de "o poder por alvo foi de 10,4 para 18,7". Nunca foi 18,7. O
+     * `power` fica como está: contra a Nevasca (~358 % por alvo num 11×11), a
+     * Chuva entrega menos por alvo e cobre muito mais chão — 169 células contra
+     * 121. O total despejado numa área cheia é comparável (468 contra 433).
+     */
     power: 0.68,
     powerPerLevel: 0.04,
     shape: 'area',
@@ -1754,10 +1770,12 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * tem 46 px de raio e o estouro cobre ~4 tiles de largura em tela, mas o
      * dano pegava 3×3. O olho promete mais do que a regra entrega.
      *
-     * 🔴 **E isto sobe o dano em grupo de novo.** Com 5×5, um bando dentro da
-     * área leva praticamente TODOS os 18 meteoros, cada um. O `power`
-     * continua intocado de propósito — é o botão do dono. Ver o teste do
-     * respingo, que é onde a conta está escrita.
+     * ⚠️ **E aqui morava um erro que durou um dia:** este comentário dizia que
+     * com 5×5 *"um bando dentro da área leva praticamente TODOS os 18 meteoros,
+     * cada um"*. Não leva. São 25 células de respingo em 169 de área, ou **2,66
+     * meteoros por alvo** — o respingo dobrou a cobertura (de 9/169 para
+     * 25/169), e dobrar 1,3 dá 2,7, não 18. Ver `power`, acima, e
+     * `skillImpactosEsperados`.
      */
     splash: 2,
     // 🔴 3 s de conjuração: o preço da maior magia do jogo é ficar parado e
@@ -3600,6 +3618,42 @@ export function skillHits(def: SkillDef, nivel: number): number {
   if (!def.hits) return 1;
   if (def.hitsAtLv10 === undefined) return def.hits;
   return Math.max(1, Math.round(porNivel(nivel, def.hits, def.hitsAtLv10)));
+}
+
+/**
+ * 🎯 **Quantos golpes um ALVO leva, de fato** — que não é `skillHits`.
+ *
+ * 🔴 **A diferença é enorme e ficou escondida por um dia inteiro.** A Chuva de
+ * Meteoros solta 18 meteoros e a dica anunciava *"Total 1872 %"*. Mas os
+ * meteoros caem em pontos SORTEADOS de uma área de 13×13, e cada um só pega o
+ * respingo de 5×5 em volta de onde caiu: são 25 células de 169 por meteoro, ou
+ * **2,66 acertos** por alvo. Os 1872 % são um teto que a mecânica não entrega —
+ * o alvo leva ~277 %.
+ *
+ * ⚠️ **E o erro contaminou uma decisão de equilíbrio.** O histórico de 11/09
+ * registrou *"no Lv.10 o poder total por alvo foi de 10,4 para 18,7"* e abriu um
+ * pendente de rebalanceamento com base nisso. O número partia de supor que todo
+ * meteoro acerta todo alvo; medido, nunca foi verdade.
+ *
+ * ✅ A conta é geométrica e fechada: `golpes × células do respingo ÷ células da
+ * área`, com teto no número de golpes. Bate com a simulação de 120 mil
+ * conjurações (2,66).
+ *
+ * ⚠️ **`danoDaArea` é a exceção, e por definição:** lá cada unidade fere todo
+ * mundo dentro da área, então todo golpe conta. É o que a Nevasca faz.
+ *
+ * ⚠️ Isto é o valor ESPERADO no centro. Na borda cai — parte do respingo sobra
+ * para fora da área —, e é uma simplificação assumida: a dica mostra um número,
+ * não uma distribuição.
+ */
+export function skillImpactosEsperados(def: SkillDef, nivel: number): number {
+  const golpes = skillHits(def, nivel);
+  if (!def.queda || def.shape !== 'area') return golpes;
+  if (def.danoDaArea) return golpes;
+  const raio = skillRange(def, nivel);
+  const celulasArea = (2 * raio + 1) ** 2;
+  const celulasRespingo = (2 * (def.splash ?? 0) + 1) ** 2;
+  return Math.min(golpes, (golpes * celulasRespingo) / celulasArea);
 }
 
 /** Chance (0..1) de a condição pegar, antes das resistências do alvo. */

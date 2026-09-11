@@ -128,6 +128,69 @@ tile empatam na conta de tiles, e sem isso o escolhido seria o primeiro do mapa.
 sozinho sem dizer por quê lê como bug — e é esse anel que dá a chance de
 perceber que travou no monstro ERRADO antes de gastar a magia.
 
+## 🌠 A PASSADA DE EQUILÍBRIO DA CHUVA — e o que ela realmente achou
+
+O pendente dizia: *"contagem 10→18 e respingo 1→3×3 se multiplicam; no Lv.10 o
+poder total por alvo foi de 10,4 para 18,7"*. **Esse número nunca existiu.**
+
+🔴 **Ninguém tinha feito a conta geométrica.** Os meteoros caem em pontos
+SORTEADOS de uma área de 13×13 (169 células) e cada um pega o respingo de 5×5
+(25 células). São **2,66 acertos por alvo**, não 18 — confirmado por simulação
+(120 mil conjurações) e por fórmula fechada.
+
+⚠️ O respingo de fato DOBROU a cobertura (de 9/169 para 25/169). Mas dobrar 1,3
+dá 2,7, não 18. O erro estava em supor que todo meteoro acerta todo alvo.
+
+### O que as supremas realmente entregam no Lv.10
+
+| | teto anunciado | **real por alvo** | área | mana |
+|---|---|---|---|---|
+| Chuva de Meteoros | 1872 % | **277 %** | 13×13 | 302 |
+| Nevasca | 570 % | **358 %** | 11×11 | 386 |
+| Ira de Thor | 856 % | 856 % (alvo só) / ~86 % (em dez) | 9×9 | 260 |
+| **Ira da Natureza** (Druida) | 652 % | **652 %** | 9×9 | **198** |
+
+✅ **A Chuva NÃO precisa de ajuste de `power`.** Contra a Nevasca ela entrega
+menos por alvo e cobre muito mais chão; o total despejado numa área cheia é
+comparável (468 contra 433 unidades de poder). São duas formas de gastar o mesmo
+orçamento: concentrar ou espalhar.
+
+✅ **A Ira de Thor também está coerente:** `multihit` + `shape: 'area'` sorteia o
+alvo de cada raio, então ela é rajada de alvo único dentro de uma área — 856 %
+num bicho sozinho, ~86 % em cada um de dez. É o contrário das outras duas, e é o
+que a descrição dela já dizia (*"a corrente tem limite"*).
+
+### 🔴 O QUE ESTÁ ERRADO É OUTRA COISA: `DD-DRU-021`
+
+O documento manda: *"`DD-DRU-021` dano bruto **abaixo** das supremas do
+Sorcerer"*. A Ira da Natureza entrega **652 %** a quem ficar dentro (8 pulsos de
+82 %), por **198 de mana** e 1,5 s de conjuração — contra 277 % e 358 % das duas
+supremas de área do Feiticeiro, que custam 302 e 386 e conjuram em 3 s.
+
+**Está acima, mais barata e mais rápida.** Mesmo pela leitura mais generosa (o
+teto de 570 % da Nevasca), continua acima.
+
+⚠️ **NÃO mexi nisso**, e de propósito: a passada pedida era da Chuva, e baixar a
+suprema de outra classe de madrugada, sem o dono pedir, não é conserto — é
+decisão de jogo. Os números estão aqui prontos para a manhã.
+
+⚠️ E há uma ressalva honesta a favor do Druida: os 652 % exigem o alvo parado no
+campo por 8 s, o que um bicho em movimento não faz. Mas a mesma ressalva vale
+para os outros números da tabela, e a ORDEM continua invertida.
+
+### 🔴 A dica prometia sete vezes o que a magia entrega
+
+Consequência direta do mesmo erro: a dica da Chuva anunciava *"Total 1872 %"*.
+Agora sai **"18 impactos de 104 % · ~2,7 acertam cada alvo · ~277 %"**.
+
+`skillImpactosEsperados` é a conta, e ela tem duas exceções por definição:
+`danoDaArea` (a Nevasca, onde toda bola fere todo mundo) e magia que não espalha
+impacto (o Fire Bolt persegue o alvo). Nos dois a dica volta a mostrar o total
+cheio, porque ali ele é verdade.
+
+⚠️ **Não foi visto em tela** — a extensão do Chrome caiu na hora de conferir. O
+typecheck e os 624 testes passam; falta o olho.
+
 ### 📐 Medir o anel: três métodos, e por que os dois primeiros erraram
 
 Fazer o anel do chão ficar redondo tomou três tentativas, e cada método errou por
@@ -328,9 +391,10 @@ que sustenta as outras.
   baixando a Nevasca para Lv.1 (70 % de congelamento).
 - **A área é uniforme**: quem está na borda apanha igual a quem está no meio. No
   RO a borda apanha menos, porque lá as bolas são o dano. Simplificação assumida.
-- **O dano da Chuva de Meteoros continua sem a passada de equilíbrio**, pendente
-  desde 11/09 de manhã: contagem 10→18 e respingo 1→3×3 se multiplicam, e o
-  `DD-DRU-021` mede a suprema do Druida contra esse número.
+- ✅ **A passada de equilíbrio da Chuva FOI FEITA** — e desfez o próprio pendente.
+  Ver a seção logo abaixo.
+- 🔴 **`DD-DRU-021` ESTÁ VIOLADO**, e foi o que a passada achou de verdade. Ver a
+  seção abaixo: a suprema do Druida bate mais que as três do Feiticeiro.
 - **Clique no chão com a magia em recarga vira MOVIMENTO** do personagem. Visto
   testando; não se sabe se é intencional.
 - **A dissipação da folha da Nevasca (quadros 27–35) não toca**, e o
