@@ -104,6 +104,24 @@ enquanto a pedra ainda está chegando — 1985 de massa contra 11 253 do quadro 
 Tocado em sequência, ele fazia o efeito ENCOLHER no instante em que devia bater mais forte:
 a pedra de nove tiles sumia e sobrava uma chama de dois.
 
+### 🔴 "Crescendo muito no final": dois sprites com réguas diferentes
+
+Terceira rodada em tela: *"ele está crescendo muito no final, pode ser o meteoro um pouco
+menor e a animação já saindo um meteoro grande das nuvens"*.
+
+**Não era a curva — era um degrau.** O laço do risco escreve `scale.set(...)` direto, então
+`cresce` é a escala FINAL do sprite; e o sprite do voo, criado no ramo da trajetória, nunca
+passava pelo `ESCALA_QUEDA × ESCALA_IMPACTO` que o do estouro recebe. Medido: a pedra
+terminava o mergulho com 144 px e o estouro abria com 306, **o dobro, no mesmo instante**.
+
+✅ Agora `cresce` é multiplicado pela escala da folha, e passa a significar *"que fração do
+estouro a pedra tem"* — que é a pergunta de quem está ajustando em tela. Mudar o tamanho da
+magia voltou a ser UM número.
+
+⚠️ **E o crescimento vinha de dois lados.** A arte já cresce 1,55× sozinha ao longo dos
+onze quadros (medido, de 0,44 a 0,69 da célula); somados os 2,4× que o `cresce` pedia,
+davam 3,7×. Com 0,78 → 0,86 o total fica em 1,4×, e a pedra entra em cena já grande.
+
 ---
 
 ## 2026-09-11 — O Meteoro ganha oito direções de entrada

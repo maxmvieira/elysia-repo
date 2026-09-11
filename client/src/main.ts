@@ -2820,7 +2820,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     {
       magia: 'meteor_solo', arquivo: 'meteoro_queda', bolts: 1, quadros: 15,
       fracaoQueda: 11 / 15, duracaoEstouro: 560, ancoraY: 0.88,
-      trajetoria: { queda: 430, cresce: [0.42, 1] },
+      /*
+       * ☄️ **A pedra já ENTRA grande, e cresce pouco.** Pedido do dono em 13/09:
+       * *"pode ser o meteoro um pouco menor e a animação já saindo um meteoro
+       * grande das nuvens"*.
+       *
+       * ⚠️ **O crescimento vem de DOIS lados**, e é por isso que o número aqui é
+       * pequeno: a arte já cresce sozinha 1,55× ao longo dos onze quadros
+       * (medido, de 0,44 a 0,69 da célula). Somando os 2,4× que o `cresce`
+       * antigo pedia, davam 3,7× — o meteoro chegava quatro vezes maior do que
+       * começou, que foi a queixa.
+       *
+       * ✅ 0,78 a 0,86 são FRAÇÕES DO ESTOURO: a pedra entra com 78 % do tamanho
+       * da explosão e chega com 86 %. Com a arte junto, 1,4× do começo ao fim.
+       */
+      trajetoria: { queda: 430, cresce: [0.78, 0.86] },
       /*
        * 🔴 **MISTURA NORMAL, e é a segunda folha do jogo com ela.**
        *
@@ -3772,9 +3786,26 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       voo.play();
       voo.zIndex = 9999;
       fxLayer.addChild(voo);
+      /*
+       * 🔴 **`cresce` é FRAÇÃO DO ESTOURO, e não escala absoluta.**
+       *
+       * O laço do risco escreve `scale.set(...)` direto, então o que ele recebe
+       * é a escala final — e o sprite do voo, criado aqui, nunca passou pelo
+       * `ESCALA_QUEDA × ESCALA_IMPACTO` que o estouro recebe. Resultado medido: a
+       * pedra terminava o mergulho com 144 px e o estouro abria com 306, o dobro,
+       * no mesmo instante. Era a queixa do dono — *"está crescendo muito no
+       * final"* — e não era a curva, era o degrau entre dois sprites que deviam
+       * ter a mesma régua.
+       *
+       * ✅ Multiplicando aqui, `cresce` passa a dizer "que fração do estouro a
+       * pedra tem", que é a pergunta que alguém ajustando em tela realmente faz.
+       * Mudar o tamanho da magia volta a ser UM número (`ESCALA_IMPACTO`).
+       */
+      const escala = ESCALA_QUEDA * (ESCALA_IMPACTO[magia] ?? 1);
       risco = {
         node: voo, t: 0, deX: 0, deY: folha.trajetoria.queda,
-        dur: tempoQueda, cresce: folha.trajetoria.cresce,
+        dur: tempoQueda,
+        cresce: [folha.trajetoria.cresce[0] * escala, folha.trajetoria.cresce[1] * escala],
       };
     } else if (QUEDA_RISCO && FORMA_RISCO[magia] !== 'nenhuma') {
       /*
