@@ -82,6 +82,7 @@ import {
   ruptureDefReduction,
   skillCastMs,
   skillManaCost,
+  skillCooldown,
   skillPower,
   skillRange,
   skillCastRange,
@@ -7353,7 +7354,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       `${cast}${custo > 0 ? `Mana ${custo} · ` : ''}` +
       (def.kind === 'passive'
         ? '<span class="req">Passiva — sempre ativa</span>'
-        : `Recarga ${(def.cooldownMs / 1000).toFixed(1)}s`) +
+        // ⚠️ `skillCooldown` e não o campo cru: a Esfera Elétrica encurta a
+        // recarga com o nível, e a dica é justamente onde essa mentira apareceria.
+        : `Recarga ${(skillCooldown(def, efetivo) / 1000).toFixed(1)}s`) +
       '<br>' +
       (req.length ? `<span class="req">Requer ${req.join(' · ')}</span>` : '')
     );
@@ -8000,7 +8003,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
     const dur = skillDuration(def, n);
     if (dur > 0) p.push(`${(dur / 1000).toFixed(1)}s`);
-    if (def.cooldownMs > 0) p.push(`recarga ${(def.cooldownMs / 1000).toFixed(1)}s`);
+    const cd = skillCooldown(def, n);
+    if (cd > 0) p.push(`recarga ${(cd / 1000).toFixed(1)}s`);
     return p.join(' · ');
   }
   const skillRows = new Map<SkillId, SkillRow>();

@@ -315,8 +315,22 @@ export interface SkillDef {
   /** Custo de mana no Lv.1 e quanto sobe por nível. */
   manaCost: number;
   manaPerLevel: number;
-  /** Recarga em ms — FIXA, não cai com o nível da habilidade. */
+  /** Recarga em ms no Lv.1. Fixa em toda a régua, a menos que `cooldownAtLv10`. */
   cooldownMs: number;
+  /**
+   * Recarga no Lv.10, quando ela CAI com o nível da habilidade.
+   *
+   * 🔴 **Quase nenhuma magia tem, e é de propósito.** A régua do jogo é: subir
+   * de nível deixa a magia mais FORTE, não mais frequente — senão o nível
+   * máximo vira rotação de um botão só. A Esfera Elétrica é a exceção pedida
+   * pelo dono em 12/09, e é uma magia de alvo único que gasta mana a cada tiro:
+   * o contrapeso dela é o bolso, não o relógio.
+   *
+   * ⚠️ Quem lê tem de usar `skillCooldown`, nunca `cooldownMs` cru — foi o
+   * mesmo defeito da dica de conjuração, que anunciava o número do Lv.1 numa
+   * magia cujo valor cresce com o nível.
+   */
+  cooldownAtLv10?: number;
   /** Multiplicador sobre o ataque no Lv.1 e ganho por nível. */
   power: number;
   powerPerLevel: number;
@@ -2232,7 +2246,29 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      */
     manaCost: 20,
     manaPerLevel: 3,
-    cooldownMs: 7000,
+    /**
+     * ⚡ **2 s no Lv.1 caindo a 1,2 s no Lv.10**, e era 7 s fixos — decisão do
+     * dono em 12/09, jogando: *"o cooldown dela está muito grande"*.
+     *
+     * 🔴 **É a única magia do jogo cuja recarga cai com o nível.** A régua geral
+     * é a oposta (subir de nível deixa mais forte, não mais frequente), e ela
+     * abre exceção porque o contrapeso dela é o BOLSO: 47 de SP por tiro no
+     * Lv.10 contra 20 no Lv.1. Quem sobe a Esfera compra cadência pagando mana,
+     * e não ganha as duas coisas de graça.
+     *
+     * ⚠️ **A série dura mais que a recarga, e isso é assumido.** Doze choques a
+     * 140 ms mais 380 ms de voo dão ~2,1 s; com 1,2 s de recarga dá para ter
+     * duas séries no ar. É a mesma consequência que o Fire Bolt já aceita, e
+     * pelo mesmo motivo: cada choque nasce do próprio `fx` seguindo o alvo, então
+     * duas séries se leem como duas séries.
+     *
+     * ⚠️ **O piso real não é este número: é o GCD de 1 s das magias.** No Lv.10
+     * a recarga fica 200 ms abaixo dele, então quem manda no ritmo passa a ser o
+     * GCD. Está aqui escrito porque é o tipo de coisa que faz alguém baixar a
+     * recarga de novo achando que não surtiu efeito.
+     */
+    cooldownMs: 2000,
+    cooldownAtLv10: 1200,
     /**
      * ⚡ **100 % de ATQM por choque, FIXO** — *"causa dano mágico equivalente a
      * 100 % do seu ATQM por choque"*.
@@ -3735,6 +3771,15 @@ export const IMPULSO_MAGICO = 1.2;
 export function skillPower(def: SkillDef, nivel: number): number {
   const base = def.power + def.powerPerLevel * Math.max(0, nivel - 1);
   return def.magic ? base * IMPULSO_MAGICO : base;
+}
+
+/**
+ * Recarga no nível informado. Ver `cooldownAtLv10` — a esmagadora maioria das
+ * habilidades não muda, e para elas isto devolve o número da ficha.
+ */
+export function skillCooldown(def: SkillDef, nivel: number): number {
+  if (def.cooldownAtLv10 === undefined) return def.cooldownMs;
+  return Math.round(porNivel(nivel, def.cooldownMs, def.cooldownAtLv10));
 }
 
 /** Custo de mana no nível informado (habilidade forte pesa mais no bolso). */

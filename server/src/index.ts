@@ -139,6 +139,7 @@ import {
   skillCastMs,
   skillConditionChance,
   skillEmpurrao,
+  skillCooldown,
   skillConditionDuration,
   skillDuration,
   skillGroundDuration,
@@ -3877,7 +3878,16 @@ function marcaConjuracao(
    * recarga de 1,5 s e uma série de 8,2 s no Lv.10, são até cinco. O contrapeso
    * é a MANA, e o carregamento de 800 ms — não mais o relógio da magia.
    */
-  const recarga = def.cooldownMs;
+  /*
+   * ⚠️ **`skillCooldown` e não `def.cooldownMs`**: a Esfera Elétrica é a única
+   * cuja recarga cai com o nível, e ler o campo cru daria 2 s a quem tem 1,2 s.
+   *
+   * ⚠️ Sem `nivel` explícito, vale o APRENDIDO — e não o Lv.1. Quem chama daqui
+   * já costuma passar, mas o padrão tem de ser o do jogador: cair no Lv.1 numa
+   * chamada esquecida devolveria a recarga longa sem nenhum sintoma além de
+   * *"às vezes ela demora mais"*.
+   */
+  const recarga = skillCooldown(def, nivel ?? skillLevelOf(player.skillLevels, def.id) ?? 1);
   player.spellReadyAt[def.id] = now + recarga;
   if (def.magic) player.gcdUntil = now + GCD_MAGIA_MS;
   /*

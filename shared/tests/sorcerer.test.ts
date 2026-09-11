@@ -28,6 +28,7 @@ import {
   skillConditionChance,
   skillConditionDuration,
   skillPower,
+  skillCooldown,
   IMPULSO_MAGICO,
   skillManaCost,
   skillCastMs,
@@ -573,6 +574,36 @@ test('⚡ Esfera Elétrica: a ficha da Jupitel Thunder', () => {
    */
   assert.equal(skillEmpurrao(lb, 1), 1);
   assert.equal(skillEmpurrao(lb, 10), 3);
+
+  /*
+   * ⚡ **A RECARGA CAI COM O NÍVEL — e ela é a ÚNICA do jogo assim.** Decisão do
+   * dono em 12/09: 2 s no Lv.1, 1,2 s no Lv.10.
+   *
+   * 🔴 A segunda metade do teste é a que importa. A régua do jogo é *subir de
+   * nível deixa mais forte, não mais frequente*; se um dia outra habilidade
+   * ganhar `cooldownAtLv10` sem essa conversa, alguém tem de ser obrigado a
+   * abrir este teste e defender a exceção, em vez de ela entrar de carona.
+   */
+  assert.equal(skillCooldown(lb, 1), 2000);
+  assert.equal(skillCooldown(lb, 10), 1200);
+  const comRecargaPorNivel = Object.values(SKILLS)
+    .filter((d) => d.cooldownAtLv10 !== undefined)
+    .map((d) => d.id);
+  assert.deepEqual(
+    comRecargaPorNivel, ['electric_sphere'],
+    `só a Esfera encurta a recarga com o nível; achei ${comRecargaPorNivel.join(', ')}`,
+  );
+
+  /*
+   * ⚠️ **A recarga NÃO é o que manda no ritmo no Lv.10: o GCD das magias é.**
+   * Está travado aqui porque é a armadilha óbvia de quem for mexer nisto de
+   * novo — baixar a recarga abaixo do GCD não acelera nada, e a tentação é
+   * baixar mais ainda achando que o número não pegou.
+   */
+  assert.ok(
+    skillCooldown(lb, 10) < 1000 + 500,
+    'a recarga do Lv.10 já está na vizinhança do GCD de 1 s — ver a ficha',
+  );
 
   /*
    * ⚡ **E a conjuração CRESCE com o nível** (2,5 s → 4,3 s), a segunda magia do
