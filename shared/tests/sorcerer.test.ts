@@ -706,9 +706,11 @@ test('⛈️ o relâmpago é UM só, e as descargas cabem dentro dele', () => {
    * 🔴 **AS DESCARGAS TÊM DE CABER NA FILEIRA DA DESCARGA, e é a única conta
    * desta magia que atravessa três arquivos.**
    *
-   * A folha tem 24 quadros em 1200 ms (cliente), em três atos: a nuvem se
-   * juntando (1–8), a descarga no chão (9–15) e a dissipação (16–24). O raio
-   * encosta no solo aos 400 ms e sai de lá aos 750.
+   * O cliente toca **15 dos 24 quadros da folha, em 1050 ms**: a nuvem se
+   * juntando (1–8) e a descarga no chão (9–15). Os nove da dissipação ficaram
+   * de fora porque estão desenhados em metade do tamanho e o raio ENCOLHIA; no
+   * lugar deles o desenho apaga por alfa. O raio encosta no solo aos 560 ms
+   * (`8 × 70`) e o desenho vai até 1050.
    *
    * O `quedaMs` marca a primeira descarga (ficha) e `duração / golpes` espaça as
    * seguintes (servidor). Todas precisam cair na janela do meio: antes dela o
@@ -716,11 +718,12 @@ test('⛈️ o relâmpago é UM só, e as descargas cabem dentro dele', () => {
    *
    * ⚠️ Nada no código sabe quanto a folha dura nem em que quadro ela encosta no
    * solo — os dois números vivem no cliente, e a ficha é do `shared`. Este teste
-   * é a única amarra entre eles, e já pegou uma troca de folha: a anterior
-   * tocava o chão aos 495 ms, esta aos 400.
+   * é a única amarra entre eles, e já pegou duas mudanças: uma troca de folha
+   * (a anterior tocava o chão aos 495 ms) e o alongamento de 12/09, quando o dono
+   * pediu que a queda e os danos durassem mais.
    */
-  const TOCA_O_CHAO_MS = 400;
-  const SAI_DO_CHAO_MS = 750;
+  const TOCA_O_CHAO_MS = 560;
+  const SAI_DO_CHAO_MS = 1050;
   assert.ok((d.quedaMs ?? 0) >= TOCA_O_CHAO_MS, 'a 1ª descarga sai com o raio ainda na nuvem');
   for (const nv of [1, 10]) {
     const passo = skillDuration(d, nv) / skillHits(d, nv);

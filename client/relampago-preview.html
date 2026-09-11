@@ -3,9 +3,16 @@
   ⚡ Bancada do Relâmpago. FORA de `public/`, como a `fx-preview.html` e a
   `esfera-preview.html`: serve no `npm run dev` e não entra no pacote.
 
-  Toca a folha no MESMO ritmo do jogo (840 ms, 25 quadros) e marca em que
-  instante cada dano do Lv.10 cai — é o que o dono pediu conferir: *"os danos
-  vão aparecendo enquanto ele cai e um pouquinho antes dele sumir"*.
+  Toca a folha no MESMO ritmo do jogo e marca em que instante cada descarga do
+  Lv.10 cai — é o que o dono pediu conferir: *"os danos vão aparecendo enquanto
+  ele cai e um pouquinho antes dele sumir"*.
+
+  ⚠️ Os números daqui são COPIADOS da ficha e do cliente, e a bancada não tem
+  como saber quando eles mudam. Ao mexer num dos dois lados, mexa aqui também —
+  senão ela passa a conferir uma magia que não existe mais.
+
+  `#dois`  desenha as duas misturas lado a lado (como a decisão de 12/09 saiu)
+  `#tiras` desenha o ciclo inteiro numa folha de contato
 -->
 <meta charset="utf-8">
 <title>Relâmpago — bancada</title>
@@ -21,12 +28,12 @@
   const g = c.getContext('2d');
   const img = await new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.src = '/assets/fx/relampago24.png'; });
   const N = 15, LW = img.width / 24, LH = img.height;  // 15 dos 24: ver quadrosUsados
-  const DUR = 750, ESCALA = 0.625 * 2.90, TS = 32;
+  const DUR = 1050, ESCALA = 0.625 * 2.90, TS = 32;
   /*
-   * Lv.10 da ficha: UM relâmpago, 4 descargas numa janela de 460 ms, a primeira
-   * aos 400 ms (é quando o raio toca o chão). Ver `quedaUnica`.
+   * Lv.10 da ficha: UM relâmpago, 4 descargas numa janela de 600 ms, a primeira
+   * aos 560 ms (é quando o raio toca o chão). Ver `quedaUnica`.
    */
-  const DESCARGAS = 4, JANELA = 460, PASSO = JANELA / DESCARGAS, QUEDA = 400;
+  const DESCARGAS = 4, JANELA = 600, PASSO = JANELA / DESCARGAS, QUEDA = 560;
   const CICLO = DUR + 700;
   const CX = 460, CHAO = 580;
   const DOIS = location.hash === '#dois';
@@ -34,10 +41,10 @@
   function quadro(t) {
     g.fillStyle = '#3f5a34'; g.fillRect(0, 0, c.width, c.height);
     const ciclo = t % CICLO;
-    // A ÁREA de dano (9×9 tiles no Lv.10) e dois "monstros" dentro dela.
+    // A ÁREA de dano (11×11 tiles no Lv.10) e dois "monstros" dentro dela.
     const T = TS;   // a bancada desenha em pixels DO JOGO: um tile aqui e lá são 32 px
     g.strokeStyle = '#ffffff28'; g.lineWidth = 2;
-    g.strokeRect(CX - 4.5 * T, CHAO - 2 * T, 9 * T, 4 * T);
+    g.strokeRect(CX - 5.5 * T, CHAO - 2.4 * T, 11 * T, 4.8 * T);
     g.fillStyle = '#00000040';
     g.fillRect(CX - 16, CHAO - 40, 32, 40);
     g.fillRect(CX - 2 * T - 16, CHAO - 40, 32, 40);

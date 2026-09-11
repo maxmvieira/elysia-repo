@@ -3716,6 +3716,21 @@ function tickGolpesPendentes(now: number): void {
         ...(pontoFixo ? {} : { targetId: c!.id }),
         // ⚠️ Só quando a ficha manda outro tempo. Ausente = o padrão de sempre.
         ...(def.quedaMs ? { quedaMs: def.quedaMs } : {}),
+        /*
+         * 🔴 **O RAIO DE DANO viaja junto, e é o que fecha a conta da arte.**
+         *
+         * O desenho de uma queda tem o tamanho que a FOLHA tem, e a área que a
+         * magia machuca cresce com o nível — no relâmpago a arte tem 9 tiles de
+         * largura e o bloco de dano chega a 11. O cliente não tem como saber
+         * disso: ele não conhece o nível de quem lançou.
+         *
+         * Com o raio na mão, o anel do impacto é desenhado no tamanho de
+         * verdade. É a mesma correção que o meteoro recebeu de outro jeito em
+         * 11/09 — *"são bem grandes, mas parece que acertam somente um pequeno
+         * ponto"* —, e aqui ela vale para o lado contrário: a arte fica menor
+         * que o estrago, e o anel é quem conta a verdade.
+         */
+        ...(def.shape === 'area' ? { radius: skillRange(def, g.nivel) } : {}),
       });
     }
     if (now < g.quando) { fica.push(g); continue; }

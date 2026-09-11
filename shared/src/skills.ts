@@ -2453,18 +2453,25 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * anotei a divergência em vez de perguntar. A regra de sempre continua
      * valendo: o que está no `docs/` não muda por causa de um prompt.
      *
-     * ⚠️ **Raio 3 (7×7) subindo a 4 (9×9) no Lv.6, e eram 2 → 3.** O dono pediu
-     * em 12/09, vendo o relâmpago novo: *"só aumente um pouco mais a área de
-     * conjuração do raio"*.
+     * ⚠️ **Raio 4 (9×9) subindo a 5 (11×11) no Lv.7.** Subiu duas vezes em 12/09,
+     * de 2 → 3 → 4, as duas a pedido do dono jogando.
      *
-     * ⚠️ **No Lv.10 ela empata em área com a Nevasca**, que é uma suprema de
-     * Lv.50. O que separa as duas passou a ser o resto da ficha — a Nevasca dura
-     * 4,5 s, congela e empurra; a Descarga bate uma vez e vai embora. Fica
-     * anotado porque é o tipo de empate que alguém vai querer desfazer um dia.
+     * 🔴 **No Lv.7 ela PASSA a Nevasca em área** (11×11 contra 9×9), sendo uma
+     * magia de Lv.25 contra uma suprema de Lv.50. O que separa as duas ficou
+     * sendo só o resto da ficha: a Nevasca dura 4,5 s, congela e empurra; a
+     * Descarga bate uma vez e vai embora. Está escrito aqui porque é o tipo de
+     * coisa que ninguém lembra quando for equilibrar o Feiticeiro.
+     *
+     * ⚠️ **E o DESENHO não acompanha.** O relâmpago tem 9,1 tiles de largura em
+     * tela; do Lv.7 em diante o bloco de dano tem 11. Não dá para consertar
+     * escalando — a arte é 1 para 1,8, e alargar o clarão em 2 tiles esticaria a
+     * coluna para quase 20, fora da janela do jogo. O que fecha essa conta é o
+     * ANEL do impacto, que é desenhado por código no raio verdadeiro da magia
+     * (ver `clarãoDeImpacto`): ele marca onde pega, mesmo onde a arte não chega.
      */
     shape: 'area',
-    range: 3,
-    rangeEvery: 5,
+    range: 4,
+    rangeEvery: 6,
     /**
      * ⚡ **GANHOU CONJURAÇÃO, e ela não tinha nenhuma.**
      *
@@ -2489,21 +2496,26 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * ⚡ **A JANELA DA TEMPESTADE, e ela é o que espaça os raios.**
      *
      * Em magia de área a cadência sai de `duração / golpes` (ver `passoDaQueda`
-     * no servidor), e não do intervalo fixo dos bolts. 460 ms para 2 descargas
-     * dão 230 ms entre elas; para 4, dão 115 ms.
+     * no servidor), e não do intervalo fixo dos bolts. 600 ms para 2 descargas
+     * dão 300 ms entre elas; para 4, dão 150 ms.
      *
      * 🔴 **O número foi escolhido para as descargas caberem DENTRO do raio.** A
-     * folha dura 900 ms e o raio toca o chão aos 500. A última descarga sai em
-     * `500 + (golpes − 1) × passo`: 730 ms no Lv.1 e 845 no Lv.10, os dois antes
-     * de a folha apagar. Era o pedido do dono: *"os danos vão aparecendo
+     * animação dura 1050 ms e o raio toca o chão aos 560. A última descarga sai
+     * em `560 + (golpes − 1) × passo`: 860 ms no Lv.1 e 1010 no Lv.10, os dois
+     * antes de a folha apagar. É o pedido do dono: *"os danos vão aparecendo
      * enquanto ele cai e um pouquinho antes dele sumir"*.
+     *
+     * ⚠️ **Subiu de 460 para 600 junto com a animação** — *"pode durar um pouco
+     * mais a queda e os danos"*. Os dois têm de subir juntos: esticar a
+     * animação sem esticar a janela deixaria o raio aceso depois do último
+     * número.
      *
      * ⚠️ **Era 2100 ms na versão TEMPESTADE**, quando cada golpe era um raio
      * separado e a janela servia para espaçá-los na tela. Com um raio só, a
      * janela passou a medir outra coisa: a duração do castigo dentro dele. Mesmo
      * campo, outro significado — daí valer a pena a nota.
      */
-    durationMs: 460,
+    durationMs: 600,
     magic: true,
     damageType: 'electric',
     /**
@@ -2515,18 +2527,22 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     queda: true,
     quedaFx: 'lightning_fall',
     /**
-     * ⛈️ **400 ms do raio nascer até ele machucar, e é onde ele TOCA O CHÃO.**
+     * ⛈️ **560 ms do raio nascer até ele machucar, e é onde ele TOCA O CHÃO.**
      *
-     * A folha tem 24 quadros em 1200 ms, e a fileira da descarga começa no 9º —
-     * 33 % da animação, ou 400 ms. Os oito primeiros são a NUVEM se juntando,
+     * A animação toca 15 quadros em 1050 ms (70 ms cada) e a fileira da descarga
+     * começa no 9º — `8 × 70 = 560`. Os oito primeiros são a NUVEM se juntando,
      * com o raio ainda preso nela; castigar ali seria machucar antes de o raio
      * existir.
+     *
+     * ⚠️ **Era 400 ms numa animação de 750.** Subiu junto com ela — *"pode durar
+     * um pouco mais a queda e os danos"* (dono, 12/09). A FRAÇÃO não mudou: o
+     * chão continua sendo tocado a 53 % do caminho.
      *
      * ⚠️ Os dois números moram em lugares diferentes (este e o `duracaoEstouro`
      * do cliente) e são a MESMA decisão. Mudar um sem o outro descola o estrago
      * do desenho, sem erro nenhum. O teste da magia é a única amarra.
      */
-    quedaMs: 400,
+    quedaMs: 560,
     /**
      * ⛈️ **UM RAIO SÓ, GRANDE, NO CENTRO DA ÁREA** — dono, 12/09, depois de ver a
      * tempestade em tela: *"vamos voltar para a ideia de um relâmpago mesmo

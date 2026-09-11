@@ -2505,7 +2505,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * 💥 Quando a arte encosta no chão, para quem NÃO tem risco desenhado por
      * código. É o gatilho do tremor, dos estilhaços e do clarão. Ver `spawnQueda`.
      */
-    batida?: { em: number; t: number; feita: boolean };
+    batida?: {
+      em: number; t: number; feita: boolean;
+      /** Raio de dano em TILES, quando o servidor mandou. Ver o anel do impacto. */
+      raioDano?: number;
+    };
     /**
      * 🌫️ Apagar por alfa depois do último quadro, em vez de sumir de estalo.
      * `t` corre só depois que a animação termina. Ver `desvanece`.
@@ -2584,6 +2588,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     quadrosUsados?: number;
     /** Quanto tempo o desenho leva para apagar depois do último quadro. */
     desvanece?: number;
+    /** Desenha ACIMA das entidades, e não na camada do chão. Ver `porCima`. */
+    porCima?: boolean;
   }
   const folhasQueda = new Map<string, FolhaDeQueda[]>();
 
@@ -2770,13 +2776,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * decisão do `firebolt10.png` em 08/09: voltar a usá-los é acrescentar uma
      * linha aqui, e apagar a arte faria a próxima tentativa recomeçar do zero.
      *
-     * ⚠️ **750 ms para 15 quadros mantém os 50 ms por quadro** dos 1200/24
-     * anteriores. A cadência não mudou; o que saiu foi o fim.
+     * ⚠️ **1050 ms para 15 quadros**, e eram 750 — *"pode durar um pouco mais a
+     * queda e os danos"* (dono, 12/09). Dá 70 ms por quadro, contra os 50
+     * anteriores. O raio encosta no chão no quadro 9, ou **560 ms**, e é esse o
+     * `quedaMs` da ficha: os dois números são a mesma decisão em dois lados.
+     *
+     * 🔴 **`porCima`: este é o único efeito de queda desenhado ACIMA das
+     * entidades.** Ver a nota em `spawnQueda` — a regra de baixo foi tomada para
+     * o meteoro, que é um estouro largo no chão; aqui é uma coluna de 16 tiles
+     * de altura, e por baixo qualquer bicho ao norte do impacto a cortava ao
+     * meio. *"O raio tem que atravessar os inimigos."*
      */
     {
       magia: 'lightning_fall', arquivo: 'relampago24', bolts: 1, quadros: 24,
-      fracaoQueda: 0, duracaoEstouro: 750, mistura: 'normal',
-      quadrosUsados: 15, desvanece: 350,
+      fracaoQueda: 0, duracaoEstouro: 1050, mistura: 'normal',
+      quadrosUsados: 15, desvanece: 350, porCima: true,
     },
   ] as const;
 
@@ -2822,6 +2836,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           mistura: 'mistura' in folha ? folha.mistura : 'add',
           ...('quadrosUsados' in folha ? { quadrosUsados: folha.quadrosUsados } : {}),
           ...('desvanece' in folha ? { desvanece: folha.desvanece } : {}),
+          ...('porCima' in folha ? { porCima: folha.porCima } : {}),
           frames: Array.from({ length: folha.quadros }, (_, i) => new Texture({
             source: tex.source,
             frame: new Rectangle(i * cw, 0, cw, ch),
@@ -3383,9 +3398,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   function spawnQueda(
     magia: string, wx: number, wy: number, folha: FolhaDeQueda, atraso: number,
-    alvo?: string, quedaMs?: number,
+    alvo?: string, quedaMs?: number, raioDano?: number,
   ): void {
-    const { fracaoQueda, duracaoEstouro, mistura, desvanece } = folha;
+    const { fracaoQueda, duracaoEstouro, mistura, desvanece, porCima } = folha;
     /*
      * ⚠️ **`quadrosUsados` corta o FIM da tira, e `fracaoQueda` corta o começo.**
      * São duas perguntas diferentes: uma é *"onde a descida acaba"*, a outra é
@@ -3462,9 +3477,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ⚠️ `objects` ordena por `zIndex` e as marcas de chão vivem no negativo
      * (`hoverMark` −0,9, `destMark` −0,8, `targetRing` −0,5). O estouro entra
      * entre elas e as entidades.
+     *
+     * 🔴 **MENOS O RELÂMPAGO, e a regra de 11/09 continua certa para o resto.**
+     * Dono, 12/09: *"o raio tem que atravessar os inimigos"*. A decisão antiga
+     * foi tomada olhando para o METEORO — 240 px de fogo espalhados no chão, em
+     * que o monstro sumia dentro da explosão. O relâmpago é o caso oposto: uma
+     * coluna estreita de 16 tiles de ALTURA, e por baixo das entidades qualquer
+     * bicho ao norte do impacto era desenhado por cima dela, cortando o raio ao
+     * meio. Ver `porCima` em `FOLHAS_QUEDA`.
      */
-    node.zIndex = -0.6;
-    objects.addChild(node);
+    if (porCima) {
+      node.zIndex = 9998;
+      fxLayer.addChild(node);
+    } else {
+      node.zIndex = -0.6;
+      objects.addChild(node);
+    }
 
     let risco: { node: Graphics; t: number; deY: number; dur: number } | undefined;
     // ⚡ Magia cuja folha JÁ desenha a descida não ganha risco. Ver `FORMA_RISCO`.
@@ -3541,7 +3569,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     const q: (typeof quedas)[number] = {
       node, atraso, morto: false, magia, alvo, risco,
-      ...(risco ? {} : { batida: { em: tempoQueda, t: 0, feita: false } }),
+      ...(risco ? {} : { batida: { em: tempoQueda, t: 0, feita: false, raioDano } }),
       ...(desvanece ? { apaga: { em: desvanece, t: 0 } } : {}),
     };
     /*
@@ -3601,12 +3629,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   function spawnQuedaDaConjuracao(
     magia: string, wx: number, wy: number, n: number, alvo?: string, quedaMs?: number,
+    raioDano?: number,
   ): void {
     const folha = folhaPara(magia, n);
     if (!folha) return;
     const copias = Math.max(1, Math.ceil(n / folha.bolts));
     for (let i = 0; i < copias; i++) {
-      spawnQueda(magia, wx, wy, folha, i * INTERVALO_BOLT_MS, alvo, quedaMs);
+      spawnQueda(magia, wx, wy, folha, i * INTERVALO_BOLT_MS, alvo, quedaMs, raioDano);
     }
   }
 
@@ -4915,7 +4944,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
              */
             spawnQuedaDaConjuracao(
               msg.kind, msg.x * TS + TS / 2, msg.y * TS + TS, msg.n ?? 1,
-              msg.targetId, msg.quedaMs,
+              msg.targetId, msg.quedaMs, msg.radius,
             );
             break;
           }
@@ -10015,8 +10044,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           tremorPx = forca.px;
           tremorDur = forca.ms;
           cospeEstilhacos(q.magia, q.node.x, q.node.y);
-          // O anel abre na largura do DESENHO, que é o que o olho compara.
-          clarãoDeImpacto(q.node.x, q.node.y, q.node.width * 0.45);
+          /*
+           * 🔴 **O anel abre no raio de DANO, e não na largura do desenho.**
+           *
+           * Era a largura do sprite, e isso valia enquanto os dois batiam. Do
+           * Lv.7 da Descarga em diante o bloco de dano tem 11 tiles e a arte
+           * tem 9 — a arte não pode crescer (esticaria a coluna para fora da
+           * tela), então quem conta a verdade é o anel.
+           *
+           * ⚠️ `(raio + 0,5)` tiles é a mesma conta do círculo da mira: o bloco
+           * de dano é um quadrado em Chebyshev, e o círculo inscrito nele toca o
+           * meio dos lados. As quinas ficam de fora do desenho e apanham — está
+           * registrado desde 08/09, e a alternativa fiel seria desenhar o
+           * quadrado.
+           */
+          const R = q.batida.raioDano !== undefined
+            ? (q.batida.raioDano + 0.5) * TS
+            : q.node.width * 0.45;
+          clarãoDeImpacto(q.node.x, q.node.y, R);
         }
       }
       /*
