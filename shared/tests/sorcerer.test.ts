@@ -671,12 +671,17 @@ test('⚡ a Tempestade de Raios reparte o dano sem mudar o TOTAL por alvo', () =
   assert.ok(Math.abs(daFicha(10) - 2.22) < 0.01, `Lv.10 deu ${daFicha(10).toFixed(3)}, era 2,22`);
 
   /*
-   * ⚠️ **O dano de cada raio tem de cair DENTRO do desenho dele.** A folha dura
-   * 840 ms e o estrago sai aos `quedaMs` — *"os danos vão aparecendo enquanto
-   * ele cai"*. Travado porque `quedaMs` é um número solto na ficha e nada mais
-   * no código sabe quanto a folha dura.
+   * ⚠️ **O dano de cada raio tem de cair QUANDO ELE TOCA O CHÃO.** A folha tem
+   * 31 quadros em 900 ms e o raio encosta no solo no 17º — 495 ms. O `quedaMs`
+   * é justamente isso, e é um número solto na ficha: nada no código sabe quanto
+   * a folha dura nem em que quadro ela toca o chão.
+   *
+   * A faixa aceita é generosa de propósito (a arte pode mudar de novo), mas
+   * fecha as duas portas que importam: castigar com o raio ainda no ar, e
+   * castigar com ele já apagado.
    */
-  assert.ok((d.quedaMs ?? 0) < 840, 'o dano sairia com o raio já apagado');
+  assert.ok((d.quedaMs ?? 0) > 350, 'o dano sairia com o raio ainda no ar');
+  assert.ok((d.quedaMs ?? 0) < 900, 'o dano sairia com o raio já apagado');
 
   /*
    * 🔴 **E os raios não podem se empilhar.** A regra saiu do meteoro em 11/09: o
@@ -688,7 +693,7 @@ test('⚡ a Tempestade de Raios reparte o dano sem mudar o TOTAL por alvo', () =
    * tempestade sem nenhum erro de compilação.
    */
   const intervalo = skillDuration(d, 10) / skillHits(d, 10);
-  assert.ok(840 / intervalo < 3, `${(840 / intervalo).toFixed(1)} raios vivos ao mesmo tempo`);
+  assert.ok(900 / intervalo < 3, `${(900 / intervalo).toFixed(1)} raios vivos ao mesmo tempo`);
 });
 
 test('Ira de Thor atordoa pouco, e o anti-cadeia é o do jogo inteiro', () => {

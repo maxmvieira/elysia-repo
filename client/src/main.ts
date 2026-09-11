@@ -2681,27 +2681,34 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       fracaoQueda: 0, duracaoEstouro: 900,
     },
     /*
-     * ⚡ **O RELÂMPAGO da Descarga Elétrica (12/09)**, 25 quadros em 5 fileiras.
+     * ⛈️ **O RELÂMPAGO da Descarga Elétrica**, 31 quadros em 4 fileiras.
      *
-     * 🔴 **`fracaoQueda: 0` porque a folha INTEIRA é a magia.** Aqui não há
-     * "descida" separada do "estouro": a marcação no chão, a energia se
-     * juntando, a coluna caindo, o clarão e a dissipação são os 25 quadros, em
-     * ordem. Cortar qualquer fração comeria o começo da própria magia.
+     * 🔴 **A folha CAI DO CÉU DE VERDADE, e a anterior não caía** — pedido do
+     * dono em 12/09, com arte nova: *"faça o raio cair do céu para o solo,
+     * dentro da área de conjuração"*. A folha de 25 quadros desenhava uma coluna
+     * que acendia inteira no lugar; esta abre uma NUVEM no alto, faz o raio
+     * descer dela até o chão, estoura e dissipa.
+     *
+     * 🔴 **`fracaoQueda: 0` porque a folha INTEIRA é a magia.** Não há "descida"
+     * separada do "estouro" para cortar: os 31 quadros são a coisa toda, em
+     * ordem.
      *
      * ⚠️ É o mesmo `0` da bola de neve por motivos OPOSTOS: lá nenhum quadro é
-     * queda porque a descida é o risco desenhado por código; aqui nenhum quadro
-     * é descartado porque a descida está desenhada e o risco não existe. Ver
+     * queda porque a descida é o risco desenhado por código; aqui nenhum é
+     * descartado porque a descida está desenhada e o risco não existe. Ver
      * `FORMA_RISCO`.
      *
-     * ⚠️ **840 ms, e o dono pediu "rápida e poderosa".** É o que faz os quatro
-     * danos do Lv.10 (260, 400, 540 e 680 ms) caberem DENTRO da animação, com o
-     * último 160 ms antes de ela sumir — *"os danos vão aparecendo enquanto ele
-     * cai e um pouquinho antes dele sumir"*. Mais curto e o último número sairia
-     * com a tela já limpa; mais longo e a descarga deixaria de ser descarga.
+     * ⚠️ **900 ms, e eram 840 com 25 quadros.** Seis quadros a mais pedindo o
+     * mesmo tempo dariam 27 ms cada; 900 mantém a cadência em 29 ms (34 q/s) e
+     * ainda deixa 2,1 a 2,6 raios vivos ao mesmo tempo na tempestade. Ver a
+     * janela na ficha da magia — os dois números são a mesma decisão.
+     *
+     * ⚠️ **O raio toca o chão no quadro 17 de 31**, ou 55 % da animação. É daí
+     * que sai o `quedaMs: 500` da ficha: é lá que o dano tem de sair.
      */
     {
-      magia: 'lightning_fall', arquivo: 'relampago25', bolts: 1, quadros: 25,
-      fracaoQueda: 0, duracaoEstouro: 840,
+      magia: 'lightning_fall', arquivo: 'relampago31', bolts: 1, quadros: 31,
+      fracaoQueda: 0, duracaoEstouro: 900,
     },
   ] as const;
 

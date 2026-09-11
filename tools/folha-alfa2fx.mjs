@@ -51,37 +51,16 @@ const FOLHAS = {
     passoX: 192,
     fileiras: [[0, 187], [193, 412], [420, 629], [646, 818], [868, 1005]],
   },
-  /**
-   * ⚡ **O RELÂMPAGO (12/09)**, 5 colunas × 5 fileiras = 25 quadros.
+  /*
+   * ⚡ **A grade do relâmpago de 25 quadros saiu daqui no mesmo dia em que
+   * entrou.** O dono trouxe arte melhor — com nuvem, e o raio descendo dela até
+   * o solo —, e ela é cortada pelo `tools/nuvem2fx.mjs`, que alinha por uma
+   * chave que este arquivo não tem: o CHÃO onde ele existe, a NUVEM onde ainda
+   * não existe.
    *
-   * A sequência que o dono descreveu está desenhada na folha, em ordem:
-   * fileira 1 é a marcação no chão, 2 a energia se juntando, 3 a descarga
-   * cheia, 4 o encolhimento e 5 a dissipação.
-   *
-   * ⚠️ **As fileiras NÃO têm passo**, como no meteoro: 1536/5 daria 307,2 e o
-   * desenho transborda a célula teórica — a coluna da fileira 3 tem 453 px de
-   * altura contra os 176 da fileira 1. Os `y` abaixo são os limites do
-   * CONTEÚDO, medidos pelo perfil de alfa.
-   *
-   * ⚠️ **A fronteira entre as fileiras 2 e 3 foi medida, não dividida**: elas se
-   * tocam (o brilho de uma invade a outra), e o corte caiu na linha de MENOR
-   * conteúdo entre elas — 26 pixels acesos em 1024 de largura, contra centenas
-   * nas vizinhas.
-   *
-   * 🔴 **E as COLUNAS pedem recentragem.** O passo teórico é 204,8, mas os
-   * núcleos brancos medidos ficam em 123, 322, 516, 713 e 910 — passo real
-   * ~197, e deslocados até 21 px do centro teórico. Cortar pela grade faria o
-   * ponto de impacto ANDAR de lado ao longo da animação; é o mesmo balanço que
-   * derrubou a primeira versão do anel de conjuração, em 11/09.
+   * ⚠️ Ficou a `recentraX` abaixo, que nasceu para aquela folha e continua
+   * valendo para qualquer uma empacotada solta.
    */
-  relampago25: {
-    larg: 128,
-    alt: 284,
-    colunas: 5,
-    passoX: 204,
-    recentraX: true,
-    fileiras: [[53, 228], [233, 507], [508, 960], [967, 1246], [1293, 1472]],
-  },
 };
 
 const [folhaArq, nome] = process.argv.slice(2);

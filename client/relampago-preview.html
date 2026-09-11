@@ -14,16 +14,16 @@
   canvas { display: block; image-rendering: pixelated; }
   p { padding: 6px 10px; margin: 0; opacity: .85; }
 </style>
-<canvas id="c" width="960" height="420"></canvas>
+<canvas id="c" width="960" height="560"></canvas>
 <p id="leg"></p>
 <script type="module">
   const c = document.getElementById('c');
   const g = c.getContext('2d');
-  const img = await new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.src = '/assets/fx/relampago25.png'; });
-  const N = 25, LW = img.width / N, LH = img.height;
-  const DUR = 840, ESCALA = 0.625 * 1.30, TS = 32;
-  // Lv.10 da ficha: 6 raios numa janela de 1900 ms, o dano de cada um aos 260 ms.
-  const RAIOS = 6, JANELA = 1900, PASSO = JANELA / RAIOS, QUEDA = 260;
+  const img = await new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.src = '/assets/fx/relampago31.png'; });
+  const N = 31, LW = img.width / N, LH = img.height;
+  const DUR = 900, ESCALA = 0.625 * 1.30, TS = 32;
+  // Lv.10 da ficha: 6 raios numa janela de 2100 ms, o dano de cada um aos 500 ms.
+  const RAIOS = 6, JANELA = 2100, PASSO = JANELA / RAIOS, QUEDA = 500;
   const CICLO = JANELA + DUR + 600;
   /*
    * Pontos sorteados dentro do bloco 7×7 do Lv.10, em tiles a partir do centro.
@@ -31,7 +31,7 @@
    * dariam para comparar.
    */
   const PONTOS = [[0, 0], [-2, 1], [2, -1], [-1, -2], [1, 2], [3, 0]];
-  const CX = 460, CHAO = 352;
+  const CX = 460, CHAO = 500;
 
   function quadro(t) {
     g.fillStyle = '#3f5a34'; g.fillRect(0, 0, c.width, c.height);
@@ -76,11 +76,11 @@
   if (location.hash === '#tiras') {
     const COL = 5, CEL = 190, N2 = 15;
     const alvo = document.createElement('canvas');
-    alvo.width = CEL * COL; alvo.height = 260 * Math.ceil(N2 / COL);
+    alvo.width = CEL * COL; alvo.height = 300 * Math.ceil(N2 / COL);
     const ag = alvo.getContext('2d');
     for (let i = 0; i < N2; i++) {
       quadro((i / N2) * (JANELA + DUR));
-      ag.drawImage(c, 290, 60, 340, 310, (i % COL) * CEL, Math.floor(i / COL) * 260, CEL, 260);
+      ag.drawImage(c, 250, 20, 420, 520, (i % COL) * CEL, Math.floor(i / COL) * 300, CEL, 300);
     }
     c.replaceWith(alvo);
   } else {

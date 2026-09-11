@@ -2456,17 +2456,21 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * ⚡ **A JANELA DA TEMPESTADE, e ela é o que espaça os raios.**
      *
      * Em magia de área a cadência sai de `duração / golpes` (ver
-     * `passoDaQueda` no servidor), e não do intervalo fixo dos bolts. 1,2 s para
-     * 3 raios e 1,9 s para 6 dão 400 e 317 ms entre um e outro.
+     * `passoDaQueda` no servidor), e não do intervalo fixo dos bolts. 1,3 s para
+     * 3 raios e 2,1 s para 6 dão 433 e 350 ms entre um e outro.
      *
      * 🔴 **A conta que manda aqui é a do meteoro (11/09): o desenho de um raio
      * não pode durar muito mais que o intervalo entre eles**, senão a chuva
-     * deixa de ler como chuva e vira uma parede. A folha dura 840 ms, então
-     * ficam 2 a 2,6 raios vivos ao mesmo tempo — o bastante para parecer
+     * deixa de ler como chuva e vira uma parede. A folha dura 900 ms, então
+     * ficam 2,1 a 2,6 raios vivos ao mesmo tempo — o bastante para parecer
      * contínuo, pouco para embolar.
+     *
+     * ⚠️ A janela cresceu junto com a folha nova (840 → 900 ms). Um raio que
+     * dura mais precisa de mais espaço entre um e outro, senão a tempestade
+     * aperta sozinha.
      */
-    durationMs: 1200,
-    durationAtLv10: 1900,
+    durationMs: 1300,
+    durationAtLv10: 2100,
     magic: true,
     damageType: 'electric',
     /**
@@ -2478,12 +2482,18 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     queda: true,
     quedaFx: 'lightning_fall',
     /**
-     * ⚡ **260 ms do raio nascer até ele machucar.** A folha tem 25 quadros em
-     * 840 ms; aos 260 ms a coluna está formada e tocando o chão (fim da segunda
-     * fileira). Cada raio castiga no meio da própria queda — que era o pedido:
-     * *"os danos vão aparecendo enquanto ele cai"*.
+     * ⛈️ **500 ms do raio nascer até ele machucar, e é onde ele TOCA O CHÃO.**
+     *
+     * A folha tem 31 quadros em 900 ms, e o raio encosta no solo no 17º — 55 %
+     * da animação, ou 495 ms. O dano sai aí, e não antes: a arte nova mostra a
+     * nuvem se formando e o raio descendo, então castigar no meio da descida
+     * seria machucar com o raio ainda no ar.
+     *
+     * ⚠️ Os dois números moram em lugares diferentes (este e o
+     * `duracaoEstouro` do cliente) e são a MESMA decisão. Mudar um sem o outro
+     * descola o estrago do desenho, sem erro nenhum.
      */
-    quedaMs: 260,
+    quedaMs: 500,
     /**
      * 🔴 **OS RAIOS SÃO O VISUAL; O DANO É DA ÁREA.** A mesma decisão da Nevasca,
      * e pelo mesmo motivo medido lá: com o dano saindo do respingo de cada
