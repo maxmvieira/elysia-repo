@@ -160,7 +160,48 @@ alvo de cada raio, então ela é rajada de alvo único dentro de uma área — 8
 num bicho sozinho, ~86 % em cada um de dez. É o contrário das outras duas, e é o
 que a descrição dela já dizia (*"a corrente tem limite"*).
 
-### 🔴 O QUE ESTÁ ERRADO É OUTRA COISA: `DD-DRU-021`
+### ✅ `DD-DRU-021` CONSERTADO (12/09) — e o teste era o culpado
+
+🔴 **O teste do `DD-DRU-021` existia e passava enquanto a regra estava violada.**
+Ele comparava a Ira com `10 * skillPower(chuva, 10)` — a contagem de meteoros
+**cravada à mão**. Quando o dono subiu a Chuva para 18, o número aqui não mudou;
+e os 10 nunca foram o que um alvo levava. O teste media uma fantasia e devolvia
+verde, em todos os níveis.
+
+⚠️ **É o mesmo defeito de três outros achados do dia** (o "18,7", a conjuração da
+dica, a descrição de "10 meteoros"): um número copiado para um lugar que não
+sabe recalculá-lo. A conta agora sai de `skillImpactosEsperados`.
+
+**O que estava demais era o TOTAL, não a intensidade.** Por segundo de efeito a
+Ira sempre foi a mais fraca das supremas; ela só somava mais porque dura o dobro
+— que é exatamente a identidade que o documento protege. Por isso o corte foi
+**só no poder por pulso**; duração, área e petrificação ficaram intactas.
+
+| | antes | agora |
+|---|---|---|
+| Ira da Natureza (Lv.10) | 6,52 | **4,75** (83 % da Nevasca) |
+| Lv.5 | 3,70 | 2,39 (75 %) |
+| Lv.1 | 2,00 | 1,08 (90 %) |
+
+⚠️ **A régua é a NEVASCA, e não a Chuva — a escolha precisa de defesa.** A
+leitura literal ("abaixo das supremas", plural) mandaria ficar abaixo da MENOR,
+que é a Chuva (~2,77 por alvo). Mas esses 2,77 são um acidente de GEOMETRIA, não
+um projeto: ela espalha 18 impactos por 169 células. Usá-la como piso empurraria
+a suprema do Druida para baixo de `poison_spores`, que ele aprende **22 níveis
+antes** — o remédio quebraria a progressão da própria classe. A Nevasca é a menor
+das supremas que ENTREGA o que promete a um alvo parado. **Se o dono quiser a
+leitura literal, é uma linha no teste** — e aí a Chuva e os Esporos entram na
+conversa junto.
+
+⚠️ Esporos Venenosos (5,88) passa a somar mais que a suprema, e está certo: DoT
+de 12 s contra efeito de 8 s. Por INTENSIDADE a ordem se mantém — Esporos 0,49/s,
+Ira 0,59/s, Nevasca 1,27/s.
+
+⚠️ E o teste novo trava as duas coisas: o total **e** a intensidade. A segunda
+existe para o dia em que alguém "consertar" o total encurtando a duração — isso
+resolveria o número e destruiria a magia.
+
+### 🔴 O DIAGNÓSTICO ORIGINAL (11/09), mantido para registro
 
 O documento manda: *"`DD-DRU-021` dano bruto **abaixo** das supremas do
 Sorcerer"*. A Ira da Natureza entrega **652 %** a quem ficar dentro (8 pulsos de
@@ -170,9 +211,9 @@ supremas de área do Feiticeiro, que custam 302 e 386 e conjuram em 3 s.
 **Está acima, mais barata e mais rápida.** Mesmo pela leitura mais generosa (o
 teto de 570 % da Nevasca), continua acima.
 
-⚠️ **NÃO mexi nisso**, e de propósito: a passada pedida era da Chuva, e baixar a
-suprema de outra classe de madrugada, sem o dono pedir, não é conserto — é
-decisão de jogo. Os números estão aqui prontos para a manhã.
+⚠️ Na noite de 11/09 não mexi nisso de propósito — a passada pedida era da Chuva,
+e baixar a suprema de outra classe sem o dono pedir é decisão de jogo, não
+conserto. Ele mandou fazer na manhã de 12/09; o resultado está na seção acima.
 
 ⚠️ E há uma ressalva honesta a favor do Druida: os 652 % exigem o alvo parado no
 campo por 8 s, o que um bicho em movimento não faz. Mas a mesma ressalva vale
@@ -400,8 +441,8 @@ que sustenta as outras.
   RO a borda apanha menos, porque lá as bolas são o dano. Simplificação assumida.
 - ✅ **A passada de equilíbrio da Chuva FOI FEITA** — e desfez o próprio pendente.
   Ver a seção logo abaixo.
-- 🔴 **`DD-DRU-021` ESTÁ VIOLADO**, e foi o que a passada achou de verdade. Ver a
-  seção abaixo: a suprema do Druida bate mais que as três do Feiticeiro.
+- ✅ **`DD-DRU-021` CONSERTADO** em 12/09 — e o teste que devia guardá-lo era o
+  culpado. Ver a seção abaixo.
 - **Clique no chão com a magia em recarga vira MOVIMENTO** do personagem. Visto
   testando; não se sabe se é intencional.
 - **A dissipação da folha da Nevasca (quadros 27–35) não toca**, e o

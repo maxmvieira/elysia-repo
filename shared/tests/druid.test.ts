@@ -25,6 +25,7 @@ import {
   skillModifiers,
   skillConditionChance,
   skillConditionDuration,
+  skillImpactosEsperados,
   skillGroundDuration,
   hotTickMs,
   HOT_PULSES,
@@ -288,18 +289,71 @@ test('Ira da Natureza: persistente de 4 s a 8 s, com 3–5 % de petrificação',
 });
 
 test('DD-DRU-021: a suprema do Druida dá MENOS dano bruto que a do Feiticeiro', () => {
-  // "Dano bruto abaixo das supremas do Sorcerer." A conta é por alvo e no
-  // Lv.10: Ira = pulsos × poder; Chuva = impactos × poder.
+  /*
+   * 🔴 **ESTE TESTE PASSAVA ENQUANTO A REGRA ESTAVA VIOLADA, e a lição vale
+   * mais que o conserto.**
+   *
+   * A versão anterior comparava com `10 * skillPower(chuva, 10)` — a contagem de
+   * meteoros CRAVADA À MÃO. Quando o dono subiu a Chuva para 18 meteoros, o
+   * número aqui não mudou; e, pior, os 10 nunca foram o que um alvo levava. A
+   * Chuva espalha 18 impactos por 169 células e cada alvo leva ~2,7. O teste
+   * media uma fantasia e devolvia verde.
+   *
+   * ✅ Agora a conta sai das FUNÇÕES da ficha (`skillImpactosEsperados`), que é
+   * o que o jogo usa. Cravar número aqui foi o que deixou a regra apodrecer um
+   * mês sem ninguém ver.
+   */
   const ira = SKILLS.nature_wrath;
-  const pulsos = skillGroundDuration(ira, 10) / (ira.ground?.tickMs ?? 1);
-  const totalIra = pulsos * skillPower(ira, 10);
+  const totalIra = (nivel: number): number =>
+    (skillGroundDuration(ira, nivel) / (ira.ground?.tickMs ?? 1)) * skillPower(ira, nivel);
 
-  const chuva = SKILLS.meteor_storm;
-  const totalChuva = 10 * skillPower(chuva, 10);
+  /*
+   * 🔴 **A NEVASCA é a régua, e não a Chuva — a escolha precisa de defesa.**
+   *
+   * O documento diz "abaixo das supremas", no plural, e a leitura literal seria
+   * ficar abaixo da MENOR delas, que é a Chuva (~2,77 por alvo). Mas os 2,77 da
+   * Chuva são um acidente de GEOMETRIA, não uma declaração de projeto: ela
+   * espalha 18 impactos por uma área de 13×13, e quase nenhum cai no mesmo
+   * alvo. Usá-la como piso empurraria a suprema do Druida para baixo de
+   * `poison_spores`, que ele aprende 22 níveis antes — o remédio quebraria a
+   * progressão da própria classe.
+   *
+   * ⚠️ A Nevasca é a menor das supremas que ENTREGA o que promete a um alvo
+   * parado (5,70), e é contra ela que a regra faz sentido. Se um dia o dono
+   * quiser a leitura literal, é mudar esta linha — e aí a Chuva e os Esporos
+   * entram na conversa junto.
+   */
+  const nevasca = SKILLS.blizzard;
+  const totalNevasca = (nivel: number): number =>
+    skillImpactosEsperados(nevasca, nivel) * skillPower(nevasca, nivel);
 
+  /*
+   * ⚠️ **Conferido em TRÊS níveis, e não só no 10.** A Ira ganha dano por
+   * DURAÇÃO (4 s → 8 s dobram os pulsos) e a Nevasca por poder; as duas curvas
+   * têm formatos diferentes, e uma regra que só vale nas pontas não é regra.
+   */
+  for (const nivel of [1, 5, 10]) {
+    assert.ok(
+      totalIra(nivel) < totalNevasca(nivel),
+      `Lv.${nivel}: Ira ${totalIra(nivel).toFixed(2)} tem de ficar abaixo da `
+      + `Nevasca ${totalNevasca(nivel).toFixed(2)} — DD-DRU-021`,
+    );
+  }
+
+  /*
+   * 🔴 **E o que estava demais era o TOTAL, não a INTENSIDADE.** Por segundo de
+   * efeito a Ira sempre foi a mais fraca das supremas — ela só somava mais
+   * porque dura o dobro, que é a identidade que o documento protege. Esta trava
+   * existe para o dia em que alguém "consertar" o total encurtando a duração:
+   * isso resolveria o número e destruiria a magia.
+   */
+  const intensidadeIra = totalIra(10) / (skillGroundDuration(ira, 10) / 1000);
+  const intensidadeNevasca = totalNevasca(10) / (nevasca.durationMs / 1000);
   assert.ok(
-    totalIra < totalChuva,
-    `Ira ${totalIra.toFixed(2)} deveria ficar abaixo da Chuva ${totalChuva.toFixed(2)}`,
+    intensidadeIra < intensidadeNevasca,
+    `a Ira (${intensidadeIra.toFixed(2)}/s) tem de ser menos INTENSA que a `
+    + `Nevasca (${intensidadeNevasca.toFixed(2)}/s) — encurtar a duração dela `
+    + 'para baixar o total seria consertar o número quebrando o desenho',
   );
 });
 

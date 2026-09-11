@@ -1438,8 +1438,30 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     manaCost: 90,
     manaPerLevel: 12,
     cooldownMs: 25000,
-    power: 0.5,
-    powerPerLevel: 0.035,
+    /**
+     * 🔴 **BAIXADO em 12/09 porque o `DD-DRU-021` estava VIOLADO** — e o teste
+     * que devia guardá-lo passava.
+     *
+     * O documento manda *"dano bruto abaixo das supremas do Sorcerer"*. Medido
+     * por alvo no Lv.10, a Ira dava **6,52** contra **5,70** da Nevasca: 14 % a
+     * mais, por menos mana (198 contra 386) e metade da conjuração.
+     *
+     * ⚠️ **O que estava demais era o TOTAL, não a intensidade.** Por segundo de
+     * efeito a Ira sempre foi a mais fraca das quatro supremas (0,82/s contra
+     * 1,27 da Nevasca, 1,38 da Chuva e 8,56 da Ira de Thor). O total subia
+     * porque ela dura o dobro — que é exatamente a identidade que o documento
+     * protege (*"persistente… enquanto o Druid continua curando"*).
+     *
+     * ✅ Por isso o corte é **só no poder por pulso**: a duração, a área e a
+     * petrificação ficam intactas. 8 pulsos × 0,594 = **4,75**, ou 83 % da
+     * Nevasca, e a ordem por intensidade continua a mesma.
+     *
+     * ⚠️ **Esporos Venenosos (5,88) passa a somar mais que a suprema**, e está
+     * certo: é um DoT de 12 s contra um efeito de 8 s. Por intensidade a ordem
+     * se mantém (0,49/s contra 0,59/s), que é como DoT e rajada se comparam.
+     */
+    power: 0.27,
+    powerPerLevel: 0.036,
     shape: 'ground',
     range: 3,
     rangeEvery: 5,
