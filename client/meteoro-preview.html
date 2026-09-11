@@ -104,7 +104,65 @@
     g.globalCompositeOperation = 'source-over';
   }
 
-  if (location.hash === '#tiras') {
+  if (location.hash === '#oito') {
+    /*
+     * 🌠 **AS OITO DIREÇÕES lado a lado**, cada quadro mostrando três instantes
+     * do mesmo mergulho — longe, no meio e quase no alvo.
+     *
+     * É a resposta visual ao pedido de *"suporte a 8 direções de entrada"*: não
+     * há oito folhas nem oito casos no código. Há UMA folha girada pelo rumo
+     * real, e ela cobre as oito direções e todos os ângulos entre elas.
+     */
+    const D = [['N', 0, -1], ['NE', 1, -1], ['E', 1, 0], ['SE', 1, 1],
+      ['S', 0, 1], ['SW', -1, 1], ['W', -1, 0], ['NW', -1, -1]];
+    const CEL = 300, COL = 4;
+    const alvo = document.createElement('canvas');
+    alvo.width = CEL * COL;
+    alvo.height = CEL * 2;
+    const ag = alvo.getContext('2d');
+    ag.fillStyle = '#3f5a34';
+    ag.fillRect(0, 0, alvo.width, alvo.height);
+    D.forEach(([nome, vx, vy], i) => {
+      const ox = (i % COL) * CEL;
+      const oy = Math.floor(i / COL) * CEL;
+      const cx = ox + CEL / 2;
+      const cy = oy + CEL / 2 + 40;
+      const comp = Math.hypot(vx, vy) || 1;
+      const dX = (-vx / comp) * DIST;
+      const dY = (vy / comp) * DIST + SUBIDA;
+      ag.save();
+      ag.beginPath();
+      ag.rect(ox + 2, oy + 2, CEL - 4, CEL - 4);
+      ag.clip();
+      // A área de dano, e o conjurador na direção de onde ele mirou.
+      ag.strokeStyle = '#ffffff30';
+      ag.lineWidth = 2;
+      ag.strokeRect(cx - 3.5 * TS, cy - 1.9 * TS, 7 * TS, 3.8 * TS);
+      ag.fillStyle = '#00000066';
+      ag.fillRect(cx - (vx / comp) * 95 - 10, cy - (vy / comp) * 95 - 34, 20, 34);
+      ag.globalCompositeOperation = 'lighter';
+      for (const frac of [0.25, 0.6, 0.95]) {
+        const pr = frac ** 1.6;
+        const k = Math.min(VOO - 1, Math.floor(frac * VOO));
+        const sc = CRESCE[0] + (CRESCE[1] - CRESCE[0]) * pr;
+        const w = LW * sc;
+        const h = LH * sc;
+        ag.save();
+        ag.translate(cx + dX * (1 - pr), cy - dY * (1 - pr));
+        ag.rotate(Math.atan2(dY, -dX) - Math.PI * 0.75);
+        ag.globalAlpha = 0.4 + frac * 0.6;
+        ag.drawImage(img, k * LW, 0, LW, LH, -w / 2, -h / 2, w, h);
+        ag.restore();
+      }
+      ag.globalCompositeOperation = 'source-over';
+      ag.globalAlpha = 1;
+      ag.fillStyle = '#dff';
+      ag.font = 'bold 15px system-ui';
+      ag.fillText(`alvo ao ${nome}`, ox + 10, oy + 22);
+      ag.restore();
+    });
+    c.replaceWith(alvo);
+  } else if (location.hash === '#tiras') {
     const COL = 6, CEL = 150, N2 = 12;
     const alvo = document.createElement('canvas');
     alvo.width = CEL * COL; alvo.height = 150 * Math.ceil(N2 / COL);
