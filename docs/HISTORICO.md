@@ -122,10 +122,17 @@ magia voltou a ser UM número.
 onze quadros (medido, de 0,44 a 0,69 da célula); somados os 2,4× que o `cresce` pedia,
 davam 3,7×. Com 0,78 → 0,86 o total fica em 1,4×, e a pedra entra em cena já grande.
 
-⚠️ **O tamanho fechou em `ESCALA_IMPACTO: 2.8` — 252 px, que é EXATAMENTE o que o meteoro
-tinha antes da folha nova.** Subi para 3,4 na rodada do "faça ele ser maior" e o dono
-cortou duas vezes em tela. Voltar a um valor que ele já tinha aprovado e vivido com ele é
-mais barato que procurar um novo: são 7,9 tiles contra os 7 do quadrado de dano.
+⚠️ **O tamanho fechou em `ESCALA_IMPACTO: 2.45` — 221 px, o tamanho do QUADRADO DE DANO.**
+O caminho foram três cortes seguidos do dono em tela: 3,4 na rodada do *"faça ele ser
+maior"*, 2,8 quando ficou grande demais, 2,45 no *"um pouco menor"* seguinte. Parar em cima
+do quadrado de dano é o ponto defensável — a arte cobre exatamente o que o golpe pega. As
+outras quedas seguem estourando um pouco maiores que a área delas; aqui a escolha foi do
+dono.
+
+⚡ **E a queda passou de 1100 ms para 850** (*"cair mais rápido um pouco também"*). Os treze
+tiles saíam a 12,2 tiles/s e passaram a 15,8 — pedra despencando, não folha planando.
+`quedaMs` é o mesmo número nos dois lados, então a pedra e o dano andaram juntos e não há
+segunda cópia para desencontrar.
 
 ---
 

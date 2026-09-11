@@ -3254,16 +3254,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * número mora aqui e não na folha: ele é uma razão entre a arte e o TILE, e
      * toda folha nova o desatualiza em silêncio.
      *
-     * ⚠️ **2,8 dá 252 px, que é EXATAMENTE o tamanho que o meteoro tinha antes da
-     * folha nova.** Fui a 3,4 (306 px) e o dono cortou em tela duas vezes —
-     * *"está muito grande"*. 252 é o número que ele já tinha aprovado e viveu com
-     * ele; voltar a um valor aprovado é melhor que procurar um novo.
+     * ⚠️ **2,45 dá 220 px, e o estouro passa a ter o tamanho do QUADRADO DE
+     * DANO** (7×7 tiles, 224 px). O caminho até aqui: 3,4 na rodada do *"faça ele
+     * ser maior"*, 2,8 quando o dono achou grande demais, 2,45 quando ele pediu
+     * *"um pouco menor"* de novo. Parar em cima do quadrado de dano é o ponto que
+     * dá para defender: a arte cobre exatamente o que o golpe pega.
+     *
+     * ⚠️ As outras quedas ainda estouram um pouco MAIORES que a área delas — é a
+     * margem de drama da Chuva. Aqui o dono escolheu o contrário, e a escolha é
+     * dele: a diferença entre 220 e 252 px são quatro pixels de cada lado.
      *
      * 🔴 **E este número agora governa os DOIS sprites**, o do mergulho e o do
      * estouro — antes de 13/09 o do voo tinha régua própria, e era isso que fazia
      * a pedra dobrar de tamanho no instante do impacto. Ver `trajetoria`.
      */
-    meteor_solo: 2.8,
+    meteor_solo: 2.45,
     /*
      * ❄️ A célula da folha da Nevasca tem 160 px de largura para 3 tiles (96 px)
      * de área de dano. 0,62 põe a coluna de gelo no tamanho da cratera dela.

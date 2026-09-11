@@ -1816,11 +1816,17 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     queda: true,
     quedaFx: 'meteor_solo',
     /**
-     * ⚠️ **1100 ms até o dano, e é o tempo do MERGULHO.** O meteoro entra em
-     * cena longe e cruza a tela; o estrago sai no quadro em que ele toca o chão.
-     * O cliente usa o mesmo número para a viagem — ver `trajetoria` na folha.
+     * ⚠️ **850 ms até o dano, e é o tempo do MERGULHO.** O meteoro nasce treze
+     * tiles acima do alvo e desce até ele; o estrago sai no quadro em que toca o
+     * chão. O cliente usa o mesmo número para a viagem — ver `trajetoria` na
+     * folha —, então mexer aqui move a pedra e o dano juntos, e não há segunda
+     * cópia para desencontrar.
+     *
+     * ⚠️ **Eram 1100, e o dono pediu mais rápido depois de ver em tela** (13/09).
+     * A 1100 os treze tiles saíam a 12 tiles/s; a 850, a 15 — mais perto de uma
+     * pedra despencando e menos de uma folha planando.
      */
-    quedaMs: 1100,
+    quedaMs: 850,
     quedaUnica: true,
     /**
      * 💥 **3 células de empurrão, para LONGE do conjurador** — a ficha do dono.
