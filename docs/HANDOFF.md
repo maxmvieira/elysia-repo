@@ -3,10 +3,45 @@
 > Typecheck limpo nos 3 pacotes, **651 testes** (623 shared + 28 server).
 > `npm run dev:test` → `localhost:5173`. **Duas frentes em paralelo neste dia** —
 > o herói/interface (abaixo) e a Nevasca (logo a seguir). O histórico ficou em
-> linha reta: os commits de Nevasca, depois os três do herói, depois os dois
-> últimos de Nevasca, rebasados por cima. Sem commit de merge, sem conflito.
+> LINHA RETA: três commits de Nevasca, os QUATRO do Max (herói, combate,
+> interface, handoff), e mais quatro de Nevasca rebasados por cima.
+>
+> ⚠️ **Não há commit de merge, e não é descuido.** O push foi recusado no meio da
+> sessão, e o `git pull --rebase` replantou o commit pendente em vez de cruzar as
+> duas histórias. Sem conflito: o Max mexeu em `client/index.html` e na interface
+> do `client/src/main.ts`, a Nevasca mexeu nas magias e nos efeitos — o único
+> arquivo em comum, em trechos distintos. Conferido depois do rebase com
+> typecheck, com a suíte E jogando: a Nevasca foi conjurada dentro da tela de
+> seleção e do HUD novos dele.
 
-## ❄️ A NEVASCA, EM SEIS VOLTAS
+## ⏸️ O QUE ENTROU NESTE DIA
+
+| | |
+|---|---|
+| 🗡️ **Herói novo** | espadachim, um por classe; **bandidos saíram do jogo** |
+| ⚔️ **Combate** | monstro alvejado de longe reage; área de chão deixa de ser golpe |
+| 🖼️ **Interface** | telas de fora refeitas, painéis redimensionáveis, flecha na aljava |
+| ❄️ **Nevasca** | refeita **oito vezes**: de área de chão a bombardeio, dano da área, RO no congelamento e no empurrão, partículas, e o corte das camadas |
+| 🏹 **Munição/aljava** | flecha vira item, aljava vira slot, dez munições elementais |
+| 🌠 **Chuva de Meteoros** | sete rodadas de teste em tela; 18 meteoros em 5,2 s |
+
+🔴 **Três achados que valem mais que as features**, todos do mesmo tipo — código
+que compila, roda e não faz nada:
+
+1. **`empurraPorPulso` e `congelaEmAcertos` ficaram mudos por um dia.** Eram
+   lidos num lugar só; a magia mudou de modo e os campos continuaram na ficha,
+   bonitos e sem efeito. Sem erro, sem teste vermelho, sem nada em tela.
+2. **A Nevasca entregava 63 % do dano da própria ficha**, e só a simulação
+   contou — 200 mil tempestades para descobrir que 10 bolas cobrindo 9 células
+   cada dão 1,11 acerto por alvo num 9×9 de 81.
+3. **A dica de conjuração mentia**, lendo o valor do Lv.1 numa magia cujo cast
+   cresce com o nível. Anunciava 2,5 s; o jogador esperava mais de cinco.
+
+⚠️ **Os três só apareceram quando alguém olhou a coisa funcionando** — dois
+jogando, um medindo. Nenhum teste do repositório os pegaria, porque todos
+passavam.
+
+## ❄️ A NEVASCA, EM OITO VOLTAS
 
 A magia foi refeita do zero neste dia, e cada volta desfez parte da anterior.
 O caminho importa porque três das viradas foram **erro meu corrigido em tela**,
