@@ -128,6 +128,36 @@ tile empatam na conta de tiles, e sem isso o escolhido seria o primeiro do mapa.
 sozinho sem dizer por quê lê como bug — e é esse anel que dá a chance de
 perceber que travou no monstro ERRADO antes de gastar a magia.
 
+### 📐 Medir o anel: três métodos, e por que os dois primeiros erraram
+
+Fazer o anel do chão ficar redondo tomou três tentativas, e cada método errou por
+um motivo diferente. Fica registrado porque o próximo que trocar a folha vai
+passar pelo mesmo.
+
+| método | deu | por que erra |
+|---|---|---|
+| caixa do recorte | 1,251 | inclui os losangos das pontas, que não são simétricos |
+| desvio-padrão do brilho | 1,365 | o halo e o brilho varrendo puxam a massa |
+| elipse ajustada aos raios | 1,395 | pega as **folhagens** das diagonais, que avançam mais que o anel |
+| **medir a SAÍDA e corrigir** | **1,28** | — |
+
+🔴 **O que fechou foi medir do outro lado do conversor.** Gerar com o número
+medido, abrir a saída com um círculo de verdade sobreposto, e corrigir:
+`1,395 × 0,918 ≈ 1,28`. Não é chute — é a mesma conta feita uma vez a mais.
+
+⚠️ **E o desenho não tem um aspecto só**: o anel pontilhado externo e o círculo
+interno discordam em ~6 % na própria arte. O número escolhido favorece o
+pontilhado, que é a silhueta e é o que o olho julga.
+
+⚠️ `tools/anel2fx.mjs` aceita o achatamento por argumento e guarda o medido numa
+tabela por folha. Trocou a arte, refaz a volta.
+
+### 🦶 E a linha dos pés não é `baseY`
+
+O anel do conjurador ficou flutuando um palmo acima do chão porque o corpo tem
+âncora **0,92** em y — 8 % dele fica ABAIXO de `baseY`, e é ali que os pés
+pisam. Agora é `baseY + altura × 0,06`.
+
 ### Três correções, todas vindas da tela
 
 🔴 **Estava TORTO e não parecia no chão.** A arte chegou em perspectiva (uma

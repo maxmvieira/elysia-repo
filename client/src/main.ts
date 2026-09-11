@@ -10500,7 +10500,13 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
      * cima do conjurador — e um anel flutuando no meio do corpo lê como
      * argola presa no personagem, não como círculo mágico.
      */
-    anelCaster.y = baseY - 2;
+    /*
+     * ⚠️ **A LINHA DOS PÉS não é `baseY`.** O corpo tem âncora 0,92 em y, ou
+     * seja 8 % dele fica ABAIXO de `baseY` — é onde os pés realmente pisam.
+     * `baseY` sozinho deixava o anel flutuando um palmo acima do chão, que foi
+     * o *"ainda não está totalmente no chão"* de 11/09.
+     */
+    anelCaster.y = baseY + sprite.height * 0.06;
     anelPronto = true;
     return true;
   }

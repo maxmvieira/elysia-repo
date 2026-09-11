@@ -114,19 +114,81 @@ for (const [cy0, cy1] of FILEIRAS) {
   for (const [cx0, cx1] of COLUNAS) celulas.push({ cx0, cx1, cy0, cy1 });
 }
 
-/* O achatamento do ANEL, medido na folha inteira. Ver o cabeçalho. */
-let vx = 0, vy = 0, vw = 0;
-for (const c of celulas) {
-  const mx = (c.cx0 + c.cx1) / 2, my = (c.cy0 + c.cy1) / 2;
-  for (let y = c.cy0; y <= c.cy1; y++) {
-    for (let x = c.cx0; x <= c.cx1; x++) {
-      const b = brilho(x, y);
-      if (!b) continue;
-      vx += b * (x - mx) ** 2; vy += b * (y - my) ** 2; vw += b;
-    }
-  }
+/**
+ * 🔴 **O ACHATAMENTO SAI DE UMA ELIPSE AJUSTADA AO ANEL, e é a TERCEIRA
+ * tentativa de medi-lo.** O caminho vale registrar porque cada método errou por
+ * um motivo diferente:
+ *
+ * | método | deu | por que erra |
+ * |---|---|---|
+ * | caixa do recorte | 1,251 | inclui os losangos, que não são simétricos |
+ * | desvio-padrão do brilho | 1,365 | o halo e o brilho varrendo puxam a massa |
+ * | **elipse ajustada** | **1,404** | — |
+ *
+ * Os 3 % entre a massa e a verdade foram o *"não está 100 % redondo"* de 11/09.
+ *
+ * ✅ O ajuste mede o ANEL e mais nada: dispara raios do centro e anota onde cada
+ * um cruza o traço. Para uma elipse vale `1/r² = u·cos²θ + v·sin²θ`, que é
+ * LINEAR em `u` e `v` — dois somatórios resolvem, sem iteração.
+ *
+ * ⚠️ **Os raios EVITAM 0°, 90°, 180° e 270°**, que é onde moram os losangos das
+ * pontas. Incluí-los mediria a ponta e não o anel, que é exatamente o erro do
+ * método da caixa com outra roupa.
+ *
+ * ⚠️ E o resultado é a MEDIANA dos trinta quadros, não a média: em alguns o
+ * brilho forte fora do traço puxa o ajuste daquele quadro (a amostra vai de
+ * 1,25 a 1,60), e a mediana ignora esses sem precisar escolher quais.
+ */
+const ANGULOS = [];
+for (let g = 20; g < 360; g += 10) {
+  const m = g % 90;
+  if (m >= 18 && m <= 72) ANGULOS.push((g * Math.PI) / 180);
 }
-const achatamento = Math.sqrt(vx / vw) / Math.sqrt(vy / vw);
+
+function ajustaElipse(c) {
+  const cx = (c.cx0 + c.cx1) / 2, cy = (c.cy0 + c.cy1) / 2;
+  const limite = (Math.min(c.cx1 - c.cx0, c.cy1 - c.cy0) / 2) * 1.3;
+  let A = 0, B = 0, C = 0, D = 0, E = 0;
+  for (const th of ANGULOS) {
+    const dx = Math.cos(th), dy = Math.sin(th);
+    let r = 0;
+    for (let t = limite; t > 4; t -= 0.5) {
+      if (brilho(Math.round(cx + dx * t), Math.round(cy + dy * t)) > PISO_CAIXA) { r = t; break; }
+    }
+    if (!r) continue;
+    const c2 = dx * dx, s2 = dy * dy, w = 1 / (r * r);
+    A += c2 * c2; B += c2 * s2; C += s2 * s2; D += c2 * w; E += s2 * w;
+  }
+  const det = A * C - B * B;
+  if (!det) return null;
+  const u = (D * C - E * B) / det, v = (A * E - B * D) / det;
+  if (u <= 0 || v <= 0) return null;
+  // a/b = sqrt(v/u), porque a = 1/sqrt(u) e b = 1/sqrt(v).
+  return Math.sqrt(v / u);
+}
+
+const razoes = celulas.map(ajustaElipse).filter((r) => r !== null).sort((p, q) => p - q);
+if (razoes.length === 0) { console.error('[anel] não consegui medir o anel'); process.exit(1); }
+let achatamento = razoes[razoes.length >> 1];
+
+/**
+ * 🔴 **E o número medido pode ser SOBRESCRITO, porque medir não bastou.**
+ *
+ * O ajuste acima mede o traço mais externo que encontra. Nesta arte isso inclui
+ * as FOLHAGENS das diagonais, que avançam mais que o anel pontilhado — e o olho
+ * julga o pontilhado, que é a silhueta. Com o número cru (1,395) o anel saía 8 %
+ * mais alto que largo, e foi o *"não está 100 % redondo"* de 11/09.
+ *
+ * ✅ O valor usado hoje saiu de MEDIR A SAÍDA contra um círculo de verdade e
+ * corrigir: `1,395 × 0,918 ≈ 1,28`. Não é chute — é a mesma conta feita uma vez
+ * a mais, do outro lado do conversor.
+ *
+ * ⚠️ Quem trocar a folha tem de refazer essa volta: gerar com o medido, abrir a
+ * saída com um círculo sobreposto e ajustar. O argumento existe para isso.
+ */
+const ACHATAMENTO_FORCADO = { anel_conjuracao: 1.28 };
+const forcado = Number(process.argv[5] ?? ACHATAMENTO_FORCADO[nome] ?? 0);
+if (forcado > 0) achatamento = forcado;
 
 /* A caixa de CADA quadro: centro estável e altura comum. */
 const caixas = celulas.map((c) => {
