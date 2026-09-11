@@ -2435,22 +2435,23 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     manaPerLevel: 5,
     cooldownMs: 5000,
     /**
-     * 🔴 **O TOTAL POR ALVO É O MESMO DE SEMPRE, repartido entre as descargas.**
+     * 🔴 **+33 % de dano, pedido do dono em 12/09** jogando: *"mais dano"*.
      *
-     * Era `1,05 + 0,13/nível` num golpe só: 1,05 no Lv.1 e 2,22 no Lv.10. Com
-     * 2 → 4 descargas e `danoDaArea` (cada uma castiga TODA a área), cada uma
-     * vale `total / descargas` — 0,525 no Lv.1 e 0,555 no Lv.10.
+     * O total por alvo era o histórico de quando ela era um golpe só — 1,05 no
+     * Lv.1 e 2,22 no Lv.10. Passou a **1,40 e 2,90**, repartido entre 2 → 4
+     * descargas: 0,70 cada no Lv.1 e 0,725 no Lv.10.
+     *
+     * ⚠️ **Onde isso a coloca no Lv.10**, com o `IMPULSO_MAGICO` aplicado: 3,48×
+     * ATQM por alvo contra os 4,54 do Meteoro — e ela bate num bloco 7×7, com
+     * metade da recarga (5 s contra 9) e 25 de mana a menos. Ela passou a ser a
+     * melhor do Feiticeiro por segundo, e isso é decisão do dono, não descuido.
      *
      * ⚠️ **Os `hits` aqui NÃO são raios, e sim descargas do MESMO raio.** Ver
      * `quedaUnica`: o relâmpago é um só, e o que se repete é o estrago enquanto
-     * ele desce — *"os danos vão aparecendo enquanto ele cai"*.
-     *
-     * ⚠️ Os decimais são feios porque saíram de uma DIVISÃO, e ficam assim de
-     * propósito: arredondar teria mexido no equilíbrio por descuido, num commit
-     * que era de arte.
+     * ele bate — *"os danos vão aparecendo enquanto ele cai"*.
      */
-    power: 0.525,
-    powerPerLevel: 0.00333,
+    power: 0.70,
+    powerPerLevel: 0.00278,
     hits: 2,
     hitsAtLv10: 4,
     /**

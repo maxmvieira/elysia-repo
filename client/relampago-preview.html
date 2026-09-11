@@ -21,7 +21,7 @@
   const g = c.getContext('2d');
   const img = await new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.src = '/assets/fx/relampago24.png'; });
   const N = 24, LW = img.width / N, LH = img.height;
-  const DUR = 1200, ESCALA = 0.625 * 1.80, TS = 32;
+  const DUR = 1200, ESCALA = 0.625 * 2.40, TS = 32;
   /*
    * Lv.10 da ficha: UM relâmpago, 4 descargas numa janela de 460 ms, a primeira
    * aos 400 ms (é quando o raio toca o chão). Ver `quedaUnica`.
@@ -29,25 +29,40 @@
   const DESCARGAS = 4, JANELA = 460, PASSO = JANELA / DESCARGAS, QUEDA = 400;
   const CICLO = DUR + 700;
   const CX = 460, CHAO = 580;
+  const DOIS = location.hash === '#dois';
 
   function quadro(t) {
     g.fillStyle = '#3f5a34'; g.fillRect(0, 0, c.width, c.height);
     const ciclo = t % CICLO;
     // A ÁREA de dano (7×7 tiles no Lv.10) e dois "monstros" dentro dela.
-    const T = TS * 2;                       // ×2: bancada 1:1, o jogo tem zoom
+    const T = TS;   // a bancada desenha em pixels DO JOGO: um tile aqui e lá são 32 px
     g.strokeStyle = '#ffffff28'; g.lineWidth = 2;
     g.strokeRect(CX - 3.5 * T, CHAO - 1.6 * T, 7 * T, 3.2 * T);
     g.fillStyle = '#00000040';
     g.fillRect(CX - 16, CHAO - 40, 32, 40);
     g.fillRect(CX - 2 * T - 16, CHAO - 40, 32, 40);
 
-    // UM relâmpago só, no centro da área. Ver `quedaUnica` na ficha.
-    const w = LW * ESCALA * 2, h = LH * ESCALA * 2;
+    /*
+     * UM relâmpago só, no centro da área. Ver `quedaUnica` na ficha.
+     *
+     * ⚠️ Em MISTURA NORMAL desde 12/09 — a aditiva transformava a nuvem escura
+     * num borrão cinza-claro. Com `#dois` no fim do endereço a bancada desenha
+     * os dois modos lado a lado, que foi como a decisão foi tomada.
+     */
+    const w = LW * ESCALA, h = LH * ESCALA;
     if (ciclo < DUR) {
-      g.globalCompositeOperation = 'lighter';
       const k = Math.min(N - 1, Math.floor((ciclo / DUR) * N));
-      g.drawImage(img, k * LW, 0, LW, LH, CX - w / 2, CHAO - h, w, h);
-      g.globalCompositeOperation = 'source-over';
+      if (DOIS) {
+        g.globalCompositeOperation = 'lighter';
+        g.drawImage(img, k * LW, 0, LW, LH, CX - 250 - w / 2, CHAO - h, w, h);
+        g.globalCompositeOperation = 'source-over';
+        g.drawImage(img, k * LW, 0, LW, LH, CX + 250 - w / 2, CHAO - h, w, h);
+        g.fillStyle = '#dff'; g.font = 'bold 16px system-ui';
+        g.fillText('aditiva (era)', CX - 320, 22);
+        g.fillText('normal (agora)', CX + 185, 22);
+      } else {
+        g.drawImage(img, k * LW, 0, LW, LH, CX - w / 2, CHAO - h, w, h);
+      }
     }
 
     // Os números: cada descarga castiga TODA a área.
@@ -64,8 +79,8 @@
     document.getElementById('leg').textContent =
       `${Math.round(ciclo)} ms · quadro ${quadroAtual} de ${N} · folha ${DUR} ms`
       + ` · ${DESCARGAS} descargas a partir de ${QUEDA} ms, ${Math.round(PASSO)} ms entre elas`
-      + ` · raio ${Math.round(w / 2)}×${Math.round(h / 2)} px no jogo`
-      + ` (${(w / 2 / TS).toFixed(1)}×${(h / 2 / TS).toFixed(1)} tiles) · tile = ${T} px aqui`;
+      + ` · raio ${Math.round(w)}×${Math.round(h)} px no jogo`
+      + ` (${(w / TS).toFixed(1)}×${(h / TS).toFixed(1)} tiles) · tile = ${T} px`;
   }
 
   if (location.hash === '#tiras') {

@@ -2502,6 +2502,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     /** A criatura que esta bola persegue, quando o servidor disse qual é. */
     alvo?: string;
     /**
+     * 💥 Quando a arte encosta no chão, para quem NÃO tem risco desenhado por
+     * código. É o gatilho do tremor, dos estilhaços e do clarão. Ver `spawnQueda`.
+     */
+    batida?: { em: number; t: number; feita: boolean };
+    /**
      * 🧪 **MODO RISCO** (ver `QUEDA_RISCO`): o traço desenhado por código que
      * cai antes do estouro. Ausente no modo folha, em que a própria animação já
      * contém a descida — e **apagado no impacto**, para não sobreviver a ele.
@@ -2542,6 +2547,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * quatro segundos e meio.
      */
     snowball: { px: 2, ms: 70 },
+    /*
+     * ⛈️ **O relâmpago sacode MAIS que o meteoro, e é o único caso em que isso
+     * se justifica.** Pedido do dono em 12/09: *"quero um impacto mais forte no
+     * chão"*. A rocha da Chuva cai dezoito vezes por conjuração e um tremor
+     * grande ali vira convulsão; o raio cai UMA vez, e a tela pode levar o
+     * baque inteiro.
+     */
+    lightning_fall: { px: 11, ms: 240 },
   };
   const TREMOR_PADRAO = { px: 3, ms: 90 };
 
@@ -2560,6 +2573,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     fracaoQueda: number;
     /** Quanto o ESTOURO dura, em ms. `0` = o que sobrar de `DUR_QUEDA`. */
     duracaoEstouro: number;
+    /** Como a folha se mistura ao mundo. Ver `mistura` em `FOLHAS_QUEDA`. */
+    mistura: 'add' | 'normal';
   }>>();
 
   /**
@@ -2708,9 +2723,27 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * que sai o `quedaMs: 400` da ficha — o dano sai quando ele encosta, e nem
      * um instante antes.
      */
+    /*
+     * 🔴 **`mistura: 'normal'`, e é a única folha do jogo assim.**
+     *
+     * Defeito relatado pelo dono em 12/09: *"está ruim as nuvens"*. A causa foi
+     * medida, e é a mistura ADITIVA: a nuvem desta arte tem cor média
+     * `rgb(52,75,122)` — azul-escuro —, e somar isso ao gramado `rgb(63,90,52)`
+     * dá `rgb(115,165,174)`. Uma nuvem de tempestade escura vira um **borrão
+     * cinza-claro**, e não há como ser diferente: soma só clareia.
+     *
+     * ✅ Em mistura normal ela fica `rgb(53,77,113)` — escura, como foi
+     * desenhada. E o raio não perde nada: o núcleo branco continua branco, e o
+     * brilho azul já vem pintado na folha.
+     *
+     * ⚠️ **As outras folhas continuam aditivas de propósito**, e a nota de 09/09
+     * explica por quê: elas foram recortadas com alfa CHEIO (`contato2fx`), e
+     * desenhá-las por cima traria o próprio preto junto. Esta chegou com alfa de
+     * verdade — é o que permite a exceção.
+     */
     {
       magia: 'lightning_fall', arquivo: 'relampago24', bolts: 1, quadros: 24,
-      fracaoQueda: 0, duracaoEstouro: 1200,
+      fracaoQueda: 0, duracaoEstouro: 1200, mistura: 'normal',
     },
   ] as const;
 
@@ -2753,6 +2786,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           bolts: folha.bolts,
           fracaoQueda: folha.fracaoQueda,
           duracaoEstouro: folha.duracaoEstouro,
+          mistura: 'mistura' in folha ? folha.mistura : 'add',
           frames: Array.from({ length: folha.quadros }, (_, i) => new Texture({
             source: tex.source,
             frame: new Rectangle(i * cw, 0, cw, ch),
@@ -2826,7 +2860,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   /** A folha desta magia que melhor representa `n` bolts, ou a menor que há. */
   function folhaPara(
     magia: string, n: number,
-  ): { bolts: number; frames: Texture[]; fracaoQueda: number; duracaoEstouro: number } | null {
+  ): {
+    bolts: number; frames: Texture[]; fracaoQueda: number;
+    duracaoEstouro: number; mistura: 'add' | 'normal';
+  } | null {
     const lista = folhasQueda.get(magia);
     if (!lista || lista.length === 0) return null;
     return lista.find((f) => f.bolts <= n) ?? lista[lista.length - 1]!;
@@ -2976,22 +3013,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ✅ Com a área, a conta inverte de vez: quem manda no tamanho é o BLOCO DE
      * DANO, não a célula.
      *
-     * ⚠️ **1,80 sobre a folha NOVA dá quase o mesmo que 2,20 dava na antiga.** A
-     * folha de 12/09 tem quadro de 160 × 288 contra os 128 × 282 da anterior, e
-     * a escala é sobre o quadro. Em pixels de tela: 180 × 324, ou 5,6 × 10,1
-     * tiles, com o clarão do chão em ~115 px (3,6 tiles).
+     * ⚠️ **2,40, e era 1,80** — *"um raio maior e robusto"* (dono, 12/09). Dá
+     * 240 × 432 px em tela, ou **7,5 × 13,5 tiles**, com o estouro do chão em
+     * ~150 px (4,7 tiles). A largura passou a cobrir o bloco de dano 7×7 do
+     * Lv.10 quase inteiro, que é o máximo que ela pode prometer sem mentir.
      *
-     * ⚠️ **Dez tiles de altura tem consequência em tela.** A janela do jogo tem
+     * ⚠️ **Treze tiles de altura tem consequência em tela.** A janela do jogo tem
      * ~18 tiles e o herói fica no meio dela; com o alvo na metade de cima, a
-     * NUVEM encosta no topo. É o preço da proporção da arte — ela é 1 para 1,8,
-     * e a maior parte da altura é o vão entre a nuvem e o chão, então não dá
-     * para alargar o clarão sem esticar o raio junto.
+     * NUVEM sai pelo topo. É o preço da proporção da arte — ela é 1 para 1,8, e
+     * a maior parte da altura é o vão entre a nuvem e o chão, então não dá para
+     * engrossar o raio sem esticá-lo junto.
      *
      * ⚠️ **Isotrópica, e a arte não permite outra coisa.** A coluna ficaria mais
-     * fiel estreita e alta, mas esticar só um eixo deixa o clarão do chão OVAL —
-     * a regra que já vale para o meteoro e para a Nevasca.
+     * fiel estreita e alta, mas esticar só um eixo deixa o estouro do chão OVAL
+     * — a regra que já vale para o meteoro e para a Nevasca.
      */
-    lightning_fall: 1.80,
+    lightning_fall: 2.40,
   };
 
   /**
@@ -3304,6 +3341,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   function spawnQueda(
     magia: string, wx: number, wy: number, frames: Texture[], atraso: number,
     fracaoQueda: number, alvo?: string, quedaMs?: number, duracaoEstouro = 0,
+    mistura: 'add' | 'normal' = 'add',
   ): void {
     const node = new AnimatedSprite(frames);
     node.loop = false;
@@ -3315,8 +3353,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      *
      * ⚠️ É por causa disto que o recorte sai com alfa CHEIO (ver
      * `tools/contato2fx.mjs`). Na soma, o preto já não acrescenta nada.
+     *
+     * ⚠️ **Menos numa folha: a do relâmpago.** Ela é a única que chegou com alfa
+     * de verdade e com desenho ESCURO (a nuvem), e soma não sabe escurecer. Ver
+     * `mistura` em `FOLHAS_QUEDA`.
      */
-    node.blendMode = 'add';
+    node.blendMode = mistura;
     // ⚠️ `set(v)` com UM argumento escala os dois eixos igualmente. Passar dois
     // valores diferentes aqui é o que deixaria o estouro oval.
     node.scale.set(ESCALA_QUEDA * (ESCALA_IMPACTO[magia] ?? 1));
@@ -3432,9 +3474,60 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       risco = { node: g, t: 0, dur: tempoQueda, deY };
     }
 
-    const q = { node, atraso, morto: false, magia, alvo, risco };
+    /*
+     * 💥 **A BATIDA DE QUEM NÃO TEM RISCO.**
+     *
+     * 🔴 Defeito achado lendo o código, e é o que o dono sentiu como *"quero um
+     * impacto mais forte no chão"*: o tremor de tela e os estilhaços eram
+     * disparados DENTRO do bloco do risco, no instante em que o traço desenhado
+     * por código tocava o solo. O relâmpago não tem risco (a descida está na
+     * folha), então ele **nunca sacudia a tela e nunca cuspia estilhaço** — ele
+     * era a única magia que caía em silêncio.
+     *
+     * ✅ Aqui a batida passa a ser agendada por TEMPO, e não pelo fim do traço:
+     * `quedaMs` já é o instante em que a arte encosta no chão, e é o mesmo
+     * número que o servidor usa para soltar o dano.
+     */
+    const q = {
+      node, atraso, morto: false, magia, alvo, risco,
+      ...(risco ? {} : { batida: { em: tempoQueda, t: 0, feita: false } }),
+    };
     node.onComplete = () => { q.morto = true; };
     quedas.push(q);
+  }
+
+  /**
+   * 💥 **O CLARÃO DO IMPACTO: um anel branco que abre e apaga no chão.**
+   *
+   * Pedido do dono em 12/09, na Descarga Elétrica: *"quero um impacto mais forte
+   * no chão"*. Ele soma ao tremor — o tremor diz que bateu, o clarão diz ONDE.
+   *
+   * ⚠️ Desenhado por código e não com arte nova: é um anel de 200 ms que aparece
+   * uma vez por conjuração, e uma folha para isso seria arte para dois piscares.
+   *
+   * ⚠️ Vai na camada do CHÃO (`objects`, zIndex negativo) junto com o estouro,
+   * pelo mesmo motivo dele: com o monstro por baixo, o jogador perde de vista o
+   * que está acertando.
+   */
+  function clarãoDeImpacto(wx: number, wy: number, raioPx: number): void {
+    const g = new Graphics();
+    g.blendMode = 'add';
+    g.x = wx;
+    g.y = wy;
+    g.zIndex = -0.58;
+    objects.addChild(g);
+    const nasceu = performance.now();
+    const DUR = 220;
+    const passo = (): void => {
+      const r = (performance.now() - nasceu) / DUR;
+      if (r >= 1) { g.destroy(); app.ticker.remove(passo); return; }
+      g.clear();
+      // Abre de 25 % a 100 % do raio e some; a borda engrossa junto.
+      const R = raioPx * (0.25 + r * 0.75);
+      g.circle(0, 0, R).stroke({ width: 3 + r * 5, color: 0xdff2ff, alpha: (1 - r) * 0.85 });
+      g.circle(0, 0, R * 0.45).fill({ color: 0xffffff, alpha: (1 - r) * 0.5 });
+    };
+    app.ticker.add(passo);
   }
 
   /**
@@ -3457,7 +3550,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     for (let i = 0; i < copias; i++) {
       spawnQueda(
         magia, wx, wy, folha.frames, i * INTERVALO_BOLT_MS, folha.fracaoQueda, alvo, quedaMs,
-        folha.duracaoEstouro,
+        folha.duracaoEstouro, folha.mistura,
       );
     }
   }
@@ -9862,6 +9955,25 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           tremorAte = now + forca.ms;
           tremorPx = forca.px;
           tremorDur = forca.ms;
+        }
+      }
+
+      /*
+       * 💥 **A BATIDA DA MAGIA QUE NÃO TEM RISCO.** Ver `batida` em `spawnQueda`:
+       * o relâmpago desenha a própria descida, então ninguém disparava o tremor
+       * por ele. Agora o relógio dispara.
+       */
+      if (q.batida && !q.batida.feita && q.node.visible) {
+        q.batida.t += dt;
+        if (q.batida.t >= q.batida.em) {
+          q.batida.feita = true;
+          const forca = TREMOR[q.magia] ?? TREMOR_PADRAO;
+          tremorAte = now + forca.ms;
+          tremorPx = forca.px;
+          tremorDur = forca.ms;
+          cospeEstilhacos(q.magia, q.node.x, q.node.y);
+          // O anel abre na largura do DESENHO, que é o que o olho compara.
+          clarãoDeImpacto(q.node.x, q.node.y, q.node.width * 0.45);
         }
       }
       /*

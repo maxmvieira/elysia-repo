@@ -672,17 +672,36 @@ test('⛈️ o relâmpago é UM só, e as descargas cabem dentro dele', () => {
   }
 
   /*
-   * O total por alvo é o de sempre: 1,05 no Lv.1 e 2,22 no Lv.10, os mesmos de
-   * quando ela era um golpe só. Repartir em descargas foi mudança de DESENHO, e
-   * este teste é o que impede que vire mudança de equilíbrio sem querer.
+   * 🔴 **O total por alvo, e ele já mudou uma vez de propósito.**
    *
-   * ⚠️ A conta é sobre a FICHA, sem o `IMPULSO_MAGICO` — é a comparação com o
-   * valor histórico, e o impulso veio depois e vale para todas.
+   * Foi 1,05 / 2,22 de ficha desde sempre — o valor de quando ela era um golpe
+   * único —, e repartir em descargas NÃO mexeu nele. Em 12/09 o dono pediu
+   * *"mais dano"* e ele subiu para **1,40 / 2,90**, +33 %.
+   *
+   * O teste continua sendo o que impede que o número mude por descuido enquanto
+   * se mexe no desenho: ele já pegou a repartição em 2 → 4 descargas e pegou
+   * este aumento. Quem mexer de novo passa por aqui.
+   *
+   * ⚠️ A conta é sobre a FICHA, sem o `IMPULSO_MAGICO` — o impulso veio depois e
+   * vale para todas as magias, então comparar com ele embutido misturaria as
+   * duas decisões.
    */
   const daFicha = (nv: number): number =>
     skillImpactosEsperados(d, nv) * (d.power + d.powerPerLevel * (nv - 1));
-  assert.ok(Math.abs(daFicha(1) - 1.05) < 0.01, `Lv.1 deu ${daFicha(1).toFixed(3)}, era 1,05`);
-  assert.ok(Math.abs(daFicha(10) - 2.22) < 0.01, `Lv.10 deu ${daFicha(10).toFixed(3)}, era 2,22`);
+  assert.ok(Math.abs(daFicha(1) - 1.40) < 0.01, `Lv.1 deu ${daFicha(1).toFixed(3)}, era 1,40`);
+  assert.ok(Math.abs(daFicha(10) - 2.90) < 0.01, `Lv.10 deu ${daFicha(10).toFixed(3)}, era 2,90`);
+
+  /*
+   * ⚠️ **E ela continua ABAIXO do Meteoro por lançamento.** É a única relação
+   * que sobrou entre as duas depois do aumento, e vale travar: o Meteoro é a
+   * pancada única e cara do Feiticeiro, e a Descarga é a de área com recarga
+   * curta. Se um dia a Descarga passar o Meteoro no dano POR ALVO, a identidade
+   * das duas se inverte sem ninguém decidir isso.
+   */
+  assert.ok(
+    daFicha(10) < skillPower(SKILLS.meteor, 10) / IMPULSO_MAGICO,
+    'a Descarga passou o Meteoro no dano por alvo — ver a ficha',
+  );
 
   /*
    * 🔴 **AS DESCARGAS TÊM DE CABER NA FILEIRA DA DESCARGA, e é a única conta
