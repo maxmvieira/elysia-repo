@@ -134,6 +134,30 @@ tiles saíam a 12,2 tiles/s e passaram a 15,8 — pedra despencando, não folha 
 `quedaMs` é o mesmo número nos dois lados, então a pedra e o dano andaram juntos e não há
 segunda cópia para desencontrar.
 
+### 🔄 A folha foi trocada por uma melhor, e o cortador aguentou
+
+*"Essa sprite ficou melhor, substitua a antiga por essa"* — folha nova, **3×3 com fundo
+PRETO** no lugar da 5×5 sobre cinza. Saiu limpa de primeira: nenhuma nuvem de fagulha solta
+para descartar, nenhuma coluna grudada, nenhum quadro decepado.
+
+✅ **O cortador não precisou de lógica nova, só de números medidos.** O que mudou foram as
+constantes (3×3, piso de escuro em 34 porque o fundo agora é 13–29, janela 360×560) e uma
+linha na chave: com fundo preto o BRILHO volta a separar, e ele pega a fumaça cinzenta que a
+saturação sozinha deixava de fora. As duas chaves somadas cobrem as duas folhas.
+
+🔴 **O leitor de PNG ganhou RGB sem canal alfa.** A folha nova chegou em `colorType 2` — é
+como as ferramentas de arte exportam quando o efeito foi desenhado para soma aditiva. O
+filtro do PNG anda em BYTES DO PIXEL (3 em RGB, 4 em RGBA), e usar 4 nos dois embaralha a
+imagem inteira sem erro nenhum. Vale para todos os cortadores.
+
+⚠️ **Mas a folha nova tem só UM quadro de impacto**, contra quatro da anterior. O estouro
+virou um quadro segurado e apagando; o peso vem de fora — tremor, clarão, rachaduras e 28
+estilhaços. Se o impacto parecer curto em tela, é aqui que está o porquê.
+
+⚠️ E `ESCALA_IMPACTO` teve de ir de 2,45 para **1,96 para o meteoro ficar do MESMO tamanho**:
+a célula passou de 144 para 180 px. É a terceira vez que este número persegue uma folha
+nova, e a terceira anotação de que ele é uma razão entre a arte e o tile.
+
 ---
 
 ## 2026-09-11 — O Meteoro ganha oito direções de entrada

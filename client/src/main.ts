@@ -2793,14 +2793,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * lado do mapa.
      *
      * 🔴 **A FOLHA NÃO TEM GRADE, e o cortador reenquadra quadro a quadro.** Ver
-     * `tools/meteoro-grade2fx.mjs`: as fileiras da arte derivam de 211 a 470 px,
-     * então cada desenho é achado sozinho e ancorado pelo RODAPÉ. Com isso a
-     * descida sai do desenho — cada quadro mostra o meteoro parado, crescendo —
-     * e quem move é a `trajetoria` daqui.
+     * `tools/meteoro-grade2fx.mjs`: as fileiras da arte derivam, então cada
+     * desenho é achado sozinho e ancorado pelo RODAPÉ. Com isso a descida sai do
+     * desenho — cada quadro mostra o meteoro parado — e quem move é a
+     * `trajetoria` daqui.
      *
-     * ⚠️ **Nove dos 25 desenhos são NUVEM DE FAGULHA solta**, enfeite do rastro
-     * que o gerador pôs fora do quadro a que pertence. O cortador os descarta
-     * pela massa, e sobram 15: onze de queda e quatro de estouro.
+     * ⚠️ **A folha foi TROCADA em 13/09, depois de a primeira rodar em tela**:
+     * *"essa sprite ficou melhor, substitua a antiga por essa"*. A nova é 3×3 com
+     * fundo PRETO (a anterior era 5×5 sobre cinza) e saiu limpa de primeira — o
+     * cortador ganhou os dois casos, e o leitor de PNG ganhou RGB sem alfa.
+     *
+     * 🔴 **São 9 quadros, e só UM é de impacto.** A folha anterior tinha quatro.
+     * O estouro passou a ser um quadro SEGURADO e apagando (`desvanece`), com o
+     * peso vindo de fora: tremor, clarão, rachaduras e 28 estilhaços. Se o dono
+     * achar o impacto curto, é aqui que se vê o porquê — não há mais desenho.
      *
      * ⚠️ **`queda: 430` são treze tiles de altura.** Perto o bastante para a
      * pedra nascer dentro da janela do jogador, longe o bastante para ler como
@@ -2812,29 +2818,28 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * (1) subiria o impacto quase dois tiles, que foi o defeito do relâmpago em
      * 12/09.
      *
-     * ⚠️ **700 ms de estouro, contra os 1100 ms de queda que o servidor conta em
-     * `quedaMs`.** Não há sincronia para acertar à mão: o dano chega quando a
-     * pedra toca o chão, que é o fim do mergulho, e os dois lados usam o mesmo
-     * número.
+     * ⚠️ **O estouro não tem sincronia para acertar à mão**: o dano chega quando
+     * a pedra toca o chão, que é o fim do mergulho (`quedaMs`), e os dois lados
+     * usam o mesmo número.
      */
     {
-      magia: 'meteor_solo', arquivo: 'meteoro_queda', bolts: 1, quadros: 15,
-      fracaoQueda: 11 / 15, duracaoEstouro: 560, ancoraY: 0.88,
+      magia: 'meteor_solo', arquivo: 'meteoro_queda', bolts: 1, quadros: 9,
+      fracaoQueda: 8 / 9, duracaoEstouro: 380, desvanece: 320, ancoraY: 0.88,
       /*
        * ☄️ **A pedra já ENTRA grande, e cresce pouco.** Pedido do dono em 13/09:
        * *"pode ser o meteoro um pouco menor e a animação já saindo um meteoro
        * grande das nuvens"*.
        *
-       * ⚠️ **O crescimento vem de DOIS lados**, e é por isso que o número aqui é
-       * pequeno: a arte já cresce sozinha 1,55× ao longo dos onze quadros
-       * (medido, de 0,44 a 0,69 da célula). Somando os 2,4× que o `cresce`
-       * antigo pedia, davam 3,7× — o meteoro chegava quatro vezes maior do que
-       * começou, que foi a queixa.
+       * ⚠️ **O crescimento vem de dois lados, e na folha nova a arte quase não
+       * cresce**: medida, a largura desenhada vai de 1,05 a 0,90 da célula — o
+       * que cresce ali é a ALTURA do rastro (83 para 218 px). Então o pouco de
+       * aproximação que se vê vem daqui.
        *
-       * ✅ 0,78 a 0,86 são FRAÇÕES DO ESTOURO: a pedra entra com 78 % do tamanho
-       * da explosão e chega com 86 %. Com a arte junto, 1,4× do começo ao fim.
+       * ✅ 0,72 a 1 são FRAÇÕES DO ESTOURO: a pedra entra com 72 % do tamanho da
+       * explosão e chega com 100 %. São 1,4× do começo ao fim — longe dos 3,7×
+       * que fizeram o dono reclamar de *"crescendo muito no final"*.
        */
-      trajetoria: { queda: 430, cresce: [0.78, 0.86] },
+      trajetoria: { queda: 430, cresce: [0.72, 1] },
       /*
        * 🔴 **MISTURA NORMAL, e é a segunda folha do jogo com ela.**
        *
@@ -3254,11 +3259,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * número mora aqui e não na folha: ele é uma razão entre a arte e o TILE, e
      * toda folha nova o desatualiza em silêncio.
      *
-     * ⚠️ **2,45 dá 220 px, e o estouro passa a ter o tamanho do QUADRADO DE
-     * DANO** (7×7 tiles, 224 px). O caminho até aqui: 3,4 na rodada do *"faça ele
-     * ser maior"*, 2,8 quando o dono achou grande demais, 2,45 quando ele pediu
-     * *"um pouco menor"* de novo. Parar em cima do quadrado de dano é o ponto que
-     * dá para defender: a arte cobre exatamente o que o golpe pega.
+     * ⚠️ **1,96 dá 221 px, e o estouro fica com o tamanho do QUADRADO DE DANO**
+     * (7×7 tiles, 224 px). O caminho até aqui: 3,4 na rodada do *"faça ele ser
+     * maior"*, 2,8 quando o dono achou grande demais, 2,45 no *"um pouco menor"*
+     * seguinte — e 1,96 quando a folha foi trocada e a célula passou de 144 para
+     * 180 px. **Os 221 px na tela são os mesmos; o número mudou porque a arte
+     * mudou de tamanho.** Parar em cima do quadrado de dano é o ponto que dá para
+     * defender: a arte cobre exatamente o que o golpe pega.
      *
      * ⚠️ As outras quedas ainda estouram um pouco MAIORES que a área delas — é a
      * margem de drama da Chuva. Aqui o dono escolheu o contrário, e a escolha é
@@ -3268,7 +3275,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * estouro — antes de 13/09 o do voo tinha régua própria, e era isso que fazia
      * a pedra dobrar de tamanho no instante do impacto. Ver `trajetoria`.
      */
-    meteor_solo: 2.45,
+    meteor_solo: 1.96,
     /*
      * ❄️ A célula da folha da Nevasca tem 160 px de largura para 3 tiles (96 px)
      * de área de dano. 0,62 põe a coluna de gelo no tamanho da cratera dela.

@@ -43,8 +43,8 @@ import { decode, encode } from './hud/png.mjs';
 const DESTINO = 'client/public/assets/fx';
 
 /** Quantas colunas a folha tem, e quantos desenhos há em cada uma. */
-const COL = 5;
-const POR_COL = 5;
+const COL = 3;
+const POR_COL = 3;
 
 /**
  * 🔴 **A CHAVE É A SATURAÇÃO, e não o brilho.**
@@ -68,8 +68,8 @@ const POR_COL = 5;
  * entre a saturação e um corte de brilho ALTO, que só ele alcança: o fundo mais
  * claro medido chega a 115, e o núcleo passa de 200.
  */
-const SAT_PISO = 0.20;
-const SAT_TETO = 0.40;
+const SAT_PISO = 0.30;
+const SAT_TETO = 0.45;
 const BRANCO_PISO = 200;
 const BRANCO_TETO = 240;
 /**
@@ -80,15 +80,15 @@ const BRANCO_TETO = 240;
  * saturação e saíam OPACOS E PRETOS — um quadro inteiro virou um retângulo
  * preto. A pedra (mediana 69) e a fumaça (70) passam folgadas deste valor.
  */
-const ESCURO = 46;
+const ESCURO = 34;
 
 /** A janela recortada da FONTE, em pixels dela. Cabe o maior quadro (218×446). */
-const JAN_W = 288;
-const JAN_H = 512;
+const JAN_W = 360;
+const JAN_H = 560;
 
 /** A célula de saída. Metade da janela: é uma redução, que sai limpa. */
-const LARG = 144;
-const ALT = 256;
+const LARG = 180;
+const ALT = 280;
 
 /**
  * Onde o RODAPÉ do desenho fica dentro da célula — e o `ancoraY` do cliente.
@@ -114,8 +114,17 @@ function alfaDe(o) {
   const mx = Math.max(img.px[o], img.px[o + 1], img.px[o + 2]);
   const mn = Math.min(img.px[o], img.px[o + 1], img.px[o + 2]);
   const sat = mx > 0 ? (mx - mn) / mx : 0;
+  /*
+   * ⚠️ **E o BRILHO voltou a valer, porque a folha nova tem fundo PRETO.**
+   *
+   * Na folha de 13/09 o fundo era um cinza de fumaça com mediana 37,9, e brilho
+   * não separava nada. A folha que a substituiu tem fundo entre 13 e 29 — aí a
+   * fumaça (mediana 60) se separa por brilho com folga, e é bom que seja assim:
+   * a saturação sozinha deixa de fora a fumaça cinzenta que o dono quer ver.
+   */
   const a = Math.max(
     presa((sat - SAT_PISO) / (SAT_TETO - SAT_PISO)),
+    presa((L - ESCURO) / 46),
     presa((L - BRANCO_PISO) / (BRANCO_TETO - BRANCO_PISO)),
   );
   /*

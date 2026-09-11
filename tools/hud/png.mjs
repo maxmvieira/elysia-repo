@@ -43,17 +43,34 @@ function decode(path) {
     else if (t === 'IEND') break;
     off += 12 + len;
   }
-  if (ct !== 6) throw new Error(`${path}: esperado RGBA, veio colorType ${ct}`);
+  /*
+   * 🔴 **RGB (colorType 2) também entra, e sai daqui como RGBA opaco.**
+   *
+   * Era só RGBA, e a folha vertical do Meteoro (13/09) chegou sem canal alfa —
+   * fundo preto chapado, que é como as ferramentas de arte exportam quando o
+   * efeito foi desenhado para soma aditiva. Converter o arquivo à mão antes de
+   * cortar seria um passo manual a cada folha nova; aceitar os dois formatos
+   * aqui resolve para todos os cortadores de uma vez.
+   *
+   * ⚠️ **O filtro do PNG anda em BYTES DO PIXEL, não em bytes fixos**: em RGBA o
+   * vizinho à esquerda está 4 bytes atrás, em RGB são 3. Usar 4 nos dois embaralha
+   * a imagem inteira sem erro nenhum.
+   */
+  if (ct !== 6 && ct !== 2) {
+    throw new Error(`${path}: esperado RGBA ou RGB, veio colorType ${ct}`);
+  }
+  const canais = ct === 6 ? 4 : 3;
   const raw = inflateSync(Buffer.concat(idat));
-  const stride = w * 4; const px = Buffer.alloc(h * stride);
+  const stride = w * canais;
+  const linhas = Buffer.alloc(h * stride);
   let q = 0;
   for (let y = 0; y < h; y++) {
     const f = raw[q++]; const line = raw.subarray(q, q + stride); q += stride;
-    const cur = px.subarray(y * stride, (y + 1) * stride);
-    const prev = y > 0 ? px.subarray((y - 1) * stride, y * stride) : null;
+    const cur = linhas.subarray(y * stride, (y + 1) * stride);
+    const prev = y > 0 ? linhas.subarray((y - 1) * stride, y * stride) : null;
     for (let x = 0; x < stride; x++) {
-      const a = x >= 4 ? cur[x - 4] : 0, b = prev ? prev[x] : 0;
-      const c = x >= 4 && prev ? prev[x - 4] : 0;
+      const a = x >= canais ? cur[x - canais] : 0, b = prev ? prev[x] : 0;
+      const c = x >= canais && prev ? prev[x - canais] : 0;
       let v = line[x];
       if (f === 1) v += a;
       else if (f === 2) v += b;
@@ -64,6 +81,15 @@ function decode(path) {
       }
       cur[x] = v & 0xff;
     }
+  }
+  if (canais === 4) return { w, h, px: linhas };
+  // RGB: alfa cheio em todo pixel — o recorte é problema de quem chamou.
+  const px = Buffer.alloc(w * h * 4);
+  for (let i = 0, j = 0; i < linhas.length; i += 3, j += 4) {
+    px[j] = linhas[i];
+    px[j + 1] = linhas[i + 1];
+    px[j + 2] = linhas[i + 2];
+    px[j + 3] = 255;
   }
   return { w, h, px };
 }
