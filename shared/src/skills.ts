@@ -436,6 +436,19 @@ export interface SkillDef {
    */
   quedaFx?: string;
   /**
+   * ⚡ **UM `fx` para a série inteira**, em vez de um por golpe pendente.
+   *
+   * 🔴 A diferença é a de "uma magia com vários danos" contra "vários golpes
+   * pequenos", e as duas existem de propósito. A Esfera Elétrica quer um `fx`
+   * por choque — cada descarga É uma descarga, e é ela que faz a bola pulsar.
+   * O relâmpago da Descarga quer o contrário: **um** raio despencando, com o
+   * estrago aparecendo enquanto ele cai. Sem esta bandeira o cliente
+   * desenharia quatro colunas empilhadas com 140 ms de diferença.
+   *
+   * ⚠️ Só faz sentido com `queda`; sem ela não há série para agrupar.
+   */
+  fxUnico?: boolean;
+  /**
    * 💥 **RAIO DE RESPINGO de CADA impacto, em tiles.** Ausente = só o alvo.
    *
    * Pedido do dono em 11/09, jogando: *"se ele pegar em dois monstros juntos,
@@ -2382,7 +2395,14 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   electric_discharge: {
     id: 'electric_discharge',
     name: 'Descarga Elétrica',
-    kind: 'damage',
+    /*
+     * ⚡ **`multihit`, e era `damage`.** Não é mudança de equilíbrio: o TOTAL foi
+     * preservado (ver `power`). O que mudou é que o estrago agora sai em quatro
+     * números ao longo da queda do raio, em vez de um só no fim — pedido do
+     * dono em 12/09: *"os danos vão aparecendo enquanto ele cai e um pouquinho
+     * antes dele sumir"*.
+     */
+    kind: 'multihit',
     branch: 'raio',
     classes: ['sorcerer'],
     reqLevel: 25,
@@ -2390,17 +2410,89 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     manaCost: 38,
     manaPerLevel: 5,
     cooldownMs: 5000,
-    power: 1.05,
-    powerPerLevel: 0.13,
-    shape: 'area',
-    range: 2,
-    rangeEvery: 5,
+    /**
+     * 🔴 **O TOTAL É O MESMO DE ANTES, repartido em golpes.**
+     *
+     * Era `1,05 + 0,13/nível` num golpe só: 1,05 no Lv.1 e 2,22 no Lv.10. Com
+     * 3 → 4 golpes, cada um vale `total / golpes` — 0,35 no Lv.1 e 0,555 no
+     * Lv.10, que é `0,35 + 0,0228 × 9`.
+     *
+     * ⚠️ Os decimais são feios porque saíram de uma DIVISÃO, e ficam assim de
+     * propósito: arredondar para 0,35/0,025 daria 2,26 no Lv.10 e teria mexido
+     * no equilíbrio por descuido, num commit que era de arte.
+     */
+    power: 0.35,
+    powerPerLevel: 0.0228,
+    hits: 3,
+    hitsAtLv10: 4,
+    /**
+     * 🔴 **DE ÁREA PARA ALVO ÚNICO — pedido do dono em 12/09**, na especificação
+     * do relâmpago: *"magia ofensiva de alvo único"*, *"o raio atinge exatamente
+     * o alvo"*, *"não transformar a habilidade em uma área de dano aleatória"*.
+     *
+     * ⚠️ **Isto tira do Feiticeiro a AoE rápida do ramo do raio**, que era como
+     * o `GDD-doc1` a descrevia (*"AoE rápida"*, `DD-SOR-018`). O ramo fica com
+     * duas de alvo único (Esfera, Descarga) e uma de área (Ira de Thor). A
+     * REGRA do `DD-SOR-018` — sem atordoar, sem empurrar — continua valendo, e é
+     * o que o teste trava; o que mudou foi a forma.
+     *
+     * ⚠️ Voltar é `shape: 'area'` mais o `range`/`rangeEvery` antigos (2 e 5).
+     */
+    shape: 'target',
+    /**
+     * ⚡ **8 tiles fixos, e antes o 2 aqui era RAIO de área.** Uma célula a menos
+     * que a Esfera (9): as duas são de alvo único e a Esfera é a que abre o
+     * ramo, então ela fica sendo a de alcance máximo.
+     */
+    range: 8,
+    rangeEvery: 0,
+    /**
+     * ⚡ **GANHOU CONJURAÇÃO, e ela não tinha nenhuma.**
+     *
+     * 🔴 Não é ajuste de equilíbrio meu: é o que a especificação do dono pede,
+     * do primeiro item ao último — *"o personagem inicia a conjuração"*, *"a
+     * aura deve girar ao redor do personagem durante o cast"*, e a sequência
+     * `CAST_START → … → CAST_END`. Sem `castMs` não existe conjuração nenhuma, e
+     * a aura branca — que já é a do jogo inteiro, e não uma nova — nunca
+     * apareceria.
+     *
+     * ⚠️ **Curta de propósito.** 0,9 s → 1,6 s contra os 2 s → 3,8 s da Esfera:
+     * ela continua sendo a rápida do ramo, que era a identidade dela no GDD.
+     *
+     * ⚠️ Somado à perda da área, a magia ficou MAIS FRACA do que era. Está
+     * registrado aqui para a conta não sumir: era um golpe instantâneo em área,
+     * virou quatro golpes em alvo único depois de ~1,5 s parado.
+     */
+    castMs: 900,
+    castMsAtLv10: 1600,
     durationMs: 0,
     magic: true,
     damageType: 'electric',
+    /**
+     * ⚡ **`queda` aqui compra o TEMPO, não o desenho de coisa caindo** — a mesma
+     * leitura da Esfera Elétrica. É esta bandeira que manda os golpes para a
+     * fila de `golpesPendentes`, e é a fila que espalha o dano ao longo da
+     * animação.
+     */
+    queda: true,
+    quedaFx: 'lightning_fall',
+    /**
+     * ⚡ **260 ms até o primeiro dano.** A folha tem 25 quadros em 840 ms; aos
+     * 260 ms a coluna está formada e tocando o chão (fim da segunda fileira). Os
+     * quatro golpes do Lv.10 caem em 260, 400, 540 e 680 — dentro da animação, o
+     * último 160 ms antes de ela apagar.
+     */
+    quedaMs: 260,
+    /**
+     * ⚡ **UM relâmpago, quatro danos.** Sem isto cada golpe pendente anunciaria
+     * o próprio `fx` e o cliente desenharia quatro colunas empilhadas com 140 ms
+     * de diferença — que é o certo para a Esfera (cada choque é um choque) e o
+     * errado aqui: *"um grande relâmpago vertical cai do céu"*, no singular.
+     */
+    fxUnico: true,
     // Sem `applies`, e isso é a ficha inteira: `DD-SOR-018` proíbe.
     fx: 'discharge',
-    desc: 'Descarga em área, rápida e limpa. Sem atordoar, sem empurrar.',
+    desc: 'Um relâmpago despenca sobre o alvo e o castiga enquanto cai.',
   },
   /**
    * 🔴 A suprema de raio: "múltiplos raios, **pequena chance de stun por

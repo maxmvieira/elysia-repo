@@ -2680,6 +2680,29 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       magia: 'snowball', arquivo: 'nevasca36', bolts: 1, quadros: 36,
       fracaoQueda: 0, duracaoEstouro: 900,
     },
+    /*
+     * ⚡ **O RELÂMPAGO da Descarga Elétrica (12/09)**, 25 quadros em 5 fileiras.
+     *
+     * 🔴 **`fracaoQueda: 0` porque a folha INTEIRA é a magia.** Aqui não há
+     * "descida" separada do "estouro": a marcação no chão, a energia se
+     * juntando, a coluna caindo, o clarão e a dissipação são os 25 quadros, em
+     * ordem. Cortar qualquer fração comeria o começo da própria magia.
+     *
+     * ⚠️ É o mesmo `0` da bola de neve por motivos OPOSTOS: lá nenhum quadro é
+     * queda porque a descida é o risco desenhado por código; aqui nenhum quadro
+     * é descartado porque a descida está desenhada e o risco não existe. Ver
+     * `FORMA_RISCO`.
+     *
+     * ⚠️ **840 ms, e o dono pediu "rápida e poderosa".** É o que faz os quatro
+     * danos do Lv.10 (260, 400, 540 e 680 ms) caberem DENTRO da animação, com o
+     * último 160 ms antes de ela sumir — *"os danos vão aparecendo enquanto ele
+     * cai e um pouquinho antes dele sumir"*. Mais curto e o último número sairia
+     * com a tela já limpa; mais longo e a descarga deixaria de ser descarga.
+     */
+    {
+      magia: 'lightning_fall', arquivo: 'relampago25', bolts: 1, quadros: 25,
+      fracaoQueda: 0, duracaoEstouro: 840,
+    },
   ] as const;
 
   /**
@@ -2850,10 +2873,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * procura um CORPO caindo, e um retângulo não tem corpo por mais largo que
    * seja. O que dá volume é a cabeça circular com o rastro afinando atrás.
    */
-  const FORMA_RISCO: Record<string, 'lanca' | 'esfera'> = {
+  const FORMA_RISCO: Record<string, 'lanca' | 'esfera' | 'nenhuma'> = {
     meteor_fall: 'esfera',
     // ❄️ Bola de neve é bola: cabeça redonda com rastro curto.
     snowball: 'esfera',
+    /*
+     * ⚡ **`nenhuma`: o Relâmpago não tem risco porque ELE É o risco.**
+     *
+     * O traço desenhado por código existe para suprir a falta de arte de
+     * descida — foi o que o Fire Bolt e o meteoro precisaram. A folha do
+     * relâmpago já traz a coluna caindo, quadro a quadro, e é o desenho
+     * principal da magia. Somar uma lança por cima seria desenhar duas quedas
+     * no mesmo lugar.
+     */
+    lightning_fall: 'nenhuma',
   };
 
   /**
@@ -2921,6 +2954,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * de área de dano. 0,62 põe a coluna de gelo no tamanho da cratera dela.
      */
     snowball: 0.62,
+    /**
+     * ⚡ **0,80, e o padrão (1,0) foi medido e recusado na bancada.**
+     *
+     * O quadro tem 128 × 284; a 1,0 isso dá 80 × 177 px, ou **2,5 tiles de
+     * clarão no chão** para uma magia que machuca UMA célula. É exatamente a
+     * queixa que o dono já fez do meteoro: *"são bem grandes, mas parece que
+     * acertam somente um pequeno ponto ao tocar o solo"*.
+     *
+     * 0,80 dá 64 × 142 px: o clarão fica em ~1,8 tile e a coluna em 4,4 — alta o
+     * bastante para ler como raio vindo de cima, sem mentir sobre onde ela pega.
+     *
+     * ⚠️ **Isotrópica, e a arte não permite outra coisa.** A coluna ficaria mais
+     * fiel estreita e alta, mas esticar só um eixo deixa o clarão do chão OVAL —
+     * a regra que já vale para o meteoro e para a Nevasca.
+     */
+    lightning_fall: 0.80,
   };
 
   /**
@@ -3303,7 +3352,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     objects.addChild(node);
 
     let risco: { node: Graphics; t: number; deY: number; dur: number } | undefined;
-    if (QUEDA_RISCO) {
+    // ⚡ Magia cuja folha JÁ desenha a descida não ganha risco. Ver `FORMA_RISCO`.
+    if (QUEDA_RISCO && FORMA_RISCO[magia] !== 'nenhuma') {
       /*
        * A LANÇA: um traço vertical fino, claro no núcleo e alaranjado na
        * borda, com a mesma mistura aditiva do resto do efeito. Desenhado uma

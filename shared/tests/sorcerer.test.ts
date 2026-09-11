@@ -628,7 +628,52 @@ test('DD-SOR-018: a Descarga Elétrica não atordoa e não empurra', () => {
   // A ficha dela é a ausência: nenhuma condição, de propósito.
   const d = SKILLS.electric_discharge;
   assert.equal(d.applies, undefined);
-  assert.ok(d.power > 0, 'mas ela causa dano — é a AoE rápida da escola');
+  assert.ok(d.power > 0, 'mas ela causa dano');
+
+  /*
+   * 🔴 **ELA DEIXOU DE SER A "AoE RÁPIDA" EM 12/09**, por pedido do dono, com a
+   * arte do relâmpago: *"magia ofensiva de alvo único"*, *"o raio atinge
+   * exatamente o alvo"*.
+   *
+   * ⚠️ O `GDD-doc1` ainda a descreve como AoE. É override consciente do
+   * documento, o terceiro desta semana (os outros dois estão na Chuva de
+   * Meteoros), e o que o `DD-SOR-018` cravou — **sem stun, sem knockback** —
+   * continua valendo: era a regra, e a forma não era.
+   *
+   * ⚠️ Consequência registrada: o ramo do raio fica com DUAS de alvo único e
+   * uma de área. O Feiticeiro perdeu a AoE barata da escola elétrica, e sobrou
+   * a Ira de Thor (suprema, 18 s de recarga) para o papel.
+   */
+  assert.equal(d.shape, 'target', 'virou alvo único em 12/09 — ver o handoff');
+});
+
+test('⚡ a Descarga Elétrica reparte o dano sem mudar o TOTAL', () => {
+  /*
+   * 🔴 O dano saiu de um golpe para 3 → 4, e isso foi mudança de DESENHO, não de
+   * equilíbrio: o dono quis ver os números aparecendo enquanto o raio cai.
+   *
+   * O teste trava o total de antes (1,05 no Lv.1 e 2,22 no Lv.10 da ficha, os
+   * mesmos de quando ela era `damage` de um golpe só). Se alguém mexer no
+   * `power` achando que reparte de novo, o número aparece aqui.
+   *
+   * ⚠️ A conta é sobre a FICHA, sem o `IMPULSO_MAGICO` — é a comparação com o
+   * valor histórico, e o impulso veio depois e vale para todas.
+   */
+  const d = SKILLS.electric_discharge;
+  const daFicha = (nv: number): number =>
+    skillHits(d, nv) * (d.power + d.powerPerLevel * (nv - 1));
+  assert.ok(Math.abs(daFicha(1) - 1.05) < 0.005, `Lv.1 deu ${daFicha(1).toFixed(3)}, era 1,05`);
+  assert.ok(Math.abs(daFicha(10) - 2.22) < 0.005, `Lv.10 deu ${daFicha(10).toFixed(3)}, era 2,22`);
+
+  /*
+   * ⚠️ **Os golpes têm de caber na animação.** A folha dura 840 ms; o primeiro
+   * dano sai aos `quedaMs` e os seguintes a cada `INTERVALO_BOLT_MS`. O último
+   * precisa sobrar dentro dela — foi o pedido: *"um pouquinho antes dele
+   * sumir"*. Travado porque subir `hits` um dia jogaria o último número numa
+   * tela já limpa, sem erro nenhum.
+   */
+  const ultimo = (d.quedaMs ?? 0) + (skillHits(d, 10) - 1) * INTERVALO_BOLT_MS;
+  assert.ok(ultimo < 840, `o último golpe cai em ${ultimo} ms e a folha dura 840`);
 });
 
 test('Ira de Thor atordoa pouco, e o anti-cadeia é o do jogo inteiro', () => {
@@ -763,9 +808,24 @@ test('🔴 magia que CAI DO CÉU: alvo único cadenciado, ou área com JANELA', 
   const caem = Object.values(SKILLS).filter((d) => d.queda);
   assert.deepEqual(
     caem.map((d) => d.id).sort(),
-    ['blizzard', 'cold_bolt', 'electric_sphere', 'fire_bolt', 'meteor_storm'],
+    [
+      'blizzard', 'cold_bolt', 'electric_discharge', 'electric_sphere',
+      'fire_bolt', 'meteor_storm',
+    ],
     'mudou a lista? confira o que o cliente desenha a cada golpe da magia nova',
   );
+  /*
+   * ⚡ **E a resposta da Descarga Elétrica a essa pergunta é `fxUnico`** (12/09).
+   * Ela quer a cadência — quatro danos espalhados pela queda do raio — e NÃO
+   * quer quatro desenhos: é um relâmpago só. Sem a bandeira o cliente
+   * empilharia quatro colunas com 140 ms de diferença.
+   *
+   * ⚠️ `fxUnico` sem `queda` é contradição em termos: não há série para
+   * agrupar. Travado aqui porque o campo é fácil de copiar para a ficha errada.
+   */
+  for (const d of Object.values(SKILLS).filter((x) => x.fxUnico)) {
+    assert.ok(d.queda, `${d.id}: fxUnico sem queda não agrupa nada`);
+  }
   for (const d of caem) {
     assert.ok(
       d.shape === 'target' || d.shape === 'area',
