@@ -3645,6 +3645,17 @@ export function skillHits(def: SkillDef, nivel: number): number {
  * ⚠️ Isto é o valor ESPERADO no centro. Na borda cai — parte do respingo sobra
  * para fora da área —, e é uma simplificação assumida: a dica mostra um número,
  * não uma distribuição.
+ *
+ * 🔴 **E a Ira de Thor fica DE FORA de propósito, apesar de também espalhar.**
+ * Ela é `multihit` + `shape: 'area'` sem `queda`, e o servidor sorteia o ALVO de
+ * cada raio — não o ponto. Contra um bicho sozinho os oito raios caem nele
+ * (856 %); contra dez, cada um leva ~0,8. Não existe um número honesto que sirva
+ * para os dois casos, porque a diluição depende de quantos alvos há, e não da
+ * geometria. O total cheio é o que ela entrega quando mais importa (alvo único),
+ * então é ele que a dica mostra.
+ *
+ * ⚠️ Quem for "consertar" isso: o certo não é diluir aqui, é a dica dizer que os
+ * raios se repartem — texto, não conta.
  */
 export function skillImpactosEsperados(def: SkillDef, nivel: number): number {
   const golpes = skillHits(def, nivel);
