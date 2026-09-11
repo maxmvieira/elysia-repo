@@ -1,8 +1,91 @@
 # Handoff — 2026-09-11 · PONTO DE RETOMADA
 
-> Typecheck limpo nos 3 pacotes, **650 testes** (622 shared + 28 server).
-> `npm run dev:test` → `localhost:5173`. **3 commits subiram**, rebasados sobre
-> os oito de Nevasca.
+> Typecheck limpo nos 3 pacotes, **651 testes** (623 shared + 28 server).
+> `npm run dev:test` → `localhost:5173`. **Duas frentes em paralelo neste dia** —
+> o herói/interface (abaixo) e a Nevasca (logo a seguir). O histórico ficou em
+> linha reta: os commits de Nevasca, depois os três do herói, depois os dois
+> últimos de Nevasca, rebasados por cima. Sem commit de merge, sem conflito.
+
+## ❄️ A NEVASCA, EM SEIS VOLTAS
+
+A magia foi refeita do zero neste dia, e cada volta desfez parte da anterior.
+O caminho importa porque três das viradas foram **erro meu corrigido em tela**,
+não evolução de plano.
+
+**1. De área de chão para queda.** A ficha do Ragnarok descreve bombardeio —
+*"bolas de neve caindo em células ALEATÓRIAS de uma área de 9×9"* —, e área de
+chão dá dano uniforme, que é o oposto. Passou a usar a máquina da Chuva de
+Meteoros: pontos sorteados, um `fx` por bola.
+
+**2. 🔴 O defeito que a mudança criou.** `empurraPorPulso` e `congelaEmAcertos`
+eram lidos **num lugar só**: na criação da área de chão. Ao virar queda, os dois
+campos continuaram na ficha e **pararam de fazer efeito** — sem erro de
+compilação, sem teste vermelho, sem nada em tela. Religados na fila de impactos
+(`Tempestade`), com teste travando que quem declara esses campos esteja num modo
+que o servidor lê.
+
+**3. 🔴 O dano entregava 63 % do que a ficha promete.** Medido por simulação
+(200 mil tempestades): 81 células no 9×9 e 10 bolas cobrindo 9 cada dão **1,11
+acerto por alvo**, e em 28 % das conjurações o alvo não era tocado nenhuma vez.
+Nenhum ajuste de respingo ou contagem chegava perto. O que fecha a conta é o
+modelo do RO de verdade — **o dano é da ÁREA e as bolas são o VISUAL**
+(`danoDaArea`). Hoje: 358 % no centro, ninguém ileso.
+
+**4. Congelamento e empurrão invertidos para o RO.** O congelado deixou de ficar
+imune ao resto da tempestade (o **quique** é a magia: congela, quebra, empurra,
+congela de novo) e o empurrão virou 2 células em direção **sorteada**. A
+implementação antiga em `golpeDeArea` foi apagada — duas cópias da mesma regra
+discordando é o defeito que vinha a seguir.
+
+**5. Partículas em três camadas, com pool.** Névoa (volume), cristal (peso) e
+floco (turbulência), ~500 por tempestade, nós reaproveitados. **Não foi preciso
+Unity, Godot nem Blender** — o cliente já era um motor de partículas sem ser
+usado como tal. Duas das três folhas vieram prontas; a terceira (`nevoa_base`)
+era referenciada por um atlas e **não existia**, e passou a ser gerada por
+`tools/nevoa-nevasca.mjs`.
+
+**6. 🔴 Dois erros que só o teste em tela pegou.** Com o dono abrindo o jogo:
+a **mistura aditiva comia o contorno** do cristal (arte opaca, não brilho) e eu
+tinha "consertado" isso subindo a escala — somados, viraram lâminas azuis de
+cinco tiles empilhadas. E a **dica mentia**: anunciava 2,5 s de conjuração
+porque lia `def.castMs` cru, que é o valor do Lv.1 — a Nevasca é a única magia
+cujo cast CRESCE com o nível.
+
+### Onde ela parou
+
+| | |
+|---|---|
+| dano | 10 bolas × 57 % = **570 %** de ATQM (teto), ~358 % no centro na prática |
+| área | 9×9 de sorteio, **11×11** de dano (`range + splash`, a conta da ficha) |
+| conjuração | **1,5 s → 3,0 s**, a única do jogo que cresce com o nível |
+| recarga | **13 s** — cobre a conjuração mais os 4,5 s de tempestade |
+| mana | **386** no Lv.10, a mais cara das supremas |
+| congela | 70 % → **25 %**, a cada 3º acerto, sem imunidade |
+
+⚠️ **A conjuração, a recarga e a mana são OVERRIDE do dono sobre a ficha do RO**
+(*"melhore o tempo de conjuração... mas gaste mais mana para equilibrar"*). Ela
+virou a suprema mais disponível (4,6 conj/min) e a mais cara (1 782 mana/min).
+
+🔴 **E um teste foi reescrito por causa disso**, o que vale mais que a mudança:
+ele travava `cooldownMs >= 15000` — número —, e travar número transforma o teste
+num **veto a decisões de equilíbrio**. Passou a travar a intenção ("suprema não é
+botão de spam") como soma de quatro condições, incluindo **mana alta**, que é a
+que sustenta as outras.
+
+### ⚠️ O que a Nevasca deixou em aberto
+
+- **A área é uniforme**: quem está na borda apanha igual a quem está no meio. No
+  RO a borda apanha menos, porque lá as bolas são o dano. Simplificação assumida.
+- **O dano da Chuva de Meteoros continua sem a passada de equilíbrio**, pendente
+  desde 11/09 de manhã: contagem 10→18 e respingo 1→3×3 se multiplicam, e o
+  `DD-DRU-021` mede a suprema do Druida contra esse número.
+- **Clique no chão com a magia em recarga vira MOVIMENTO** do personagem. Visto
+  testando; não se sabe se é intencional.
+- **A dissipação da folha da Nevasca (quadros 27–35) não toca**, e o
+  **spellcasting feminino não existe**.
+- `client/fx-preview.html` confere uma folha de FX fora do jogo, nos dois modos
+  de mistura — foi o que achou o erro do aditivo. Fica fora de `public/`, então
+  não vai para o `dist`.
 
 ## 🔴 O HERÓI TROCOU DE CORPO, E OS BANDIDOS SAÍRAM DO JOGO
 
