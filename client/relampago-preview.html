@@ -58,6 +58,13 @@
      */
     const w = LW * ESCALA, h = LH * ESCALA;
     /*
+     * ⚠️ **A âncora é 0,885, não o rodapé.** Os 11 % de baixo do quadro são o
+     * brilho espalhando no chão; ancorar no rodapé punha o impacto dois tiles
+     * no ar. Ver `ancoraY` no cliente — este número é cópia dele.
+     */
+    const ANCORA = 0.885;
+    const topo = CHAO - h * ANCORA;
+    /*
      * ⚠️ **APAGA por alfa depois do último quadro**, em vez de tocar a fileira
      * da dissipação — ela está desenhada em metade do tamanho e o desenho
      * ENCOLHIA. Dono, 12/09: *"assim que ele cair, pode desaparecer
@@ -69,14 +76,14 @@
       const k = Math.min(N - 1, Math.floor((ciclo / DUR) * N));
       if (DOIS) {
         g.globalCompositeOperation = 'lighter';
-        g.drawImage(img, k * LW, 0, LW, LH, CX - 250 - w / 2, CHAO - h, w, h);
+        g.drawImage(img, k * LW, 0, LW, LH, CX - 250 - w / 2, topo, w, h);
         g.globalCompositeOperation = 'source-over';
-        g.drawImage(img, k * LW, 0, LW, LH, CX + 250 - w / 2, CHAO - h, w, h);
+        g.drawImage(img, k * LW, 0, LW, LH, CX + 250 - w / 2, topo, w, h);
         g.fillStyle = '#dff'; g.font = 'bold 16px system-ui';
         g.fillText('aditiva (era)', CX - 320, 22);
         g.fillText('normal (agora)', CX + 185, 22);
       } else {
-        g.drawImage(img, k * LW, 0, LW, LH, CX - w / 2, CHAO - h, w, h);
+        g.drawImage(img, k * LW, 0, LW, LH, CX - w / 2, topo, w, h);
       }
     }
     g.globalAlpha = 1;

@@ -2597,6 +2597,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     desvanece?: number;
     /** Desenha ACIMA das entidades, e não na camada do chão. Ver `porCima`. */
     porCima?: boolean;
+    /**
+     * Onde, na altura do quadro, fica o ponto que tem de cair NO TILE.
+     * Ausente = 1 (o rodapé). Ver `ancoraY` em `FOLHAS_QUEDA`.
+     */
+    ancoraY?: number;
   }
   const folhasQueda = new Map<string, FolhaDeQueda[]>();
 
@@ -2798,6 +2803,25 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       magia: 'lightning_fall', arquivo: 'relampago24', bolts: 1, quadros: 24,
       fracaoQueda: 0, duracaoEstouro: 1050, mistura: 'normal',
       quadrosUsados: 15, desvanece: 350, porCima: true,
+      /*
+       * 🔴 **0,885, e o padrão (1) punha o impacto DOIS TILES no ar.**
+       *
+       * Defeito relatado pelo dono em 12/09, com foto: *"quero que o toque
+       * atravesse esse inimigo e acerte o solo"* — o estouro aparecia flutuando
+       * acima do monstro.
+       *
+       * A âncora de toda queda é o RODAPÉ do quadro, e isso vale enquanto o
+       * desenho termina onde ele bate. Aqui não termina: medido na saída, o
+       * núcleo branco do impacto fica a **88,5 % da altura**, e os 11,5 % de
+       * baixo são o BRILHO ESPALHANDO no chão. Ancorado no rodapé, o núcleo
+       * subia 68 px — dois tiles.
+       *
+       * ⚠️ **O tremor, os estilhaços e o anel já estavam no lugar certo**: os
+       * três usam a posição da ÂNCORA, que sempre foi o tile. Quem estava fora
+       * era só a arte — e é por isso que o impacto "não batia" mesmo com as
+       * quatro camadas de peso que entraram antes.
+       */
+      ancoraY: 0.885,
     },
   ] as const;
 
@@ -2844,6 +2868,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           ...('quadrosUsados' in folha ? { quadrosUsados: folha.quadrosUsados } : {}),
           ...('desvanece' in folha ? { desvanece: folha.desvanece } : {}),
           ...('porCima' in folha ? { porCima: folha.porCima } : {}),
+          ...('ancoraY' in folha ? { ancoraY: folha.ancoraY } : {}),
           frames: Array.from({ length: folha.quadros }, (_, i) => new Texture({
             source: tex.source,
             frame: new Rectangle(i * cw, 0, cw, ch),
@@ -3454,7 +3479,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // ⚠️ `set(v)` com UM argumento escala os dois eixos igualmente. Passar dois
     // valores diferentes aqui é o que deixaria o estouro oval.
     node.scale.set(ESCALA_QUEDA * (ESCALA_IMPACTO[magia] ?? 1));
-    node.anchor.set(0.5, 1);
+    /*
+     * ⚠️ **A âncora em Y é o ponto do desenho que tem de cair NO TILE**, e nem
+     * sempre é o rodapé do quadro. Ver `ancoraY` em `FOLHAS_QUEDA`: no relâmpago
+     * os 11 % de baixo são brilho espalhando no chão, e ancorar no rodapé subia
+     * o impacto dois tiles.
+     */
+    node.anchor.set(0.5, folha.ancoraY ?? 1);
     node.x = wx;
     node.y = wy;
     // ⚠️ Sobrescrito logo abaixo: o estouro desce para a camada do chão.
