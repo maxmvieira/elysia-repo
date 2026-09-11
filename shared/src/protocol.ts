@@ -942,6 +942,20 @@ export interface S2C_Effect {
   /** Raio em tiles, quando o efeito é de área. */
   radius?: number;
   /**
+   * 🌠 **De onde a coisa VEM, em tiles: o tile de quem conjurou.**
+   *
+   * Pedido do dono em 12/09, vendo o Meteoro em tela: *"está descendo do lado
+   * contrário da conjuração"*. O meteoro tem de entrar pelo lado do
+   * conjurador — atravessar o campo de batalha por cima dele até o alvo —, e o
+   * cliente não tem como saber esse lado: o `fx` da queda diz onde ela CAI, não
+   * quem a jogou.
+   *
+   * ⚠️ Só quem tem trajetória usa. Para o resto é ruído de 2 campos por pacote,
+   * e por isso o servidor só manda quando a ficha pede queda.
+   */
+  fromX?: number;
+  fromY?: number;
+  /**
    * 🔴 **Quantos golpes esta conjuração tem** — o Fire Bolt do nível 7 manda 7.
    *
    * Existe porque o cliente **não sabe o nível de habilidade dos outros

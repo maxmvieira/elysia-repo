@@ -2623,7 +2623,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * 🌠 A DESCIDA desenhada pela própria folha, em DIAGONAL. Ver `trajetoria`
      * em `FOLHAS_QUEDA`. Ausente = o traço desenhado por código, na vertical.
      */
-    trajetoria?: { deX: number; deY: number; cresce: readonly [number, number] };
+    trajetoria?: { dist: number; subida: number; cresce: readonly [number, number] };
   }
   const folhasQueda = new Map<string, FolhaDeQueda[]>();
 
@@ -2746,24 +2746,33 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * quadros de voo da folha desenham a descida, em diagonal, crescendo. Sem
      * ela (a Chuva), a descida continua sendo a rocha desenhada por código.
      *
-     * ⚠️ **`deX` negativo: ele vem de CIMA E DA ESQUERDA.** A arte aponta para
-     * baixo-direita, então essa é a direção em que ela não precisa de giro
-     * nenhum para parecer certa — e a rotação por rumo (ver `spawnQueda`) é
-     * calculada a partir desse 45° de origem.
+     * ⚠️ **A DIREÇÃO não mora aqui: ela sai da linha conjurador → alvo**, em
+     * `spawnQueda`. Estes dois números dizem só a FORMA da entrada.
      *
-     * ⚠️ **480 px de partida, e eram 620.** A 620 ele nascia longe demais e,
-     * com a aceleração, passava mais de meio mergulho fora da tela — o dono pede
-     * que ele APAREÇA pequeno e distante, não que só surja no fim. 480 px são
-     * quinze tiles: longe o bastante para ler como distância, perto o bastante
-     * para caber na janela na maior parte dos lançamentos.
+     * ⚠️ **`dist` 420: o quanto ele recua ao longo dessa linha.** Treze tiles —
+     * longe o bastante para ler como distância, perto o bastante para caber na
+     * janela na maior parte dos lançamentos. A 620 (a primeira tentativa) ele
+     * passava mais de meio mergulho fora da tela, e o dono pede que ele APAREÇA
+     * pequeno e distante, não que só surja no fim.
      *
-     * ⚠️ **Cresce de 0,3 a 1,5**: cinco vezes. É a profundidade. Uma pedra que
-     * atravessa a tela do mesmo tamanho lê como adesivo deslizando.
+     * ⚠️ **`subida` 160: a altura EXTRA, somada em qualquer direção.** É ela que
+     * garante que ele venha sempre do alto — sem isso, um alvo a leste faria o
+     * meteoro entrar rasante, de lado, como se rolasse pelo chão.
+     *
+     * ⚠️ **Cresce de 0,25 a 1,15**, e o topo era 1,5 — *"reduza só um pouco o
+     * tamanho do meteoro"*. Continua sendo quatro vezes e meia de crescimento,
+     * que é o que dá a profundidade: uma pedra que atravessa a tela do mesmo
+     * tamanho lê como adesivo deslizando.
+     *
+     * ⚠️ **1400 ms de estouro, e eram 900** — *"aproveite todos os frames do
+     * sprite"*. São 24 quadros: a 900 ms cada um durava 37 ms, e as duas últimas
+     * fileiras (a fumaça esfriando) passavam antes de serem vistas. A 1400 são
+     * 58 ms por quadro, e a dissipação inteira aparece.
      */
     {
       magia: 'meteor_solo', arquivo: 'meteoro40', bolts: 1, quadros: 40,
-      fracaoQueda: 16 / 40, duracaoEstouro: 900,
-      trajetoria: { deX: -480, deY: 480, cresce: [0.3, 1.5] },
+      fracaoQueda: 16 / 40, duracaoEstouro: 1400,
+      trajetoria: { dist: 420, subida: 160, cresce: [0.25, 1.15] },
     },
     /*
      * ❄️ A BOLA DE NEVE da Nevasca. A folha do dono é uma coluna de gelo que
@@ -3516,6 +3525,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   function spawnQueda(
     magia: string, wx: number, wy: number, folha: FolhaDeQueda, atraso: number,
     alvo?: string, quedaMs?: number, raioDano?: number,
+    deOnde?: { x: number; y: number },
   ): void {
     const { fracaoQueda, duracaoEstouro, mistura, desvanece, porCima } = folha;
     /*
@@ -3646,6 +3656,38 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     if (QUEDA_RISCO && folha.trajetoria) {
       const t = folha.trajetoria;
+      /*
+       * 🌠 **A DIREÇÃO SAI DA LINHA CONJURADOR → ALVO, e não da ficha.**
+       *
+       * Pedido do dono em 12/09, depois de ver a primeira versão errar o lado:
+       * *"ele vai ter que descer de acordo com a posição que eu lançar a magia.
+       * Lanço ela pra baixo, o meteoro vem meio de cima pra baixo; se lanço pra
+       * cima, o meteoro desce do alto mas ATRÁS do personagem para atingir o
+       * ponto de conjuração."*
+       *
+       * ✅ **Uma regra só atende os três casos: ele entra por TRÁS de quem
+       * conjurou e voa na direção do alvo.** A partida é o alvo recuado ao longo
+       * dessa linha, mais uma subida fixa para ele vir sempre do alto.
+       *
+       *   alvo a LESTE   → parte de cima-esquerda, cruza por cima do mago
+       *   alvo ao SUL    → parte bem no alto, quase reto  (*"de cima pra baixo"*)
+       *   alvo ao NORTE  → parte ATRÁS do mago e sobe a tela até o alvo
+       *
+       * 🔴 **O caso do norte é o que a ficha fixa nunca ia acertar**, e é o que
+       * o dono descreveu com mais cuidado. Um meteoro subindo a tela parece
+       * estranho escrito, e em tela é o contrário: é a pedra passando por cima
+       * do ombro do jogador e indo embora até o ponto marcado. Cair "do céu"
+       * sobre um alvo ao norte faria ela vir de ONDE NINGUÉM olhou.
+       *
+       * ⚠️ Alvo em cima do próprio mago (ou sem `fromX`) cai no padrão de
+       * cima-esquerda: sem linha, qualquer direção serve, e o que não pode é a
+       * divisão por zero virar uma queda reta sem rumo.
+       */
+      const vx = deOnde ? deOnde.x : -1;
+      const vy = deOnde ? deOnde.y : -1;
+      const comp = Math.hypot(vx, vy) || 1;
+      const deXreal = (-vx / comp) * t.dist;
+      const deYreal = (vy / comp) * t.dist + t.subida;
       const corte = Math.round(frames.length * fracaoQueda);
       const voo = new AnimatedSprite(frames.slice(0, corte));
       voo.anchor.set(0.5, 0.5);
@@ -3665,11 +3707,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * `alvo − partida = (−deX, +deY)`. A primeira versão escreveu
        * `atan2(−deY, −deX)` e girava o meteoro 90°: ele atravessava a tela
        * apontando para cima.
+       *
+       * 🔴 **E o rumo NATIVO da arte é baixo-ESQUERDA, não baixo-direita.** Olhar
+       * a folha e supor foi o segundo erro de 90° no mesmo cálculo: a cabeça de
+       * rocha fica no canto inferior ESQUERDO do quadro e o rastro sobe para a
+       * direita — ou seja, ela já voa para 135°, e não para 45°. Descontar 45°
+       * espelhava o meteoro, e em tela ele descia para o lado errado com a
+       * trajetória certa.
        */
-      voo.rotation = Math.atan2(t.deY, -t.deX) - Math.PI / 4;
+      voo.rotation = Math.atan2(deYreal, -deXreal) - Math.PI * 0.75;
       voo.zIndex = 9999;
       fxLayer.addChild(voo);
-      risco = { node: voo, t: 0, deX: t.deX, deY: t.deY, dur: tempoQueda, cresce: t.cresce };
+      risco = { node: voo, t: 0, deX: deXreal, deY: deYreal, dur: tempoQueda, cresce: t.cresce };
     } else if (QUEDA_RISCO && FORMA_RISCO[magia] !== 'nenhuma') {
       /*
        * A LANÇA: um traço vertical fino, claro no núcleo e alaranjado na
@@ -3928,13 +3977,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   function spawnQuedaDaConjuracao(
     magia: string, wx: number, wy: number, n: number, alvo?: string, quedaMs?: number,
-    raioDano?: number,
+    raioDano?: number, deOnde?: { x: number; y: number },
   ): void {
     const folha = folhaPara(magia, n);
     if (!folha) return;
     const copias = Math.max(1, Math.ceil(n / folha.bolts));
     for (let i = 0; i < copias; i++) {
-      spawnQueda(magia, wx, wy, folha, i * INTERVALO_BOLT_MS, alvo, quedaMs, raioDano);
+      spawnQueda(magia, wx, wy, folha, i * INTERVALO_BOLT_MS, alvo, quedaMs, raioDano, deOnde);
     }
   }
 
@@ -5244,6 +5293,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
             spawnQuedaDaConjuracao(
               msg.kind, msg.x * TS + TS / 2, msg.y * TS + TS, msg.n ?? 1,
               msg.targetId, msg.quedaMs, msg.radius,
+              /*
+               * 🌠 Quantos tiles o ALVO está à direita de quem conjurou. É o
+               * SINAL disso que decide por onde o meteoro entra — ver `lado` em
+               * `spawnQueda`. Ausente quando o servidor não mandou o `fromX`,
+               * e aí a trajetória cai no lado padrão.
+               */
+              msg.fromX === undefined || msg.fromY === undefined
+                ? undefined
+                : { x: msg.x - msg.fromX, y: msg.y - msg.fromY },
             );
             break;
           }

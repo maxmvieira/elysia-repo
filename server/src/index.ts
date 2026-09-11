@@ -3731,6 +3731,17 @@ function tickGolpesPendentes(now: number): void {
          * que o estrago, e o anel é quem conta a verdade.
          */
         ...(def.shape === 'area' ? { radius: skillRange(def, g.nivel) } : {}),
+        /*
+         * 🌠 **O TILE DE QUEM CONJUROU**, para a coisa que cai saber de que lado
+         * entrar. Ver `fromX` no protocolo — dono, 12/09: *"está descendo do
+         * lado contrário da conjuração"*.
+         *
+         * ⚠️ A posição é a de AGORA, não a do lançamento. O meteoro leva mais de
+         * um segundo para chegar e o mago pode ter andado; o que importa para a
+         * leitura é de onde ele parece vir em relação a quem o jogou, e "agora"
+         * é o que o jogador está vendo.
+         */
+        fromX: player.tileX, fromY: player.tileY,
       });
     }
     if (now < g.quando) { fica.push(g); continue; }

@@ -33,9 +33,19 @@
   // Da ficha: quedaMs 1100 (o mergulho) e área 7×7.
   const MERGULHO = 1100, RAIO = 3;
   // Do cliente: trajetoria e ESCALA_IMPACTO.
-  const DE_X = -480, DE_Y = 480, CRESCE = [0.3, 1.5];
+  const DIST = 420, SUBIDA = 160, CRESCE = [0.25, 1.15];
+  /*
+   * A direção sai da linha CONJURADOR -> ALVO. Aqui o vetor vem do endereço
+   * para dar para comparar os casos que o dono descreveu:
+   *   #leste #oeste #sul (lanco pra baixo) #norte (lanco pra cima)
+   */
+  const CASOS = { leste: [5,0], oeste: [-5,0], sul: [0,5], norte: [0,-5] };
+  const [VX, VY] = CASOS[location.hash.slice(1)] ?? [4, 4];
+  const COMP = Math.hypot(VX, VY) || 1;
+  const DE_X = (-VX / COMP) * DIST;
+  const DE_Y = (VY / COMP) * DIST + SUBIDA;
   const ESCALA_QUEDA = 0.625, ESCALA_IMPACTO = 2.1;
-  const ESTOURO = 900;
+  const ESTOURO = 1400;
   const CICLO = MERGULHO + ESTOURO + 700;
 
   const CX = 660, CHAO = 470;
@@ -71,8 +81,9 @@
       const y = CHAO - DE_Y * (1 - p);
       g.save();
       g.translate(x, y);
-      // A arte aponta para baixo-direita (45°); o giro é a diferença do rumo.
-      g.rotate(Math.atan2(DE_Y, -DE_X) - Math.PI / 4);
+      // A arte aponta para baixo-ESQUERDA (135°); o giro é a diferença do rumo.
+      // O LADO real vem do conjurador no jogo; aqui é fixo para poder comparar.
+      g.rotate(Math.atan2(DE_Y, -DE_X) - Math.PI * 0.75);
       g.drawImage(img, k * LW, 0, LW, LH, -w / 2, -h / 2, w, h);
       g.restore();
       document.getElementById('leg').textContent =
