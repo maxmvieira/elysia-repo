@@ -4643,13 +4643,24 @@ function executeSpell(
         }
         : undefined;
     for (let i = 0; i < golpes; i++) {
-      const ponto = pontos[i] ?? { x: cx, y: cy };
+      /*
+       * ⛈️ **UMA queda só, ou uma por golpe.** Ver `quedaUnica`: o relâmpago
+       * grande da Descarga cai inteiro no CENTRO e castiga várias vezes
+       * enquanto desce; a Chuva de Meteoros sorteia um ponto para cada rocha.
+       */
+      const ponto = def.quedaUnica ? { x: cx, y: cy } : (pontos[i] ?? { x: cx, y: cy });
       const fxEm = now + i * passoDaQueda();
       golpesPendentes.push({
         playerId: player.id, creatureId: '', skillId: def.id, nivel,
         poderBase, critChance: d.critChance, critMult: d.critMult,
         fxEm,
-        fxFeito: false,
+        /*
+         * ⚠️ **Já nasce "feito" nos golpes seguintes quando a queda é única.**
+         * Sem isto o cliente desenharia um raio novo por golpe, empilhados no
+         * mesmo tile — e o dono já viu esse defeito de outro jeito: doze
+         * estouros seguidos leem como doze magias pequenas, não como uma.
+         */
+        fxFeito: (def.quedaUnica ?? false) && i > 0,
         gesto: i === 0,
         quando: fxEm + (def.quedaMs ?? ATRASO_IMPACTO_MS),
         alvoX: ponto.x, alvoY: ponto.y,

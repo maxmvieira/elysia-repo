@@ -14,24 +14,21 @@
   canvas { display: block; image-rendering: pixelated; }
   p { padding: 6px 10px; margin: 0; opacity: .85; }
 </style>
-<canvas id="c" width="960" height="560"></canvas>
+<canvas id="c" width="960" height="640"></canvas>
 <p id="leg"></p>
 <script type="module">
   const c = document.getElementById('c');
   const g = c.getContext('2d');
   const img = await new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.src = '/assets/fx/relampago31.png'; });
   const N = 31, LW = img.width / N, LH = img.height;
-  const DUR = 900, ESCALA = 0.625 * 1.30, TS = 32;
-  // Lv.10 da ficha: 6 raios numa janela de 2100 ms, o dano de cada um aos 500 ms.
-  const RAIOS = 6, JANELA = 2100, PASSO = JANELA / RAIOS, QUEDA = 500;
-  const CICLO = JANELA + DUR + 600;
+  const DUR = 900, ESCALA = 0.625 * 2.20, TS = 32;
   /*
-   * Pontos sorteados dentro do bloco 7×7 do Lv.10, em tiles a partir do centro.
-   * Fixos na bancada de propósito: com sorteio de verdade, duas execuções não
-   * dariam para comparar.
+   * Lv.10 da ficha: UM relâmpago, 4 descargas numa janela de 460 ms, a primeira
+   * aos 500 ms (é quando o raio toca o chão). Ver `quedaUnica`.
    */
-  const PONTOS = [[0, 0], [-2, 1], [2, -1], [-1, -2], [1, 2], [3, 0]];
-  const CX = 460, CHAO = 500;
+  const DESCARGAS = 4, JANELA = 460, PASSO = JANELA / DESCARGAS, QUEDA = 500;
+  const CICLO = DUR + 700;
+  const CX = 460, CHAO = 580;
 
   function quadro(t) {
     g.fillStyle = '#3f5a34'; g.fillRect(0, 0, c.width, c.height);
@@ -44,33 +41,31 @@
     g.fillRect(CX - 16, CHAO - 40, 32, 40);
     g.fillRect(CX - 2 * T - 16, CHAO - 40, 32, 40);
 
-    g.globalCompositeOperation = 'lighter';
+    // UM relâmpago só, no centro da área. Ver `quedaUnica` na ficha.
     const w = LW * ESCALA * 2, h = LH * ESCALA * 2;
-    let vivos = 0;
-    PONTOS.forEach(([tx], i) => {
-      const nasce = i * PASSO;
-      const dt = ciclo - nasce;
-      if (dt < 0 || dt >= DUR) return;
-      vivos++;
-      const k = Math.min(N - 1, Math.floor((dt / DUR) * N));
-      g.drawImage(img, k * LW, 0, LW, LH, CX + tx * T - w / 2, CHAO - h, w, h);
-    });
-    g.globalCompositeOperation = 'source-over';
+    if (ciclo < DUR) {
+      g.globalCompositeOperation = 'lighter';
+      const k = Math.min(N - 1, Math.floor((ciclo / DUR) * N));
+      g.drawImage(img, k * LW, 0, LW, LH, CX - w / 2, CHAO - h, w, h);
+      g.globalCompositeOperation = 'source-over';
+    }
 
-    // Os números: cada raio castiga TODA a área aos 260 ms da queda dele.
+    // Os números: cada descarga castiga TODA a área.
     g.fillStyle = '#ffe36a'; g.font = 'bold 20px system-ui';
-    PONTOS.forEach((_, i) => {
-      const ms = i * PASSO + QUEDA;
-      if (ciclo < ms || ciclo > ms + 700) return;
+    for (let i = 0; i < DESCARGAS; i++) {
+      const ms = QUEDA + i * PASSO;
+      if (ciclo < ms || ciclo > ms + 700) continue;
       g.globalAlpha = Math.max(0, 1 - (ciclo - ms) / 700);
-      g.fillText('412', CX + 40 + i * 30, CHAO - 70 - (ciclo - ms) * 0.03);
-    });
+      g.fillText('412', CX + 150 + i * 34, CHAO - 70 - (ciclo - ms) * 0.03);
+    }
     g.globalAlpha = 1;
 
+    const quadroAtual = ciclo < DUR ? Math.floor((ciclo / DUR) * N) + 1 : '—';
     document.getElementById('leg').textContent =
-      `${Math.round(ciclo)} ms · ${vivos} raio(s) no ar · ${RAIOS} em ${JANELA} ms`
-      + ` (${Math.round(PASSO)} ms entre um e outro, cada um durando ${DUR} ms)`
-      + ` · tile = ${T} px na bancada`;
+      `${Math.round(ciclo)} ms · quadro ${quadroAtual} de ${N} · folha ${DUR} ms`
+      + ` · ${DESCARGAS} descargas a partir de ${QUEDA} ms, ${Math.round(PASSO)} ms entre elas`
+      + ` · raio ${Math.round(w / 2)}×${Math.round(h / 2)} px no jogo`
+      + ` (${(w / 2 / TS).toFixed(1)}×${(h / 2 / TS).toFixed(1)} tiles) · tile = ${T} px aqui`;
   }
 
   if (location.hash === '#tiras') {
@@ -79,8 +74,8 @@
     alvo.width = CEL * COL; alvo.height = 300 * Math.ceil(N2 / COL);
     const ag = alvo.getContext('2d');
     for (let i = 0; i < N2; i++) {
-      quadro((i / N2) * (JANELA + DUR));
-      ag.drawImage(c, 250, 20, 420, 520, (i % COL) * CEL, Math.floor(i / COL) * 300, CEL, 300);
+      quadro((i / N2) * DUR);
+      ag.drawImage(c, 240, 20, 440, 600, (i % COL) * CEL, Math.floor(i / COL) * 300, CEL, 300);
     }
     c.replaceWith(alvo);
   } else {

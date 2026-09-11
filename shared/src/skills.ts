@@ -436,6 +436,21 @@ export interface SkillDef {
    */
   quedaFx?: string;
   /**
+   * ⛈️ **A conjuração inteira é UMA queda só**: todas as unidades caem no CENTRO
+   * da área, e só a primeira anuncia o efeito.
+   *
+   * 🔴 É a diferença entre *tempestade* e *relâmpago*, e as duas já foram
+   * tentadas nesta mesma magia em 12/09. Sem a bandeira, cada golpe sorteia o
+   * próprio ponto e desenha o próprio raio — vários raios pequenos espalhados
+   * pela área. Com ela, é **um raio grande no meio**, castigando várias vezes
+   * enquanto cai: *"vamos voltar para a ideia de um relâmpago mesmo grande que
+   * pega em área"*.
+   *
+   * ⚠️ Só faz sentido com `queda` e `shape: 'area'` — é o ramo de bombardeio do
+   * servidor que ela dobra. Travado em teste.
+   */
+  quedaUnica?: boolean;
+  /**
    * 💥 **RAIO DE RESPINGO de CADA impacto, em tiles.** Ausente = só o alvo.
    *
    * Pedido do dono em 11/09, jogando: *"se ele pegar em dois monstros juntos,
@@ -2396,24 +2411,24 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     manaPerLevel: 5,
     cooldownMs: 5000,
     /**
-     * 🔴 **O TOTAL POR ALVO É O MESMO DE SEMPRE, repartido entre os raios.**
+     * 🔴 **O TOTAL POR ALVO É O MESMO DE SEMPRE, repartido entre as descargas.**
      *
      * Era `1,05 + 0,13/nível` num golpe só: 1,05 no Lv.1 e 2,22 no Lv.10. Com
-     * 3 → 6 raios e `danoDaArea` (cada raio castiga TODA a área), cada um vale
-     * `total / raios` — 0,35 no Lv.1 e 0,37 no Lv.10.
+     * 2 → 4 descargas e `danoDaArea` (cada uma castiga TODA a área), cada uma
+     * vale `total / descargas` — 0,525 no Lv.1 e 0,555 no Lv.10.
      *
-     * ⚠️ **O poder por raio quase não sobe; quem cresce é a CONTAGEM.** É a
-     * mesma forma da Esfera Elétrica, e cai bem numa tempestade: subir de nível
-     * faz chover mais, não faz cada raio doer mais.
+     * ⚠️ **Os `hits` aqui NÃO são raios, e sim descargas do MESMO raio.** Ver
+     * `quedaUnica`: o relâmpago é um só, e o que se repete é o estrago enquanto
+     * ele desce — *"os danos vão aparecendo enquanto ele cai"*.
      *
      * ⚠️ Os decimais são feios porque saíram de uma DIVISÃO, e ficam assim de
      * propósito: arredondar teria mexido no equilíbrio por descuido, num commit
      * que era de arte.
      */
-    power: 0.35,
-    powerPerLevel: 0.00222,
-    hits: 3,
-    hitsAtLv10: 6,
+    power: 0.525,
+    powerPerLevel: 0.00333,
+    hits: 2,
+    hitsAtLv10: 4,
     /**
      * 🔴 **CONTINUA EM ÁREA, e o desvio de 12/09 foi desfeito no mesmo dia.**
      *
@@ -2455,22 +2470,22 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     /**
      * ⚡ **A JANELA DA TEMPESTADE, e ela é o que espaça os raios.**
      *
-     * Em magia de área a cadência sai de `duração / golpes` (ver
-     * `passoDaQueda` no servidor), e não do intervalo fixo dos bolts. 1,3 s para
-     * 3 raios e 2,1 s para 6 dão 433 e 350 ms entre um e outro.
+     * Em magia de área a cadência sai de `duração / golpes` (ver `passoDaQueda`
+     * no servidor), e não do intervalo fixo dos bolts. 460 ms para 2 descargas
+     * dão 230 ms entre elas; para 4, dão 115 ms.
      *
-     * 🔴 **A conta que manda aqui é a do meteoro (11/09): o desenho de um raio
-     * não pode durar muito mais que o intervalo entre eles**, senão a chuva
-     * deixa de ler como chuva e vira uma parede. A folha dura 900 ms, então
-     * ficam 2,1 a 2,6 raios vivos ao mesmo tempo — o bastante para parecer
-     * contínuo, pouco para embolar.
+     * 🔴 **O número foi escolhido para as descargas caberem DENTRO do raio.** A
+     * folha dura 900 ms e o raio toca o chão aos 500. A última descarga sai em
+     * `500 + (golpes − 1) × passo`: 730 ms no Lv.1 e 845 no Lv.10, os dois antes
+     * de a folha apagar. Era o pedido do dono: *"os danos vão aparecendo
+     * enquanto ele cai e um pouquinho antes dele sumir"*.
      *
-     * ⚠️ A janela cresceu junto com a folha nova (840 → 900 ms). Um raio que
-     * dura mais precisa de mais espaço entre um e outro, senão a tempestade
-     * aperta sozinha.
+     * ⚠️ **Era 2100 ms na versão TEMPESTADE**, quando cada golpe era um raio
+     * separado e a janela servia para espaçá-los na tela. Com um raio só, a
+     * janela passou a medir outra coisa: a duração do castigo dentro dele. Mesmo
+     * campo, outro significado — daí valer a pena a nota.
      */
-    durationMs: 1300,
-    durationAtLv10: 2100,
+    durationMs: 460,
     magic: true,
     damageType: 'electric',
     /**
@@ -2495,21 +2510,30 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      */
     quedaMs: 500,
     /**
-     * 🔴 **OS RAIOS SÃO O VISUAL; O DANO É DA ÁREA.** A mesma decisão da Nevasca,
-     * e pelo mesmo motivo medido lá: com o dano saindo do respingo de cada
-     * unidade, uma tempestade de N unidades num quadrado de M células entrega
-     * uma fração do que a ficha promete, e a fração depende da geometria — não
-     * da ficha.
+     * ⛈️ **UM RAIO SÓ, GRANDE, NO CENTRO DA ÁREA** — dono, 12/09, depois de ver a
+     * tempestade em tela: *"vamos voltar para a ideia de um relâmpago mesmo
+     * grande que pega em área. Somente esse grande."*
      *
-     * ⚠️ Em tela: os raios caem em pontos SORTEADOS da área (é o que faz parecer
-     * tempestade), mas quem está dentro dela apanha de todos. Um bicho na quina
-     * leva o mesmo que um no centro; é simplificação assumida, herdada da
-     * Nevasca.
+     * ⚠️ A versão anterior sorteava um ponto por golpe e desenhava um raio para
+     * cada — vários raios pequenos espalhados. Ver `quedaUnica`: com ela, todas
+     * as descargas caem no mesmo ponto e só a primeira anuncia o desenho.
+     */
+    quedaUnica: true,
+    /**
+     * 🔴 **O RAIO É O VISUAL; O DANO É DA ÁREA.** A mesma decisão da Nevasca, e
+     * pelo mesmo motivo medido lá: com o dano saindo do respingo, o quanto a
+     * magia entrega passa a depender da geometria em vez da ficha.
+     *
+     * ⚠️ Aqui ela é ainda mais necessária que na tempestade: o raio cai num
+     * PONTO, e sem `danoDaArea` uma magia de área 7×7 machucaria uma célula.
+     *
+     * ⚠️ Quem está na quina leva o mesmo que quem está no centro — simplificação
+     * assumida, herdada da Nevasca.
      */
     danoDaArea: true,
     // Sem `applies`, e isso é a ficha inteira: `DD-SOR-018` proíbe.
     fx: 'discharge',
-    desc: 'Uma tempestade de raios despenca sobre a área e castiga quem está nela.',
+    desc: 'Um relâmpago enorme despenca sobre a área e castiga quem está nela.',
   },
   /**
    * 🔴 A suprema de raio: "múltiplos raios, **pequena chance de stun por

@@ -2962,25 +2962,35 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     snowball: 0.62,
     /**
-     * ⚡ **1,30, e a primeira medida foi 0,80.**
+     * ⛈️ **2,20, e o caminho até aqui foi 0,80 → 1,30 → 2,20.**
      *
-     * 🔴 **O 0,80 saiu de uma conta que virou errada.** Eu dimensionei o clarão
-     * para não passar muito da célula, porque a magia era de ALVO ÚNICO e uma
-     * queixa antiga do dono dizia *"são bem grandes, mas parece que acertam
-     * somente um pequeno ponto ao tocar o solo"*. Em tela ele pediu o oposto:
-     * *"o raio está meio pequeno demais"* — e no mesmo teste corrigiu o resto,
-     * que ela é de ÁREA.
+     * 🔴 **O 0,80 saiu de uma conta que a correção do dono inverteu.** Eu
+     * dimensionei o clarão para não passar muito da célula, porque a magia era
+     * de ALVO ÚNICO e uma queixa antiga dele dizia *"são bem grandes, mas parece
+     * que acertam somente um pequeno ponto ao tocar o solo"*. Em tela ele pediu
+     * o oposto — *"o raio está meio pequeno demais"* — e corrigiu o resto junto:
+     * a magia é de ÁREA.
      *
-     * ✅ Com a área de volta a conta inverte: o dano pega um bloco 5×5 (160 px),
-     * então um raio de 104 px de clarão está DENTRO do que a magia machuca, e
-     * não passando dos limites. 1,30 dá 104 × 230 px — 3,2 tiles de clarão e 7,2
-     * de coluna.
+     * ✅ Com a área, a conta inverte de vez: quem manda no tamanho é o BLOCO DE
+     * DANO, não a célula. A 2,20 o desenho dá 176 × 388 px, com o clarão do chão
+     * em ~132 px — quatro tiles, contra os cinco do bloco 5×5. O raio cobre a
+     * maior parte do que ele machuca, que é o que o desenho tem de prometer.
+     *
+     * ⚠️ **São 12 tiles de altura, e isso tem uma consequência em tela.** A
+     * janela do jogo tem ~18 tiles de altura e o herói fica no meio dela; com o
+     * alvo na metade de cima, a NUVEM sai pelo topo. É o preço da proporção da
+     * arte — ela é 1 para 2,2, e a maior parte da altura é o vão entre a nuvem e
+     * o chão, então não dá para alargar o clarão sem esticar o raio junto.
+     *
+     * ⚠️ E mesmo a 2,20 o clarão (≈132 px, 4 tiles) é MENOR que o bloco de dano
+     * do Lv.10 (7 tiles). Encolher aqui volta a mentir sobre o alcance; este é o
+     * número a mexer se a altura incomodar mais que isso.
      *
      * ⚠️ **Isotrópica, e a arte não permite outra coisa.** A coluna ficaria mais
      * fiel estreita e alta, mas esticar só um eixo deixa o clarão do chão OVAL —
      * a regra que já vale para o meteoro e para a Nevasca.
      */
-    lightning_fall: 1.30,
+    lightning_fall: 2.20,
   };
 
   /**

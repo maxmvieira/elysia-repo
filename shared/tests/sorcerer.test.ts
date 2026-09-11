@@ -645,55 +645,70 @@ test('DD-SOR-018: a Descarga Elétrica não atordoa e não empurra', () => {
   assert.equal(d.shape, 'area', 'a Descarga é a AoE do ramo do raio — GDD-doc1');
 });
 
-test('⚡ a Tempestade de Raios reparte o dano sem mudar o TOTAL por alvo', () => {
+test('⛈️ o relâmpago é UM só, e as descargas cabem dentro dele', () => {
   /*
-   * 🔴 O dano saiu de um golpe para 3 → 6 raios, e isso foi mudança de DESENHO,
-   * não de equilíbrio: o dono quis ver os números aparecendo enquanto os raios
-   * caem.
+   * 🔴 **Esta magia foi reformulada três vezes em 12/09**, e o teste guarda o
+   * formato que sobreviveu ao teste em tela: **um relâmpago grande caindo no
+   * centro da área**, castigando 2 → 4 vezes enquanto desce.
    *
-   * ⚠️ **`danoDaArea` é o que faz a conta fechar por multiplicação simples.**
-   * Cada raio castiga TODA a área, então quem está dentro leva os seis — e o
-   * total por alvo é `golpes × poder`, sem a diluição geométrica da Chuva de
-   * Meteoros. É a mesma decisão da Nevasca.
-   *
-   * O teste trava o total de antes: 1,05 no Lv.1 e 2,22 no Lv.10, os mesmos de
-   * quando ela era um golpe só. Se alguém mexer no `power` achando que reparte
-   * de novo, o número aparece aqui.
+   * As duas formas descartadas, para não voltarem como ideia nova:
+   *  - **alvo único** (da especificação da arte): desfeita pelo dono no mesmo
+   *    dia — contrariava o `GDD-doc1`, e eu não devia ter seguido;
+   *  - **tempestade** (vários raios sorteados na área): *"vamos voltar para a
+   *    ideia de um relâmpago mesmo grande. Somente esse grande."*
+   */
+  const d = SKILLS.electric_discharge;
+  assert.equal(d.quedaUnica, true, 'sem isto vira tempestade de raios pequenos');
+  assert.equal(d.danoDaArea, true, 'o raio cai num PONTO; sem isto a área não apanha');
+
+  /*
+   * ⚠️ **`quedaUnica` só existe em queda de ÁREA** — é o ramo de bombardeio do
+   * servidor que ela dobra. Em alvo único não há ponto para centralizar, e a
+   * bandeira passaria despercebida sem fazer nada.
+   */
+  for (const x of Object.values(SKILLS).filter((s) => s.quedaUnica)) {
+    assert.ok(x.queda && x.shape === 'area', `${x.id}: quedaUnica fora de queda em área`);
+  }
+
+  /*
+   * O total por alvo é o de sempre: 1,05 no Lv.1 e 2,22 no Lv.10, os mesmos de
+   * quando ela era um golpe só. Repartir em descargas foi mudança de DESENHO, e
+   * este teste é o que impede que vire mudança de equilíbrio sem querer.
    *
    * ⚠️ A conta é sobre a FICHA, sem o `IMPULSO_MAGICO` — é a comparação com o
    * valor histórico, e o impulso veio depois e vale para todas.
    */
-  const d = SKILLS.electric_discharge;
-  assert.equal(d.danoDaArea, true, 'sem isto a geometria come parte do dano');
   const daFicha = (nv: number): number =>
     skillImpactosEsperados(d, nv) * (d.power + d.powerPerLevel * (nv - 1));
   assert.ok(Math.abs(daFicha(1) - 1.05) < 0.01, `Lv.1 deu ${daFicha(1).toFixed(3)}, era 1,05`);
   assert.ok(Math.abs(daFicha(10) - 2.22) < 0.01, `Lv.10 deu ${daFicha(10).toFixed(3)}, era 2,22`);
 
   /*
-   * ⚠️ **O dano de cada raio tem de cair QUANDO ELE TOCA O CHÃO.** A folha tem
-   * 31 quadros em 900 ms e o raio encosta no solo no 17º — 495 ms. O `quedaMs`
-   * é justamente isso, e é um número solto na ficha: nada no código sabe quanto
-   * a folha dura nem em que quadro ela toca o chão.
+   * 🔴 **AS DESCARGAS TÊM DE CABER DENTRO DO RAIO, e é a única conta desta
+   * magia que atravessa três arquivos.**
    *
-   * A faixa aceita é generosa de propósito (a arte pode mudar de novo), mas
-   * fecha as duas portas que importam: castigar com o raio ainda no ar, e
-   * castigar com ele já apagado.
-   */
-  assert.ok((d.quedaMs ?? 0) > 350, 'o dano sairia com o raio ainda no ar');
-  assert.ok((d.quedaMs ?? 0) < 900, 'o dano sairia com o raio já apagado');
-
-  /*
-   * 🔴 **E os raios não podem se empilhar.** A regra saiu do meteoro em 11/09: o
-   * desenho de uma unidade não pode durar muito mais que o intervalo entre
-   * elas, senão a chuva deixa de ler como chuva e vira uma parede acesa.
+   * A folha tem 31 quadros em 900 ms (cliente) e o raio toca o chão no 17º —
+   * 495 ms. O `quedaMs` marca a primeira descarga e `duração / golpes` espaça as
+   * seguintes (servidor). A última sai em `quedaMs + (golpes − 1) × passo`, e
+   * ela precisa acontecer depois de o raio tocar o chão e antes de a folha
+   * apagar: *"os danos vão aparecendo enquanto ele cai e um pouquinho antes
+   * dele sumir"*.
    *
-   * ⚠️ Aqui o intervalo é `duração / golpes`, e não o fixo dos bolts — é o que
-   * a magia de ÁREA usa. Subir `hits` sem subir `durationMs` aperta a
-   * tempestade sem nenhum erro de compilação.
+   * ⚠️ Nada no código sabe quanto a folha dura nem em que quadro ela encosta no
+   * solo — os dois números vivem no cliente, e a ficha é do `shared`. Este teste
+   * é a única amarra entre eles.
    */
-  const intervalo = skillDuration(d, 10) / skillHits(d, 10);
-  assert.ok(900 / intervalo < 3, `${(900 / intervalo).toFixed(1)} raios vivos ao mesmo tempo`);
+  const FOLHA_MS = 900;
+  const TOCA_O_CHAO_MS = 495;
+  assert.ok((d.quedaMs ?? 0) >= TOCA_O_CHAO_MS - 60, 'a 1ª descarga sai com o raio no ar');
+  for (const nv of [1, 10]) {
+    const passo = skillDuration(d, nv) / skillHits(d, nv);
+    const ultima = (d.quedaMs ?? 0) + (skillHits(d, nv) - 1) * passo;
+    assert.ok(
+      ultima < FOLHA_MS,
+      `Lv.${nv}: a última descarga sai em ${Math.round(ultima)} ms e a folha apaga em ${FOLHA_MS}`,
+    );
+  }
 });
 
 test('Ira de Thor atordoa pouco, e o anti-cadeia é o do jogo inteiro', () => {
