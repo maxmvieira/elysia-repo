@@ -3587,6 +3587,12 @@ interface GolpePendente {
    * empurram nem congelam, e para elas cada impacto é independente.
    */
   tempestade?: Tempestade;
+  /**
+   * ⚡ Tiles de arremesso a aplicar NESTE golpe — só o último da série tem.
+   * Ver a nota no agendamento: empurrar no começo tiraria o alvo do alcance
+   * dos choques seguintes.
+   */
+  empurraAoFim?: number;
 }
 const golpesPendentes: GolpePendente[] = [];
 
@@ -3782,6 +3788,13 @@ function tickGolpesPendentes(now: number): void {
         player, def, g.nivel, v, g.poderBase, g.critChance, g.critMult, now,
         g.gesto && k === 0,
       );
+      /*
+       * ⚡ **O ARREMESSO, depois do último choque.** Ver `empurraAoFim`: a
+       * Esfera Elétrica acumula doze descargas e só então joga o alvo para
+       * trás. Vem DEPOIS do dano de propósito — quem morre no último choque cai
+       * onde apanhou, e não sete tiles adiante.
+       */
+      if (g.empurraAoFim && v.alive) empurra(player, v, g.empurraAoFim);
       if (!t?.condicao || !v.alive) return;
       /*
        * ❄️ **ACÚMULO: a condição é rolada A CADA N-ÉSIMO ACERTO** — no 3º, no
@@ -4614,6 +4627,22 @@ function executeSpell(
             // 🌠 O dano cai quando a unidade TOCA O CHÃO, e isso é por ficha:
             // uma rocha demora mais que uma lança. Ver `quedaMs`.
             quando: fxEm + (def.quedaMs ?? ATRASO_IMPACTO_MS),
+            /*
+             * ⚡ **O ARREMESSO VAI NO ÚLTIMO CHOQUE**, e não no primeiro.
+             *
+             * Pedido do dono: *"os primeiros choques mantêm o alvo praticamente
+             * no lugar; as descargas acumulam impacto; o último aplica o
+             * deslocamento principal"*. Empurrar no começo seria pior que feio:
+             * o alvo sairia do alcance e os onze choques seguintes cairiam
+             * atrás dele.
+             *
+             * ⚠️ Só na magia de ALVO ÚNICO que espaça — numa chuva de área não
+             * há "último golpe daquele alvo", porque cada meteoro escolhe as
+             * vítimas dele no instante em que estoura.
+             */
+            ...(def.empurraTiles !== undefined && i === golpes - 1
+              ? { empurraAoFim: skillEmpurrao(def, nivel) }
+              : {}),
           });
           continue;
         }
@@ -4665,7 +4694,14 @@ function aplicaCondicaoDaSkill(
      * de 2 a 7 tiles conforme o nível, e o resto do jogo continua no tile único
      * de sempre.
      */
-    if (def.applies.id === 'knockback') empurra(player, c, skillEmpurrao(def, nivel));
+    /*
+     * ⚠️ **A magia que ESPAÇA os golpes empurra no último choque, não aqui.**
+     * Ver `empurraAoFim`. Sem esta guarda o alvo levaria dois arremessos: um no
+     * lançamento e outro no fim — catorze tiles no Lv.10 da Esfera.
+     */
+    if (def.applies.id === 'knockback' && !def.queda) {
+      empurra(player, c, skillEmpurrao(def, nivel));
+    }
   }
 }
 

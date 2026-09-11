@@ -218,6 +218,39 @@ export function toStored(
   };
 }
 
+/**
+ * 🔴 **IDS DE HABILIDADE QUE MUDARAM DE NOME, remapeados na LEITURA.**
+ *
+ * `skill_levels` é um JSON com o id como CHAVE. Renomear uma habilidade no
+ * código, sem mais nada, não dá erro em lugar nenhum: o personagem
+ * simplesmente perde os pontos investidos naquela magia, porque a chave antiga
+ * deixa de bater com qualquer id conhecido e some na primeira gravação.
+ *
+ * ⚠️ **A migração é na leitura e não no banco, de propósito.** Uma migração de
+ * esquema roda uma vez e precisa acertar de primeira; esta atravessa qualquer
+ * save, inclusive um backup antigo restaurado depois. O custo é um `if` por
+ * login.
+ *
+ * ⚠️ E o valor ANTIGO só entra se o novo ainda não existir. Um personagem que já
+ * salvou depois da renomeação tem os dois? Não deveria — mas se tiver, o novo
+ * é o que vale; sobrescrever com o antigo seria rebaixar o nível dele.
+ */
+const IDS_RENOMEADOS: ReadonlyArray<readonly [string, string]> = [
+  // 12/09: a ficha da Jupitel Thunder trocou a magia inteira, e o dono pediu o
+  // id novo. O nome em tela ("Esfera Elétrica") nunca mudou.
+  ['lightning_ball', 'electric_sphere'],
+];
+
+function migraIdsDeSkill(niveis: SkillLevels): SkillLevels {
+  const saida = niveis as Record<string, number>;
+  for (const [antigo, novo] of IDS_RENOMEADOS) {
+    if (saida[antigo] === undefined) continue;
+    if (saida[novo] === undefined) saida[novo] = saida[antigo];
+    delete saida[antigo];
+  }
+  return saida as SkillLevels;
+}
+
 /** Campos soltos do banco, prontos para aplicar num Player. */
 export function fromStored(c: StoredCharacter): {
   attributes: Attributes;
@@ -235,7 +268,7 @@ export function fromStored(c: StoredCharacter): {
       level: c.skillLevel,
       progress: c.skillProgress,
     },
-    skillLevels: JSON.parse(c.skillLevels) as SkillLevels,
+    skillLevels: migraIdsDeSkill(JSON.parse(c.skillLevels) as SkillLevels),
     proficiencies: JSON.parse(c.proficiencies) as Proficiencies,
     bestiary: JSON.parse(c.bestiary) as BestiaryState,
     // Personagem criado antes da migração v2 tem a coluna com o DEFAULT '{}',

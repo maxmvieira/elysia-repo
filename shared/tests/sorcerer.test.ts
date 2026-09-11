@@ -525,7 +525,7 @@ test('⚡ Esfera Elétrica: a ficha da Jupitel Thunder', () => {
    * inteira. O que este teste guarda são os números que vieram dela e a FORMA
    * do crescimento, que é o que a distingue das outras.
    */
-  const lb = SKILLS.lightning_ball;
+  const lb = SKILLS.electric_sphere;
 
   // 3 → 12 choques, e 9 células de alcance fixo.
   assert.equal(skillHits(lb, 1), 3);
@@ -556,15 +556,15 @@ test('⚡ Esfera Elétrica: a ficha da Jupitel Thunder', () => {
    * parado e interrompível.
    */
   assert.ok(skillCastMs(lb, 10, 0, 0) > skillCastMs(lb, 1, 0, 0));
-  assert.equal(skillCastMs(lb, 1, 0, 0), 2500);
-  assert.equal(skillCastMs(lb, 10, 0, 0), 4300);
+  assert.equal(skillCastMs(lb, 1, 0, 0), 2000);
+  assert.equal(skillCastMs(lb, 10, 0, 0), 3800);
 });
 
 test('o empurrão é tratado SEPARADO do dano', () => {
   // "Resistir ao empurrão não evita o dano." No código isso é automático: a
   // condição pode falhar e o golpe entra igual. O que o teste trava é que a
   // habilidade tenha AS DUAS coisas — dano próprio e condição à parte.
-  const lb = SKILLS.lightning_ball;
+  const lb = SKILLS.electric_sphere;
   assert.ok(lb.power > 0);
   assert.equal(lb.applies?.id, 'knockback');
 });
@@ -690,11 +690,26 @@ test('🔴 magia que CAI DO CÉU: alvo único cadenciado, ou área com JANELA', 
    * ela, a divisão daria zero e os meteoros voltariam a cair todos no mesmo
    * tique — o defeito que a mudança veio corrigir, de volta em silêncio.
    */
+  /*
+   * 🔴 **`queda` DEIXOU DE SIGNIFICAR "cai do céu" em 12/09.** O que a bandeira
+   * compra é a FILA: golpes espaçados no tempo, perseguindo o alvo, cada um
+   * revalidado no instante em que cai. A queda do céu é um USO disso, não o
+   * significado.
+   *
+   * A Esfera Elétrica entrou na lista por causa do tempo — os doze choques dela
+   * têm de chegar em sequência — e **não é desenhada caindo**: o cliente só
+   * trata como queda o que estiver em `FOLHAS_QUEDA` (ver `MAGIAS_QUE_CAEM`), e
+   * ela não está.
+   *
+   * ⚠️ A lista continua cravada de propósito. A pergunta que ela força mudou:
+   * não é mais "o cliente sabe desenhar a queda?", é **"esta magia quer a
+   * cadência, e o cliente sabe o que desenhar a cada golpe?"**.
+   */
   const caem = Object.values(SKILLS).filter((d) => d.queda);
   assert.deepEqual(
     caem.map((d) => d.id).sort(),
-    ['blizzard', 'cold_bolt', 'fire_bolt', 'meteor_storm'],
-    'mudou a lista? confira se o cliente tem como desenhar a queda da magia nova',
+    ['blizzard', 'cold_bolt', 'electric_sphere', 'fire_bolt', 'meteor_storm'],
+    'mudou a lista? confira o que o cliente desenha a cada golpe da magia nova',
   );
   for (const d of caem) {
     assert.ok(

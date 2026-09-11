@@ -74,7 +74,7 @@ export type SkillId =
   | 'glacial_burst'
   | 'blizzard'
   // 🔮 Feiticeiro — ⚡ raio (3)
-  | 'lightning_ball'
+  | 'electric_sphere'
   | 'electric_discharge'
   | 'thor_wrath'
   // 🔮 Feiticeiro — ✨ arcano (7)
@@ -2205,8 +2205,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
    * empurrão não evita o dano"*. É exatamente como `applies` funciona aqui —
    * a condição pode falhar e o golpe entra do mesmo jeito.
    */
-  lightning_ball: {
-    id: 'lightning_ball',
+  electric_sphere: {
+    id: 'electric_sphere',
     name: 'Esfera Elétrica',
     kind: 'multihit',
     branch: 'raio',
@@ -2251,8 +2251,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * são magias que se pagam com TEMPO PARADO, e quanto mais fortes, mais
      * tempo. Ver `castMsAtLv10`.
      */
-    castMs: 2500,
-    castMsAtLv10: 4300,
+    castMs: 2000,
+    castMsAtLv10: 3800,
     magic: true,
     /*
      * ⚠️ **A ficha diz propriedade VENTO; aqui é `electric`.** Não é descuido:
@@ -2264,6 +2264,30 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     damageType: 'electric',
     hits: 3,
     hitsAtLv10: 12,
+    /**
+     * ⚡ **OS CHOQUES SÃO SEQUENCIAIS, e é a parte mais importante da magia.**
+     *
+     * Pedido do dono: *"o alvo sofre os choques em sequência, e NÃO deve receber
+     * todos os danos simultaneamente"*. Sem isto, doze números de dano pipocam
+     * no mesmo quadro e a magia lê como um golpe só muito forte.
+     *
+     * 🔴 **Reusa a fila de `queda`, que já faz exatamente isso** — espaça os
+     * golpes, persegue o alvo enquanto ele anda, e revalida cada um no instante
+     * de cair. É a mesma máquina do Fire Bolt; não havia por que inventar uma
+     * segunda.
+     *
+     * ⚠️ **Mas o cliente NÃO desenha queda aqui.** Ele só trata como "cai do
+     * céu" o que estiver em `FOLHAS_QUEDA` (ver `MAGIAS_QUE_CAEM`), e a Esfera
+     * não está: cada choque chega como um `fx` comum, na posição do alvo. A
+     * bandeira aqui compra o TEMPO, não o desenho.
+     */
+    queda: true,
+    /*
+     * ⚡ **Zero: o choque e o dano são o mesmo instante.** O atraso existe para
+     * coisa que cai — a bola precisa chegar ao chão antes de machucar. Um arco
+     * elétrico não viaja: acende e queima junto.
+     */
+    quedaMs: 0,
     /*
      * ⚡ **2 a 7 tiles de arremesso**, a coluna "Empurra" da ficha. Ver
      * `empurraTiles`: é o total do lançamento, não por choque.
@@ -2283,7 +2307,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       durationAtLv1: 400,
       durationAtLv10: 400,
     },
-    fx: 'lightning_ball',
+    fx: 'electric_sphere',
     desc: 'Descarrega choques de alta tensão e arremessa o alvo para trás.',
   },
   /**
@@ -2298,7 +2322,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     branch: 'raio',
     classes: ['sorcerer'],
     reqLevel: 25,
-    requires: [{ skill: 'lightning_ball', level: 3 }],
+    requires: [{ skill: 'electric_sphere', level: 3 }],
     manaCost: 38,
     manaPerLevel: 5,
     cooldownMs: 5000,
@@ -2331,7 +2355,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     classes: ['sorcerer'],
     reqLevel: 50,
     requires: [
-      { skill: 'lightning_ball', level: 5 },
+      { skill: 'electric_sphere', level: 5 },
       { skill: 'electric_discharge', level: 5 },
     ],
     manaCost: 125,
@@ -3482,7 +3506,7 @@ export const SKILL_IDS: SkillId[] = [
   // 🔮 Feiticeiro (18)
   'fire_bolt', 'fire_wall', 'meteor', 'meteor_storm',
   'cold_bolt', 'ice_wall', 'glacial_burst', 'blizzard',
-  'lightning_ball', 'electric_discharge', 'thor_wrath',
+  'electric_sphere', 'electric_discharge', 'thor_wrath',
   'magic_enhance', 'magic_amplify', 'cast_mastery', 'mana_regen',
   'magic_protection', 'revealing_flame', 'arcane_circle',
   // 🗡️ Assassino (14)
@@ -3555,7 +3579,7 @@ export const SKILL_BARS: Record<PlayerClass, (SkillId | null)[]> = {
     'poison_spores',
   ]),
   sorcerer: barra([
-    'fire_bolt', 'cold_bolt', 'lightning_ball', 'electric_discharge',
+    'fire_bolt', 'cold_bolt', 'electric_sphere', 'electric_discharge',
     'meteor', 'glacial_burst', 'fire_wall', 'ice_wall',
     'arcane_circle', 'meteor_storm', 'blizzard', 'thor_wrath',
     // Segunda fileira: as utilitárias arcanas.

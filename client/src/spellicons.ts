@@ -580,7 +580,7 @@ const GLIFOS: Record<string, Glifo> = {
   glacial_burst: 'estrela',
   blizzard: 'floco',
   // 🔮 Feiticeiro — raio
-  lightning_ball: 'circulo',
+  electric_sphere: 'circulo',
   electric_discharge: 'estrela',
   thor_wrath: 'raio',
   // 🔮 Feiticeiro — arcano

@@ -3819,9 +3819,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         c.rotation = a;
         node.addChild(c);
       }
-    } else if (kind === 'lightning_ball' || kind === 'discharge' || kind === 'thor_wrath') {
+    } else if (kind === 'electric_sphere' || kind === 'discharge' || kind === 'thor_wrath') {
       // ⚡ Ziguezagues amarelos saindo do centro.
-      const R = kind === 'lightning_ball' ? TS * 0.6 : (radius + 0.5) * TS;
+      const R = kind === 'electric_sphere' ? TS * 0.6 : (radius + 0.5) * TS;
       const raios = new Graphics();
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2;
