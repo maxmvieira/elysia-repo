@@ -19,14 +19,14 @@
 <script type="module">
   const c = document.getElementById('c');
   const g = c.getContext('2d');
-  const img = await new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.src = '/assets/fx/relampago31.png'; });
-  const N = 31, LW = img.width / N, LH = img.height;
-  const DUR = 900, ESCALA = 0.625 * 2.20, TS = 32;
+  const img = await new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.src = '/assets/fx/relampago24.png'; });
+  const N = 24, LW = img.width / N, LH = img.height;
+  const DUR = 1200, ESCALA = 0.625 * 1.80, TS = 32;
   /*
    * Lv.10 da ficha: UM relâmpago, 4 descargas numa janela de 460 ms, a primeira
-   * aos 500 ms (é quando o raio toca o chão). Ver `quedaUnica`.
+   * aos 400 ms (é quando o raio toca o chão). Ver `quedaUnica`.
    */
-  const DESCARGAS = 4, JANELA = 460, PASSO = JANELA / DESCARGAS, QUEDA = 500;
+  const DESCARGAS = 4, JANELA = 460, PASSO = JANELA / DESCARGAS, QUEDA = 400;
   const CICLO = DUR + 700;
   const CX = 460, CHAO = 580;
 

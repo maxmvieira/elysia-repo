@@ -58,19 +58,33 @@ const FOLHAS = {
    * `chao: true` marca as fileiras em que o raio ENCOSTA no solo. São elas que
    * ditam onde o clarão fica, e as outras se penduram na altura da nuvem delas.
    */
-  relampago31: {
-    larg: 128,
-    alt: 282,
+  /**
+   * ⛈️ **O RELÂMPAGO COM NUVEM ESCURA (12/09)**, 24 quadros em 3 fileiras de 8,
+   * 7 e 9. A terceira arte desta magia no mesmo dia, e a que o dono aprovou.
+   *
+   * A sequência é a que ele mandou observar do começo ao fim: **a nuvem se
+   * juntando** (fileira 1, com o relâmpago ainda preso dentro dela), **a
+   * descarga** batendo no chão (fileira 2) e **a dissipação** (fileira 3).
+   *
+   * ⚠️ As fileiras são os limites do CONTEÚDO, medidos pelo perfil de alfa. Só a
+   * primeira fronteira tem vale zerado; a que separa a 2 da 3 saiu do mínimo
+   * local (y=731, 26 px acesos contra centenas nas vizinhas).
+   *
+   * ⚠️ **A fileira 1 não tem chão** — o raio ainda não desceu. Ela se pendura na
+   * altura de nuvem da fileira 2, que é a de referência.
+   */
+  relampago24: {
+    larg: 160,
+    alt: 288,
     /** Janela recortada da FONTE, em pixels dela. Ver a nota da altura. */
-    janelaLarg: 200,
-    janelaAlt: 440,
-    /** Distância nuvem → chão na fileira de referência, medida. */
-    nuvemAcimaDoChao: 374,
+    janelaLarg: 250,
+    janelaAlt: 450,
+    /** Distância nuvem → chão na fileira de referência (a 2), medida. */
+    nuvemAcimaDoChao: 404,
     fileiras: [
-      { y0: 19, y1: 232, quadros: 9, chao: false },
-      { y0: 236, y1: 497, quadros: 7, chao: false },
-      { y0: 501, y1: 949, quadros: 7, chao: true },
-      { y0: 955, y1: 1252, quadros: 8, chao: true },
+      { y0: 1, y1: 221, quadros: 8, chao: false },
+      { y0: 231, y1: 730, quadros: 7, chao: true },
+      { y0: 731, y1: 996, quadros: 9, chao: true },
     ],
   },
 };
@@ -90,11 +104,21 @@ const img = decode(folhaArq);
 const aceso = (x, y) => img.px[(y * img.w + x) * 4 + 3] > PISO_ALFA;
 
 /**
- * Corta uma fileira em `n` colunas pelos VALES do perfil de densidade.
+ * Corta uma fileira em `n` colunas.
  *
- * ⚠️ A busca é limitada a ±35 % do passo teórico em volta de cada corte. Sem a
- * janela, um vale fundo no meio de um quadro (entre a nuvem e o raio, por
- * exemplo) roubaria o corte do vizinho e comeria meio desenho.
+ * 🔴 **Os VÃOS VAZIOS mandam, e a divisão só entra onde eles faltam.**
+ *
+ * A primeira versão deste cortador procurava os `n−1` menores vales em volta
+ * das posições teóricas, e isso falhou de um jeito silencioso na folha de
+ * 12/09: numa fileira de dez quadros com larguras de 72 a 161 px, dois cortes
+ * caíram dentro de quadros vizinhos e saíram células de 44 px — meio desenho.
+ * Larguras irregulares e passo teórico não combinam.
+ *
+ * ✅ Agora: acha as ilhas de desenho separadas por colunas VAZIAS (elas já
+ * resolvem a maioria das fileiras sozinhas), estima quantos quadros cabem em
+ * cada ilha pelo passo médio, e só divide por vale as ilhas que seguram mais de
+ * um. Onde o desenho de um quadro encosta no do vizinho — e é só aí — a
+ * divisão volta a ser o recurso.
  */
 function colunasDaFileira(y0, y1, n) {
   const col = [];
@@ -103,20 +127,51 @@ function colunasDaFileira(y0, y1, n) {
     for (let y = y0; y <= y1; y++) if (aceso(x, y)) c++;
     col.push(c);
   }
-  const x0 = col.findIndex((v) => v > 0);
-  const x1 = col.length - 1 - [...col].reverse().findIndex((v) => v > 0);
-  const passo = (x1 - x0 + 1) / n;
-  const cortes = [x0];
-  for (let i = 1; i < n; i++) {
-    const alvo = x0 + i * passo;
-    let melhor = Infinity;
-    let xb = Math.round(alvo);
-    for (let x = Math.max(x0, Math.round(alvo - passo * 0.35));
-      x <= Math.min(x1, Math.round(alvo + passo * 0.35)); x++) {
-      if (col[x] < melhor) { melhor = col[x]; xb = x; }
-    }
-    cortes.push(xb);
+  // As ilhas: faixas contíguas de coluna com algum desenho.
+  const ilhas = [];
+  let ini = -1;
+  for (let x = 0; x <= col.length; x++) {
+    if (x < col.length && col[x] > 0) { if (ini < 0) ini = x; }
+    else if (ini >= 0) { ilhas.push([ini, x - 1]); ini = -1; }
   }
+  const x0 = ilhas[0][0];
+  const x1 = ilhas[ilhas.length - 1][1];
+  const passo = (x1 - x0 + 1) / n;
+
+  /*
+   * Quantos quadros cada ilha segura. `max(1, …)` porque a ilha do primeiro
+   * quadro costuma ser bem menor que o passo — é a nuvem começando a se formar,
+   * e ela ocupa um terço da célula.
+   */
+  const conta = ilhas.map(([a, b]) => Math.max(1, Math.round((b - a + 1) / passo)));
+  let sobra = n - conta.reduce((s, v) => s + v, 0);
+  // Sobrou ou faltou quadro: ajusta na ilha mais LARGA, que é onde cabe a dúvida.
+  while (sobra !== 0) {
+    let k = 0;
+    for (let i = 1; i < ilhas.length; i++) {
+      if ((ilhas[i][1] - ilhas[i][0]) / conta[i] > (ilhas[k][1] - ilhas[k][0]) / conta[k]) k = i;
+    }
+    if (sobra > 0) { conta[k] += 1; sobra -= 1; } else if (conta[k] > 1) { conta[k] -= 1; sobra += 1; } else break;
+  }
+
+  const cortes = [x0];
+  ilhas.forEach(([a, b], i) => {
+    const q = conta[i];
+    for (let j = 1; j < q; j++) {
+      // Divide a ilha por vale, agora dentro de um pedaço que SABE quantos quadros tem.
+      const larg = (b - a + 1) / q;
+      const alvo = a + j * larg;
+      let melhor = Infinity;
+      let xb = Math.round(alvo);
+      for (let x = Math.max(a, Math.round(alvo - larg * 0.3));
+        x <= Math.min(b, Math.round(alvo + larg * 0.3)); x++) {
+        if (col[x] < melhor) { melhor = col[x]; xb = x; }
+      }
+      cortes.push(xb);
+    }
+    // A fronteira entre ilhas cai no meio do vão.
+    if (i < ilhas.length - 1) cortes.push(Math.round((b + ilhas[i + 1][0]) / 2));
+  });
   cortes.push(x1 + 1);
   return cortes;
 }

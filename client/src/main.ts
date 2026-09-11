@@ -2681,34 +2681,36 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       fracaoQueda: 0, duracaoEstouro: 900,
     },
     /*
-     * ⛈️ **O RELÂMPAGO da Descarga Elétrica**, 31 quadros em 4 fileiras.
+     * ⛈️ **O RELÂMPAGO da Descarga Elétrica**, 24 quadros em 3 fileiras.
      *
-     * 🔴 **A folha CAI DO CÉU DE VERDADE, e a anterior não caía** — pedido do
-     * dono em 12/09, com arte nova: *"faça o raio cair do céu para o solo,
-     * dentro da área de conjuração"*. A folha de 25 quadros desenhava uma coluna
-     * que acendia inteira no lugar; esta abre uma NUVEM no alto, faz o raio
-     * descer dela até o chão, estoura e dissipa.
+     * 🔴 **A folha conta a magia INTEIRA, e o dono mandou olhar isso:** *"observe
+     * desde o início do sprite, a formação da nuvem e do raio até a descarga
+     * final"*. São três atos, e os tempos abaixo existem para cada um ser visto:
      *
-     * 🔴 **`fracaoQueda: 0` porque a folha INTEIRA é a magia.** Não há "descida"
-     * separada do "estouro" para cortar: os 31 quadros são a coisa toda, em
-     * ordem.
+     *   quadros  1–8   a NUVEM se juntando, com o raio ainda preso dentro dela
+     *   quadros  9–15  a DESCARGA, do céu ao chão, com o estouro no solo
+     *   quadros 16–24  a DISSIPAÇÃO
+     *
+     * 🔴 **`fracaoQueda: 0` porque nenhum quadro se descarta.** Não há "descida"
+     * separada do "estouro" para cortar: os 24 são a coisa toda, em ordem.
      *
      * ⚠️ É o mesmo `0` da bola de neve por motivos OPOSTOS: lá nenhum quadro é
      * queda porque a descida é o risco desenhado por código; aqui nenhum é
      * descartado porque a descida está desenhada e o risco não existe. Ver
      * `FORMA_RISCO`.
      *
-     * ⚠️ **900 ms, e eram 840 com 25 quadros.** Seis quadros a mais pedindo o
-     * mesmo tempo dariam 27 ms cada; 900 mantém a cadência em 29 ms (34 q/s) e
-     * ainda deixa 2,1 a 2,6 raios vivos ao mesmo tempo na tempestade. Ver a
-     * janela na ficha da magia — os dois números são a mesma decisão.
+     * ⚠️ **1200 ms, e eram 900.** Com 900 a nuvem se formava em 300 ms — rápido
+     * demais para o ato que o dono mandou observar. A 1200 ela leva 400 ms, a
+     * descarga fica no ar de 400 a 750, e a dissipação tem os 450 que faltavam
+     * para não sumir de estalo.
      *
-     * ⚠️ **O raio toca o chão no quadro 17 de 31**, ou 55 % da animação. É daí
-     * que sai o `quedaMs: 500` da ficha: é lá que o dano tem de sair.
+     * ⚠️ **O raio toca o chão no quadro 9 de 24**, ou 33 % da animação. É daí
+     * que sai o `quedaMs: 400` da ficha — o dano sai quando ele encosta, e nem
+     * um instante antes.
      */
     {
-      magia: 'lightning_fall', arquivo: 'relampago31', bolts: 1, quadros: 31,
-      fracaoQueda: 0, duracaoEstouro: 900,
+      magia: 'lightning_fall', arquivo: 'relampago24', bolts: 1, quadros: 24,
+      fracaoQueda: 0, duracaoEstouro: 1200,
     },
   ] as const;
 
@@ -2972,25 +2974,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * a magia é de ÁREA.
      *
      * ✅ Com a área, a conta inverte de vez: quem manda no tamanho é o BLOCO DE
-     * DANO, não a célula. A 2,20 o desenho dá 176 × 388 px, com o clarão do chão
-     * em ~132 px — quatro tiles, contra os cinco do bloco 5×5. O raio cobre a
-     * maior parte do que ele machuca, que é o que o desenho tem de prometer.
+     * DANO, não a célula.
      *
-     * ⚠️ **São 12 tiles de altura, e isso tem uma consequência em tela.** A
-     * janela do jogo tem ~18 tiles de altura e o herói fica no meio dela; com o
-     * alvo na metade de cima, a NUVEM sai pelo topo. É o preço da proporção da
-     * arte — ela é 1 para 2,2, e a maior parte da altura é o vão entre a nuvem e
-     * o chão, então não dá para alargar o clarão sem esticar o raio junto.
+     * ⚠️ **1,80 sobre a folha NOVA dá quase o mesmo que 2,20 dava na antiga.** A
+     * folha de 12/09 tem quadro de 160 × 288 contra os 128 × 282 da anterior, e
+     * a escala é sobre o quadro. Em pixels de tela: 180 × 324, ou 5,6 × 10,1
+     * tiles, com o clarão do chão em ~115 px (3,6 tiles).
      *
-     * ⚠️ E mesmo a 2,20 o clarão (≈132 px, 4 tiles) é MENOR que o bloco de dano
-     * do Lv.10 (7 tiles). Encolher aqui volta a mentir sobre o alcance; este é o
-     * número a mexer se a altura incomodar mais que isso.
+     * ⚠️ **Dez tiles de altura tem consequência em tela.** A janela do jogo tem
+     * ~18 tiles e o herói fica no meio dela; com o alvo na metade de cima, a
+     * NUVEM encosta no topo. É o preço da proporção da arte — ela é 1 para 1,8,
+     * e a maior parte da altura é o vão entre a nuvem e o chão, então não dá
+     * para alargar o clarão sem esticar o raio junto.
      *
      * ⚠️ **Isotrópica, e a arte não permite outra coisa.** A coluna ficaria mais
      * fiel estreita e alta, mas esticar só um eixo deixa o clarão do chão OVAL —
      * a regra que já vale para o meteoro e para a Nevasca.
      */
-    lightning_fall: 2.20,
+    lightning_fall: 1.80,
   };
 
   /**
@@ -3943,9 +3944,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       choque.animationSpeed = q.length / (260 / (1000 / 60));
       choque.play();
       node.addChild(choque);
-    } else if (kind === 'electric_sphere' || kind === 'discharge' || kind === 'thor_wrath') {
-      // ⚡ Ziguezagues amarelos saindo do centro.
-      const R = kind === 'electric_sphere' ? TS * 0.6 : (radius + 0.5) * TS;
+    } else if (
+      kind === 'electric_sphere' || kind === 'discharge'
+      || kind === 'thor_wrath' || kind === 'chain_arc'
+    ) {
+      /*
+       * ⚡ Ziguezagues saindo do centro.
+       *
+       * ⚠️ **A CORRENTE (`chain_arc`) reusa este desenho, e é o certo para ela.**
+       * Ela é um arco elétrico batendo num bicho — exatamente o que este código
+       * já desenha. Folha própria seria arte nova para um efeito de 300 ms que
+       * só aparece quando o sorteio deixa; e o azul-claro contra o amarelo das
+       * outras é o que diz, sem texto, que aquele dano veio de outro lugar.
+       */
+      const arco = kind === 'chain_arc';
+      const R = kind === 'electric_sphere' || arco ? TS * 0.6 : (radius + 0.5) * TS;
       const raios = new Graphics();
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2;
@@ -3953,7 +3966,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         raios.lineTo(Math.cos(a) * R * 0.45 + 6, Math.sin(a) * R * 0.45 - 5);
         raios.lineTo(Math.cos(a) * R, Math.sin(a) * R);
       }
-      raios.stroke({ width: 2.5, color: 0xffe96a, alpha: 0.95 });
+      raios.stroke({ width: arco ? 2 : 2.5, color: arco ? 0x9fe0ff : 0xffe96a, alpha: 0.95 });
       node.addChild(raios);
     } else {
       // Golpe Poderoso / Investida / Execução: talho de espada.

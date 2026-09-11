@@ -140,6 +140,7 @@ import {
   skillConditionChance,
   skillEmpurrao,
   skillCooldown,
+  skillCorrenteChance,
   skillConditionDuration,
   skillDuration,
   skillGroundDuration,
@@ -3593,6 +3594,11 @@ interface GolpePendente {
    * Ver a nota no agendamento.
    */
   empurraAoAcerto?: number;
+  /**
+   * ⚡ Este golpe é o que ROLA A CORRENTE — só o primeiro da conjuração tem.
+   * Ver `correnteEletrica`.
+   */
+  corrente?: boolean;
 }
 const golpesPendentes: GolpePendente[] = [];
 
@@ -3838,9 +3844,71 @@ function tickGolpesPendentes(now: number): void {
         t.condicao.power, player.id,
       );
     });
+
+    if (g.corrente && def.corrente) {
+      correnteEletrica(player, def, g, px, py, now);
+    }
   }
   golpesPendentes.length = 0;
   golpesPendentes.push(...fica);
+}
+
+/**
+ * ⚡ **A CORRENTE: o choque pula para quem está PERTO da área.**
+ *
+ * Pedido do dono em 12/09, na Descarga Elétrica. A ficha carrega os números
+ * (ver `corrente` em `SkillDef`); aqui mora só o sorteio.
+ *
+ * 🔴 **Ela pula para fora da ÁREA DE DANO, e não para fora do alvo.** Quem está
+ * dentro já levou o relâmpago inteiro; somar a cornete neles seria só um número
+ * a mais no mesmo bicho. O que a corrente compra é ALCANCE por acaso — e é o
+ * que faz valer a pena mirar na beirada de um bando em vez de no meio.
+ *
+ * ⚠️ **Uma vez por conjuração, e não por descarga.** Ver a nota na ficha: com
+ * quatro descargas no Lv.10, rolar em cada uma daria 87 % de chance de
+ * acontecer, e a peculiaridade viraria regra.
+ *
+ * ⚠️ **Os mais PRÓXIMOS, e o sorteio decide quantos.** Ordenar por distância é o
+ * que faz a corrente parecer corrente: ela se espalha do impacto para fora, em
+ * vez de escolher bichos soltos no mapa.
+ */
+function correnteEletrica(
+  player: Player, def: SkillDef, g: GolpePendente, px: number, py: number, now: number,
+): void {
+  const c = def.corrente!;
+  const chance = skillCorrenteChance(def, g.nivel);
+  if (Math.random() >= chance) return;
+
+  const raioDano = skillRange(def, g.nivel);
+  const alcance = raioDano + c.alcanceExtra;
+  const candidatos: Array<{ alvo: Creature; d: number }> = [];
+  for (const outro of creatures.values()) {
+    if (!outro.alive || outro.floor !== player.floor) continue;
+    const d = chebyshev(px, py, outro.tileX, outro.tileY);
+    // De fora da área de dano até o alcance da corrente.
+    if (d <= raioDano || d > alcance) continue;
+    candidatos.push({ alvo: outro, d });
+  }
+  if (candidatos.length === 0) return;
+  candidatos.sort((a, b) => a.d - b.d);
+
+  const quantos = Math.min(candidatos.length, 1 + Math.floor(Math.random() * c.maxAlvos));
+  for (let i = 0; i < quantos; i++) {
+    const v = candidatos[i]!.alvo;
+    /*
+     * ⚠️ **A fração é do dano do RAIO INTEIRO, não de uma descarga.** O que o
+     * dono chamou de *"raio principal"* é o que um alvo dentro da área leva na
+     * conjuração toda — `poderBase × golpes` —, e a corrente é uma fatia disso
+     * num golpe só. Medir contra uma descarga daria um número ridículo.
+     */
+    const fatia = c.fracaoMin + Math.random() * (c.fracaoMax - c.fracaoMin);
+    const poder = g.poderBase * skillHits(def, g.nivel) * fatia;
+    broadcastFloor(player.floor, {
+      t: 'fx', kind: 'chain_arc', x: v.tileX, y: v.tileY, floor: player.floor, n: 1,
+      targetId: v.id,
+    });
+    aplicaGolpeDeMagia(player, def, g.nivel, v, poder, g.critChance, g.critMult, now);
+  }
 }
 
 /**
@@ -4662,6 +4730,8 @@ function executeSpell(
          */
         fxFeito: (def.quedaUnica ?? false) && i > 0,
         gesto: i === 0,
+        // ⚡ A corrente é rolada UMA vez por conjuração. Ver `correnteEletrica`.
+        ...(def.corrente !== undefined && i === 0 ? { corrente: true } : {}),
         quando: fxEm + (def.quedaMs ?? ATRASO_IMPACTO_MS),
         alvoX: ponto.x, alvoY: ponto.y,
         ...(tempestade ? { tempestade } : {}),

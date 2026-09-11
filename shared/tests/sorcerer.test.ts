@@ -29,6 +29,7 @@ import {
   skillConditionDuration,
   skillPower,
   skillCooldown,
+  skillCorrenteChance,
   IMPULSO_MAGICO,
   skillManaCost,
   skillCastMs,
@@ -684,31 +685,55 @@ test('⛈️ o relâmpago é UM só, e as descargas cabem dentro dele', () => {
   assert.ok(Math.abs(daFicha(10) - 2.22) < 0.01, `Lv.10 deu ${daFicha(10).toFixed(3)}, era 2,22`);
 
   /*
-   * 🔴 **AS DESCARGAS TÊM DE CABER DENTRO DO RAIO, e é a única conta desta
-   * magia que atravessa três arquivos.**
+   * 🔴 **AS DESCARGAS TÊM DE CABER NA FILEIRA DA DESCARGA, e é a única conta
+   * desta magia que atravessa três arquivos.**
    *
-   * A folha tem 31 quadros em 900 ms (cliente) e o raio toca o chão no 17º —
-   * 495 ms. O `quedaMs` marca a primeira descarga e `duração / golpes` espaça as
-   * seguintes (servidor). A última sai em `quedaMs + (golpes − 1) × passo`, e
-   * ela precisa acontecer depois de o raio tocar o chão e antes de a folha
-   * apagar: *"os danos vão aparecendo enquanto ele cai e um pouquinho antes
-   * dele sumir"*.
+   * A folha tem 24 quadros em 1200 ms (cliente), em três atos: a nuvem se
+   * juntando (1–8), a descarga no chão (9–15) e a dissipação (16–24). O raio
+   * encosta no solo aos 400 ms e sai de lá aos 750.
+   *
+   * O `quedaMs` marca a primeira descarga (ficha) e `duração / golpes` espaça as
+   * seguintes (servidor). Todas precisam cair na janela do meio: antes dela o
+   * raio ainda está preso na nuvem, depois dela já está sumindo.
    *
    * ⚠️ Nada no código sabe quanto a folha dura nem em que quadro ela encosta no
    * solo — os dois números vivem no cliente, e a ficha é do `shared`. Este teste
-   * é a única amarra entre eles.
+   * é a única amarra entre eles, e já pegou uma troca de folha: a anterior
+   * tocava o chão aos 495 ms, esta aos 400.
    */
-  const FOLHA_MS = 900;
-  const TOCA_O_CHAO_MS = 495;
-  assert.ok((d.quedaMs ?? 0) >= TOCA_O_CHAO_MS - 60, 'a 1ª descarga sai com o raio no ar');
+  const TOCA_O_CHAO_MS = 400;
+  const SAI_DO_CHAO_MS = 750;
+  assert.ok((d.quedaMs ?? 0) >= TOCA_O_CHAO_MS, 'a 1ª descarga sai com o raio ainda na nuvem');
   for (const nv of [1, 10]) {
     const passo = skillDuration(d, nv) / skillHits(d, nv);
     const ultima = (d.quedaMs ?? 0) + (skillHits(d, nv) - 1) * passo;
     assert.ok(
-      ultima < FOLHA_MS,
-      `Lv.${nv}: a última descarga sai em ${Math.round(ultima)} ms e a folha apaga em ${FOLHA_MS}`,
+      ultima <= SAI_DO_CHAO_MS,
+      `Lv.${nv}: a última descarga sai em ${Math.round(ultima)} ms e o raio deixa o chão aos ${SAI_DO_CHAO_MS}`,
     );
   }
+
+  /*
+   * ⚡ **A CORRENTE, e o que ela NÃO pode virar.**
+   *
+   * Os números do dono: teto de 10 alvos e de 35 % do dano. O teste trava os
+   * dois e mais duas coisas que o tornariam outra magia:
+   *
+   *  - **é sorteio, não regra** — uma chance que nunca chega perto de 1;
+   *  - **é bônus, não o dano principal** — mesmo no melhor caso a corrente vale
+   *    menos que metade do que o raio faz a quem está na área.
+   */
+  const cor = d.corrente;
+  assert.ok(cor, 'a corrente é a peculiaridade da magia — ver a ficha');
+  assert.equal(cor.maxAlvos, 10, 'o teto de alvos é do dono');
+  assert.ok(Math.abs(cor.fracaoMax - 0.35) < 1e-9, 'o teto de dano é do dono');
+  assert.ok(cor.fracaoMin > 0 && cor.fracaoMin < cor.fracaoMax, 'o piso precisa caber abaixo do teto');
+  assert.ok(
+    skillCorrenteChance(d, 10) < 0.6,
+    `${(skillCorrenteChance(d, 10) * 100).toFixed(0)} % deixa de ser "existe uma chance"`,
+  );
+  assert.ok(skillCorrenteChance(d, 10) > skillCorrenteChance(d, 1), 'subir de nível melhora');
+  assert.ok(cor.fracaoMax < 0.5, 'a corrente é bônus, não o dano principal');
 });
 
 test('Ira de Thor atordoa pouco, e o anti-cadeia é o do jogo inteiro', () => {

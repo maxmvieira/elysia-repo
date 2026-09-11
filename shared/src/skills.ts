@@ -451,6 +451,30 @@ export interface SkillDef {
    */
   quedaUnica?: boolean;
   /**
+   * ⚡ **CORRENTE: uma chance de o choque pular para quem está PERTO da área.**
+   *
+   * Pedido do dono em 12/09: *"existe uma chance do choque elétrico gerar uma
+   * corrente elétrica que pula para um alvo próximo com dano reduzido de até
+   * 35 % do raio principal, sendo aleatório o dano e a quantidade de alvos, no
+   * máximo até 10 mais próximos da área de conjuração."*
+   *
+   * ⚠️ **Ela pula para FORA da área, e essa é a graça.** Quem está dentro já
+   * levou o raio inteiro; a corrente é o que estende o alcance da magia por
+   * acaso, e é o que faz valer a pena mirar na beirada de um bando.
+   */
+  corrente?: {
+    /** Chance de a corrente nascer, uma vez por conjuração. */
+    chanceAtLv1: number;
+    chanceAtLv10: number;
+    /** Teto de vítimas. O número de verdade é sorteado entre 1 e este. */
+    maxAlvos: number;
+    /** Piso e teto do dano, como fração do que o raio faz a um alvo. */
+    fracaoMin: number;
+    fracaoMax: number;
+    /** Quantos tiles ALÉM do raio de dano a corrente alcança. */
+    alcanceExtra: number;
+  };
+  /**
    * 💥 **RAIO DE RESPINGO de CADA impacto, em tiles.** Ausente = só o alvo.
    *
    * Pedido do dono em 11/09, jogando: *"se ele pegar em dois monstros juntos,
@@ -2497,18 +2521,18 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     queda: true,
     quedaFx: 'lightning_fall',
     /**
-     * ⛈️ **500 ms do raio nascer até ele machucar, e é onde ele TOCA O CHÃO.**
+     * ⛈️ **400 ms do raio nascer até ele machucar, e é onde ele TOCA O CHÃO.**
      *
-     * A folha tem 31 quadros em 900 ms, e o raio encosta no solo no 17º — 55 %
-     * da animação, ou 495 ms. O dano sai aí, e não antes: a arte nova mostra a
-     * nuvem se formando e o raio descendo, então castigar no meio da descida
-     * seria machucar com o raio ainda no ar.
+     * A folha tem 24 quadros em 1200 ms, e a fileira da descarga começa no 9º —
+     * 33 % da animação, ou 400 ms. Os oito primeiros são a NUVEM se juntando,
+     * com o raio ainda preso nela; castigar ali seria machucar antes de o raio
+     * existir.
      *
-     * ⚠️ Os dois números moram em lugares diferentes (este e o
-     * `duracaoEstouro` do cliente) e são a MESMA decisão. Mudar um sem o outro
-     * descola o estrago do desenho, sem erro nenhum.
+     * ⚠️ Os dois números moram em lugares diferentes (este e o `duracaoEstouro`
+     * do cliente) e são a MESMA decisão. Mudar um sem o outro descola o estrago
+     * do desenho, sem erro nenhum. O teste da magia é a única amarra.
      */
-    quedaMs: 500,
+    quedaMs: 400,
     /**
      * ⛈️ **UM RAIO SÓ, GRANDE, NO CENTRO DA ÁREA** — dono, 12/09, depois de ver a
      * tempestade em tela: *"vamos voltar para a ideia de um relâmpago mesmo
@@ -2531,9 +2555,35 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * assumida, herdada da Nevasca.
      */
     danoDaArea: true,
+    /**
+     * ⚡ **A CORRENTE.** Ver o campo `corrente` — o pedido do dono está citado lá.
+     *
+     * 🔴 **Três números são dele e dois são meus, e vale saber quais.**
+     *
+     * Dele: **10 alvos** no teto, **35 %** de dano no teto, e as duas coisas
+     * sorteadas.
+     *
+     * Meus, por ele não ter dito:
+     *  - **A chance, 18 % → 40 %.** Uma vez por conjuração, não por descarga:
+     *    com quatro descargas no Lv.10, rolar em cada uma daria 87 % de chance
+     *    de acontecer — e aí não é mais *"existe uma chance"*, é uma regra.
+     *  - **O piso de 12 % do dano.** *"Até 35 %"* deixa o piso em aberto, e um
+     *    sorteio de 0 a 35 gastaria a raridade da corrente em números de dois
+     *    dígitos. Doze por cento é pouco e ainda é notícia.
+     *  - **4 tiles além da área.** Precisa alcançar quem ficou de fora sem virar
+     *    uma segunda magia de área.
+     */
+    corrente: {
+      chanceAtLv1: 0.18,
+      chanceAtLv10: 0.40,
+      maxAlvos: 10,
+      fracaoMin: 0.12,
+      fracaoMax: 0.35,
+      alcanceExtra: 4,
+    },
     // Sem `applies`, e isso é a ficha inteira: `DD-SOR-018` proíbe.
     fx: 'discharge',
-    desc: 'Um relâmpago enorme despenca sobre a área e castiga quem está nela.',
+    desc: 'Um relâmpago enorme despenca sobre a área. Às vezes a corrente pula para quem está por perto.',
   },
   /**
    * 🔴 A suprema de raio: "múltiplos raios, **pequena chance de stun por
@@ -3904,6 +3954,19 @@ export const IMPULSO_MAGICO = 1.2;
 export function skillPower(def: SkillDef, nivel: number): number {
   const base = def.power + def.powerPerLevel * Math.max(0, nivel - 1);
   return def.magic ? base * IMPULSO_MAGICO : base;
+}
+
+/**
+ * ⚡ Chance de a CORRENTE nascer, no nível informado. `0` quando a ficha não tem.
+ *
+ * ⚠️ Existe como helper, e não como conta no servidor, pela mesma razão de todos
+ * os outros `skill*`: a interpolação por nível mora ao lado da ficha. Foi o que
+ * a dica de conjuração não tinha em 11/09, e ela anunciou o valor do Lv.1 por um
+ * dia inteiro.
+ */
+export function skillCorrenteChance(def: SkillDef, nivel: number): number {
+  if (!def.corrente) return 0;
+  return porNivel(nivel, def.corrente.chanceAtLv1, def.corrente.chanceAtLv10);
 }
 
 /**
