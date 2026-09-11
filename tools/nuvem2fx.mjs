@@ -75,10 +75,27 @@ const FOLHAS = {
    */
   relampago24: {
     larg: 160,
-    alt: 288,
-    /** Janela recortada da FONTE, em pixels dela. Ver a nota da altura. */
+    alt: 326,
+    /**
+     * Janela recortada da FONTE, em pixels dela.
+     *
+     * 🔴 **A altura era 450 e CORTAVA A NUVEM.** Defeito relatado pelo dono em
+     * 12/09: *"as nuvens dá pra perceber o recorte quadrado nelas"*. Medido: a
+     * janela pendurada no chão começava até **52 px abaixo do topo do
+     * desenho**, e a nuvem saía com a tampa cortada em linha reta.
+     *
+     * ⚠️ **Em mistura aditiva isso teria passado despercebido** — a borda some
+     * na soma. Foi a troca para mistura normal, feita algumas horas antes para
+     * a nuvem parar de virar borrão cinza, que revelou o corte. Um conserto
+     * expôs o outro.
+     *
+     * ✅ 510 dá 52 px de folga mais margem, e a saída acompanha: 160 × 326
+     * mantém a MESMA proporção (250/510 ≈ 160/326). O vão da nuvem ao chão
+     * continua ocupando 258 px do quadro, exatamente como antes — o raio não
+     * muda de tamanho em tela, só deixa de ter a nuvem decepada.
+     */
     janelaLarg: 250,
-    janelaAlt: 450,
+    janelaAlt: 510,
     /** Distância nuvem → chão na fileira de referência (a 2), medida. */
     nuvemAcimaDoChao: 404,
     fileiras: [

@@ -21,7 +21,7 @@
   canvas { display: block; image-rendering: pixelated; }
   p { padding: 6px 10px; margin: 0; opacity: .85; }
 </style>
-<canvas id="c" width="960" height="640"></canvas>
+<canvas id="c" width="960" height="720"></canvas>
 <p id="leg"></p>
 <script type="module">
   const c = document.getElementById('c');
@@ -35,7 +35,7 @@
    */
   const DESCARGAS = 4, JANELA = 600, PASSO = JANELA / DESCARGAS, QUEDA = 560;
   const CICLO = DUR + 700;
-  const CX = 460, CHAO = 580;
+  const CX = 460, CHAO = 660;
   const DOIS = location.hash === '#dois';
 
   function quadro(t) {

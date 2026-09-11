@@ -2515,6 +2515,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * `t` corre só depois que a animação termina. Ver `desvanece`.
      */
     apaga?: { em: number; t: number };
+    /** 💥 O pulo de escala no instante da batida. Ver o gatilho em `batida`. */
+    tranco?: { t: number; dur: number; base: number };
     /**
      * 🧪 **MODO RISCO** (ver `QUEDA_RISCO`): o traço desenhado por código que
      * cai antes do estouro. Ausente no modo folha, em que a própria animação já
@@ -2562,8 +2564,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * chão"*. A rocha da Chuva cai dezoito vezes por conjuração e um tremor
      * grande ali vira convulsão; o raio cai UMA vez, e a tela pode levar o
      * baque inteiro.
+     *
+     * ⚠️ **14 px, e eram 11.** Subiu na segunda passada do impacto (*"o toque do
+     * raio no solo não está perfeito... dando sensação de impacto"*), junto com
+     * o clarão em duas camadas e o tranco na escala. O tremor sozinho não
+     * resolvia: ele avisa que bateu, mas não mostra ONDE.
      */
-    lightning_fall: { px: 11, ms: 240 },
+    lightning_fall: { px: 14, ms: 260 },
   };
   const TREMOR_PADRAO = { px: 3, ms: 90 };
 
@@ -3062,8 +3069,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      *
      * ⚠️ **2,90, e a escada foi 0,80 → 1,30 → 1,80 → 2,40 → 2,90.** A última
      * subida é do dono em 12/09: *"aumente o tamanho dele, pode vir um pouco
-     * mais de cima"*. Dá 290 × 522 px em tela, ou **9,1 × 16,3 tiles**, com o
+     * mais de cima"*. Dá 290 × 591 px em tela, ou **9,1 × 18,5 tiles**, com o
      * estouro do chão em ~180 px (5,7 tiles).
+     *
+     * ⚠️ **A altura pulou de 522 para 591 sem esta escala mudar**, e não é
+     * engano: o quadro da folha passou de 288 para 326 px quando o corte deixou
+     * de decepar a nuvem. O vão da nuvem ao chão continua ocupando a mesma
+     * fatia do quadro, então **o raio tem exatamente o mesmo tamanho de antes** —
+     * o que entrou foi o topo da nuvem, que estava faltando.
      *
      * 🔴 **"Vir mais de cima" e "maior" são o MESMO botão**, e é por isso que os
      * dois pedidos viraram um número só: a nuvem fica no alto do quadro, então
@@ -3339,6 +3352,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * onde a tempestade começa e acaba.
      */
     snowball: { cristais: 16, espalha: 48 },
+    /*
+     * ⛈️ **O relâmpago não tinha entrada aqui, e por isso não cuspia NADA.**
+     * `cospeEstilhacos` sai na primeira linha quando a magia não está na tabela;
+     * como o gatilho do impacto dele também não existia até hoje, ninguém tinha
+     * como notar. Dois silêncios somados.
+     *
+     * ⚠️ **Vinte e dois num raio de 2 tiles, contra os dezesseis em 1,5 da
+     * Nevasca.** O relâmpago cai UMA vez por conjuração e a Nevasca dez; o que
+     * lá seria excesso, aqui é o único momento em que há o que ver. E o raio
+     * maior é porque o clarão dele tem 3,6 tiles: estilhaço dentro de um clarão
+     * some.
+     */
+    lightning_fall: { cristais: 22, espalha: 64 },
   };
 
   /**
@@ -3596,22 +3622,67 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * que está acertando.
    */
   function clarãoDeImpacto(wx: number, wy: number, raioPx: number): void {
-    const g = new Graphics();
-    g.blendMode = 'add';
-    g.x = wx;
-    g.y = wy;
-    g.zIndex = -0.58;
-    objects.addChild(g);
+    /*
+     * 🔴 **DUAS CAMADAS, e é isso que dá a sensação de impacto** — dono, 12/09:
+     * *"quero um toque forte no solo, atravessando os inimigos que estiverem
+     * nele"*.
+     *
+     * A primeira versão desenhava um anel só, na camada do CHÃO. Ele marcava a
+     * área certa e não batia: passava por trás de quem estava em cima dele, e um
+     * clarão que fica atrás do bicho não ilumina o bicho.
+     *
+     *  - **`chao`** (sob as entidades): o anel que ABRE, marcando onde pegou.
+     *    É a informação — o raio verdadeiro do dano.
+     *  - **`estouro`** (sobre as entidades): um disco branco que some em 120 ms.
+     *    É a sensação — ele lava quem está dentro, e é a luz atravessando os
+     *    inimigos que o dono pediu.
+     *
+     * ⚠️ O disco é MUITO mais curto que o anel (120 contra 260 ms). Luz de
+     * impacto que demora a sair lê como fogo, não como raio.
+     */
+    const chao = new Graphics();
+    chao.blendMode = 'add';
+    chao.x = wx;
+    chao.y = wy;
+    chao.zIndex = -0.58;
+    objects.addChild(chao);
+
+    const estouro = new Graphics();
+    estouro.blendMode = 'add';
+    estouro.x = wx;
+    estouro.y = wy;
+    estouro.zIndex = 9999;
+    fxLayer.addChild(estouro);
+
     const nasceu = performance.now();
-    const DUR = 220;
+    const DUR = 260;
+    const FLASH = 120;
     const passo = (): void => {
-      const r = (performance.now() - nasceu) / DUR;
-      if (r >= 1) { g.destroy(); app.ticker.remove(passo); return; }
-      g.clear();
-      // Abre de 25 % a 100 % do raio e some; a borda engrossa junto.
-      const R = raioPx * (0.25 + r * 0.75);
-      g.circle(0, 0, R).stroke({ width: 3 + r * 5, color: 0xdff2ff, alpha: (1 - r) * 0.85 });
-      g.circle(0, 0, R * 0.45).fill({ color: 0xffffff, alpha: (1 - r) * 0.5 });
+      const t = performance.now() - nasceu;
+      const r = t / DUR;
+      if (r >= 1) {
+        chao.destroy();
+        estouro.destroy();
+        app.ticker.remove(passo);
+        return;
+      }
+      chao.clear();
+      /*
+       * ⚠️ **Abre depressa e freia** (raiz quadrada), em vez de linear. Uma onda
+       * de choque é rápida no começo; linear lê como um círculo crescendo, que
+       * é desenho de aura e não de batida.
+       */
+      const R = raioPx * (0.2 + Math.sqrt(r) * 0.8);
+      chao.circle(0, 0, R).stroke({ width: 4 + r * 7, color: 0xeafaff, alpha: (1 - r) * 0.9 });
+      chao.circle(0, 0, R * 0.55).stroke({ width: 2 + r * 3, color: 0x9fd8ff, alpha: (1 - r) * 0.55 });
+
+      estouro.clear();
+      if (t < FLASH) {
+        const f = 1 - t / FLASH;
+        // Achatado no eixo Y: é luz deitada no chão, não uma bola de luz.
+        estouro.ellipse(0, 0, raioPx * (0.35 + (1 - f) * 0.5), raioPx * (0.18 + (1 - f) * 0.26))
+          .fill({ color: 0xffffff, alpha: f * 0.75 });
+      }
     };
     app.ticker.add(passo);
   }
@@ -10062,6 +10133,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
             ? (q.batida.raioDano + 0.5) * TS
             : q.node.width * 0.45;
           clarãoDeImpacto(q.node.x, q.node.y, R);
+          /*
+           * 💥 **O TRANCO no próprio desenho.** Um pulo de 6 % na escala que
+           * volta em 120 ms: é o que faz o raio parecer que BATEU, em vez de
+           * ter sido apoiado no chão. Ver `tranco`.
+           *
+           * ⚠️ Seis por cento é pouco de propósito. Mais que isso e a coluna
+           * inteira — dezesseis tiles dela — visivelmente incha, e o olho lê
+           * elástico em vez de impacto.
+           */
+          q.tranco = { t: 0, dur: 120, base: q.node.scale.x };
         }
       }
       /*
@@ -10096,6 +10177,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * junto com a animação: apagar em paralelo deixaria a descarga pálida
        * justamente quando ela tem de estar no auge.
        */
+      /*
+       * 💥 **O TRANCO.** Meia senoide: sobe até 6 % na metade do tempo e volta.
+       * Escalar e voltar em linha reta faria um pico anguloso, que lê como
+       * falha de quadro.
+       */
+      if (q.tranco) {
+        q.tranco.t += dt;
+        const r = Math.min(1, q.tranco.t / q.tranco.dur);
+        q.node.scale.set(q.tranco.base * (1 + Math.sin(r * Math.PI) * 0.06));
+        if (r >= 1) q.tranco = undefined;
+      }
       if (q.apaga && !q.node.playing && q.node.visible) {
         q.apaga.t += dt;
         q.node.alpha = Math.max(0, 1 - q.apaga.t / q.apaga.em);
