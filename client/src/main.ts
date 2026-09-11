@@ -193,6 +193,38 @@ const TS = TILE_SIZE;
 const WALL_H = 18; // altura visual das paredes em pixels (efeito 2.5D)
 
 /**
+ * 🌀 **Os quadros do anel que orbita o conjurador, fatiados UMA VEZ.**
+ *
+ * ⚠️ Mora no módulo, e não dentro da entidade, porque toda entidade que conjura
+ * usa os mesmos trinta quadros — fatiar por personagem criaria trinta `Texture`
+ * novas a cada monstro que aparecesse na tela.
+ *
+ * ⚠️ E é PREGUIÇOSO: `makeEntity` roda muito antes de a folha terminar de
+ * carregar, então quem pergunta é a primeira conjuração. Enquanto não houver
+ * folha, devolve `undefined` e o anel simplesmente não aparece — a mesma
+ * convenção do resto dos efeitos.
+ */
+const ANEL_CASTER_COLS = 6;
+const ANEL_CASTER_QUADROS = 30;
+let anelCasterCache: Texture[] | null = null;
+function quadrosAnelCaster(): Texture[] | undefined {
+  if (anelCasterCache) return anelCasterCache;
+  const t = Assets.get<Texture>('/assets/fx/anel_caster.png');
+  if (!t) return undefined;
+  const lw = t.width / ANEL_CASTER_COLS;
+  const lh = t.height / Math.ceil(ANEL_CASTER_QUADROS / ANEL_CASTER_COLS);
+  anelCasterCache = Array.from({ length: ANEL_CASTER_QUADROS }, (_, i) => new Texture({
+    source: t.source,
+    frame: new Rectangle(
+      (i % ANEL_CASTER_COLS) * lw,
+      Math.floor(i / ANEL_CASTER_COLS) * lh,
+      lw, lh,
+    ),
+  }));
+  return anelCasterCache;
+}
+
+/**
  * Fração do intervalo entre passos que a CRIATURA gasta deslizando, para o caso
  * em que o cliente **não sabe** a velocidade dela (`creatureType` desconhecido).
  * O resto ela passa parada.
@@ -3038,6 +3070,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   void Assets.load<Texture>('/assets/spells/frozen_status_overlay.png')
     .catch((e: unknown) => console.warn('[fx] bloco de gelo não carregou:', e));
+  // 🌀 O anel que orbita o conjurador. Fatiado sob demanda — ver `quadrosAnelCaster`.
+  void Assets.load<Texture>('/assets/fx/anel_caster.png')
+    .catch((e: unknown) => console.warn('[fx] anel do conjurador não carregou:', e));
 
   /** Qual animação cada camada usa ao nascer. */
   const ANIM_DA_CAMADA: Record<CamadaP, string> = { cristal: 'falling' };
@@ -7214,12 +7249,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * como luz piscando, a outra como adesivo girando.
    */
   const QUADROS_ANEL = 30;
+  /**
+   * ⚠️ **A folha é uma GRADE de 6 colunas, e não uma tira.** Trinta quadros de
+   * 384 em fila dariam 11 520 px de largura, acima do teto de 8 192 que placas
+   * mais modestas impõem — e uma textura larga demais não carrega, deixando o
+   * anel sumir sem erro nenhum. O número tem de bater com o `COLS` do
+   * `tools/anel2fx.mjs`.
+   */
+  const COLUNAS_ANEL = 6;
   void Assets.load<Texture>('/assets/fx/anel_conjuracao.png')
     .then((t) => {
-      const lado = t.height;
+      const lado = t.width / COLUNAS_ANEL;
       const quadros = Array.from({ length: QUADROS_ANEL }, (_, i) => new Texture({
         source: t.source,
-        frame: new Rectangle(i * lado, 0, lado, lado),
+        frame: new Rectangle(
+          (i % COLUNAS_ANEL) * lado,
+          Math.floor(i / COLUNAS_ANEL) * lado,
+          lado, lado,
+        ),
       }));
       for (const a of [circuloConj, circuloMira]) {
         a.textures = quadros;
@@ -7297,6 +7344,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // ⭕ O anel da mira some junto: ele é a MESMA marca, e deixar um sem o
     // outro mostraria meia mira no chão.
     circuloMira.visible = false;
+    alvoAssistido = null;
     viewportEl.style.cursor = '';
     // ⚠️ Esc cancela também a caminhada para conjurar. Sem isto o herói
     // continuaria andando e soltaria a magia sozinho, depois de o jogador já
@@ -7318,11 +7366,71 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * o meio dos lados. É o desenho mais próximo da verdade dentro da forma
    * pedida; a versão fiel seria o quadrado, e está no histórico de 08/09.
    */
+  /**
+   * 🎯 **ASSISTENTE DE MIRA** — pedido do dono em 11/09: *"quando coloco a
+   * single target, ela puxa a mira para o monstro que estou movendo o mouse
+   * próximo, para eu não clicar errado, castar a magia e nada acontecer."*
+   *
+   * 🔴 **O sintoma vinha de uma lacuna real no cliente, não de falta de
+   * pontaria.** O `cast` sempre pôde levar `targetId`, e o servidor sempre o
+   * honrou (`mira.targetId ?? player.targetId`) — mas o cliente **nunca mandava
+   * esse campo**. Em magia de alvo único ele mandava um TILE, e o servidor caía
+   * no alvo selecionado: se não houvesse nenhum, a mana e a recarga iam embora e
+   * não acontecia nada. O ímã resolve a pontaria; mandar o `targetId` resolve a
+   * causa.
+   *
+   * ⚠️ **Dois tiles de alcance, e não mais.** O ímã existe para perdoar o erro
+   * de um tile ou dois com o alvo em movimento; puxando de longe ele passa a
+   * decidir pelo jogador, e a magia sai em quem ele não queria — que é pior que
+   * errar, porque errar pelo menos avisa.
+   *
+   * ⚠️ **Desempate pela distância REAL ao cursor, e não pelo tile.** Dois
+   * monstros a um tile de distância empatam na conta de tiles, e sem o segundo
+   * critério o escolhido seria o primeiro do mapa — ou seja, sorteio. Com ele, é
+   * o que está visivelmente mais perto do ponteiro.
+   */
+  const RAIO_ASSIST = 2;
+
+  function alvoPerto(tx: number, ty: number): EntitySnapshot | undefined {
+    let melhor: EntitySnapshot | undefined;
+    let melhorTile = Infinity;
+    let melhorPx = Infinity;
+    for (const e of porId.values()) {
+      if (e.kind !== 'creature' || e.floor !== myFloor) continue;
+      // ⚠️ Corpo tem `hp` zerado e continua no mapa; mirar nele gastaria a magia
+      // exatamente como o clique errado que este ímã existe para evitar.
+      if ((e.hp ?? 0) <= 0) continue;
+      const dTile = Math.max(Math.abs(e.tileX - tx), Math.abs(e.tileY - ty));
+      if (dTile > RAIO_ASSIST) continue;
+      const dPx = (e.tileX - tx) ** 2 + (e.tileY - ty) ** 2;
+      if (dTile < melhorTile || (dTile === melhorTile && dPx < melhorPx)) {
+        melhor = e;
+        melhorTile = dTile;
+        melhorPx = dPx;
+      }
+    }
+    return melhor;
+  }
+
+  /** O alvo que o ímã escolheu, para o clique mandar o id e não só o tile. */
+  let alvoAssistido: string | null = null;
+
   function pintaMira(clientX: number, clientY: number, tx: number, ty: number): void {
     if (!magiaArmada) return;
     const def = SKILLS[magiaArmada];
     const nivel = Math.max(1, skillLevels[magiaArmada] ?? 1);
     const limite = skillCastRange(def, nivel);
+
+    /*
+     * 🎯 **O ÍMÃ só vale para ALVO ÚNICO.** Em magia de área o ponto clicado é a
+     * escolha do jogador — puxar o centro da tempestade para cima do bicho mais
+     * próximo estragaria justamente a decisão de onde colocá-la.
+     */
+    const soAlvo = !skillMiraNoChao(def);
+    const preso = soAlvo ? alvoPerto(tx, ty) : undefined;
+    alvoAssistido = preso?.id ?? null;
+    if (preso) { tx = preso.tileX; ty = preso.tileY; }
+
     const dist = Math.max(Math.abs(tx - myTileX), Math.abs(ty - myTileY));
     const fora = dist > limite;
 
@@ -7370,13 +7478,27 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       miraMarca
         .circle(px + TS / 2, py + TS / 2, TS * 0.42)
         .stroke({ color: cor, width: 2, alpha: 0.9 });
+      /*
+       * 🎯 **O ÍMÃ PRECISA SE MOSTRAR.** Um marcador que pula sozinho para o
+       * lado, sem dizer por quê, lê como bug de mira. O segundo anel, mais
+       * largo, é o que transforma o pulo em "travou naquele ali" — e é ele que
+       * dá ao jogador a chance de perceber que travou no monstro ERRADO antes
+       * de gastar a magia.
+       */
+      if (preso) {
+        miraMarca
+          .circle(px + TS / 2, py + TS / 2, TS * 0.62)
+          .stroke({ color: cor, width: 1, alpha: 0.5 });
+      }
     }
     miraMarca.visible = true;
   }
 
   /** Manda a intenção de usar. Quem valida (mana/cooldown/alvo) é o servidor. */
   function castSpellId(
-    id: SkillId, mira?: { tileX: number; tileY: number }, nivel?: number,
+    id: SkillId,
+    mira?: { tileX: number; tileY: number; targetId?: string | null },
+    nivel?: number,
   ): void {
     if ((skillLevels[id] ?? 0) <= 0) {
       logChat(`Você ainda não aprendeu <b>${SKILLS[id].name}</b> — abra as Skills (tecla K).`, 'sys');
@@ -7420,6 +7542,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     net.send({
       t: 'cast', spell: id,
       ...(mira ? { tileX: mira.tileX, tileY: mira.tileY } : {}),
+      /*
+       * 🎯 **O `targetId` do ímã.** O campo existe no protocolo desde 08/09 e o
+       * servidor sempre o honrou, mas o cliente nunca o mandava — em magia de
+       * alvo único ele mandava só o tile, e o servidor caía no alvo
+       * SELECIONADO. Sem nenhum selecionado, a magia saía no vazio: mana e
+       * recarga gastas, nada acontecendo. Era o defeito que o dono descreveu.
+       */
+      ...(mira?.targetId ? { targetId: mira.targetId } : {}),
       ...(nivel === undefined ? {} : { level: nivel }),
     });
   }
@@ -8373,8 +8503,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       // ⚠️ O nível do slot que armou tem de sobreviver ao `desarmaMagia`, que
       // o zera — daí a cópia antes.
       const nivel = nivelArmado;
+      // 🎯 O alvo do ímã tem de sobreviver ao desarme, que o zera.
+      const preso = alvoAssistido;
       desarmaMagia();
-      castSpellId(id, { tileX: t.x, tileY: t.y }, nivel);
+      castSpellId(id, { tileX: t.x, tileY: t.y, targetId: preso }, nivel);
       return;
     }
     /*
@@ -10312,6 +10444,57 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   c.addChildAt(castAura, 1);
 
   /**
+   * 🌀 **O ANEL QUE ORBITA O CONJURADOR** — pedido do dono em 11/09: *"esse
+   * círculo será em torno do personagem enquanto ele realiza a conjuração, fica
+   * girando em torno dele, e depois que castar some imediatamente."*
+   *
+   * ⚠️ **É o irmão do anel do chão, e as duas artes discordam de propósito.** O
+   * do chão é redondo, porque o chão deste jogo não tem perspectiva. Este é uma
+   * ELIPSE achatada, porque orbita o corpo e é visto quase de lado — e por isso
+   * o conversor o deixa em paz (ver `redondo` em `tools/anel2fx.mjs`).
+   *
+   * 🔴 **E por isso ele NÃO gira por código.** Girar uma elipse em 2D foi o
+   * defeito que custou duas rodadas hoje: lê como anel inclinado mudando de
+   * inclinação, não como coisa orbitando. O giro aqui vem da própria folha, que
+   * é o que ela desenha — 30 quadros do anel varrendo em volta.
+   *
+   * ⚠️ Entra ATRÁS do corpo (`addChildAt(…, 1)`, junto da aura): o anel passa em
+   * volta do personagem, e desenhá-lo por cima o esconderia justamente no meio
+   * da conjuração, que é quando se quer olhar para ele.
+   */
+  const anelCaster = new AnimatedSprite([Texture.EMPTY]);
+  anelCaster.anchor.set(0.5);
+  anelCaster.blendMode = 'add';
+  anelCaster.visible = false;
+  anelCaster.alpha = 0.75;
+  c.addChildAt(anelCaster, 1);
+  let anelPronto = false;
+
+  /** Fatia a folha na primeira conjuração — antes disso ela pode nem ter chegado. */
+  function preparaAnel(): boolean {
+    if (anelPronto) return true;
+    const tex = quadrosAnelCaster();
+    if (!tex) return false;
+    anelCaster.textures = tex;
+    anelCaster.animationSpeed = 0.25;
+    anelCaster.play();
+    /*
+     * ⚠️ A largura casa com o CORPO e não com o tile: o anel envolve o
+     * personagem, e um tamanho fixo ficaria apertado num chefe e frouxo num
+     * goblin. 1,45 deixa a elipse passando fora dos ombros.
+     */
+    const larg = sprite.width * 1.45;
+    anelCaster.width = larg;
+    anelCaster.height = larg * (tex[0]!.height / tex[0]!.width);
+    anelCaster.x = sprite.x;
+    // ⚠️ Na altura do peito, não nos pés: nos pés ele vira marca de chão e
+    // disputa leitura com o anel da área, que já está lá embaixo.
+    anelCaster.y = baseY - sprite.height * 0.45;
+    anelPronto = true;
+    return true;
+  }
+
+  /**
    * ⏳ **A BARRA DE CONJURAÇÃO, em cima do nome.**
    *
    * ⚠️ Fica acima do NOME, e o nome já está acima da barra de vida: é a ordem
@@ -10788,6 +10971,12 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     const mudou = (frac === null) !== (castFrac === null);
     castFrac = frac;
     castAura.visible = frac !== null;
+    /*
+     * 🌀 **Some IMEDIATAMENTE ao soltar** — foi o pedido, e é a mesma regra do
+     * anel do chão. Sem desvanecer: o que marca o fim da conjuração é a magia
+     * saindo, e um anel apagando devagar por cima dela competiria com o efeito.
+     */
+    anelCaster.visible = frac !== null && preparaAnel();
     castBar.visible = frac !== null;
     castName.visible = frac !== null;
     if (nome !== undefined && castName.text !== nome) castName.text = nome;

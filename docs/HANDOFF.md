@@ -85,6 +85,45 @@ estrelas e losangos junto.
 para tudo que mira o chão, e sem a guarda uma magia de ponto desenharia um anel
 de um tile — que mente sobre o alcance e some debaixo do personagem.
 
+### 🌀 O segundo anel: o que orbita o CONJURADOR
+
+Folha própria, 30 quadros, presa ao `setCasting` da entidade: aparece quando a
+conjuração começa e **some no instante** em que a magia sai.
+
+🔴 **As duas artes discordam de propósito, e o conversor respeita isso.** O anel
+do CHÃO precisa virar círculo perfeito (o chão do jogo não tem perspectiva); o
+que orbita o CORPO é uma elipse **por desenho**, vista quase de lado —
+arredondá-lo o poria de pé na frente do personagem em vez de em volta. Daí o
+`redondo` na tabela de grades do `tools/anel2fx.mjs`.
+
+🔴 **E por isso ele não gira por código.** Girar elipse em 2D foi o defeito que
+custou duas rodadas neste dia. O giro vem da própria folha.
+
+⚠️ Entra ATRÁS do corpo e na altura do peito: nos pés viraria marca de chão e
+disputaria leitura com o anel da área, que já está lá embaixo.
+
+### 🎯 Assistente de mira (ímã de alvo)
+
+*"Quando coloco a single target, ela puxa a mira para o monstro que estou movendo
+o mouse próximo, para eu não clicar errado, castar a magia e nada acontecer."*
+
+🔴 **O sintoma vinha de uma lacuna real, não de falta de pontaria.** O `cast`
+sempre pôde levar `targetId` e o servidor sempre o honrou — mas **o cliente nunca
+mandava esse campo**. Em magia de alvo único ele mandava um TILE, e o servidor
+caía no alvo selecionado; sem nenhum, a mana e a recarga iam embora e nada
+acontecia. O ímã resolve a pontaria; mandar o `targetId` resolve a causa.
+
+⚠️ **Dois tiles, e só em alvo único.** Puxando de longe, o ímã passa a decidir
+pelo jogador e a magia sai em quem ele não queria — pior que errar, porque errar
+avisa. E em magia de área o ponto clicado é a escolha dele.
+
+⚠️ **Desempate pela distância real ao cursor**, não pelo tile: dois monstros a um
+tile empatam na conta de tiles, e sem isso o escolhido seria o primeiro do mapa.
+
+⚠️ **Um segundo anel, mais largo, mostra que o ímã pegou.** Marcador que pula
+sozinho sem dizer por quê lê como bug — e é esse anel que dá a chance de
+perceber que travou no monstro ERRADO antes de gastar a magia.
+
 ### Três correções, todas vindas da tela
 
 🔴 **Estava TORTO e não parecia no chão.** A arte chegou em perspectiva (uma
