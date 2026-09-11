@@ -3588,11 +3588,10 @@ interface GolpePendente {
    */
   tempestade?: Tempestade;
   /**
-   * ⚡ Tiles de arremesso a aplicar NESTE golpe — só o último da série tem.
-   * Ver a nota no agendamento: empurrar no começo tiraria o alvo do alcance
-   * dos choques seguintes.
+   * ⚡ Tiles de arremesso a aplicar NESTE golpe — só o PRIMEIRO da série tem.
+   * Ver a nota no agendamento.
    */
-  empurraAoFim?: number;
+  empurraAoAcerto?: number;
 }
 const golpesPendentes: GolpePendente[] = [];
 
@@ -3789,12 +3788,14 @@ function tickGolpesPendentes(now: number): void {
         g.gesto && k === 0,
       );
       /*
-       * ⚡ **O ARREMESSO, depois do último choque.** Ver `empurraAoFim`: a
-       * Esfera Elétrica acumula doze descargas e só então joga o alvo para
-       * trás. Vem DEPOIS do dano de propósito — quem morre no último choque cai
-       * onde apanhou, e não sete tiles adiante.
+       * ⚡ **O ARREMESSO, no PRIMEIRO choque.** Ver `empurraAoAcerto`: a Esfera
+       * Elétrica joga o alvo para trás ao acertar e depois o segura ali,
+       * levando o resto das descargas parado.
+       *
+       * Vem DEPOIS do dano de propósito — quem morre no impacto cai onde
+       * apanhou, e não três tiles adiante.
        */
-      if (g.empurraAoFim && v.alive) empurra(player, v, g.empurraAoFim);
+      if (g.empurraAoAcerto && v.alive) empurra(player, v, g.empurraAoAcerto);
       if (!t?.condicao || !v.alive) return;
       /*
        * ❄️ **ACÚMULO: a condição é rolada A CADA N-ÉSIMO ACERTO** — no 3º, no
@@ -4697,20 +4698,30 @@ function executeSpell(
             // uma rocha demora mais que uma lança. Ver `quedaMs`.
             quando: fxEm + (def.quedaMs ?? ATRASO_IMPACTO_MS),
             /*
-             * ⚡ **O ARREMESSO VAI NO ÚLTIMO CHOQUE**, e não no primeiro.
+             * ⚡ **O ARREMESSO VAI NO PRIMEIRO CHOQUE**, e não no último.
              *
-             * Pedido do dono: *"os primeiros choques mantêm o alvo praticamente
-             * no lugar; as descargas acumulam impacto; o último aplica o
-             * deslocamento principal"*. Empurrar no começo seria pior que feio:
-             * o alvo sairia do alcance e os onze choques seguintes cairiam
-             * atrás dele.
+             * 🔴 **Invertido a pedido do dono em 12/09**, jogando: *"já empurra
+             * quando acerta ele logo no primeiro impacto, depois ele fica
+             * parado tomando todos os danos"*. A versão anterior seguia a
+             * descrição da ficha do RO (*"o último aplica o deslocamento
+             * principal"*), e em tela ela lia mal: o bicho ficava doze
+             * descargas parado e só no fim voava — parecia dois efeitos
+             * diferentes colados, não um.
+             *
+             * ⚠️ **E o medo que segurava isso não se confirmou no código.** O
+             * comentário antigo dizia que empurrar no começo tiraria o alvo do
+             * alcance e os choques seguintes cairiam atrás dele. Não caem: o
+             * golpe pendente de alvo único guarda o ID da criatura, e
+             * `tickGolpesPendentes` lê a posição de AGORA (`c.tileX`), não a de
+             * quando foi agendado. As descargas seguem o bicho para onde ele
+             * for.
              *
              * ⚠️ Só na magia de ALVO ÚNICO que espaça — numa chuva de área não
-             * há "último golpe daquele alvo", porque cada meteoro escolhe as
+             * há "primeiro golpe daquele alvo", porque cada meteoro escolhe as
              * vítimas dele no instante em que estoura.
              */
-            ...(def.empurraTiles !== undefined && i === golpes - 1
-              ? { empurraAoFim: skillEmpurrao(def, nivel) }
+            ...(def.empurraTiles !== undefined && i === 0
+              ? { empurraAoAcerto: skillEmpurrao(def, nivel) }
               : {}),
           });
           continue;
@@ -4760,13 +4771,13 @@ function aplicaCondicaoDaSkill(
      * Empurrão move de verdade: a condição só marca a janela sem ação.
      *
      * ⚡ A DISTÂNCIA vem da ficha (`empurraTiles`) — a Esfera Elétrica arremessa
-     * de 2 a 7 tiles conforme o nível, e o resto do jogo continua no tile único
+     * de 1 a 3 tiles conforme o nível, e o resto do jogo continua no tile único
      * de sempre.
      */
     /*
-     * ⚠️ **A magia que ESPAÇA os golpes empurra no último choque, não aqui.**
-     * Ver `empurraAoFim`. Sem esta guarda o alvo levaria dois arremessos: um no
-     * lançamento e outro no fim — catorze tiles no Lv.10 da Esfera.
+     * ⚠️ **A magia que ESPAÇA os golpes empurra no primeiro choque, não aqui.**
+     * Ver `empurraAoAcerto`. Sem esta guarda o alvo levaria dois arremessos: um
+     * no lançamento e outro no impacto — seis tiles no Lv.10 da Esfera.
      */
     if (def.applies.id === 'knockback' && !def.queda) {
       empurra(player, c, skillEmpurrao(def, nivel));

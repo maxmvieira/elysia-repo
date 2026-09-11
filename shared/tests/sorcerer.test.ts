@@ -28,6 +28,7 @@ import {
   skillConditionChance,
   skillConditionDuration,
   skillPower,
+  IMPULSO_MAGICO,
   skillManaCost,
   skillCastMs,
   castDexReduction,
@@ -451,9 +452,20 @@ test('❄️ na Nevasca as bolas são o VISUAL e o dano é da área', () => {
    * 🔴 **E o dano total volta a bater com a ficha.** Dez bolas, todas atingindo
    * quem está na área: 10 × 0,57 = 570 %. É o TETO — o alvo que aguentar a
    * tempestade inteira sem ser empurrado para fora.
+   *
+   * ⚠️ **A conta é sobre a FICHA, e o `IMPULSO_MAGICO` entra explícito.** A
+   * primeira versão comparava `skillPower` com 5,7 cravado, e o impulso geral
+   * de 12/09 a derrubou — uma decisão de equilíbrio vetada por um número
+   * copiado para dentro do teste. Agora o teste diz o que quer dizer: a ficha
+   * promete 570 %, e o efetivo é isso vezes o impulso, seja ele qual for.
    */
+  const daFicha = skillHits(n, 10) * (n.power + n.powerPerLevel * 9);
+  assert.ok(Math.abs(daFicha - 5.7) < 1e-9, `ficha de ${(daFicha * 100).toFixed(0)} %, e ela diz 570 %`);
   const total = skillHits(n, 10) * skillPower(n, 10);
-  assert.ok(Math.abs(total - 5.7) < 1e-9, `teto de ${(total * 100).toFixed(0)} %, e a ficha diz 570 %`);
+  assert.ok(
+    Math.abs(total - 5.7 * IMPULSO_MAGICO) < 1e-9,
+    `teto efetivo de ${(total * 100).toFixed(0)} %, esperado ${(570 * IMPULSO_MAGICO).toFixed(0)} %`,
+  );
 
   /*
    * ⚠️ `danoDaArea` MULTIPLICA: cada unidade passa a bater em todos, em vez de
@@ -540,15 +552,27 @@ test('⚡ Esfera Elétrica: a ficha da Jupitel Thunder', () => {
    * deixa de ser a Jupitel e vira mais um Fire Bolt.
    */
   assert.equal(skillPower(lb, 1), skillPower(lb, 10));
-  assert.ok(Math.abs(skillPower(lb, 10) - 1.0) < 1e-9, '100 % de ATQM por choque');
+  // ⚠️ A ficha diz 100 %; o efetivo carrega o impulso geral. Ver a nota gêmea
+  // na Nevasca: o número da ficha e o número em jogo são duas perguntas.
+  assert.equal(lb.powerPerLevel, 0, 'a ficha da Jupitel não tem poder por nível');
+  assert.ok(Math.abs(lb.power - 1.0) < 1e-9, '100 % de ATQM por choque na ficha');
+  assert.ok(
+    Math.abs(skillPower(lb, 10) - 1.0 * IMPULSO_MAGICO) < 1e-9,
+    'o efetivo é a ficha vezes o impulso geral',
+  );
 
   /*
-   * ⚡ **2 → 7 tiles de arremesso, e é o TOTAL do lançamento.** Se fosse por
-   * choque, o Lv.10 mandaria o alvo a 84 tiles — a ficha tem doze choques e
-   * sete células de empurrão, e são colunas independentes.
+   * ⚡ **1 → 3 tiles de arremesso, e é o TOTAL do lançamento.** Se fosse por
+   * choque, o Lv.10 mandaria o alvo a 36 tiles — a ficha tem doze choques e o
+   * empurrão tem coluna própria.
+   *
+   * 🔴 **A ficha do RO diz 2 → 7, e aqui é METADE** — decisão do dono em 12/09,
+   * jogando: *"está empurrando o monstro muito para trás"*. A régua de lá tem
+   * célula menor em tela que os 32 px daqui, e sete tiles tiravam o alvo do
+   * campo de visão.
    */
-  assert.equal(skillEmpurrao(lb, 1), 2);
-  assert.equal(skillEmpurrao(lb, 10), 7);
+  assert.equal(skillEmpurrao(lb, 1), 1);
+  assert.equal(skillEmpurrao(lb, 10), 3);
 
   /*
    * ⚡ **E a conjuração CRESCE com o nível** (2,5 s → 4,3 s), a segunda magia do

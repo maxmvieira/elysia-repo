@@ -4027,16 +4027,35 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   function pulsaOrbe(alvoId: string): boolean {
     const q = quadrosOrbe();
+    const qc = quadrosChoque();
     const view = sprites.get(alvoId);
-    if (!q || !view) return false;
+    if (!q || !qc || !view) return false;
     let orbe = orbes.get(alvoId);
     if (!orbe) {
-      const node = new AnimatedSprite(q);
+      /*
+       * ⚡ **NO ALVO ELA FICA DE FRENTE, e não de lado** — pedido do dono em
+       * 12/09, com a folha na mão: *"a primeira [célula] a viagem até o alvo,
+       * do segundo em diante quando acertou fica pulsando dessa forma"*.
+       *
+       * 🔴 São **duas vistas do mesmo desenho**, e essa era a peça que faltava.
+       * Os quadros do voo mostram a esfera **de perfil**: bola de um lado,
+       * cauda do outro — é o desenho de uma coisa que atravessa a tela. Os
+       * quadros do impacto mostram a MESMA esfera **de frente**: os raios saem
+       * para todos os lados em volta de um núcleo, porque agora ela está vindo
+       * na sua direção. Pousar a vista de perfil em cima do monstro era o que o
+       * dono via como "de lado".
+       *
+       * ⚠️ **Vaivém, e não laço simples.** Os quadros do impacto vão do estouro
+       * cheio até quase apagar; em laço direto, a volta do último para o
+       * primeiro seria um salto do apagado para o cheio a cada ciclo — uma
+       * piscada, não um pulsar.
+       */
+      const node = new AnimatedSprite([qc[0]!, qc[1]!, qc[2]!, qc[3]!, qc[2]!, qc[1]!]);
       node.anchor.set(0.5);
       node.blendMode = 'add';
-      // ⚠️ Dez quadros em ~600 ms: a bola crepita depressa o bastante para
-      // parecer viva e devagar o bastante para não virar chuvisco.
-      node.animationSpeed = QUADROS_ORBE / (600 / (1000 / 60));
+      // ⚠️ Seis quadros em ~420 ms: um pouco mais rápido que o intervalo entre
+      // descargas, para a esfera nunca ficar parada esperando a próxima.
+      node.animationSpeed = 6 / (420 / (1000 / 60));
       node.play();
       node.zIndex = 10000;
       fxLayer.addChild(node);
@@ -9817,12 +9836,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        */
       orbe.pulso = Math.max(0, orbe.pulso - dt / 160);
       /*
-       * ⚠️ **Menor no alvo (0,38) do que em voo (0,62), e não é engano.** Em voo
-       * a bola é o assunto e está sozinha no gramado; pousada, ela divide o
-       * pixel com o monstro, e a 0,62 (79 px, dois tiles e meio) simplesmente o
-       * apagava. 0,38 dá 49 px — um tile e meio, do tamanho do bicho.
+       * ⚠️ **A escala é outra porque o quadro é outro.** O do impacto tem 256 px
+       * de lado (contra 128 do voo), porque os raios de frente saem muito além
+       * do núcleo e precisavam de margem. 0,26 dá 67 px de desenho com um núcleo
+       * de pouco mais de um tile — do tamanho do bicho, com as pontas passando
+       * por fora dele.
        */
-      orbe.node.scale.set(0.38 + orbe.pulso * 0.18);
+      orbe.node.scale.set(0.26 + orbe.pulso * 0.12);
       orbe.node.alpha = 0.70 + orbe.pulso * 0.30;
       /*
        * ⚡ **A coluna acende com o tranco e apaga junto.** Ela nasce no CHÃO do

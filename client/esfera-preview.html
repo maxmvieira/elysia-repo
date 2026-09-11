@@ -55,10 +55,11 @@
         g.globalAlpha = pulso * 0.6;
         g.drawImage(orbe, 0, 0, LO, LO, x - LO * 0.42, y + 40 - LO * 1.24, LO * 0.84, LO * 1.24);
         g.globalAlpha = 1;
-        // bola
-        const s = (0.38 + pulso * 0.18) * 2;
-        const k = Math.floor((desde / 600) * QO) % QO;
-        g.drawImage(orbe, k * LO, 0, LO, LO, x - LO * s / 2, y - LO * s / 2, LO * s, LO * s);
+        // a esfera DE FRENTE, em vaivém pelos quadros do impacto
+        const VAIVEM = [0, 1, 2, 3, 2, 1];
+        const s = (0.26 + pulso * 0.12) * 2;
+        const k = VAIVEM[Math.floor((desde / 420) * VAIVEM.length) % VAIVEM.length];
+        g.drawImage(choque, k * LC, 0, LC, LC, x - LC * s / 2, y - LC * s / 2, LC * s, LC * s);
       }
     }
     g.globalCompositeOperation = 'source-over';

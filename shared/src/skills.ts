@@ -2310,11 +2310,18 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      */
     projetilMs: 380,
     /*
-     * ⚡ **2 a 7 tiles de arremesso**, a coluna "Empurra" da ficha. Ver
-     * `empurraTiles`: é o total do lançamento, não por choque.
+     * ⚡ **1 a 3 tiles de arremesso, e a ficha do RO diz 2 a 7.**
+     *
+     * 🔴 **Metade, por decisão do dono em 12/09**, jogando: *"a magia está
+     * empurrando o monstro muito para trás"*. A coluna "Empurra" do WZ_JUPITEL
+     * é a régua de LÁ, onde uma célula é bem menor em tela do que os 32 px
+     * daqui — sete tiles no Elysia jogam o bicho para fora do campo de visão.
+     *
+     * ⚠️ Continua sendo o total do LANÇAMENTO, não por choque. Ver
+     * `empurraTiles`.
      */
-    empurraTiles: 2,
-    empurraTilesAtLv10: 7,
+    empurraTiles: 1,
+    empurraTilesAtLv10: 3,
     applies: {
       id: 'knockback',
       /*
@@ -3698,9 +3705,36 @@ export function isSkillUsable(def: SkillDef, cls: PlayerClass, levels: SkillLeve
 // Valores efetivos por nível da habilidade
 // ---------------------------------------------------------------------------
 
+/**
+ * 🔴 **IMPULSO GERAL DAS MAGIAS OFENSIVAS — decisão do dono, 12/09**, jogando:
+ * *"também está muito fraca as magias, podem ser um pouco mais fortes"*.
+ *
+ * É **um número só, e num ponto só**, e isso é de propósito. A alternativa era
+ * multiplicar os 28 valores de `power`/`powerPerLevel` das catorze magias
+ * ofensivas na mão: vinte e oito literais com três casas decimais, impossíveis
+ * de conferir e impossíveis de desfazer sem repetir a conta ao contrário. Aqui
+ * o dono muda um número quando quiser mexer de novo na régua toda.
+ *
+ * ⚠️ **Mexe em MAGIA, e só.** Foi o que o dono pediu; o físico (Cavaleiro,
+ * Assassino, Arqueiro) ficou onde estava, e isso move a balança entre as
+ * classes em 20 % a favor de quem conjura. Está registrado aqui porque é o tipo
+ * de efeito colateral que ninguém lembra seis meses depois.
+ *
+ * ⚠️ **As RELAÇÕES não se movem.** Como o fator é o mesmo para todas, tudo o
+ * que os testes travam — a Descarga abaixo do Meteoro, a Ira da Natureza abaixo
+ * da Nevasca (`DD-DRU-021`), subir de nível aumentar o dano — continua valendo
+ * exatamente como antes. Era o requisito para poder mexer nisto de uma vez.
+ *
+ * ⚠️ **A cura NÃO entra.** As de recuperação não têm `magic` na ficha, e é o que
+ * separa as duas coisas aqui — um impulso de dano que curasse junto seria um
+ * ajuste de dificuldade disfarçado de ajuste de dano.
+ */
+export const IMPULSO_MAGICO = 1.2;
+
 /** Multiplicador de dano no nível informado. */
 export function skillPower(def: SkillDef, nivel: number): number {
-  return def.power + def.powerPerLevel * Math.max(0, nivel - 1);
+  const base = def.power + def.powerPerLevel * Math.max(0, nivel - 1);
+  return def.magic ? base * IMPULSO_MAGICO : base;
 }
 
 /** Custo de mana no nível informado (habilidade forte pesa mais no bolso). */
