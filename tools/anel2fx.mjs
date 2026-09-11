@@ -84,6 +84,25 @@ const GRADES = {
     fileiras: [[53, 192], [244, 384], [436, 576], [628, 768], [819, 959]],
     colunas: [[15, 242], [270, 497], [526, 753], [781, 1008], [1037, 1264], [1292, 1519]],
   },
+  /**
+   * ⚡ **A ESFERA ELÉTRICA (12/09): 8 colunas × 2 fileiras, grade UNIFORME.**
+   *
+   * 🔴 **E sem recentrar, que é o oposto do que os anéis precisam.** Nos anéis o
+   * recentro existe para matar o balanço: o desenho é o mesmo em todos os
+   * quadros e só o brilho gira. Aqui é o contrário — a esfera NASCE pequena no
+   * meio, CRESCE e o rastro se estica para a esquerda. O deslocamento dentro da
+   * célula **é a animação**; recentrar a apagaria.
+   *
+   * ⚠️ E a grade é por DIVISÃO, não medida: o rastro de um quadro invade a
+   * célula do vizinho, então não há vale escuro para o detector achar. 1881/8 e
+   * 836/2 dão as fronteiras que o gerador usou.
+   */
+  esfera_eletrica: {
+    redondo: false,
+    recentra: false,
+    preservaCor: true,
+    uniforme: { colunas: 8, fileiras: 2 },
+  },
 };
 
 const [arq, nome, ladoArg] = process.argv.slice(2);
@@ -96,11 +115,24 @@ if (!grade) {
   console.error(`[anel] sem grade medida para "${nome}". Conhecidas: ${Object.keys(GRADES).join(', ')}`);
   process.exit(1);
 }
-const FILEIRAS = grade.fileiras;
-const COLUNAS = grade.colunas;
 const LADO = Number(ladoArg ?? 512);
 
 const img = decode(arq);
+
+/*
+ * ⚠️ A grade uniforme é montada DEPOIS de abrir a imagem, porque ela sai da
+ * divisão das dimensões reais. As medidas à mão continuam vindo da tabela.
+ */
+const faixas = (total, quantas) => Array.from({ length: quantas }, (_, i) => [
+  Math.round((i * total) / quantas),
+  Math.round(((i + 1) * total) / quantas) - 1,
+]);
+const FILEIRAS = grade.uniforme
+  ? faixas(img.h, grade.uniforme.fileiras)
+  : grade.fileiras;
+const COLUNAS = grade.uniforme
+  ? faixas(img.w, grade.uniforme.colunas)
+  : grade.colunas;
 const brilho = (x, y) => {
   if (x < 0 || y < 0 || x >= img.w || y >= img.h) return 0;
   const o = (y * img.w + x) * 4;
@@ -210,14 +242,18 @@ const caixas = celulas.map((c) => {
  * quadro faria o anel pulsar de tamanho, que é o mesmo defeito do balanço com
  * outro nome. Uma folga de 8 % evita raspar os losangos no quadro mais largo.
  */
-const CH = Math.round(Math.max(...caixas.map((b) => b.alt)) * 1.08);
+const CH = grade.recentra === false
+  ? celulas[0].cy1 - celulas[0].cy0 + 1
+  : Math.round(Math.max(...caixas.map((b) => b.alt)) * 1.08);
 /*
  * ⚠️ Só a folha REDONDA esticada pelo achatamento; a que orbita o corpo mantém
  * a largura medida, porque a elipse dela é o desenho. Ver `GRADES`.
  */
-const CW = grade.redondo
-  ? Math.round(CH * achatamento)
-  : Math.round(Math.max(...caixas.map((b) => b.larg)) * 1.08);
+const CW = grade.recentra === false
+  ? celulas[0].cx1 - celulas[0].cx0 + 1
+  : grade.redondo
+    ? Math.round(CH * achatamento)
+    : Math.round(Math.max(...caixas.map((b) => b.larg)) * 1.08);
 /** A célula de saída acompanha a janela quando não se arredonda. */
 const LADO_Y = grade.redondo ? LADO : Math.round((LADO * CH) / CW);
 
@@ -247,14 +283,24 @@ function amostra(fx, fy) {
  * ⚠️ O cliente fatia por `COLS`; mudar aqui sem mudar lá corta os quadros no
  * lugar errado.
  */
-const COLS = 6;
+/*
+ * ⚠️ A esfera sai em TIRA (16 colunas, uma fileira): ela é um projétil, e o
+ * cliente fatia projétil por largura/quadros, como as outras tiras de efeito.
+ * Os anéis vão em grade porque 30 quadros de 384 estourariam a largura máxima
+ * de textura; 16 de 192 cabem folgados.
+ */
+const COLS = grade.uniforme ? celulas.length : 6;
 const LINHAS = Math.ceil(celulas.length / COLS);
 const W = LADO * COLS;
 const H = LADO_Y * LINHAS;
 const out = Buffer.alloc(W * H * 4);
 caixas.forEach((cx, k) => {
-  const ox = cx.mx - CW / 2;
-  const oy = cx.my - CH / 2;
+  /*
+   * ⚠️ Sem recentrar, a janela É a célula: o deslocamento do desenho dentro
+   * dela é a animação, e centrar cada quadro a apagaria. Ver `recentra`.
+   */
+  const ox = grade.recentra === false ? celulas[k].cx0 : cx.mx - CW / 2;
+  const oy = grade.recentra === false ? celulas[k].cy0 : cx.my - CH / 2;
   const gx = (k % COLS) * LADO;
   const gy = Math.floor(k / COLS) * LADO_Y;
   for (let y = 0; y < LADO_Y; y++) {
@@ -274,11 +320,18 @@ caixas.forEach((cx, k) => {
        *  - e os três canais viram constantes, o que o PNG comprime quase de
        *    graça: a folha caiu de 6,4 MB para 2,7 MB sem perder um pixel.
        */
-      out[d] = 255;
-      out[d + 1] = 255;
-      out[d + 2] = 255;
+      /*
+       * ⚠️ **A ESFERA PRESERVA A COR; os anéis não.** O anel é monocromático e
+       * quem manda na cor dele é o `tint` do cliente — gravar branco puro deixa
+       * isso funcionar e comprime muito melhor. A esfera tem núcleo branco com
+       * arcos AZUIS, e achatar tudo para branco jogaria fora metade do desenho;
+       * tingir depois não devolve, porque a tinta multiplica por igual.
+       */
+      const pico = grade.preservaCor ? (Math.max(r, g, b) || 1) : 0;
+      out[d] = grade.preservaCor ? Math.round((r / pico) * 255) : 255;
+      out[d + 1] = grade.preservaCor ? Math.round((g / pico) * 255) : 255;
+      out[d + 2] = grade.preservaCor ? Math.round((b / pico) * 255) : 255;
       out[d + 3] = Math.min(255, Math.round(a));
-      void r; void g; void b;
     }
   }
 });

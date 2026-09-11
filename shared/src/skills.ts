@@ -485,6 +485,20 @@ export interface SkillDef {
   /** ⚡ O empurrão no Lv.10, quando ele cresce. Ausente = fixo. */
   empurraTilesAtLv10?: number;
   /**
+   * ⚡ **A magia ATRAVESSA O ESPAÇO antes de machucar**, e isto é quanto tempo
+   * ela leva. Ausente = o golpe acontece onde o alvo está, no ato.
+   *
+   * 🔴 Pedido do dono para a Esfera Elétrica: *"não fazer o efeito simplesmente
+   * aparecer sobre o inimigo — o jogador precisa visualizar claramente a esfera
+   * percorrendo o espaço"*.
+   *
+   * ⚠️ **O servidor ATRASA o primeiro golpe por este tanto**, e não só manda um
+   * desenho voando. Se o dano saísse no ato e a esfera chegasse depois, o
+   * monstro morreria antes de ser atingido em tela — o pior tipo de mentira que
+   * um jogo conta, porque ensina o jogador a ignorar o que vê.
+   */
+  projetilMs?: number;
+  /**
    * 🌠 **Quanto UMA unidade leva do céu ao chão**, em ms. Ausente = o padrão
    * de `ATRASO_IMPACTO_MS`.
    *
@@ -2288,6 +2302,13 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * elétrico não viaja: acende e queima junto.
      */
     quedaMs: 0,
+    /*
+     * ⚡ **380 ms de voo.** Mais lento que a flecha (260) de propósito: são nove
+     * células de alcance, e o dono pediu que a esfera fosse VISTA percorrendo o
+     * espaço. Muito mais que isso e ela vira uma bola lenta que o monstro
+     * "deveria" conseguir desviar — e não consegue, porque o alvo já está preso.
+     */
+    projetilMs: 380,
     /*
      * ⚡ **2 a 7 tiles de arremesso**, a coluna "Empurra" da ficha. Ver
      * `empurraTiles`: é o total do lançamento, não por choque.

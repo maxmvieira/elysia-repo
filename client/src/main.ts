@@ -2450,8 +2450,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   let nightDarkness = 0; // 0 (dia) .. ~0.92 (meia-noite)
 
   const floaters: Array<{ node: Text; life: number; max: number }> = [];
+  /*
+   * ⚠️ `Container` e não `Graphics`: desde 12/09 há projétil com FOLHA (a Esfera
+   * Elétrica é um `AnimatedSprite`), e o laço de voo só mexe em posição, giro e
+   * destruição — coisas que todo `Container` tem.
+   */
   const projectiles: Array<{
-    node: Graphics; fromX: number; fromY: number; toX: number; toY: number; t: number; dur: number;
+    node: Container; fromX: number; fromY: number; toX: number; toY: number; t: number; dur: number;
   }> = [];
   // Efeitos de magia (giro do Vendaval, corte do Dash): expandem e somem.
   const spellFx: Array<{ node: Container; t: number; dur: number; kind: string }> = [];
@@ -3074,6 +3079,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // 🌀 O anel que orbita o conjurador. Fatiado sob demanda — ver `quadrosAnelCaster`.
   void Assets.load<Texture>('/assets/fx/anel_caster.png')
     .catch((e: unknown) => console.warn('[fx] anel do conjurador não carregou:', e));
+  // ⚡ A Esfera Elétrica: oito quadros de voo e oito de impacto. Fatiada sob
+  // demanda — ver `quadrosEsfera`.
+  void Assets.load<Texture>('/assets/fx/esfera_eletrica.png')
+    .catch((e: unknown) => console.warn('[fx] esfera elétrica não carregou:', e));
 
   /** Qual animação cada camada usa ao nascer. */
   const ANIM_DA_CAMADA: Record<CamadaP, string> = { cristal: 'falling' };
@@ -3819,6 +3828,31 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         c.rotation = a;
         node.addChild(c);
       }
+    } else if (kind === 'electric_sphere' && quadrosEsfera()) {
+      /*
+       * ⚡ **CADA CHOQUE usa os quadros de IMPACTO da folha da esfera** (os oito
+       * últimos), e não o ziguezague desenhado por código.
+       *
+       * ⚠️ **Começa num quadro SORTEADO dos quatro primeiros do estouro.** O
+       * dono pediu que cada descarga fosse *"visualmente distinta da anterior"*;
+       * doze choques idênticos em sequência leem como um GIF travado. Sortear a
+       * fase é o jeito mais barato de quebrar isso sem arte nova.
+       *
+       * ⚠️ E o giro também é sorteado: a folha tem um sentido só, e doze
+       * estouros na mesma orientação denunciam a repetição mesmo com fases
+       * diferentes.
+       */
+      const q = quadrosEsfera()!;
+      const inicio = Math.floor(Math.random() * 4);
+      const choque = new AnimatedSprite(q.slice(QUADROS_VOO + inicio));
+      choque.anchor.set(0.5);
+      choque.blendMode = 'add';
+      choque.scale.set(0.55);
+      choque.rotation = Math.random() * Math.PI * 2;
+      choque.loop = false;
+      choque.animationSpeed = choque.textures.length / (260 / (1000 / 60));
+      choque.play();
+      node.addChild(choque);
     } else if (kind === 'electric_sphere' || kind === 'discharge' || kind === 'thor_wrath') {
       // ⚡ Ziguezagues amarelos saindo do centro.
       const R = kind === 'electric_sphere' ? TS * 0.6 : (radius + 0.5) * TS;
@@ -3923,7 +3957,64 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     node.destroy({ children: true });
   }
 
+  /**
+   * ⚡ **A ESFERA ELÉTRICA é o primeiro projétil com FOLHA**, e não desenhado
+   * por código. Os oito primeiros quadros são a formação e o voo (a esfera
+   * cresce e o rastro se estica); os oito últimos são o impacto, e ficam para
+   * os choques.
+   *
+   * ⚠️ Fatiado sob demanda e guardado: `spawnProjectile` pode ser chamado várias
+   * vezes por segundo, e refatiar dezesseis `Texture` a cada tiro seria lixo
+   * novo no caminho do coletor.
+   */
+  const QUADROS_ESFERA = 16;
+  const QUADROS_VOO = 8;
+  let esferaCache: Texture[] | null = null;
+  function quadrosEsfera(): Texture[] | undefined {
+    if (esferaCache) return esferaCache;
+    const t = Assets.get<Texture>('/assets/fx/esfera_eletrica.png');
+    if (!t) return undefined;
+    const cw = t.width / QUADROS_ESFERA;
+    esferaCache = Array.from({ length: QUADROS_ESFERA }, (_, i) => new Texture({
+      source: t.source,
+      frame: new Rectangle(i * cw, 0, cw, t.height),
+    }));
+    return esferaCache;
+  }
+
   function spawnProjectile(fromWX: number, fromWY: number, toTileX: number, toTileY: number, kind: string): void {
+    const quadros = kind === 'electric_sphere' ? quadrosEsfera() : undefined;
+    if (quadros) {
+      const esfera = new AnimatedSprite(quadros.slice(0, QUADROS_VOO));
+      esfera.anchor.set(0.5);
+      esfera.blendMode = 'add';
+      /*
+       * ⚠️ **0,62 de escala.** O quadro tem 192 px e a esfera desenhada ocupa
+       * quase toda a célula; a 1,0 ela ficaria com quatro tiles de largura e
+       * taparia o alvo. O dono foi explícito: *"a esfera deve permanecer
+       * compacta... NÃO deve parecer um raio gigantesco"*.
+       */
+      esfera.scale.set(0.62);
+      /*
+       * ⚠️ Os oito quadros do voo tocam UMA vez ao longo da viagem: a esfera
+       * nasce como fagulha e chega carregada. Em `loop` ela pulsaria, e pulsar
+       * lê como "carregando", não como "viajando".
+       */
+      esfera.loop = false;
+      esfera.animationSpeed = QUADROS_VOO / (380 / (1000 / 60));
+      esfera.play();
+      esfera.zIndex = 10000;
+      fxLayer.addChild(esfera);
+      projectiles.push({
+        node: esfera,
+        fromX: fromWX + TS / 2, fromY: fromWY + TS / 2,
+        toX: toTileX * TS + TS / 2, toY: toTileY * TS + TS / 2,
+        // ⚡ Bate com o `projetilMs` da ficha: o dano do servidor sai quando a
+        // esfera chega. Os dois números são a mesma decisão, em dois lados.
+        t: 0, dur: 380,
+      });
+      return;
+    }
     const node = new Graphics();
     if (kind === 'firebolt') {
       node.circle(0, 0, 5).fill(0xff8c2a);

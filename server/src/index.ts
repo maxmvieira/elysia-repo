@@ -4347,6 +4347,28 @@ function executeSpell(
    * de cada vez, virou a primeira coisa que se nota.
    */
   const emQueda = def.queda === true;
+
+  /*
+   * ⚡ **O PROJÉTIL SAI AQUI, uma vez, antes dos golpes.** Ver `projetilMs`.
+   *
+   * ⚠️ Reusa o pacote `projectile` que as FLECHAS já usam — o cliente sabe
+   * animar um voo de A até B desde sempre, e a spec pedia explicitamente para
+   * não criar uma segunda arquitetura. O que muda é só o `kind`, que escolhe o
+   * desenho.
+   *
+   * ⚠️ **Só em magia de ALVO ÚNICO.** Numa de área não há um alvo para voar até:
+   * o ponto é o chão, e a magia já se anuncia pelo círculo de conjuração.
+   */
+  if (def.projetilMs !== undefined && def.shape === 'target' && targets[0]) {
+    broadcastFloor(player.floor, {
+      t: 'projectile',
+      fromId: player.id,
+      toX: targets[0].tileX,
+      toY: targets[0].tileY,
+      floor: player.floor,
+      kind: def.id,
+    });
+  }
   /*
    * 🔴 **ONDE O ESTOURO É DESENHADO.** Área: no CENTRO DA MIRA. Alvo único: em
    * cima de quem apanhou. Era `player` na área, e esse era o bug — ver a nota
@@ -4605,7 +4627,12 @@ function executeSpell(
            * mesma conjuração passariam a bater diferente uns dos outros — e o
            * jogador não teria como entender por quê.
            */
-          const fxEm = now + i * passoDaQueda();
+          /*
+           * ⚡ **O VOO DO PROJÉTIL ATRASA TODOS OS GOLPES.** Ver `projetilMs`:
+           * a esfera precisa chegar antes de machucar, senão o monstro morre
+           * antes de ser atingido em tela.
+           */
+          const fxEm = now + (def.projetilMs ?? 0) + i * passoDaQueda();
           golpesPendentes.push({
             playerId: player.id, creatureId: c.id, skillId: def.id, nivel,
             poderBase, critChance: d.critChance, critMult: d.critMult,
