@@ -99,8 +99,12 @@ arredondá-lo o poria de pé na frente do personagem em vez de em volta. Daí o
 🔴 **E por isso ele não gira por código.** Girar elipse em 2D foi o defeito que
 custou duas rodadas neste dia. O giro vem da própria folha.
 
-⚠️ Entra ATRÁS do corpo e na altura do peito: nos pés viraria marca de chão e
-disputaria leitura com o anel da área, que já está lá embaixo.
+⚠️ Entra ATRÁS do corpo, e **aos pés** — eu o tinha posto na altura do peito,
+argumentando que no chão disputaria leitura com o anel da área. O dono desfez
+(*"circulo muito grande, faça ele ficar menor e no chão do personagem"*), e ele
+tem razão: o anel da área fica onde a magia vai CAIR, que quase nunca é em cima
+do conjurador, e um anel flutuando no meio do corpo lê como argola presa no
+personagem. A largura caiu de 1,45× para 0,95× a do corpo.
 
 ### 🎯 Assistente de mira (ímã de alvo)
 

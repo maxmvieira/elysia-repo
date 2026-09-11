@@ -10481,15 +10481,26 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     /*
      * ⚠️ A largura casa com o CORPO e não com o tile: o anel envolve o
      * personagem, e um tamanho fixo ficaria apertado num chefe e frouxo num
-     * goblin. 1,45 deixa a elipse passando fora dos ombros.
+     * goblin.
+     *
+     * 🔴 **0,95, e era 1,45** (dono, 11/09: *"círculo muito grande"*). Em 1,45 o
+     * anel passava bem fora dos ombros e, num mago parado, lia como área de
+     * magia e não como aura de quem conjura.
      */
-    const larg = sprite.width * 1.45;
+    const larg = sprite.width * 0.95;
     anelCaster.width = larg;
     anelCaster.height = larg * (tex[0]!.height / tex[0]!.width);
     anelCaster.x = sprite.x;
-    // ⚠️ Na altura do peito, não nos pés: nos pés ele vira marca de chão e
-    // disputa leitura com o anel da área, que já está lá embaixo.
-    anelCaster.y = baseY - sprite.height * 0.45;
+    /*
+     * 🔴 **NO CHÃO, aos pés** — decisão do dono, contra o que eu tinha posto.
+     *
+     * Eu o havia deixado na altura do peito, argumentando que nos pés ele
+     * disputaria leitura com o anel da ÁREA. O argumento não se sustentou em
+     * tela: o anel da área fica onde a magia vai CAIR, que quase nunca é em
+     * cima do conjurador — e um anel flutuando no meio do corpo lê como
+     * argola presa no personagem, não como círculo mágico.
+     */
+    anelCaster.y = baseY - 2;
     anelPronto = true;
     return true;
   }
