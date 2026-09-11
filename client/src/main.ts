@@ -2835,11 +2835,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * que cresce ali é a ALTURA do rastro (83 para 218 px). Então o pouco de
        * aproximação que se vê vem daqui.
        *
-       * ✅ 0,72 a 1 são FRAÇÕES DO ESTOURO: a pedra entra com 72 % do tamanho da
-       * explosão e chega com 100 %. São 1,4× do começo ao fim — longe dos 3,7×
+       * ✅ 0,55 a 0,75 são FRAÇÕES DO ESTOURO: a pedra entra com 55 % do tamanho
+       * da explosão e chega com 75 %. São 1,4× do começo ao fim — longe dos 3,7×
        * que fizeram o dono reclamar de *"crescendo muito no final"*.
+       *
+       * 🔴 **É AQUI que se mexe quando a queixa é sobre a QUEDA**, e não em
+       * `ESCALA_IMPACTO`. *"Estou achando ele muito grande na queda"* (dono,
+       * 13/09) fala da pedra viajando, não da explosão: os dois compartilham a
+       * régua desde que o degrau foi consertado, mas `cresce` é o que separa um
+       * do outro. Baixar a régua encolheria a cratera junto, que ele já aprovou.
        */
-      trajetoria: { queda: 430, cresce: [0.72, 1] },
+      trajetoria: { queda: 430, cresce: [0.55, 0.75] },
       /*
        * 🔴 **MISTURA NORMAL, e é a segunda folha do jogo com ela.**
        *
