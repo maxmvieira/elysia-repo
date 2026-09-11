@@ -189,8 +189,8 @@ impacto (o Fire Bolt persegue o alvo). Nos dois a dica volta a mostrar o total
 cheio, porque ali ele é verdade.
 
 ✅ **Conferido em tela.** A Chuva mostra *"18 impactos de 104 % · ~2,7 acertam cada
-alvo · ~277 %"* e a Nevasca mostra *"Total 570 %"* — a exceção do 
-funcionando.
+alvo · ~277 %"* e a Nevasca mostra *"Total 570 %"* — a exceção do `danoDaArea`
+funcionando como devia.
 
 ⚠️ E a conferência achou mais uma: a DESCRIÇÃO da Chuva ainda dizia *"10
 meteoros no Lv.10"* enquanto a linha de números logo abaixo, na mesma janela,
