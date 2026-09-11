@@ -2839,17 +2839,28 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * parecer contínua. Uma folha sozinha toca sempre igual — dez bolas dariam
    * dez cópias do mesmo desenho.
    *
-   * As camadas fazem coisas diferentes de propósito:
+   * 🔴 **ERAM TRÊS CAMADAS E VIROU UMA** (dono, 11/09, vendo em tela): névoa
+   * girando no chão, cristais caindo e micro-cristais subindo em espiral. O
+   * veredito: *"o problema foi que dividimos a magia em 3 camadas e tentamos
+   * aplicar rotações e turbulências complexas, o que resultou num visual
+   * confuso... esqueça o vórtice na base e as turbulências espirais"*.
    *
-   *  - `nevoa` — elipses achatadas no chão, girando e abrindo. Dão VOLUME.
-   *  - `cristal` — pontas de gelo que nascem no alto e despencam. Dão PESO.
-   *  - `floco` — micro-cristais subindo em espiral. Dão TURBULÊNCIA.
+   * ✅ **E ele está certo sobre o Ragnarok.** Lá o efeito não vem de camadas que
+   * se completam — vem de QUANTIDADE caindo reto e rápido. O brilho acumulado de
+   * muitos projéteis no mesmo lugar é o efeito; o vórtice era enfeite meu que
+   * disputava a leitura com o que importava.
+   *
+   * ⚠️ A névoa e o floco foram REMOVIDOS, e não zerados na tabela. Campo que
+   * ninguém preenche é o defeito que já custou uma rodada hoje
+   * (`empurraPorPulso` mudo por um dia). A folha `nevoa_base` e a
+   * `particulas_menores` continuam no repositório — se um dia voltarem, voltam
+   * com código novo, não com código adormecido.
    *
    * ⚠️ **Só existe para quem declara em `PARTICULAS`.** O Fire Bolt e a Chuva
    * não cospem nada: já estouram numa folha grande, e enfeitar tudo é o caminho
    * curto para a tela virar sopa.
    */
-  type CamadaP = 'nevoa' | 'cristal' | 'floco';
+  type CamadaP = 'cristal';
 
   /**
    * ⚠️ **`z` É ALTURA, e a projeção daqui é a do jogo: chão em `x`/`y`, altura
@@ -2868,10 +2879,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     estilhacando: boolean;
     /** O próprio índice no pool. Guardado para a morte não custar um `indexOf`. */
     idx: number;
+    /** Onde ela cai no chão. `z` é ALTURA, subtraída de `y` na hora de desenhar. */
     x: number; y: number; z: number;
-    vx: number; vy: number; vz: number;
-    /** Ângulo e raio da órbita — só o floco usa. */
-    ang: number; raioOrb: number;
+    /*
+     * ⚠️ **Só `vz`.** Havia `vx`/`vy` e um par de órbita (`ang`/`raioOrb`) para
+     * a névoa que deslizava e o floco que subia em espiral; as duas camadas
+     * saíram em 11/09 e os campos saíram junto. Campo que ninguém escreve é o
+     * defeito que já custou uma rodada hoje.
+     */
+    vz: number;
     giro: number;
     t: number; dur: number;
     escala: number;
@@ -2881,29 +2897,34 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   /**
    * 🔴 **POOL: os nós são criados UMA VEZ e reaproveitados.**
    *
-   * Uma tempestade cospe ~500 partículas em 4,5 s. Criar e destruir um
-   * `Graphics` para cada uma põe meio milhar de objetos por conjuração no
-   * caminho do coletor de lixo — e o preço aparece como engasgo, justamente
-   * quando a tela está mais cheia. Aqui o nó só troca de `x`, `y`, `alpha`,
-   * `scale` e `tint`; a geometria é desenhada uma vez, no formato UNITÁRIO da
-   * camada, e o tamanho sai da escala.
+   * Uma tempestade cospe **~160 cristais em 4,5 s** (16 por impacto, dez
+   * impactos). Criar e destruir um `AnimatedSprite` para cada um põe centenas
+   * de objetos por conjuração no caminho do coletor de lixo — e o preço aparece
+   * como engasgo, justamente quando a tela está mais cheia. Aqui o nó só troca
+   * de `x`, `y`, `alpha`, `scale`, `tint` e textura.
    *
    * ⚠️ **`visible = false` no lugar de `removeChild`.** Tirar e repor no palco
    * refaz a lista de filhos do `fxLayer` a cada partícula, que é o custo que o
    * pool existe para evitar.
+   *
+   * ⚠️ **O teto é para VÁRIOS feiticeiros, não para um.** Com vida de ~700 ms
+   * mais 260 de estouro e um impacto a cada 450 ms, uma tempestade sozinha
+   * mantém ~34 cristais no ar. Setecentos cobrem meia dúzia de conjuradores no
+   * mesmo andar sem o pool precisar crescer no meio da luta.
    */
   const TETO_PARTICULAS = 700;
   const particulas: Particula[] = [];
   /**
    * Índices de slots livres, **UMA PILHA POR CAMADA**.
    *
-   * ⚠️ Uma pilha só não serve, e a falha é silenciosa: a geometria já está
-   * desenhada no nó, então um slot livre de névoa não pode virar cristal. Com
-   * pilha única, um slot da camada errada no topo bloqueia o reaproveitamento
-   * das outras duas até alguém pedir aquela camada — o pool cresce até o teto e
-   * o efeito começa a sumir sem nenhum erro aparecer.
+   * ⚠️ **Uma pilha POR CAMADA, mesmo havendo uma camada só hoje.** A geometria
+   * fica desenhada no nó, então um slot livre de uma camada não pode virar
+   * outra; com pilha única, um slot da camada errada no topo bloquearia o
+   * reaproveitamento das demais até alguém pedir aquela camada — o pool cresce
+   * até o teto e o efeito some sem erro nenhum. O formato fica porque é o certo,
+   * e não porque sobrou de quando eram três.
    */
-  const livres: Record<CamadaP, number[]> = { nevoa: [], cristal: [], floco: [] };
+  const livres: Record<CamadaP, number[]> = { cristal: [] };
 
   /** A forma UNITÁRIA de cada camada, desenhada uma vez por nó. */
   /**
@@ -2956,14 +2977,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        */
       .catch((e: unknown) => console.warn(`[fx] atlas ${nome} não carregou:`, e));
   }
-  for (const a of ['nevoa_base', 'gelo_grande', 'particulas_menores']) carregaAtlas(a);
+  /*
+   * ⚠️ Só o atlas do gelo é carregado. `nevoa_base` e `particulas_menores`
+   * continuam no repositório, mas ninguém os pede desde que as três camadas
+   * viraram uma — carregá-los "por precaução" gastaria rede e memória por uma
+   * camada que não existe.
+   */
+  carregaAtlas('gelo_grande');
+  /*
+   * 🧊 O bloco de gelo do congelado é uma imagem solta, sem atlas — um quadro
+   * só. Carregado aqui e lido depois por `Assets.get` lá no sprite da entidade,
+   * que não tem como esperar: o congelamento chega no meio de um quadro.
+   */
+  void Assets.load<Texture>('/assets/spells/frozen_status_overlay.png')
+    .catch((e: unknown) => console.warn('[fx] bloco de gelo não carregou:', e));
 
   /** Qual animação cada camada usa ao nascer. */
-  const ANIM_DA_CAMADA: Record<CamadaP, string> = {
-    nevoa: 'vortex',
-    cristal: 'falling',
-    floco: 'shimmer',
-  };
+  const ANIM_DA_CAMADA: Record<CamadaP, string> = { cristal: 'falling' };
 
   function nasceParticula(camada: CamadaP): Particula | undefined {
     const quadros = folhasP.get(ANIM_DA_CAMADA[camada]);
@@ -3006,18 +3036,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     /*
      * ⚠️ **O cristal é ancorado em 0,85 e não no meio.** A ponta dele é o que
      * toca o chão; ancorado no centro, metade do desenho afundaria no tile no
-     * instante da batida e o estilhaço sairia enterrado. A névoa e o floco são
-     * centrados — nos dois o ponto de referência é o miolo.
+     * instante da batida e o estilhaço sairia enterrado.
      */
-    g.anchor.set(0.5, camada === 'cristal' ? 0.85 : 0.5);
-    g.animationSpeed = camada === 'cristal' ? 0.35 : 0.18;
+    g.anchor.set(0.5, 0.85);
+    g.animationSpeed = 0.35;
     g.loop = true;
     g.play();
-    g.zIndex = camada === 'nevoa' ? 9998 : 10000;
+    g.zIndex = 10000;
     fxLayer.addChild(g);
     const p: Particula = {
-      node: g, camada, idx: particulas.length, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0,
-      ang: 0, raioOrb: 0, giro: 0, t: 0, dur: 1, escala: 1, viva: true,
+      node: g, camada, idx: particulas.length, x: 0, y: 0, z: 0, vz: 0,
+      giro: 0, t: 0, dur: 1, escala: 1, viva: true,
       estilhacando: false,
     };
     particulas.push(p);
@@ -3026,112 +3055,71 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   const naFaixa = ([a, b]: [number, number]): number => a + Math.random() * (b - a);
 
-  /** Quanto cada magia cospe, por camada. */
-  const PARTICULAS: Record<string, {
-    nevoa: number; cristal: number; floco: number; cores: number[];
-  }> = {
+  /** Quantos cristais cada impacto solta, e em que raio eles se espalham. */
+  const PARTICULAS: Record<string, { cristais: number; espalha: number }> = {
     /*
-     * ⚠️ Os números são POR BOLA, e são dez bolas em 4,5 s. "Centenas de
-     * micro-cristais" por impacto viraria milhares em tela; 22 por bola já dá
-     * a leitura de turbulência, e o pool segura o resto.
+     * ❄️ **DEZESSEIS POR IMPACTO, e são dez impactos: ~160 na tempestade.**
+     *
+     * 🔴 Eram 4, somados a névoa e flocos. O dono: *"o segredo não é o vórtice
+     * girando na base, mas a QUANTIDADE MASSIVA de projéteis caindo direto e
+     * rápido, criando um efeito cumulativo de brilho e impacto"*. Está certo —
+     * no Ragnarok o efeito vem de densidade, não de camadas que se completam.
+     *
+     * ⚠️ **`espalha` é o que faz isto virar chuva em vez de buquê.** Os
+     * dezesseis nascem num raio de 1,5 tile em volta do ponto do impacto; sem
+     * isso eles cairiam empilhados no mesmo pixel e a densidade viraria um
+     * borrão só. Como os dez impactos já são sorteados pelo servidor dentro do
+     * 9×9, o espalhamento por impacto cobre a área sem o cliente precisar saber
+     * onde a tempestade começa e acaba.
      */
-    snowball: {
-      /*
-       * ⚠️ **Quatro cristais, e não seis.** Com vida de 420–700 ms e uma bola a
-       * cada 450 ms, seis por impacto deixam quinze no ar ao mesmo tempo — e
-       * quinze lâminas de gelo sobrepostas leem como entulho, não como
-       * tempestade. Medido em tela em 11/09.
-       */
-      nevoa: 5, cristal: 4, floco: 22,
-      cores: [0x8fd8ff, 0xd8f4ff, 0xf2fbff, 0x4f9be8],
-    },
+    snowball: { cristais: 16, espalha: 48 },
   };
 
-  /** ❄️ Cospe as três camadas de UM impacto, no ponto onde ele aconteceu. */
+  /**
+   * ❄️ Cospe a rajada de cristais de UM impacto.
+   *
+   * ⚠️ **Uma camada só.** Havia névoa no chão e micro-cristais em espiral; o
+   * dono viu em tela e cortou as duas (*"esqueça o vórtice na base e as
+   * turbulências espirais"*). Ver a nota longa em `CamadaP`.
+   */
   function cospeEstilhacos(magia: string, x: number, y: number): void {
     const cfg = PARTICULAS[magia];
     if (!cfg) return;
-    const cor = (): number => cfg.cores[Math.floor(Math.random() * cfg.cores.length)]!;
-
-    for (let i = 0; i < cfg.nevoa; i++) {
-      const p = nasceParticula('nevoa');
-      if (!p) break;
-      p.x = x + (Math.random() - 0.5) * 30;
-      p.y = y + (Math.random() - 0.5) * 16;
-      p.z = 0;
-      p.vx = (Math.random() - 0.5) * 0.02;
-      p.vy = 0; p.vz = 0;
-      p.giro = (Math.random() - 0.5) * 0.0012;
-      p.node.rotation = Math.random() * Math.PI;
-      p.node.tint = cfg.cores[0]!;
-      p.escala = naFaixa([0.9, 1.6]);
-      p.t = 0; p.dur = naFaixa([560, 900]);
-    }
-
-    for (let i = 0; i < cfg.cristal; i++) {
+    for (let i = 0; i < cfg.cristais; i++) {
       const p = nasceParticula('cristal');
       if (!p) break;
-      p.x = x + (Math.random() - 0.5) * 54;
-      p.y = y + (Math.random() - 0.5) * 26;
-      // 🔴 Nasce NO ALTO e despenca: é o que dá peso à tempestade.
-      p.z = naFaixa([180, 260]);
-      p.vx = 0; p.vy = 0;
-      p.vz = -naFaixa([0.85, 1.25]);
+      p.x = x + (Math.random() - 0.5) * cfg.espalha * 2;
+      // ⚠️ Metade do espalhamento em `y`: o chão é visto de viés, e um círculo
+      // deitado projeta uma elipse. Igual nos dois eixos leria como bola.
+      p.y = y + (Math.random() - 0.5) * cfg.espalha;
+      // 🔴 Nasce NO ALTO e despenca — é o que dá peso à tempestade.
+      p.z = naFaixa([200, 300]);
+      /*
+       * ⚠️ **Rápido, e a faixa é larga de propósito.** Velocidade igual para
+       * todos faria os dezesseis tocarem o chão juntos, e dezesseis estilhaços
+       * no mesmo quadro leem como uma piscada só. Espalhados no tempo, viram
+       * chuva.
+       */
+      p.vz = -naFaixa([1.3, 2.0]);
       p.giro = (Math.random() - 0.5) * 0.02;
       p.node.rotation = Math.random() * Math.PI * 2;
       /*
-       * ⚠️ **Tinta quase branca no cristal.** A folha já vem colorida, e tingir
-       * de azul-médio uma arte que já é azul escurece duas vezes — some contra
-       * o chão. As outras camadas são brancas na folha e dependem da tinta.
+       * ⚠️ **Tinta quase branca.** A folha já vem colorida, e tingir de
+       * azul-médio uma arte que já é azul escurece duas vezes — some no chão.
        */
       p.node.tint = 0xdff2ff;
       /*
-       * 🔴 **0,7–1,2, e o caminho até aqui vale registrar.**
-       *
-       * Quando o cristal sumiu em tela, subi a escala para 2,0–3,2 achando que
-       * era tamanho. Não era: era a MISTURA ADITIVA comendo o contorno. Com os
-       * dois "consertos" juntos, o teste em tela (11/09) mostrou lâminas azuis
-       * de cinco tiles cada, empilhadas — a tempestade virou uma parede.
+       * 🔴 **0,7–1,2, e o caminho até aqui vale registrar.** Quando o cristal
+       * sumiu em tela, subi a escala para 2,0–3,2 achando que era tamanho. Não
+       * era: era a MISTURA ADITIVA comendo o contorno. Com os dois "consertos"
+       * juntos, o teste mostrou lâminas azuis de cinco tiles cada, empilhadas.
        *
        * ⚠️ **A largura engana e a altura é que manda.** O gelo ocupa uns 10 px
-       * de largura na célula de 48, o que parecia pedir aumento; mas ele tem
-       * quase 40 px de ALTURA, e em escala 1 já é mais alto que um tile.
+       * de largura na célula de 48, o que parecia pedir aumento; mas tem quase
+       * 40 px de ALTURA, e em escala 1 já é mais alto que um tile.
        */
       p.escala = naFaixa([0.7, 1.2]);
       p.t = 0; p.dur = naFaixa([420, 700]);
-    }
-
-    cospeFlocos(x, y, cfg.floco, cfg.cores);
-  }
-
-  /**
-   * ❄️ Os micro-cristais: sobem do chão em ESPIRAL, até uns 100 px.
-   *
-   * Separado porque nasce em dois momentos — junto do impacto, e de novo quando
-   * um cristal grande toca o chão (o estilhaço da batida dele).
-   */
-  function cospeFlocos(x: number, y: number, quantos: number, cores: number[]): void {
-    for (let i = 0; i < quantos; i++) {
-      const p = nasceParticula('floco');
-      if (!p) break;
-      p.x = x; p.y = y; p.z = 0;
-      p.ang = Math.random() * Math.PI * 2;
-      p.raioOrb = naFaixa([6, 40]);
-      /*
-       * ⚠️ O giro do floco é a VELOCIDADE ANGULAR da órbita, e não a rotação do
-       * desenho — é o que faz o vórtice. Metade sobe girando ao contrário, para
-       * a espiral não virar um carrossel com todo mundo no mesmo sentido.
-       */
-      p.giro = (Math.random() < 0.5 ? -1 : 1) * naFaixa([0.002, 0.006]);
-      p.vz = naFaixa([0.06, 0.16]);
-      p.vx = 0; p.vy = 0;
-      p.node.tint = cores[Math.floor(Math.random() * cores.length)]!;
-      /*
-       * ⚠️ **1,6–2,6.** A centelha tem 16 px de célula e nove pixels acesos
-       * dentro dela; em escala 1 é literalmente invisível em movimento.
-       */
-      p.escala = naFaixa([1.0, 1.8]);
-      p.t = 0; p.dur = naFaixa([500, 900]);
     }
   }
 
@@ -9030,8 +9018,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
 
     /*
-     * ❄️ **AS TRÊS CAMADAS DA TEMPESTADE.** Um laço só, varrendo o pool: cada
-     * partícula carrega a própria física e aqui só se integra e se apaga.
+     * ❄️ **A CHUVA DE CRISTAIS.** Um laço só, varrendo o pool: cada partícula
+     * carrega a própria física e aqui só se integra e se apaga.
      *
      * ⚠️ **Varre TODO o pool, inclusive as mortas**, e não uma lista de vivas.
      * É de propósito: a lista de vivas precisaria de `splice` no meio, que é
@@ -9043,69 +9031,43 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       p.t += dt;
       const r = Math.min(1, p.t / p.dur);
 
-      if (p.camada === 'floco') {
-        /*
-         * ❄️ **VÓRTICE: a órbita gira e ABRE enquanto sobe.** Raio constante
-         * daria um cilindro girando; abrindo, lê como turbulência puxando neve
-         * do chão para cima.
-         */
-        p.ang += p.giro * dt;
-        p.z += p.vz * dt;
-        const raio = p.raioOrb * (0.6 + r * 0.9);
-        p.node.x = p.x + Math.cos(p.ang) * raio;
-        // ⚠️ A órbita é achatada em y pelo mesmo motivo das elipses da névoa: é
-        // um círculo DEITADO no chão, visto de viés.
-        p.node.y = p.y + Math.sin(p.ang) * raio * 0.5 - p.z;
-        p.node.alpha = (1 - r * r) * 0.9;
-        p.node.scale.set(p.escala * (1 - r * 0.4));
-      } else if (p.camada === 'cristal') {
-        p.z += p.vz * dt;
-        p.node.x = p.x;
-        p.node.y = p.y - Math.max(0, p.z);
-        p.node.scale.set(p.escala);
-        /*
-         * 💥 **A BATIDA: o cristal trava no chão e toca `shatter`.**
-         *
-         * ⚠️ Zerar o `vz` é o que impede a batida de disparar de novo no quadro
-         * seguinte — sem isso um cristal parado no chão viraria uma fonte
-         * infinita de estilhaços, e a tempestade não pararia mais.
-         *
-         * ⚠️ O relógio é REINICIADO aqui (`t = 0`): a vida sorteada no
-         * nascimento media a QUEDA, e o estouro precisa dos quatro quadros
-         * dele. Sem isto um cristal que caiu tarde estilhaçaria em meio quadro.
-         *
-         * ⚠️ E o giro para. Uma explosão que continua rodando lê como pião, não
-         * como gelo se partindo no chão.
-         */
-        if (p.z <= 0 && p.vz < 0) {
-          p.vz = 0;
-          p.z = 0;
-          p.estilhacando = true;
-          p.node.rotation = 0;
-          const quebra = folhasP.get('shatter');
-          if (quebra) {
-            p.node.textures = quebra;
-            p.node.loop = false;
-            p.node.gotoAndPlay(0);
-          }
-          p.t = 0;
-          p.dur = 260;
-          // Umas centelhas junto, para a batida cuspir e não só piscar.
-          cospeFlocos(p.x, p.y, 3, [p.node.tint as number]);
-        } else if (!p.estilhacando) {
-          p.node.rotation += p.giro * dt;
+      p.z += p.vz * dt;
+      p.node.x = p.x;
+      p.node.y = p.y - Math.max(0, p.z);
+      p.node.scale.set(p.escala);
+      /*
+       * 💥 **A BATIDA: o cristal trava no chão e toca `shatter`.**
+       *
+       * ⚠️ Zerar o `vz` é o que impede a batida de disparar de novo no quadro
+       * seguinte — sem isso um cristal parado no chão ficaria reiniciando o
+       * estouro para sempre, e a tempestade não acabaria mais.
+       *
+       * ⚠️ O relógio é REINICIADO aqui (`t = 0`): a vida sorteada no nascimento
+       * media a QUEDA, e o estouro precisa dos quatro quadros dele. Sem isto um
+       * cristal que caiu tarde estilhaçaria em meio quadro.
+       *
+       * ⚠️ E o giro para. Uma explosão que continua rodando lê como pião, não
+       * como gelo se partindo no chão.
+       */
+      if (p.z <= 0 && p.vz < 0) {
+        p.vz = 0;
+        p.z = 0;
+        p.estilhacando = true;
+        p.node.rotation = 0;
+        const quebra = folhasP.get('shatter');
+        if (quebra) {
+          p.node.textures = quebra;
+          p.node.loop = false;
+          p.node.gotoAndPlay(0);
         }
-        // ⚠️ Caindo, o cristal fica CHEIO — desbotar no ar faria a queda parecer
-        // um erro de desenho. Só o estilhaço desaparece.
-        p.node.alpha = p.estilhacando ? 1 - r * r : 1;
-      } else {
-        // ☁️ A névoa ABRE e gira devagar, deitada no chão (`z` é sempre 0).
+        p.t = 0;
+        p.dur = 260;
+      } else if (!p.estilhacando) {
         p.node.rotation += p.giro * dt;
-        p.node.x = p.x + p.vx * dt * p.t;
-        p.node.y = p.y;
-        p.node.alpha = (1 - r) * 0.9;
-        p.node.scale.set(p.escala * (0.5 + r * 2.2));
       }
+      // ⚠️ Caindo, o cristal fica CHEIO — desbotar no ar faria a queda parecer
+      // um erro de desenho. Só o estilhaço desaparece.
+      p.node.alpha = p.estilhacando ? 1 - r * r : 1;
 
       if (r >= 1) {
         p.viva = false;
@@ -10641,10 +10603,49 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
    * noturno tem aura vermelha e as variantes de slime têm cor própria. Zerar
    * apagaria a identidade deles ao descongelar.
    */
+  /**
+   * 🧊 **O BLOCO DE GELO por cima de quem congelou** (pedido do dono, 11/09).
+   *
+   * ⚠️ **Criado por preguiça (só no primeiro congelamento) e nunca destruído.**
+   * A esmagadora maioria das entidades nunca congela; um `Sprite` por bicho no
+   * mapa seria desperdício puro. Depois de criado, fica escondido — recriar a
+   * cada gelo daria alocação no meio da luta, que é o que o pool das partículas
+   * existe para evitar.
+   *
+   * ⚠️ **Âncora e posição copiadas do CORPO**, e não centradas no tile: o
+   * sprite pode ter âncora própria (`anchorY` 0,92 nos humanos, 1 em outros) e
+   * escala própria. Centrar no tile poria o bloco nos pés de uns e na cabeça de
+   * outros.
+   */
+  let geloNode: Sprite | undefined;
+  function mostraGelo(v: boolean): void {
+    if (!v && !geloNode) return;
+    if (!geloNode) {
+      const tex = Assets.get<Texture>('/assets/spells/frozen_status_overlay.png');
+      // ⚠️ Folha ausente = sem bloco, e o resto do congelamento (cor e animação
+      // parada) continua valendo. É a convenção do arquivo inteiro.
+      if (!tex) return;
+      geloNode = new Sprite(tex);
+      geloNode.anchor.set(sprite.anchor.x, sprite.anchor.y);
+      geloNode.x = sprite.x;
+      geloNode.y = sprite.y;
+      /*
+       * ⚠️ A altura do bloco é casada com a do CORPO, não com a do tile: o
+       * desenho tem 72 px para um sprite que em tela tem `sprite.height`. Sem
+       * isso ele cobriria metade de um goblin e um terço de um chefe.
+       */
+      geloNode.scale.set((sprite.height * 1.12) / geloNode.texture.height);
+      geloNode.alpha = 0.9;
+      c.addChild(geloNode);
+    }
+    geloNode.visible = v;
+  }
+
   let gelado = false;
   function setFrozen(v: boolean): void {
     if (v === gelado) return;
     gelado = v;
+    mostraGelo(v);
     if (v) {
       sprite.stop();
       for (const { s: camada } of camadas) camada.stop();

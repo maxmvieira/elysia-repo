@@ -37,7 +37,7 @@ congela de novo) e o empurrão virou 2 células em direção **sorteada**. A
 implementação antiga em `golpeDeArea` foi apagada — duas cópias da mesma regra
 discordando é o defeito que vinha a seguir.
 
-**5. Partículas em três camadas, com pool.** Névoa (volume), cristal (peso) e
+**5. Partículas em três camadas, com pool** — *e o passo 7 desfez isto.* Névoa (volume), cristal (peso) e
 floco (turbulência), ~500 por tempestade, nós reaproveitados. **Não foi preciso
 Unity, Godot nem Blender** — o cliente já era um motor de partículas sem ser
 usado como tal. Duas das três folhas vieram prontas; a terceira (`nevoa_base`)
@@ -50,6 +50,26 @@ tinha "consertado" isso subindo a escala — somados, viraram lâminas azuis de
 cinco tiles empilhadas. E a **dica mentia**: anunciava 2,5 s de conjuração
 porque lia `def.castMs` cru, que é o valor do Lv.1 — a Nevasca é a única magia
 cujo cast CRESCE com o nível.
+
+**7. 🔴 AS TRÊS CAMADAS VIRARAM UMA, e o dono estava certo.** Vendo em tela:
+*"dividimos a magia em 3 camadas e tentamos aplicar rotações e turbulências
+complexas, o que resultou num visual confuso e barato... esqueça o vórtice na
+base e as turbulências espirais. O segredo é a QUANTIDADE MASSIVA de projéteis
+caindo direto e rápido"*. É exatamente como o Ragnarok funciona: o efeito vem de
+densidade, não de camadas que se completam. A névoa e o floco em espiral saíram;
+os cristais foram de 4 para **16 por impacto (~160 na tempestade)**, caindo mais
+rápido e espalhados num raio de 1,5 tile em volta de cada ponto.
+
+⚠️ As duas camadas foram **removidas, não zeradas na tabela**. Campo que ninguém
+preenche foi o defeito que já custou uma rodada neste mesmo dia
+(`empurraPorPulso` mudo por um dia). As folhas `nevoa_base` e
+`particulas_menores` continuam no repositório, mas ninguém as carrega.
+
+**8. 🧊 O bloco de gelo do congelado.** O script que o dono trouxe declarava
+`frozen_status_overlay.png`, mas **o base64 veio vazio e a linha que o gravava
+veio comentada** — o arquivo nunca existiu. Gerado por
+`tools/gelo-congelado.mjs` e ligado ao `setFrozen`, que já pintava de azul e
+parava a animação.
 
 ### Onde ela parou
 
@@ -74,6 +94,12 @@ que sustenta as outras.
 
 ### ⚠️ O que a Nevasca deixou em aberto
 
+- 🔴 **O BLOCO DE GELO NÃO FOI VISTO EM TELA.** O arquivo serve (200, 48×72), o
+  carregamento tem aviso no console se falhar, e o `setFrozen` já funcionava — mas
+  em quatro conjurações de teste nenhum monstro congelou na frente da câmera:
+  a chance é de **25 % no Lv.10**, rolada no 3º/6º/9º acerto, e nos Campos de
+  Valdor os bichos morrem antes. **Confirmar contra um monstro tanque**, ou
+  baixando a Nevasca para Lv.1 (70 % de congelamento).
 - **A área é uniforme**: quem está na borda apanha igual a quem está no meio. No
   RO a borda apanha menos, porque lá as bolas são o dano. Simplificação assumida.
 - **O dano da Chuva de Meteoros continua sem a passada de equilíbrio**, pendente
