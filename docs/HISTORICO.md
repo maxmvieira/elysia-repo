@@ -122,6 +122,11 @@ magia voltou a ser UM número.
 onze quadros (medido, de 0,44 a 0,69 da célula); somados os 2,4× que o `cresce` pedia,
 davam 3,7×. Com 0,78 → 0,86 o total fica em 1,4×, e a pedra entra em cena já grande.
 
+⚠️ **O tamanho fechou em `ESCALA_IMPACTO: 2.8` — 252 px, que é EXATAMENTE o que o meteoro
+tinha antes da folha nova.** Subi para 3,4 na rodada do "faça ele ser maior" e o dono
+cortou duas vezes em tela. Voltar a um valor que ele já tinha aprovado e vivido com ele é
+mais barato que procurar um novo: são 7,9 tiles contra os 7 do quadrado de dano.
+
 ---
 
 ## 2026-09-11 — O Meteoro ganha oito direções de entrada

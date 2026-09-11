@@ -3247,17 +3247,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ele pega um bloco 7×7 (224 px) contra o respingo 5×5 (160 px) de cada
      * rocha da chuva.
      *
-     * 🔴 **3,4, e era 2,1 — a CÉLULA ENCOLHEU junto com a folha nova.** O número
-     * antigo valia para células de 192 px de largura; a folha vertical de 13/09
-     * tem 144, e os mesmos 2,1 passaram a dar 189 px de estouro contra os 252 de
-     * antes. Menor que o próprio quadrado de dano — foi metade da queixa do dono
-     * (*"faça ele ser maior"*), e a outra metade era a transparência.
+     * 🔴 **A CÉLULA ENCOLHEU junto com a folha nova, e o número teve de mudar.**
+     * O 2,1 antigo valia para células de 192 px de largura; a folha vertical de
+     * 13/09 tem 144, e os mesmos 2,1 passaram a dar 189 px de estouro contra os
+     * 252 de antes — menor que o próprio quadrado de dano. É por isso que o
+     * número mora aqui e não na folha: ele é uma razão entre a arte e o TILE, e
+     * toda folha nova o desatualiza em silêncio.
      *
-     * ⚠️ É por isso que o número mora aqui e não na folha: ele é uma razão entre
-     * a arte e o TILE, e toda folha nova o desatualiza em silêncio. 3,4 dá 306 px
-     * — uma vez e meia o quadrado de dano, a mesma margem de drama da Chuva.
+     * ⚠️ **2,8 dá 252 px, que é EXATAMENTE o tamanho que o meteoro tinha antes da
+     * folha nova.** Fui a 3,4 (306 px) e o dono cortou em tela duas vezes —
+     * *"está muito grande"*. 252 é o número que ele já tinha aprovado e viveu com
+     * ele; voltar a um valor aprovado é melhor que procurar um novo.
+     *
+     * 🔴 **E este número agora governa os DOIS sprites**, o do mergulho e o do
+     * estouro — antes de 13/09 o do voo tinha régua própria, e era isso que fazia
+     * a pedra dobrar de tamanho no instante do impacto. Ver `trajetoria`.
      */
-    meteor_solo: 3.4,
+    meteor_solo: 2.8,
     /*
      * ❄️ A célula da folha da Nevasca tem 160 px de largura para 3 tiles (96 px)
      * de área de dano. 0,62 põe a coluna de gelo no tamanho da cratera dela.
