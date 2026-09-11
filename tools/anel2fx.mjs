@@ -76,6 +76,13 @@ const PISO_CAIXA = 90;
 const GRADES = {
   anel_conjuracao: {
     redondo: true,
+    /*
+     * ⚠️ Só o anel do CHÃO leva a curva. O do conjurador é pequeno, fica sobre o
+     * corpo do personagem e não tem chão para velar — lá o bloom ajuda a
+     * separá-lo do sprite. Ver a nota da curva, abaixo.
+     */
+    gamaAlfa: 1.7,
+    ganhoAlfa: 1.15,
     fileiras: [[18, 200], [221, 403], [422, 604], [621, 803], [820, 1003]],
     colunas: [[14, 242], [269, 498], [525, 754], [780, 1009], [1036, 1265], [1291, 1520]],
   },
@@ -120,7 +127,46 @@ const GRADES = {
 const [arq, nome, ladoArg] = process.argv.slice(2);
 if (!arq || !nome) {
   console.error('uso: node tools/anel2fx.mjs <folha.png> <nome> [lado]');
+  console.error('     node tools/anel2fx.mjs --recurva <tira.png> <gama> [ganho]');
   process.exit(1);
+}
+
+/*
+ * 🔴 **`--recurva` aplica a curva de alfa numa tira JÁ CORTADA, e existe por uma
+ * falta: a arte-fonte do `anel_conjuracao` não foi guardada em `arte-fonte/`.**
+ *
+ * Sem ela não dá para rodar o corte inteiro de novo. Mas a curva é a ÚLTIMA
+ * coisa que o corte faz, e é um por-pixel puro sobre o alfa — aplicá-la à saída
+ * dá exatamente o mesmo resultado que teria saído do corte completo. Então o
+ * conserto de 12/09 é reproduzível mesmo sem a fonte.
+ *
+ * ⚠️ **Não é desculpa para perder fonte de novo.** Toda arte nova entra em
+ * `arte-fonte/`; esta é a única que ficou para trás, e este modo é o remendo
+ * dela — não o jeito normal de trabalhar.
+ *
+ * ⚠️ **Não roda duas vezes no mesmo arquivo.** A curva não é idempotente:
+ * aplicá-la de novo afunda o meio-tom outra vez e o anel perde as linhas finas.
+ */
+if (arq === '--recurva') {
+  const alvo = nome;
+  const gama = Number(ladoArg);
+  const ganho = Number(process.argv[5] ?? 1);
+  if (!Number.isFinite(gama) || gama <= 0) {
+    console.error('[anel] --recurva precisa de uma gama > 0');
+    process.exit(1);
+  }
+  const t = decode(alvo);
+  let mudados = 0;
+  for (let i = 3; i < t.px.length; i += 4) {
+    const antes = t.px[i];
+    if (antes === 0) continue;
+    const depois = Math.round(Math.min(1, ganho * (antes / 255) ** gama) * 255);
+    if (depois !== antes) mudados++;
+    t.px[i] = depois;
+  }
+  writeFileSync(alvo, encode(t.w, t.h, t.px));
+  console.log(`[anel] recurvado ${alvo} (gama ${gama}, ganho ${ganho}): ${mudados} pixels`);
+  process.exit(0);
 }
 const grade = GRADES[nome];
 if (!grade) {
@@ -343,7 +389,30 @@ caixas.forEach((cx, k) => {
       out[d] = grade.preservaCor ? Math.round((r / pico) * 255) : 255;
       out[d + 1] = grade.preservaCor ? Math.round((g / pico) * 255) : 255;
       out[d + 2] = grade.preservaCor ? Math.round((b / pico) * 255) : 255;
-      out[d + 3] = Math.min(255, Math.round(a));
+      /*
+       * 🔴 **A CURVA DE ALFA existe para matar o HALO e manter a linha.**
+       *
+       * Defeito relatado pelo dono em 12/09: *"está dando muita borda amarela,
+       * melhora a qualidade"*. Medido no quadro: **46 % da célula está acesa, e
+       * metade dos pixels acesos tem alfa abaixo de 64** — esse meio é o brilho
+       * difuso em volta do desenho, e o traço de verdade vive nos 15 % acima de
+       * 160. Em mistura aditiva o difuso vira um véu que cobre um círculo
+       * inteiro de chão.
+       *
+       * ⚠️ **Alfa = brilho era LINEAR**, e para arte branca sobre preto isso é
+       * fiel — o problema não é a conta, é que fidelidade aqui inclui o bloom
+       * que o gerador pôs em volta. A gama afunda o pé da curva sem tocar no
+       * topo: alfa 48 vira 11, alfa 200 continua 194.
+       *
+       * ⚠️ O ganho devolve o meio-tom que a gama sozinha comeria. Sem ele as
+       * linhas finas do miolo (as estrelas, a corrente de pontos) saíam pálidas
+       * junto com o halo, e o anel perdia o desenho em vez de perder a sujeira.
+       */
+      const bruto = Math.min(255, a) / 255;
+      const curvo = grade.gamaAlfa
+        ? Math.min(1, (grade.ganhoAlfa ?? 1) * bruto ** grade.gamaAlfa)
+        : bruto;
+      out[d + 3] = Math.round(curvo * 255);
     }
   }
 });

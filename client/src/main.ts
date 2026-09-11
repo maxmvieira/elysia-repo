@@ -8071,7 +8071,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       : `${def.name}`;
 
     const raio = skillMiraNoChao(def) ? skillRange(def, nivel) : 0;
-    const cor = fora ? 0xd98a7a : 0xffc46b;
+    /**
+     * 🔴 **O anel deixou de ser ÂMBAR** — dono, 12/09: *"está dando muita borda
+     * amarela, melhora a qualidade"*.
+     *
+     * `0xffc46b` era herança do TRAÇO laranja que existia antes do anel
+     * desenhado (11/09). Num traço fino, laranja é cor de mira e funciona; num
+     * selo arcano de nove tiles em mistura aditiva, ele tinge o chão inteiro de
+     * bege e o desenho lê como mancha, não como runa.
+     *
+     * ⚠️ **O vermelho do "longe demais" FICA**, e é o ponto: era a única das
+     * duas cores que carregava informação. Agora que a normal é neutra, o aviso
+     * salta em vez de ser um tom de âmbar um pouco diferente do outro.
+     */
+    const cor = fora ? 0xff7a68 : 0xcfe8ff;
     const px = tx * TS;
     const py = ty * TS;
     miraMarca.clear();
