@@ -244,6 +244,32 @@ quadro. E o giro para — explosão que continua rodando lê como pião.
 ⚠️ **O cristal reciclado do pool volta para `falling`.** Ele pode ter morrido estilhaçado, e
 sem trocar as texturas de volta nasceria já quebrado no ar.
 
+### 🔬 O teste em tela, e dois erros que só ele pega
+
+O dono abriu o jogo para eu testar direto na máquina dele. Duas coisas caíram na hora.
+
+🔴 **A escala do cristal: 2,0–3,2 era um erro meu em cima de outro.** Quando ele sumiu em
+tela eu subi a escala achando que era tamanho — não era, era a mistura aditiva comendo o
+contorno. Com os dois "consertos" somados, a tempestade virou **lâminas azuis de cinco
+tiles cada, empilhadas**: uma parede, não uma nevasca. Voltou para 0,7–1,2, e a contagem de
+cristais caiu de 6 para 4 (com vida de 420–700 ms e uma bola a cada 450 ms, seis deixavam
+quinze no ar ao mesmo tempo).
+
+⚠️ **A largura enganava.** O gelo ocupa uns 10 px na célula de 48, o que parecia pedir
+aumento — mas tem quase 40 px de ALTURA, e em escala 1 já é mais alto que um tile.
+
+🔴 **A dica anunciava 2,5 s de conjuração e o jogador esperava mais de cinco.** A dica lia
+`def.castMs` cru, que é o valor do **Lv.1**. Enquanto toda magia tinha conjuração fixa isso
+dava no mesmo; a Nevasca quebrou a premissa (`castMsAtLv10`). Passou a sair de
+`skillCastMs(def, efetivo, 0, 0)` — e agora mostra 6.3s no Lv.10.
+
+⚠️ Maestria e Destreza entram como ZERO de propósito: como todo o resto da dica, o número é
+o da HABILIDADE e não o do personagem que a lê. Misturar faria a mesma magia mostrar valores
+diferentes para dois jogadores, e a dica deixaria de servir para comparar.
+
+✅ **E o que o teste confirmou funcionando:** as três camadas aparecem, o `shatter` toca na
+batida, o congelamento pinta o monstro de azul com o floco por cima, e a tempestade mata.
+
 🔴 **O congelamento foi INVERTIDO, e o argumento anterior estava certo sobre a regra e
 errado sobre a magia.** A versão de ontem rolava uma vez e deixava o alvo imune ao resto da
 tempestade, para o gelo não se quebrar sozinho. Mas o quique **é** a Nevasca: *"se sofrer

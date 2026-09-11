@@ -79,6 +79,7 @@ import {
   executionMultiplier,
   furyStats,
   ruptureDefReduction,
+  skillCastMs,
   skillManaCost,
   skillPower,
   skillRange,
@@ -3035,7 +3036,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * a leitura de turbulência, e o pool segura o resto.
      */
     snowball: {
-      nevoa: 5, cristal: 6, floco: 22,
+      /*
+       * ⚠️ **Quatro cristais, e não seis.** Com vida de 420–700 ms e uma bola a
+       * cada 450 ms, seis por impacto deixam quinze no ar ao mesmo tempo — e
+       * quinze lâminas de gelo sobrepostas leem como entulho, não como
+       * tempestade. Medido em tela em 11/09.
+       */
+      nevoa: 5, cristal: 4, floco: 22,
       cores: [0x8fd8ff, 0xd8f4ff, 0xf2fbff, 0x4f9be8],
     },
   };
@@ -3079,11 +3086,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        */
       p.node.tint = 0xdff2ff;
       /*
-       * 🔴 **Escala 2,0–3,2, e não 0,8–1,5.** A célula tem 48 px, mas o gelo
-       * dentro dela tem uns 10 de largura — num tile de 32 px isso cai como um
-       * fiapo. Medido na folha ampliada: o desenho ocupa um quinto da célula.
+       * 🔴 **0,7–1,2, e o caminho até aqui vale registrar.**
+       *
+       * Quando o cristal sumiu em tela, subi a escala para 2,0–3,2 achando que
+       * era tamanho. Não era: era a MISTURA ADITIVA comendo o contorno. Com os
+       * dois "consertos" juntos, o teste em tela (11/09) mostrou lâminas azuis
+       * de cinco tiles cada, empilhadas — a tempestade virou uma parede.
+       *
+       * ⚠️ **A largura engana e a altura é que manda.** O gelo ocupa uns 10 px
+       * de largura na célula de 48, o que parecia pedir aumento; mas ele tem
+       * quase 40 px de ALTURA, e em escala 1 já é mais alto que um tile.
        */
-      p.escala = naFaixa([2.0, 3.2]);
+      p.escala = naFaixa([0.7, 1.2]);
       p.t = 0; p.dur = naFaixa([420, 700]);
     }
 
@@ -3116,7 +3130,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * ⚠️ **1,6–2,6.** A centelha tem 16 px de célula e nove pixels acesos
        * dentro dela; em escala 1 é literalmente invisível em movimento.
        */
-      p.escala = naFaixa([1.6, 2.6]);
+      p.escala = naFaixa([1.0, 1.8]);
       p.t = 0; p.dur = naFaixa([500, 900]);
     }
   }
@@ -6977,7 +6991,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         `<br><span class="req">${(skillConditionChance(def, efetivo) * 100).toFixed(0)}% de ` +
         `${CONDITIONS[def.applies.id].name} (${(skillConditionDuration(def, efetivo) / 1000).toFixed(1)}s)</span>`;
     }
-    const cast = def.castMs ? `Conjuração ${(def.castMs / 1000).toFixed(1)}s · ` : '';
+    /*
+     * ⚠️ **A conjuração sai de `skillCastMs`, e não de `def.castMs` cru.**
+     *
+     * 🔴 `def.castMs` é o valor do **Lv.1**. Enquanto toda magia tinha
+     * conjuração fixa isso dava no mesmo; a Nevasca quebrou a premissa
+     * (`castMsAtLv10`: 2,5 s no Lv.1 e 6,3 s no Lv.10). A dica anunciava 2,5 s e
+     * o jogador esperava mais de cinco — pego testando em tela em 11/09.
+     *
+     * ⚠️ Maestria e Destreza entram como ZERO de propósito: como todo o resto
+     * da dica, este número é o da HABILIDADE, não o do personagem que a lê.
+     * Misturar os dois faria a mesma magia mostrar valores diferentes para dois
+     * jogadores, e a dica deixaria de servir para comparar.
+     */
+    const castMs = skillCastMs(def, efetivo, 0, 0);
+    const cast = castMs > 0 ? `Conjuração ${(castMs / 1000).toFixed(1)}s · ` : '';
 
     const custo = skillManaCost(def, efetivo);
     return (
