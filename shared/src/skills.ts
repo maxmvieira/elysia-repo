@@ -1740,19 +1740,108 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     classes: ['sorcerer'],
     reqLevel: 20,
     requires: [{ skill: 'fire_bolt', level: 5 }],
-    manaCost: 45,
-    manaPerLevel: 7,
-    cooldownMs: 9000,
-    power: 1.8,
-    powerPerLevel: 0.22,
-    // "Impacto + pequena AoE": estoura em volta do conjurador com raio curto.
+    /*
+     * ⚠️ **SP 60 → 100, os números da ficha do dono** (60/70/80/90/100 em cinco
+     * níveis). Aqui a régua é de dez, então o passo virou 4,44 e o Lv.10 fecha
+     * em 100 — as duas pontas dele, com o meio interpolado.
+     */
+    manaCost: 60,
+    manaPerLevel: 4.44,
+    cooldownMs: 5000,
+    /**
+     * 🔴 **A CONVERSÃO DO DANO, e ela é a decisão mais séria desta magia.**
+     *
+     * A especificação do dono (12/09) traz a ficha do Meteoro Escarlate do RO:
+     * **13× ATQM no Lv.1 subindo a 37× no Lv.5**. Esses números não podem
+     * entrar crus, e a razão é medida:
+     *
+     *   a magia mais forte do jogo hoje entrega **10,3× por alvo** (Ira de Thor,
+     *   suprema de Lv.50, 18 s de recarga, 260 de mana). O bicho mais duro tem
+     *   **4 400 de vida**.
+     *
+     * 13× no Lv.1 já passaria a suprema; 37× seria três vezes e meia o teto do
+     * jogo, numa habilidade que se aprende no nível 20. A ficha do RO é uma
+     * régua onde o ATQM é pequeno perto da vida dos monstros; aqui é o oposto.
+     *
+     * ✅ **O que foi preservado é a FORMA, não o número.** A razão Lv.1/Lv.máx
+     * do dono é `13/37 = 0,351`; aqui é `2,8/8,0 = 0,350`. A curva é a mesma,
+     * multiplicada por **1/4,6**.
+     *
+     * ⚠️ **Mesmo convertido, ela vira a maior pancada ÚNICA do jogo**: 8,0 de
+     * ficha × 1,2 de impulso = 9,6× ATQM num golpe só, contra os 10,3× que a
+     * Ira de Thor espalha em oito. O contrapeso é a conjuração de 6 s.
+     *
+     * ⚠️ E é um botão só: se o dono quiser mais perto do RO, é este par de
+     * números. A conversão está escrita para a conta poder ser refeita.
+     */
+    power: 2.8,
+    powerPerLevel: 0.578,
+    /**
+     * ⚠️ **7×7 fixo** (raio 3), o número do dono. Era 5×5 subindo a 7×7 no Lv.7.
+     */
     shape: 'area',
-    range: 2,
-    rangeEvery: 6,
+    range: 3,
+    rangeEvery: 0,
+    /**
+     * ⚠️ **11 células de mira**, o número do dono — contra as 6+1/3 níveis que
+     * o padrão dá. É a maior distância de conjuração do jogo, e combina com o
+     * desenho: um meteoro que vem de longe tem de poder ser jogado longe.
+     */
+    castRange: 11,
+    castRangeEvery: 0,
     durationMs: 0,
-    castMs: 1800,
+    /**
+     * 🔴 **6 SEGUNDOS de conjuração**, contra os 1,8 de antes. É o número do
+     * dono, e é o contrapeso do dano novo.
+     *
+     * ⚠️ **Parece brutal e não é, por causa dos redutores que já existem.** Com
+     * Maestria 10 (−30 %) e DEX 120 (−46 %) a conjuração cai para **1,4 s**. O
+     * número cheio é o custo de quem NÃO investiu; o Feiticeiro construído paga
+     * pouco. É o mesmo desenho da Esfera Elétrica, só que numa escala maior.
+     */
+    castMs: 6000,
     magic: true,
     damageType: 'fire',
+    /**
+     * 🌠 **A QUEDA, e ela é o coração desta reforma.**
+     *
+     * O Meteoro nunca teve arte: o `fx: 'meteor'` caía no estouro laranja
+     * desenhado por código. A folha de 40 quadros existe desde 11/09 e era usada
+     * só pela Chuva — e mesmo lá, os **16 quadros de voo nunca tocaram**.
+     *
+     * Agora ele tem queda própria (`meteor_solo`), com trajetória DIAGONAL: o
+     * pedido do dono é que se leia *"um meteoro veio de longe e atingiu esse
+     * inimigo em cheio"*, e não *"uma pedra apareceu em cima do inimigo"*.
+     */
+    queda: true,
+    quedaFx: 'meteor_solo',
+    /**
+     * ⚠️ **1100 ms até o dano, e é o tempo do MERGULHO.** O meteoro entra em
+     * cena longe e cruza a tela; o estrago sai no quadro em que ele toca o chão.
+     * O cliente usa o mesmo número para a viagem — ver `trajetoria` na folha.
+     */
+    quedaMs: 1100,
+    quedaUnica: true,
+    /**
+     * 💥 **3 células de empurrão, para LONGE do conjurador** — a ficha do dono.
+     *
+     * ⚠️ Não precisou de regra nova: `empurra` no servidor já joga na direção
+     * `alvo − conjurador`, anda tile a tile e para em parede, borda e bicho.
+     */
+    empurraTiles: 3,
+    /**
+     * 🔴 **O DANO É DA ÁREA, e sem isto a magia não machucaria NINGUÉM.**
+     *
+     * O ramo de bombardeio do servidor resolve as vítimas por `splash` em volta
+     * do ponto — e o Meteoro não tem respingo declarado, porque a área dele É a
+     * ficha. Sem `danoDaArea` a lista de atingidos sai vazia: uma queda linda e
+     * zero de estrago, sem erro nenhum.
+     *
+     * ⚠️ É a mesma decisão da Nevasca e da Descarga, e pelo mesmo motivo de
+     * sempre: com o dano saindo do respingo, o quanto a magia entrega passa a
+     * depender da geometria em vez da ficha.
+     */
+    danoDaArea: true,
     applies: {
       id: 'burn',
       chanceAtLv1: 0.30,
@@ -1762,7 +1851,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       power: 6,
     },
     fx: 'meteor',
-    desc: 'Um meteoro cai: impacto pesado e uma pequena área.',
+    desc: 'Um meteoro cruza o céu e arrebenta a área, arremessando quem sobrar.',
   },
   /**
    * 🔴 A SUPREMA de fogo. Do doc, e tudo é citação: pré-requisito **Fire Bolt 5

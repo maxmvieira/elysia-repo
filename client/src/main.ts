@@ -2518,11 +2518,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     /** 💥 O pulo de escala no instante da batida. Ver o gatilho em `batida`. */
     tranco?: { t: number; dur: number; base: number };
     /**
+     * Raio de dano em TILES, quando o servidor mandou. É ele que dá tamanho ao
+     * anel e às rachaduras — o desenho da folha tem o tamanho que tem.
+     */
+    raioDano?: number;
+    /**
      * 🧪 **MODO RISCO** (ver `QUEDA_RISCO`): o traço desenhado por código que
      * cai antes do estouro. Ausente no modo folha, em que a própria animação já
      * contém a descida — e **apagado no impacto**, para não sobreviver a ele.
      */
-    risco: { node: Graphics; t: number; deY: number; dur: number } | undefined;
+    /**
+     * 🧪 A coisa CAINDO, desenhada por código (um traço/rocha) ou pelos quadros
+     * de voo da própria folha. Ver `trajetoria` em `FOLHAS_QUEDA`.
+     */
+    risco: {
+      node: Container; t: number; deX: number; deY: number; dur: number;
+      cresce?: readonly [number, number];
+    } | undefined;
   }> = [];
 
   /**
@@ -2552,6 +2564,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   const TREMOR: Record<string, { px: number; ms: number }> = {
     meteor_fall: { px: 8, ms: 160 },
+    /*
+     * 🌠 **O avulso sacode mais que os da Chuva, pela mesma razão do relâmpago:**
+     * lá são dezoito por conjuração e o tremor se emenda; aqui cai UM.
+     */
+    meteor_solo: { px: 13, ms: 260 },
     /*
      * ❄️ A bola de neve mal sacode: são dez em 4,5 s, e o peso dela é o de uma
      * bola de neve. Tremor de meteoro aqui deixaria a tela em convulsão por
@@ -2602,6 +2619,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * Ausente = 1 (o rodapé). Ver `ancoraY` em `FOLHAS_QUEDA`.
      */
     ancoraY?: number;
+    /**
+     * 🌠 A DESCIDA desenhada pela própria folha, em DIAGONAL. Ver `trajetoria`
+     * em `FOLHAS_QUEDA`. Ausente = o traço desenhado por código, na vertical.
+     */
+    trajetoria?: { deX: number; deY: number; cresce: readonly [number, number] };
   }
   const folhasQueda = new Map<string, FolhaDeQueda[]>();
 
@@ -2706,6 +2728,42 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     {
       magia: 'meteor_fall', arquivo: 'meteoro40', bolts: 1, quadros: 40,
       fracaoQueda: 16 / 40, duracaoEstouro: 520,
+    },
+    /*
+     * 🌠 **O METEORO AVULSO, e ele é a MESMA folha da Chuva com outro uso.**
+     *
+     * Pedido do dono em 12/09: *"um meteoro veio de longe e atingiu esse
+     * inimigo em cheio"* — e o contrário do que se quer, na frase dele: *"uma
+     * pedra apareceu em cima do inimigo e explodiu"*.
+     *
+     * 🔴 **Duas entradas para um arquivo só, e é de propósito.** Na Chuva caem
+     * dezoito por conjuração e cada uma é pequena; aqui cai UM, e ele é o
+     * assunto da tela inteira. Mesma arte, escalas e tempos opostos — separar
+     * por NOME é o que permite mexer num sem mexer no outro, e o comentário de
+     * 11/09 já avisava disso.
+     *
+     * ⚠️ **`trajetoria` é o que diferencia os dois modos.** Com ela, os 16
+     * quadros de voo da folha desenham a descida, em diagonal, crescendo. Sem
+     * ela (a Chuva), a descida continua sendo a rocha desenhada por código.
+     *
+     * ⚠️ **`deX` negativo: ele vem de CIMA E DA ESQUERDA.** A arte aponta para
+     * baixo-direita, então essa é a direção em que ela não precisa de giro
+     * nenhum para parecer certa — e a rotação por rumo (ver `spawnQueda`) é
+     * calculada a partir desse 45° de origem.
+     *
+     * ⚠️ **480 px de partida, e eram 620.** A 620 ele nascia longe demais e,
+     * com a aceleração, passava mais de meio mergulho fora da tela — o dono pede
+     * que ele APAREÇA pequeno e distante, não que só surja no fim. 480 px são
+     * quinze tiles: longe o bastante para ler como distância, perto o bastante
+     * para caber na janela na maior parte dos lançamentos.
+     *
+     * ⚠️ **Cresce de 0,3 a 1,5**: cinco vezes. É a profundidade. Uma pedra que
+     * atravessa a tela do mesmo tamanho lê como adesivo deslizando.
+     */
+    {
+      magia: 'meteor_solo', arquivo: 'meteoro40', bolts: 1, quadros: 40,
+      fracaoQueda: 16 / 40, duracaoEstouro: 900,
+      trajetoria: { deX: -480, deY: 480, cresce: [0.3, 1.5] },
     },
     /*
      * ❄️ A BOLA DE NEVE da Nevasca. A folha do dono é uma coluna de gelo que
@@ -2869,6 +2927,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           ...('desvanece' in folha ? { desvanece: folha.desvanece } : {}),
           ...('porCima' in folha ? { porCima: folha.porCima } : {}),
           ...('ancoraY' in folha ? { ancoraY: folha.ancoraY } : {}),
+          ...('trajetoria' in folha ? { trajetoria: folha.trajetoria } : {}),
           frames: Array.from({ length: folha.quadros }, (_, i) => new Texture({
             source: tex.source,
             frame: new Rectangle(i * cw, 0, cw, ch),
@@ -3074,6 +3133,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * mentir sobre onde o golpe pega.
      */
     meteor_fall: 2.0,
+    /*
+     * 🌠 **O Meteoro avulso estoura MAIOR que os da Chuva**, e a conta é a área:
+     * ele pega um bloco 7×7 (224 px) contra o respingo 5×5 (160 px) de cada
+     * rocha da chuva. 2,1 dá 252 px de estouro — um pouco mais que o quadrado de
+     * dano, que é a margem de drama que o meteoro já tinha em 2,0.
+     */
+    meteor_solo: 2.1,
     /*
      * ❄️ A célula da folha da Nevasca tem 160 px de largura para 3 tiles (96 px)
      * de área de dano. 0,62 põe a coluna de gelo no tamanho da cratera dela.
@@ -3551,9 +3617,60 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       objects.addChild(node);
     }
 
-    let risco: { node: Graphics; t: number; deY: number; dur: number } | undefined;
-    // ⚡ Magia cuja folha JÁ desenha a descida não ganha risco. Ver `FORMA_RISCO`.
-    if (QUEDA_RISCO && FORMA_RISCO[magia] !== 'nenhuma') {
+    let risco: {
+      node: Container; t: number; deX: number; deY: number; dur: number;
+      /** Escala no começo e no fim do mergulho, quando a arte cresce vindo de longe. */
+      cresce?: readonly [number, number];
+    } | undefined;
+
+    /*
+     * 🌠 **A TRAJETÓRIA DIAGONAL, e ela reusa a máquina do risco inteira.**
+     *
+     * Pedido do dono em 12/09, para o Meteoro: *"não deve mostrar um meteoro
+     * simplesmente caindo verticalmente; ele aparece à distância, entra em cena
+     * em trajetória diagonal e atinge o monstro de lado"*. E a frase que resume:
+     * *"não deve parecer que uma pedra apareceu em cima do inimigo"*.
+     *
+     * 🔴 **O que muda é QUEM desenha a descida, não a máquina.** O `risco` já
+     * nasce escondido, aparece no fim do atraso, interpola de um ponto de
+     * partida até o alvo, e ao chegar se destrói e solta o estouro. Tudo isso
+     * fica. O que entra é: a partida ganha um `deX` (daí a diagonal), o desenho
+     * passa a ser os QUADROS DE VOO da folha em vez de um traço, e a escala
+     * cresce pelo caminho — que é o que dá a profundidade.
+     *
+     * ⚠️ **Os 16 quadros de voo do meteoro nunca tocaram até hoje.** Estavam na
+     * folha desde 11/09, e o modo risco os descartava (`fracaoQueda`). Era o
+     * pendente do handoff — *"trocar exige resolver dois ritmos num
+     * `AnimatedSprite` que tem uma velocidade só"*. A resposta acabou sendo não
+     * resolver: são **dois sprites**, o do voo e o do estouro, cada um com o seu.
+     */
+    if (QUEDA_RISCO && folha.trajetoria) {
+      const t = folha.trajetoria;
+      const corte = Math.round(frames.length * fracaoQueda);
+      const voo = new AnimatedSprite(frames.slice(0, corte));
+      voo.anchor.set(0.5, 0.5);
+      voo.blendMode = mistura;
+      voo.loop = false;
+      voo.animationSpeed = corte / (tempoQueda / (1000 / 60));
+      voo.play();
+      /*
+       * ⚠️ **O giro sai da DIREÇÃO de voo, e a arte já vem inclinada.** O
+       * meteoro da folha aponta para baixo-direita a ~45°; a rotação é a
+       * diferença entre o rumo real e esse 45° de origem. Sem isso, uma
+       * trajetória vinda da direita desenharia o meteoro voando de costas.
+       *
+       * ⚠️ **O rumo é `(−deX, +deY)`, e o sinal do Y engana.** A partida fica em
+       * `(x + deX, y − deY)` — o `deY` é subtraído porque em tela o Y cresce
+       * para BAIXO e o meteoro nasce em cima. O vetor de viagem é então
+       * `alvo − partida = (−deX, +deY)`. A primeira versão escreveu
+       * `atan2(−deY, −deX)` e girava o meteoro 90°: ele atravessava a tela
+       * apontando para cima.
+       */
+      voo.rotation = Math.atan2(t.deY, -t.deX) - Math.PI / 4;
+      voo.zIndex = 9999;
+      fxLayer.addChild(voo);
+      risco = { node: voo, t: 0, deX: t.deX, deY: t.deY, dur: tempoQueda, cresce: t.cresce };
+    } else if (QUEDA_RISCO && FORMA_RISCO[magia] !== 'nenhuma') {
       /*
        * A LANÇA: um traço vertical fino, claro no núcleo e alaranjado na
        * borda, com a mesma mistura aditiva do resto do efeito. Desenhado uma
@@ -3607,7 +3724,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * dezoito rochas, a leitura de ONDE cada uma vai bater se perde.
        */
       const deY = FORMA_RISCO[magia] === 'esfera' ? 420 : 350;
-      risco = { node: g, t: 0, dur: tempoQueda, deY };
+      risco = { node: g, t: 0, dur: tempoQueda, deX: 0, deY };
     }
 
     /*
@@ -3627,6 +3744,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const q: (typeof quedas)[number] = {
       node, atraso, morto: false, magia, alvo, risco,
       ...(risco ? {} : { batida: { em: tempoQueda, t: 0, feita: false, raioDano } }),
+      ...(raioDano !== undefined ? { raioDano } : {}),
       ...(desvanece ? { apaga: { em: desvanece, t: 0 } } : {}),
     };
     /*
@@ -3652,6 +3770,85 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * pelo mesmo motivo dele: com o monstro por baixo, o jogador perde de vista o
    * que está acertando.
    */
+  /**
+   * 🌠 **RACHADURAS: o chão que se abre onde o meteoro bateu.**
+   *
+   * Pedido do dono em 12/09, na ficha do Meteoro: *"nascer exatamente do ponto
+   * de impacto, espalhar-se irregularmente, brilho vermelho/laranja,
+   * desaparecer gradualmente. Não criar um círculo perfeito. Não transformar o
+   * chão em lava."*
+   *
+   * 🔴 **Desenhadas por código, e é o caminho certo aqui.** A folha do meteoro
+   * já traz brasas no chão nos últimos quadros, mas elas formam uma MANCHA —
+   * e o que o dono descreveu é o oposto de mancha: linhas que saem do ponto e
+   * se ramificam. Arte nova para isso seria uma folha inteira; oito polilinhas
+   * com uma quebra no meio dizem a mesma coisa e ainda saem sempre diferentes.
+   *
+   * ⚠️ **O ângulo é sorteado dentro de cada fatia, não em volta do círculo.** As
+   * oito rachaduras dividem os 360° em fatias iguais e cada uma sorteia dentro
+   * da sua: sorteio livre agrupa duas ou três do mesmo lado e deixa metade do
+   * chão liso, que lê como erro em vez de acaso.
+   *
+   * ⚠️ **Na camada do CHÃO, por baixo das entidades.** Rachadura é marca no
+   * solo; passar por cima do monstro seria desenhá-la no ar.
+   */
+  function rachaduras(wx: number, wy: number, raioPx: number): void {
+    const g = new Graphics();
+    g.blendMode = 'add';
+    g.x = wx;
+    g.y = wy;
+    g.zIndex = -0.57;
+    objects.addChild(g);
+
+    const N = 8;
+    const linhas: Array<Array<[number, number]>> = [];
+    for (let i = 0; i < N; i++) {
+      const a = ((i + 0.15 + Math.random() * 0.7) / N) * Math.PI * 2;
+      const compr = raioPx * (0.45 + Math.random() * 0.55);
+      // ⚠️ Achatado em Y: o chão é visto de viés, e uma teia redonda lê como
+      // desenho de pé. É a mesma correção dos estilhaços da Nevasca.
+      const quebra = 0.35 + Math.random() * 0.3;
+      const desvio = (Math.random() - 0.5) * 0.7;
+      linhas.push([
+        [0, 0],
+        [Math.cos(a) * compr * quebra, Math.sin(a) * compr * quebra * 0.55],
+        [
+          Math.cos(a + desvio) * compr,
+          Math.sin(a + desvio) * compr * 0.55,
+        ],
+      ]);
+    }
+
+    const nasceu = performance.now();
+    const DUR = 1400;
+    const passo = (): void => {
+      const r = (performance.now() - nasceu) / DUR;
+      if (r >= 1) { g.destroy(); app.ticker.remove(passo); return; }
+      g.clear();
+      /*
+       * ⚠️ **Abrem depressa e apagam devagar.** A abertura leva 18 % do tempo —
+       * é a colisão. O resto é brasa esfriando, e é ela que o dono pediu que
+       * sumisse "gradualmente".
+       */
+      const abre = Math.min(1, r / 0.18);
+      const vive = 1 - Math.max(0, (r - 0.18) / 0.82) ** 1.5;
+      for (const l of linhas) {
+        const p1 = l[1]!;
+        const p2 = l[2]!;
+        g.moveTo(0, 0);
+        g.lineTo(p1[0] * abre, p1[1] * abre);
+        if (abre >= 1) g.lineTo(p2[0], p2[1]);
+        // Duas passadas: um miolo claro sobre um traço largo e alaranjado.
+        g.stroke({ width: 4.5, color: 0xff5a10, alpha: vive * 0.55 });
+        g.moveTo(0, 0);
+        g.lineTo(p1[0] * abre, p1[1] * abre);
+        if (abre >= 1) g.lineTo(p2[0], p2[1]);
+        g.stroke({ width: 1.8, color: 0xffd070, alpha: vive * 0.9 });
+      }
+    };
+    app.ticker.add(passo);
+  }
+
   function clarãoDeImpacto(wx: number, wy: number, raioPx: number): void {
     /*
      * 🔴 **DUAS CAMADAS, e é isso que dá a sensação de impacto** — dono, 12/09:
@@ -10111,16 +10308,37 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       }
 
       /*
-       * 🧪 A LANÇA CAINDO. Interpolação linear de `deY` px acima do alvo até o
-       * alvo, no tempo de queda DESTA unidade. Ao tocar o chão o traço some e o estouro
-       * começa — o dano do servidor chega neste mesmo instante, porque é o
-       * mesmo número dos dois lados.
+       * 🧪 A COISA CAINDO. Interpolação de `(deX, deY)` até o alvo, no tempo de
+       * queda DESTA unidade. Ao tocar o chão ela some e o estouro começa — o
+       * dano do servidor chega neste mesmo instante, porque é o mesmo número
+       * dos dois lados.
+       *
+       * ⚠️ **`deX` é zero em tudo menos no Meteoro**, e é ele que faz a
+       * diferença entre cair e ATRAVESSAR a cena. Ver `trajetoria`.
        */
       if (q.risco && q.node.visible === false && q.atraso <= 0) {
         const r = q.risco;
         r.t += dt;
         const frac = Math.min(1, r.t / r.dur);
-        r.node.y = q.node.y - r.deY * (1 - frac);
+        /*
+         * ⚠️ **A fração é acelerada quando há diagonal.** Um meteoro que vem de
+         * longe tem de parecer que GANHA velocidade ao se aproximar; linear lê
+         * como adesivo deslizando.
+         *
+         * ⚠️ **Expoente 1,6, e a primeira tentativa foi 2.** Ao quadrado, na
+         * metade do tempo ele tinha andado só 25 % do caminho — e a 480 px de
+         * partida isso o deixava FORA DA TELA durante mais de meio mergulho. O
+         * dono pediu o contrário: *"o meteoro aparece pequeno e distante, deve
+         * ocupar inicialmente uma pequena parte da tela"*. Com 1,6 ele já entrou
+         * em cena na metade do tempo e ainda acelera no fim.
+         */
+        const p = r.deX !== 0 ? frac ** 1.6 : frac;
+        r.node.x = q.node.x + r.deX * (1 - p);
+        r.node.y = q.node.y - r.deY * (1 - p);
+        if (r.cresce) {
+          const [de, ate] = r.cresce;
+          (r.node as AnimatedSprite).scale.set(de + (ate - de) * p);
+        }
         if (frac >= 1) {
           /*
            * 🔴 **O RISCO É DESTRUÍDO AQUI, e não junto com o estouro.**
@@ -10148,6 +10366,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           tremorAte = now + forca.ms;
           tremorPx = forca.px;
           tremorDur = forca.ms;
+          /*
+           * 🌠 **O ANEL e as RACHADURAS, para quem cai em diagonal.**
+           *
+           * ⚠️ Só aqui, e não em toda queda: a Chuva solta dezoito por
+           * conjuração, e dezoito anéis mais dezoito teias de rachadura viram um
+           * tapete aceso em vez de dezoito impactos. O Meteoro avulso cai UMA
+           * vez e é o assunto da tela — nele o peso cabe.
+           */
+          if (q.raioDano !== undefined) {
+            clarãoDeImpacto(q.node.x, q.node.y, (q.raioDano + 0.5) * TS);
+            rachaduras(q.node.x, q.node.y, (q.raioDano + 0.5) * TS);
+          }
         }
       }
 
@@ -10215,8 +10445,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         if (alvo) {
           q.node.x = alvo.container.x + TS / 2;
           q.node.y = alvo.container.y + TS;
-          // 🧪 O traço persegue junto: ele mira onde a bola vai cair.
-          if (q.risco) q.risco.node.x = q.node.x;
+          /*
+           * 🧪 O traço persegue junto: ele mira onde a bola vai cair.
+           *
+           * ⚠️ **Sem atropelar a diagonal.** Quem cai em diagonal tem um `deX`
+           * que o laço de cima usa para posicionar; cravar `x` aqui apagaria a
+           * trajetória e o meteoro desceria reto. Hoje nenhuma queda tem as duas
+           * coisas (a diagonal é de ponto fixo, e só ponto móvel persegue), mas
+           * a guarda é barata e o defeito seria mudo.
+           */
+          if (q.risco && q.risco.deX === 0) q.risco.node.x = q.node.x;
         }
       }
       /*

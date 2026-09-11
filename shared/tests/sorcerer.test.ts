@@ -20,6 +20,7 @@ import {
   skillEmpurrao,
   skillImpactosEsperados,
   skillRange,
+  skillCastRange,
   INTERVALO_BOLT_MS,
   DUR_QUEDA_MS,
   skillDuration,
@@ -882,7 +883,7 @@ test('🔴 magia que CAI DO CÉU: alvo único cadenciado, ou área com JANELA', 
     caem.map((d) => d.id).sort(),
     [
       'blizzard', 'cold_bolt', 'electric_discharge', 'electric_sphere',
-      'fire_bolt', 'meteor_storm',
+      'fire_bolt', 'meteor', 'meteor_storm',
     ],
     'mudou a lista? confira o que o cliente desenha a cada golpe da magia nova',
   );
@@ -897,13 +898,93 @@ test('🔴 magia que CAI DO CÉU: alvo único cadenciado, ou área com JANELA', 
       d.shape === 'target' || d.shape === 'area',
       `${d.id}: queda só faz sentido em alvo ou área`,
     );
-    if (d.shape === 'area') {
+    /*
+     * ⚠️ **A regra é sobre ESPAÇAR, então só vale para quem tem o que espaçar.**
+     *
+     * Ela nasceu com a Chuva de Meteoros: em área a cadência sai de
+     * `duração / golpes`, e sem duração a divisão dá zero — os dezoito meteoros
+     * voltariam a cair no mesmo tique, que é o defeito que a regra veio impedir.
+     *
+     * 🔴 **Afinada em 12/09, quando o Meteoro avulso virou queda.** Ele cai UMA
+     * vez, e para um golpe só não há intervalo nenhum a definir: exigir janela
+     * dele era exigir um número que o código não usa — e número de ficha que
+     * ninguém lê é o defeito que já custou um dia nesta semana.
+     */
+    if (d.shape === 'area' && skillHits(d, 10) > 1) {
       assert.ok(
         skillDuration(d, 10) > 0 && skillDuration(d, 1) > 0,
-        `${d.id} cai em área e PRECISA de duração — é ela que espaça os impactos`,
+        `${d.id} cai em área com vários golpes e PRECISA de duração — é ela que os espaça`,
       );
     }
   }
+});
+
+test('🌠 o METEORO: a ficha do RO convertida, e o fator que a converteu', () => {
+  /*
+   * 🔴 **A conversão é a decisão mais séria desta magia, e este teste é onde ela
+   * fica guardada.**
+   *
+   * O dono trouxe em 12/09 a ficha do Meteoro Escarlate do RO: **13× ATQM no
+   * Lv.1 subindo a 37× no Lv.5**, com a instrução *"use esses valores como
+   * referência de balanceamento"*. Referência, e não mandato — e ainda bem,
+   * porque medido:
+   *
+   *   a magia mais forte do jogo entrega **10,3× por alvo** (Ira de Thor,
+   *   suprema de Lv.50), e o bicho mais duro tem **4 400 de vida**.
+   *
+   * 13× no Lv.1 já passaria a suprema. A ficha do RO vive numa régua onde o
+   * ATQM é pequeno perto da vida dos monstros; aqui é o contrário.
+   *
+   * ✅ **O que foi preservado é a FORMA.** A razão `Lv.1 / Lv.máx` do dono é
+   * `13/37 = 0,351`; aqui tem de continuar sendo a mesma, qualquer que seja o
+   * fator. É isso que o teste trava — não os números, a proporção.
+   */
+  const m = SKILLS.meteor;
+  const noLv = (nv: number): number => m.power + m.powerPerLevel * (nv - 1);
+  const razaoDoDono = 13 / 37;
+  const razaoDaqui = noLv(1) / noLv(10);
+  assert.ok(
+    Math.abs(razaoDaqui - razaoDoDono) < 0.01,
+    `a curva do dono é ${razaoDoDono.toFixed(3)} e a daqui virou ${razaoDaqui.toFixed(3)}`,
+  );
+
+  /*
+   * ⚠️ **E o TETO, que é o que segura a conversão de escorregar.** Mesmo
+   * convertida ela vira a maior pancada ÚNICA do jogo. O que não pode é passar
+   * a suprema do ramo do raio, que espalha o dela em oito golpes e custa 18 s
+   * de recarga e 260 de mana.
+   */
+  const tetoDoJogo = skillImpactosEsperados(SKILLS.thor_wrath, 10)
+    * skillPower(SKILLS.thor_wrath, 10);
+  const meteoro = skillImpactosEsperados(m, 10) * skillPower(m, 10);
+  assert.ok(
+    meteoro < tetoDoJogo,
+    `o Meteoro (${meteoro.toFixed(1)}x) passou a Ira de Thor (${tetoDoJogo.toFixed(1)}x)`,
+  );
+
+  /*
+   * ⚠️ **Os números do dono que entraram CRUS**, porque cabiam na régua: área,
+   * alcance, empurrão, recarga e mana. Só o dano precisou de conversão.
+   */
+  assert.equal(skillRange(m, 1), 3, 'área 7×7 — número do dono');
+  assert.equal(skillRange(m, 10), 3, 'e ela NÃO cresce com o nível');
+  assert.equal(skillCastRange(m, 10), 11, 'mira de 11 células — número do dono');
+  assert.equal(skillEmpurrao(m, 10), 3, 'empurra 3 — número do dono');
+  assert.equal(m.cooldownMs, 5000);
+  assert.equal(skillManaCost(m, 1), 60);
+  assert.equal(skillManaCost(m, 10), 100);
+
+  /*
+   * 🔴 **6 s de conjuração, e o teste guarda POR QUE isso não é absurdo.** Sem
+   * investimento o Feiticeiro fica seis segundos parado; com Maestria 10 e DEX
+   * 120 a mesma magia sai em 1,4 s. O número cheio é o custo de quem não
+   * construiu — e é o único contrapeso do dano novo.
+   */
+  assert.equal(m.castMs, 6000);
+  assert.ok(
+    skillCastMs(m, 10, 10, 120) < 1800,
+    'o redutor por Maestria e DEX é o que torna os 6 s jogáveis',
+  );
 });
 
 test('🌠 a Chuva de Meteoros: o que o dono mudou do documento, e o quanto', () => {
