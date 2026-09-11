@@ -96,6 +96,18 @@ const GRADES = {
    * ⚠️ E a grade é por DIVISÃO, não medida: o rastro de um quadro invade a
    * célula do vizinho, então não há vale escuro para o detector achar. 1881/8 e
    * 836/2 dão as fronteiras que o gerador usou.
+   *
+   * 🔴 **E foi por aqui que o defeito entrou.** 1881/8 = 235,125 — a divisão não
+   * fecha em pixel inteiro, e o erro se acumula célula a célula. A tira que saiu
+   * tem células de 159 a 247 px, com as linhas da grade do desenho original
+   * ainda impressas nela e já fora de lugar. O cliente então fatiava ESSA tira
+   * em dezesseis colunas iguais, e do quinto quadro em diante mostrava o fim de
+   * uma esfera junto com o começo da seguinte — o *"muitas pontas"* que o dono
+   * relatou em 12/09.
+   *
+   * ✅ A esfera não passa mais por aqui: `tools/esfera2fx.mjs` lê a tira, acha
+   * as linhas de verdade e corta por elas. Esta entrada fica como registro de
+   * onde o erro nasceu — dividir quando dava para medir.
    */
   esfera_eletrica: {
     redondo: false,

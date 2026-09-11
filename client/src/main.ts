@@ -2457,6 +2457,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   const projectiles: Array<{
     node: Container; fromX: number; fromY: number; toX: number; toY: number; t: number; dur: number;
+    /**
+     * Escala no começo e no fim do voo, quando o projétil cresce pelo caminho.
+     * ⚡ A Esfera Elétrica usa: sai pequena da mão e chega carregada.
+     */
+    cresce?: { de: number; ate: number };
+    /** Projétil que NÃO gira para o rumo do tiro. Bola redonda não tem frente. */
+    semGiro?: boolean;
   }> = [];
   // Efeitos de magia (giro do Vendaval, corte do Dash): expandem e somem.
   const spellFx: Array<{ node: Container; t: number; dur: number; kind: string }> = [];
@@ -3079,10 +3086,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // 🌀 O anel que orbita o conjurador. Fatiado sob demanda — ver `quadrosAnelCaster`.
   void Assets.load<Texture>('/assets/fx/anel_caster.png')
     .catch((e: unknown) => console.warn('[fx] anel do conjurador não carregou:', e));
-  // ⚡ A Esfera Elétrica: oito quadros de voo e oito de impacto. Fatiada sob
-  // demanda — ver `quadrosEsfera`.
-  void Assets.load<Texture>('/assets/fx/esfera_eletrica.png')
-    .catch((e: unknown) => console.warn('[fx] esfera elétrica não carregou:', e));
+  /*
+   * ⚡ **A Esfera Elétrica chega em DUAS tiras, e não numa folha só.** A bola
+   * (que voa e depois pulsa no alvo, em laço) e o estouro da descarga (uma vez
+   * por choque) têm ritmos diferentes, e um `AnimatedSprite` só tem uma
+   * velocidade — a mesma lição do meteoro, em 11/09. Cortadas por
+   * `tools/esfera2fx.mjs`; fatiadas sob demanda, ver `quadrosOrbe`.
+   */
+  void Assets.load<Texture>('/assets/fx/esfera_orbe.png')
+    .catch((e: unknown) => console.warn('[fx] orbe da esfera não carregou:', e));
+  void Assets.load<Texture>('/assets/fx/esfera_choque.png')
+    .catch((e: unknown) => console.warn('[fx] choque da esfera não carregou:', e));
 
   /** Qual animação cada camada usa ao nascer. */
   const ANIM_DA_CAMADA: Record<CamadaP, string> = { cristal: 'falling' };
@@ -3838,29 +3852,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * chega sem `targetId`.
        */
       return;
-    } else if (kind === 'electric_sphere' && quadrosEsfera()) {
+    } else if (kind === 'electric_sphere' && quadrosChoque()) {
       /*
-       * ⚡ **CADA CHOQUE usa os quadros de IMPACTO da folha da esfera** (os oito
-       * últimos), e não o ziguezague desenhado por código.
+       * ⚡ **CADA CHOQUE usa a tira de IMPACTO**, e não o ziguezague desenhado
+       * por código. Este caminho é o de reserva: só roda quando o efeito chega
+       * sem `targetId` vivo para receber o orbe.
        *
-       * ⚠️ **Começa num quadro SORTEADO dos quatro primeiros do estouro.** O
-       * dono pediu que cada descarga fosse *"visualmente distinta da anterior"*;
-       * doze choques idênticos em sequência leem como um GIF travado. Sortear a
-       * fase é o jeito mais barato de quebrar isso sem arte nova.
-       *
-       * ⚠️ E o giro também é sorteado: a folha tem um sentido só, e doze
-       * estouros na mesma orientação denunciam a repetição mesmo com fases
-       * diferentes.
+       * ⚠️ **O giro é sorteado**: a tira tem um sentido só, e doze estouros na
+       * mesma orientação denunciam a repetição.
        */
-      const q = quadrosEsfera()!;
-      const inicio = Math.floor(Math.random() * 4);
-      const choque = new AnimatedSprite(q.slice(QUADROS_VOO + inicio));
+      const q = quadrosChoque()!;
+      const choque = new AnimatedSprite(q);
       choque.anchor.set(0.5);
       choque.blendMode = 'add';
-      choque.scale.set(0.55);
+      choque.scale.set(0.34);
       choque.rotation = Math.random() * Math.PI * 2;
       choque.loop = false;
-      choque.animationSpeed = choque.textures.length / (260 / (1000 / 60));
+      choque.animationSpeed = q.length / (260 / (1000 / 60));
       choque.play();
       node.addChild(choque);
     } else if (kind === 'electric_sphere' || kind === 'discharge' || kind === 'thor_wrath') {
@@ -3969,34 +3977,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   /**
    * ⚡ **A ESFERA ELÉTRICA é o primeiro projétil com FOLHA**, e não desenhado
-   * por código. Os oito primeiros quadros são a formação e o voo (a esfera
-   * cresce e o rastro se estica); os oito últimos são o impacto, e ficam para
-   * os choques.
+   * por código.
+   *
+   * 🔴 **A folha original tinha grade IRREGULAR, e o cliente a fatiava em
+   * dezesseis colunas iguais.** Era a causa do *"está dando muitas pontas nos
+   * quadros da magia"* (dono, 12/09): as células vão de 159 a 247 px, o erro
+   * acumulava, e do quinto quadro em diante cada fatia mostrava o fim de uma
+   * esfera junto com o começo da seguinte — duas bolas e dois rastros no mesmo
+   * desenho. Ver `tools/esfera2fx.mjs`, que corta pelos separadores de verdade.
    *
    * ⚠️ Fatiado sob demanda e guardado: `spawnProjectile` pode ser chamado várias
-   * vezes por segundo, e refatiar dezesseis `Texture` a cada tiro seria lixo
-   * novo no caminho do coletor.
+   * vezes por segundo, e refatiar as `Texture` a cada tiro seria lixo novo no
+   * caminho do coletor.
    */
-  const QUADROS_ESFERA = 16;
-  /**
-   * ⚡ **SÓ OS QUATRO PRIMEIROS QUADROS VOAM, e não os oito.**
-   *
-   * 🔴 Defeito relatado pelo dono em 12/09: *"está dando muitas pontas nos
-   * quadros da magia"*. Do quinto quadro em diante a folha desenha um RASTRO
-   * cada vez mais longo — arcos compridos saindo para trás. Em movimento isso
-   * não lê como rastro: lê como espinhos brotando da bola, porque o desenho já
-   * está se deslocando e o rastro some no borrão.
-   *
-   * ✅ Os quatro primeiros são a esfera nascendo e carregando, compactos. É o
-   * que o dono pediu desde o começo: *"uma bola de eletricidade viajando"*.
-   */
-  const QUADROS_VOO = 4;
-  /**
-   * ⚡ Os quadros que a esfera fica PULSANDO no alvo — a bola carregada, sem
-   * cauda. Ver `orbes`.
-   */
-  const ORBE_DE = 2;
-  const ORBE_ATE = 4;
+  const QUADROS_ORBE = 10;
+  const QUADROS_CHOQUE = 6;
 
   /**
    * ⚡ **A ESFERA FICA NO ALVO, PULSANDO** — pedido do dono em 12/09: *"é para
@@ -4017,7 +4012,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * prazo, e a bola apaga. Sem depender de um pacote de "acabou" que pode não
    * chegar.
    */
-  const orbes = new Map<string, { node: AnimatedSprite; ate: number; pulso: number }>();
+  const orbes = new Map<string, {
+    node: AnimatedSprite;
+    /** A coluna de luz que envolve o alvo a cada descarga. Ver `pulsaOrbe`. */
+    coluna: Sprite;
+    ate: number;
+    pulso: number;
+  }>();
 
   /**
    * Acende ou renova a esfera no alvo. Devolve `false` quando não há como —
@@ -4025,19 +4026,39 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * por código.
    */
   function pulsaOrbe(alvoId: string): boolean {
-    const q = quadrosEsfera();
+    const q = quadrosOrbe();
     const view = sprites.get(alvoId);
     if (!q || !view) return false;
     let orbe = orbes.get(alvoId);
     if (!orbe) {
-      const node = new AnimatedSprite(q.slice(ORBE_DE, ORBE_ATE));
+      const node = new AnimatedSprite(q);
       node.anchor.set(0.5);
       node.blendMode = 'add';
-      node.animationSpeed = 0.18;
+      // ⚠️ Dez quadros em ~600 ms: a bola crepita depressa o bastante para
+      // parecer viva e devagar o bastante para não virar chuvisco.
+      node.animationSpeed = QUADROS_ORBE / (600 / (1000 / 60));
       node.play();
       node.zIndex = 10000;
       fxLayer.addChild(node);
-      orbe = { node, ate: 0, pulso: 0 };
+      /*
+       * ⚡ **A COLUNA DE LUZ é o que o dono mostrou na referência** (o Trovão de
+       * Júpiter do RO, 12/09): no impacto o alvo é envolvido por uma coluna
+       * violeta que acende e apaga a cada descarga, e não por um estouro novo
+       * em cima do anterior.
+       *
+       * ⚠️ **Ela reaproveita o PRIMEIRO quadro do orbe, esticado e tingido.** É
+       * de propósito, e não preguiça: um degradê vertical desenhado por código
+       * teria borda reta, e arte nova para isto seria uma folha inteira para um
+       * efeito que aparece 120 ms de cada vez. Esticado, o halo redondo vira
+       * exatamente o fuso de luz que a referência mostra.
+       */
+      const coluna = new Sprite(q[0]);
+      coluna.anchor.set(0.5, 1);
+      coluna.blendMode = 'add';
+      coluna.tint = 0xb98cff;
+      coluna.zIndex = 9999;
+      fxLayer.addChild(coluna);
+      orbe = { node, coluna, ate: 0, pulso: 0 };
       orbes.set(alvoId, orbe);
     }
     /*
@@ -4049,42 +4070,48 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     orbe.pulso = 1;
     return true;
   }
-  let esferaCache: Texture[] | null = null;
-  function quadrosEsfera(): Texture[] | undefined {
-    if (esferaCache) return esferaCache;
-    const t = Assets.get<Texture>('/assets/fx/esfera_eletrica.png');
+  /** Fatia uma tira de N quadros de largura igual. Agora É igual — ver acima. */
+  function fatiaTira(arq: string, n: number, cache: { v: Texture[] | null }): Texture[] | undefined {
+    if (cache.v) return cache.v;
+    const t = Assets.get<Texture>(arq);
     if (!t) return undefined;
-    const cw = t.width / QUADROS_ESFERA;
-    esferaCache = Array.from({ length: QUADROS_ESFERA }, (_, i) => new Texture({
+    const cw = t.width / n;
+    cache.v = Array.from({ length: n }, (_, i) => new Texture({
       source: t.source,
       frame: new Rectangle(i * cw, 0, cw, t.height),
     }));
-    return esferaCache;
+    return cache.v;
   }
+  const orbeCache: { v: Texture[] | null } = { v: null };
+  const choqueCache: { v: Texture[] | null } = { v: null };
+  const quadrosOrbe = (): Texture[] | undefined =>
+    fatiaTira('/assets/fx/esfera_orbe.png', QUADROS_ORBE, orbeCache);
+  const quadrosChoque = (): Texture[] | undefined =>
+    fatiaTira('/assets/fx/esfera_choque.png', QUADROS_CHOQUE, choqueCache);
 
   function spawnProjectile(fromWX: number, fromWY: number, toTileX: number, toTileY: number, kind: string): void {
-    const quadros = kind === 'electric_sphere' ? quadrosEsfera() : undefined;
+    const quadros = kind === 'electric_sphere' ? quadrosOrbe() : undefined;
     if (quadros) {
-      const esfera = new AnimatedSprite(quadros.slice(0, QUADROS_VOO));
+      const esfera = new AnimatedSprite(quadros);
       esfera.anchor.set(0.5);
       esfera.blendMode = 'add';
       /*
-       * ⚠️ **0,40 de escala, e era 0,62.** O quadro tem 192 px e a esfera ocupa
-       * quase toda a célula; a 1,0 ela teria SEIS tiles de largura e taparia o
-       * alvo. A 0,62, vista em voo em 12/09, ainda lia como um borrão pálido
-       * atravessando a tela em vez de uma bola — três tiles e meio de largura em
-       * mistura aditiva sobre grama lavam o desenho. A 0,40 são ~2,4 tiles, que
-       * é o que o dono pediu: *"compacta... NÃO deve parecer um raio
-       * gigantesco"*.
+       * ⚠️ **0,62 de escala, e era 0,40 sobre um quadro de 192 px.** A tira nova
+       * tem 128 px de lado e a bola ocupa quase tudo (o recorte em disco tirou o
+       * rastro, que era metade da largura antiga). 0,62 × 128 ≈ 80 px, ou dois
+       * tiles e meio — o mesmo tamanho em tela que o dono aprovou, num quadro
+       * menor.
        */
-      esfera.scale.set(0.40);
+      esfera.scale.set(0.62);
       /*
-       * ⚠️ Os oito quadros do voo tocam UMA vez ao longo da viagem: a esfera
-       * nasce como fagulha e chega carregada. Em `loop` ela pulsaria, e pulsar
-       * lê como "carregando", não como "viajando".
+       * ⚠️ **Em LAÇO, e antes tocava uma vez só.** A bola não tem mais fases de
+       * formação para percorrer: a tira é a MESMA bola crepitando, em vaivém. O
+       * "nascer como fagulha e chegar carregada" passou a ser a ESCALA, logo
+       * abaixo — que é como a referência do dono faz, com uma bola de tamanho
+       * constante deslizando e o brilho subindo.
        */
-      esfera.loop = false;
-      esfera.animationSpeed = QUADROS_VOO / (380 / (1000 / 60));
+      esfera.loop = true;
+      esfera.animationSpeed = QUADROS_ORBE / (600 / (1000 / 60));
       esfera.play();
       esfera.zIndex = 10000;
       fxLayer.addChild(esfera);
@@ -4095,6 +4122,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         // ⚡ Bate com o `projetilMs` da ficha: o dano do servidor sai quando a
         // esfera chega. Os dois números são a mesma decisão, em dois lados.
         t: 0, dur: 380,
+        // ⚡ Cresce ao longo da viagem: sai da mão pequena e chega carregada.
+        cresce: { de: 0.34, ate: 0.62 },
+        semGiro: true,
       });
       return;
     }
@@ -7523,9 +7553,44 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const precisaMira = (def: SkillDef): boolean =>
     def.shape !== 'self' && def.shape !== 'party';
 
-  /** Magia clicada longe demais, a lançar quando o herói chegar ao alcance. */
+  /**
+   * Teto da perseguição para conjurar.
+   *
+   * ⚠️ Existe porque o herói e o monstro andam à MESMA velocidade nominal, e um
+   * bicho fugindo em linha reta nunca entraria no alcance. Sem prazo, um clique
+   * errado viraria uma caminhada até a borda do mapa. Doze segundos é bem mais
+   * que a travessia de uma tela e bem menos que o tempo em que o jogador ainda
+   * lembra do que clicou.
+   */
+  const PERSEGUIR_MAX_MS = 12000;
+
+  /**
+   * Magia clicada longe demais, a lançar quando o herói chegar ao alcance.
+   *
+   * 🔴 **`alvoId` existe porque o alvo ANDA** — defeito relatado pelo dono em
+   * 12/09: *"se o monstro andar para fora da área ele não solta a magia"*. Antes
+   * este registro guardava só um TILE, o do bicho no instante do clique. O
+   * monstro dava dois passos, o herói caminhava até o tile vazio, media a
+   * distância contra esse fantasma e a magia nunca saía.
+   *
+   * ✅ Com o id, o tile é recalculado a cada tique a partir de onde a criatura
+   * ESTÁ. Quem persegue, persegue o bicho — não a pegada.
+   *
+   * ⚠️ `tileX`/`tileY` continuam aqui e não são redundantes: magia de ÁREA mira
+   * o chão, e chão não anda. Eles são o alvo quando não há `alvoId`.
+   */
   let conjurarAoChegar:
-    { id: SkillId; tileX: number; tileY: number; nivel?: number } | null = null;
+    {
+      id: SkillId;
+      tileX: number;
+      tileY: number;
+      nivel?: number;
+      alvoId?: string | null;
+      /** Último tile para onde a rota foi traçada — só se retraça quando muda. */
+      rotaPara: number;
+      /** Prazo da perseguição, para não caçar um bicho mais rápido para sempre. */
+      ate: number;
+    } | null = null;
   /** Nível pedido pela magia armada — vem do slot da barra que a armou. */
   let nivelArmado: number | undefined;
 
@@ -7725,7 +7790,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       const nivel = Math.max(1, skillLevels[id] ?? 1);
       const limite = skillCastRange(def, nivel);
       if (distDoHeroi(mira.tileX, mira.tileY) > limite) {
-        conjurarAoChegar = { id, tileX: mira.tileX, tileY: mira.tileY, nivel };
+        conjurarAoChegar = {
+          id, tileX: mira.tileX, tileY: mira.tileY, nivel,
+          // 🎯 O id do alvo viaja junto com a intenção: é ele que permite
+          // recalcular o tile a cada tique, e é ele que o `cast` vai mandar ao
+          // chegar. Sem isso o servidor cairia no alvo SELECIONADO — ou em
+          // nenhum, e a magia sairia no vazio depois de toda a caminhada.
+          alvoId: mira.targetId ?? null,
+          rotaPara: mira.tileY * map.width + mira.tileX,
+          ate: performance.now() + PERSEGUIR_MAX_MS,
+        };
         irParaPerto(mira.tileX, mira.tileY);
         return;
       }
@@ -9352,18 +9426,65 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       }
     }
 
-    // Entrou no alcance da magia clicada de longe? Lança. Mesmas três saídas —
-    // e a do meio é por DISTÂNCIA, não por chegada: o mago para onde já dá.
+    /*
+     * 🔴 **ENTROU NO ALCANCE? LANÇA. AINDA NÃO? CONTINUA ANDANDO** — pedido do
+     * dono em 12/09: *"ele precisa andar e conjurar a magia no alvo, mesmo se
+     * ele andar um pouco e ficar fora de alcance; ele precisa ir andando até
+     * conseguir conjurar"*.
+     *
+     * Este bloco NÃO segue o molde dos três irmãos acima (abrir, coletar,
+     * pegar), e a diferença é de propósito: lá o alvo é um corpo, um nó ou uma
+     * pilha, e nenhum deles anda. Aqui o alvo é um bicho vivo.
+     *
+     * As duas mudanças, contra a versão que desistia calada:
+     *
+     * 1. **O tile vem do alvo, não da memória.** `alvo.tileX/Y` era o tile do
+     *    clique; agora só vale como chão quando não há criatura.
+     * 2. **Rota acabar não é desistir.** Era a saída `caminho.length === 0`, e
+     *    era o defeito: o bicho anda, a rota termina no lugar antigo e o herói
+     *    parava a dois passos do alcance, calado. Agora ela RETRAÇA.
+     *
+     * ⚠️ A retraçada é disparada por MUDANÇA DE TILE, não por quadro. `rotaAte`
+     * é uma BFS de até quatro mil nós; chamá-la sessenta vezes por segundo
+     * enquanto se persegue seria pagar uma busca inteira por quadro para redesenhar
+     * quase sempre o mesmo caminho.
+     */
     if (conjurarAoChegar) {
       const alvo = conjurarAoChegar;
+      const vivo = alvo.alvoId ? porId.get(alvo.alvoId) : undefined;
+      const morreu = alvo.alvoId !== null && alvo.alvoId !== undefined
+        && (!vivo || (vivo.hp ?? 0) <= 0 || vivo.floor !== myFloor);
+      const tx = vivo ? vivo.tileX : alvo.tileX;
+      const ty = vivo ? vivo.tileY : alvo.tileY;
       const nivel = Math.max(1, skillLevels[alvo.id] ?? 1);
       const limite = skillCastRange(SKILLS[alvo.id], nivel);
-      if (distDoHeroi(alvo.tileX, alvo.tileY) <= limite) {
+      if (morreu) {
+        // O alvo morreu ou sumiu no meio da caminhada. Desiste calado e para de
+        // andar: seguir até o tile dele agora seria andar até um cadáver.
         conjurarAoChegar = null;
         cancelarRota();
-        castSpellId(alvo.id, { tileX: alvo.tileX, tileY: alvo.tileY }, alvo.nivel);
-      } else if (caminho.length === 0) {
-        conjurarAoChegar = null; // rota acabou sem chegar: desiste calado
+      } else if (distDoHeroi(tx, ty) <= limite) {
+        conjurarAoChegar = null;
+        cancelarRota();
+        castSpellId(
+          alvo.id,
+          { tileX: tx, tileY: ty, targetId: alvo.alvoId },
+          alvo.nivel,
+        );
+      } else if (now >= alvo.ate) {
+        conjurarAoChegar = null;
+        cancelarRota();
+        logChat('Não deu para alcançar o alvo a tempo.', 'sys');
+      } else {
+        const chave = ty * map.width + tx;
+        if (chave !== alvo.rotaPara || caminho.length === 0) {
+          alvo.rotaPara = chave;
+          irParaPerto(tx, ty);
+          // ⚠️ Rota impossível (alvo cercado, ou do outro lado de um muro sem
+          // volta) devolve caminho vazio. Desistir AQUI, e não no quadro
+          // seguinte, evita o laço de retraçar para sempre parado no lugar.
+          if (caminho.length === 0) conjurarAoChegar = null;
+        }
       }
     }
 
@@ -9553,7 +9674,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       const r = Math.min(1, p.t / p.dur);
       p.node.x = p.fromX + (p.toX - p.fromX) * r;
       p.node.y = p.fromY + (p.toY - p.fromY) * r;
-      p.node.rotation = Math.atan2(p.toY - p.fromY, p.toX - p.fromX);
+      /*
+       * ⚠️ **Bola redonda não gira.** A flecha precisa apontar para onde vai; a
+       * Esfera Elétrica, não — e girar uma bola cheia de arcos faz o crepitar
+       * inteiro rodar junto, que lê como a esfera CAPOTANDO em vez de deslizar.
+       */
+      if (!p.semGiro) p.node.rotation = Math.atan2(p.toY - p.fromY, p.toX - p.fromX);
+      if (p.cresce) {
+        const s = p.cresce.de + (p.cresce.ate - p.cresce.de) * r;
+        p.node.scale.set(s);
+      }
       p.node.zIndex = 9999;
       if (r >= 1) {
         p.node.destroy();
@@ -9673,10 +9803,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        */
       if (!view || now >= orbe.ate) {
         orbe.node.destroy();
+        orbe.coluna.destroy();
         orbes.delete(id);
         continue;
       }
-      orbe.node.x = view.container.x + TS / 2;
+      const cx = view.container.x + TS / 2;
+      orbe.node.x = cx;
       orbe.node.y = view.container.y + TS * 0.55;
       /*
        * ⚠️ O tranco decai rápido e a bola volta ao tamanho de repouso. É ele que
@@ -9684,8 +9816,31 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * pulso, doze choques passariam sem nada mudar em tela.
        */
       orbe.pulso = Math.max(0, orbe.pulso - dt / 160);
-      orbe.node.scale.set(0.34 + orbe.pulso * 0.16);
-      orbe.node.alpha = 0.75 + orbe.pulso * 0.25;
+      /*
+       * ⚠️ **Menor no alvo (0,38) do que em voo (0,62), e não é engano.** Em voo
+       * a bola é o assunto e está sozinha no gramado; pousada, ela divide o
+       * pixel com o monstro, e a 0,62 (79 px, dois tiles e meio) simplesmente o
+       * apagava. 0,38 dá 49 px — um tile e meio, do tamanho do bicho.
+       */
+      orbe.node.scale.set(0.38 + orbe.pulso * 0.18);
+      orbe.node.alpha = 0.70 + orbe.pulso * 0.30;
+      /*
+       * ⚡ **A coluna acende com o tranco e apaga junto.** Ela nasce no CHÃO do
+       * alvo (âncora embaixo) e sobe além da cabeça — é o fuso de luz da
+       * referência, e é o que faz a descarga parecer que atravessa o bicho em
+       * vez de estourar na frente dele.
+       *
+       * ⚠️ **Medida no alvo, e não escolhida no olho:** 0,42 × 0,62 sobre o
+       * quadro de 128 px dá 54 × 79 px — pouco mais larga que o monstro e cerca
+       * de uma vez e meia a altura dele, que é a proporção da referência. A
+       * primeira tentativa (1,5 de altura) dava 192 px, SEIS tiles: um pilar
+       * saindo da tela, não uma descarga.
+       */
+      orbe.coluna.x = cx;
+      orbe.coluna.y = view.container.y + TS * 0.95;
+      orbe.coluna.scale.set(0.42, 0.62);
+      orbe.coluna.alpha = orbe.pulso * 0.6;
+      orbe.coluna.visible = orbe.pulso > 0.02;
     }
 
     /*

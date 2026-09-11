@@ -1,0 +1,89 @@
+<!doctype html>
+<!--
+  ⚡ Bancada da Esfera Elétrica. FORA de `public/`, como a `fx-preview.html`:
+  serve no `npm run dev` e não entra no pacote publicado.
+
+  Existe porque conferir um efeito de 380 ms dentro do jogo custa entrar, achar
+  um bicho e esperar a recarga — e porque em 12/09 a sessão de teste ficou
+  inutilizável com dois clientes brigando pelo mesmo personagem.
+-->
+<meta charset="utf-8">
+<title>Esfera Elétrica — bancada</title>
+<style>
+  body { margin: 0; background: #3f5a34; color: #cfe; font: 13px system-ui, sans-serif; }
+  canvas { display: block; image-rendering: pixelated; }
+  p { padding: 6px 10px; margin: 0; opacity: .8; }
+</style>
+<canvas id="c" width="900" height="300"></canvas>
+<p>Voo da esquerda para a direita, depois a bola pulsando no alvo com a coluna a cada descarga.</p>
+<script type="module">
+  const c = document.getElementById('c');
+  const g = c.getContext('2d');
+  const carrega = (s) => new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.src = s; });
+  const orbe = await carrega('/assets/fx/esfera_orbe.png');
+  const choque = await carrega('/assets/fx/esfera_choque.png');
+  const QO = 10, QC = 6;
+  const LO = orbe.width / QO, LC = choque.width / QC;
+
+  const CICLO = 4200;   // voo + oito descargas + respiro
+  const VOO = 380;
+  const PASSO = 380;    // intervalo entre descargas
+
+  function quadro(t) {
+    g.fillStyle = '#3f5a34';
+    g.fillRect(0, 0, c.width, c.height);
+    // "alvo" de referência, do tamanho de um monstro
+    g.fillStyle = '#00000033';
+    g.fillRect(690, 120, 48, 70);
+
+    const ciclo = t % CICLO;
+    g.globalCompositeOperation = 'lighter';
+
+    if (ciclo < VOO) {
+      const r = ciclo / VOO;
+      const x = 160 + (714 - 160) * r, y = 165;
+      const s = (0.34 + (0.62 - 0.34) * r) * 2;   // ×2: a bancada é 1:1, o jogo tem zoom
+      const k = Math.floor((ciclo / 600) * QO) % QO;
+      g.drawImage(orbe, k * LO, 0, LO, LO, x - LO * s / 2, y - LO * s / 2, LO * s, LO * s);
+    } else {
+      const desde = ciclo - VOO;
+      const n = Math.floor(desde / PASSO);
+      if (n < 8) {
+        const pulso = Math.max(0, 1 - (desde % PASSO) / 160);
+        const x = 714, y = 158;
+        // coluna
+        g.globalAlpha = pulso * 0.6;
+        g.drawImage(orbe, 0, 0, LO, LO, x - LO * 0.42, y + 40 - LO * 1.24, LO * 0.84, LO * 1.24);
+        g.globalAlpha = 1;
+        // bola
+        const s = (0.38 + pulso * 0.18) * 2;
+        const k = Math.floor((desde / 600) * QO) % QO;
+        g.drawImage(orbe, k * LO, 0, LO, LO, x - LO * s / 2, y - LO * s / 2, LO * s, LO * s);
+      }
+    }
+    g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = 1;
+  }
+
+  /*
+   * `#tiras` desenha o ciclo inteiro numa folha de contato, em vez de animar.
+   * É como se confere quadro a quadro sem tentar fotografar algo que dura
+   * 380 ms.
+   */
+  if (location.hash === '#tiras') {
+    const N = 24, PASSOT = CICLO / N, COL = 6;
+    const alvo = document.createElement('canvas');
+    alvo.width = 130 * COL; alvo.height = 130 * Math.ceil(N / COL);
+    const ag = alvo.getContext('2d');
+    for (let i = 0; i < N; i++) {
+      quadro(i * PASSOT);
+      // Recorta em volta do ALVO: é lá que mora o que precisa ser conferido.
+      ag.drawImage(c, 650, 60, 130, 130, (i % COL) * 130, Math.floor(i / COL) * 130, 130, 130);
+    }
+    c.replaceWith(alvo);
+  } else {
+    const t0 = performance.now();
+    const laco = () => { quadro(performance.now() - t0); requestAnimationFrame(laco); };
+    laco();
+  }
+</script>
