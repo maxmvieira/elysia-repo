@@ -1,6 +1,6 @@
 # Handoff — 2026-09-11 · PONTO DE RETOMADA
 
-> Typecheck limpo nos 3 pacotes, **651 testes** (623 shared + 28 server).
+> Typecheck limpo nos 3 pacotes, **652 testes** (624 shared + 28 server).
 > `npm run dev:test` → `localhost:5173`. **Duas frentes em paralelo neste dia** —
 > o herói/interface (abaixo) e a Nevasca (logo a seguir). O histórico ficou em
 > LINHA RETA: três commits de Nevasca, os QUATRO do Max (herói, combate,
@@ -24,6 +24,10 @@
 | ❄️ **Nevasca** | refeita **oito vezes**: de área de chão a bombardeio, dano da área, RO no congelamento e no empurrão, partículas, e o corte das camadas |
 | 🏹 **Munição/aljava** | flecha vira item, aljava vira slot, dez munições elementais |
 | 🌠 **Chuva de Meteoros** | sete rodadas de teste em tela; 18 meteoros em 5,2 s |
+| ⭕ **Círculo de conjuração** | marca onde a magia cai, gira durante o cast, e um anel no conjurador |
+| 🎯 **Assistente de mira** | o clique da magia de alvo único é puxado para o monstro mais perto |
+| ⚡ **Esfera Elétrica** | a ficha da Jupitel Thunder, **nove voltas**: projétil, choques em série, arremesso, folha recortada, perseguição do alvo |
+| 🪄 **Impulso mágico** | todas as magias ofensivas sobem **20 %**, num número só |
 
 🔴 **Três achados que valem mais que as features**, todos do mesmo tipo — código
 que compila, roda e não faz nada:
@@ -40,6 +44,129 @@ que compila, roda e não faz nada:
 ⚠️ **Os três só apareceram quando alguém olhou a coisa funcionando** — dois
 jogando, um medindo. Nenhum teste do repositório os pegaria, porque todos
 passavam.
+
+## ⚡ A ESFERA ELÉTRICA, EM NOVE VOLTAS
+
+*"Vou seguir a árvore de magias do mago, me explica o funcionamento da esfera
+elétrica para eu gerar uma sprite condizente."* Daí veio a ficha do **WZ_JUPITEL**
+(Trovão de Júpiter), e o pedido: *"mantenha o nome esfera elétrica, mas a
+funcionalidade dela será essa."*
+
+A magia ficou assim: projétil de 380 ms até o alvo, **3 → 12 descargas** de 100 %
+de ATQM espaçadas 140 ms, arremesso, SP 20 → 47, alcance 9 fixo, conjuração
+2 s → 3,8 s, recarga 2 s → 1,2 s.
+
+### O que o teste em jogo achou — e a causa foi sempre uma só
+
+Nove commits, e a maior parte deles **conserto do que o teste em tela achou**.
+Vale listar porque os defeitos se repetiram de forma.
+
+**1. 🔴 Três bugs, uma causa.** *"O assistente de mira não funciona direito; quando
+clica no chão ele anda e não solta nada; se o monstro andar para fora da área ele
+não solta a magia e dá o aviso alvo longe demais."* Pareciam três. Eram um: a
+magia era validada no INÍCIO do cast **e de novo na execução**, e com 3,8 s entre
+as duas qualquer coisa que mudasse no meio a matava. O alvo passou a ser travado
+na largada, e a validação de execução só roda em magia sem conjuração.
+
+**2. 🔴 O "muitas pontas" estava no CORTE, um passo antes de onde olhei.** A folha
+saiu do `anel2fx.mjs` com `uniforme: {colunas: 8, fileiras: 2}` sobre um original
+de 1881 px. **1881 / 8 = 235,125** — não fecha em pixel inteiro, o erro acumula
+célula a célula, e a tira gravada tem células de **159 a 247 px**, com as linhas
+da grade do desenho ainda impressas nela e já fora de lugar. O cliente então
+fatiava ESSA tira em dezesseis colunas iguais de 192 px: do quinto quadro em
+diante cada fatia mostrava o fim de uma esfera junto com o começo da seguinte —
+**duas bolas e dois rastros no mesmo desenho**.
+
+⚠️ Na primeira volta eu tratei o sintoma (usar só os quatro primeiros quadros,
+onde o erro ainda era pequeno) e o dono aceitou. Foi conserto errado, e voltou.
+O `tools/esfera2fx.mjs` acha os separadores de verdade e corta por eles.
+
+**3. 🔴 A esfera estava "de lado" porque são DUAS VISTAS do mesmo desenho.** *"A
+esfera depois que acerta o alvo precisa ficar virada de frente para ele."* Os
+quadros do voo mostram a esfera **de perfil** — bola de um lado, cauda do outro, o
+desenho de uma coisa que atravessa a tela. Os do impacto mostram a MESMA esfera
+**de frente** — raios para todos os lados em volta de um núcleo, porque agora ela
+vem na sua direção. Eu estava pousando a vista de perfil em cima do monstro.
+
+**4. 🔴 A perseguição caçava uma PEGADA.** *"Ele precisa ir andando até conseguir
+conjurar."* `conjurarAoChegar` guardava um TILE — o do bicho no instante do
+clique. O monstro dava dois passos, o herói caminhava até o tile vazio, media a
+distância contra esse fantasma, e a magia nunca saía. Pior: ao chegar, o `cast`
+ia **sem `targetId`**, então mesmo dando certo o servidor caía no alvo
+selecionado, ou em nenhum.
+
+⚠️ Agora a intenção guarda o ID e o tile é recalculado a cada tique. Rota acabar
+deixou de ser desistir: ela **retraça**, disparada por mudança de tile (não por
+quadro — `rotaAte` é uma BFS de até 4 000 nós). Tem prazo de 12 s, porque herói e
+monstro andam à mesma velocidade e um bicho fugindo em linha reta nunca entraria
+no alcance.
+
+**5. ⚠️ O medo que segurava o arremesso não se confirmou no código.** O
+comentário antigo dizia que empurrar no primeiro choque tiraria o alvo do alcance
+e os onze seguintes cairiam atrás dele. **Não caem:** o golpe pendente de alvo
+único guarda o ID da criatura e `tickGolpesPendentes` lê a posição de AGORA. O
+dono pediu o empurrão no primeiro impacto, e ele coube sem mexer em mais nada.
+
+### As decisões de equilíbrio do dono
+
+| | |
+|---|---|
+| 🪄 **`IMPULSO_MAGICO = 1.2`** | *"Está muito fraca as magias"* — **+20 % em toda magia ofensiva**, num número só, em `skillPower` |
+| ⚡ **Arremesso pela metade** | a ficha do RO diz 2 → 7 tiles; virou **1 → 3**, e no PRIMEIRO choque em vez do último |
+| ⏱️ **`cooldownAtLv10`** | 7 s fixos viraram **2 s → 1,2 s**; a Esfera é a **única** magia do jogo cuja recarga cai com o nível |
+
+🔴 **O impulso é um número num ponto só, e isso foi escolha.** A alternativa era
+multiplicar 28 literais de `power`/`powerPerLevel` nas catorze magias ofensivas:
+impossíveis de conferir e de desfazer sem repetir a conta ao contrário.
+
+⚠️ **Mexe em magia, e só.** O físico (Cavaleiro, Assassino, Arqueiro) ficou onde
+estava, e **isso move a balança entre classes em 20 % a favor de quem conjura.**
+Fica registrado porque é o tipo de efeito colateral que ninguém lembra seis meses
+depois. A cura não entra — as de recuperação não têm `magic` na ficha.
+
+✅ As RELAÇÕES não se moveram: fator igual para todas, então `DD-DRU-021`, a
+Descarga abaixo do Meteoro e "subir de nível aumenta o dano" continuam valendo.
+
+⚠️ **A recarga de 1,2 s não é o piso real no Lv.10: o GCD de 1 s das magias é.**
+Ela fica 200 ms abaixo dele. Está na ficha e travado no teste porque é a
+armadilha de quem for mexer nisto de novo — baixar mais não acelera nada.
+
+### 🔴 A quarta aparição do mesmo defeito nesta semana
+
+O impulso derrubou exatamente **dois testes**, e foram os dois que cravavam
+NÚMERO em vez de regra: *"570 %"* na Nevasca e *"100 % de ATQM"* na Esfera. Uma
+decisão de equilíbrio do dono **vetada por um número copiado para dentro do
+teste**.
+
+É a mesma família de defeito de: o "18,7 de dano por alvo" que nunca foi real, a
+dica de conjuração que lia o valor do Lv.1, a descrição que dizia "10 meteoros"
+depois de virarem 18, e o teste do `DD-DRU-021` que passava enquanto a regra era
+violada. **Um número copiado para um lugar que não sabe recalculá-lo.**
+
+Reescritos para dizer o que querem dizer: a ficha promete X, o efetivo é X vezes
+o impulso, seja ele qual for.
+
+### ⚠️ O que NÃO foi visto em tela
+
+**A rodada final inteira** — o orbe de frente pulsando, o arremesso no primeiro
+impacto, a recarga nova e a perseguição do alvo que anda.
+
+O servidor de dev estava com **três pilhas de `dev:test` rodando**, dois clientes
+na mesma conta chutando um ao outro num laço de reconexão a cada dois segundos.
+Derrubei as duplicadas e deixei uma de pé; a sessão do dono no Chrome ficou
+estável assim que fechei minha aba, mas aí eu já não tinha como entrar.
+
+✅ **Daí saiu a `client/esfera-preview.html`** (fora de `public/`, como a
+`fx-preview.html`): desenha o ciclo inteiro numa folha de contato com `#tiras`.
+Conferir um efeito de 380 ms dentro do jogo custa entrar, achar um bicho e
+esperar a recarga.
+
+### A destreza, que já funcionava
+
+O dono suspeitou que a conjuração lenta fosse do personagem de teste, e acertou.
+Medido na Esfera Lv.10, sem Maestria: DEX 10 → 3763 ms, DEX 40 → 3470 ms, DEX 80
+→ 2850 ms, DEX 120 → 2043 ms. Com Maestria 10 (−30 %) e DEX 120 ela bate o **piso
+de 1000 ms**, que é o chão de toda conjuração do jogo.
 
 ## ⭕ O CÍRCULO DE CONJURAÇÃO (fim do dia)
 
@@ -595,6 +722,14 @@ paradas.
 
 ## 🎯 A PRÓXIMA COISA
 
+0. 🔴 **JOGAR A ESFERA ELÉTRICA.** A rodada final inteira está no ar sem ter sido
+   vista em tela — orbe de frente pulsando, arremesso no primeiro impacto,
+   recarga de 1,2 s e a perseguição do alvo que anda. Recarregar com **Ctrl+F5**
+   (as tiras `esfera_orbe.png` e `esfera_choque.png` são arquivos novos) e soltar
+   num bicho que ANDE e esteja FORA dos 9 tiles, que é o caso que exercita tudo
+   de uma vez. ⚠️ Antes disso, conferir que só existe **uma** pilha de
+   `npm run dev:test` rodando — três delas em paralelo derrubaram a sessão de
+   teste de 12/09 inteira.
 1. 🔴 **UM BUG ABERTO, NÃO REPRODUZIDO.** O dono relatou: *"clico 2x nas flechas
    e elas desaparecem do mundo"*. Os quatro caminhos plausíveis foram lidos e
    **todos passaram**: `use` recusa munição (a categoria `ammo` existe para
@@ -607,7 +742,19 @@ paradas.
    (cai em cabeça e ombros), mas falta o olho.
 3. ⏳ **Arte de conjuração e de arco para as patentes novas** — sem elas, magia e
    flecha mostram uma espadada.
-4. ⏳ As frentes que continuam abertas: modelos 3D, renderizador `?r3d=1`,
+4. ⏳ **Pendências da Esfera e das magias**, todas pequenas e todas do dono:
+   - O **impulso mágico não tocou no físico**. Se a balança entre classes
+     incomodar, é o mesmo `IMPULSO_MAGICO` no outro ramo.
+   - Os **16 quadros de queda do meteoro não tocam**: trocar exige resolver dois
+     ritmos (780 ms de queda em 16 quadros × 520 ms de estouro em 24) num
+     `AnimatedSprite` que tem uma velocidade só. A saída já existe e está provada
+     na Esfera — **duas tiras**.
+   - O **bloco de gelo da Nevasca nunca foi visto**: 25 % no Lv.10, rolado no 3º,
+     6º e 9º acerto, e os bichos de Valdor morrem antes. Testar num tanque ou com
+     a Nevasca no Lv.1.
+   - O **dano da Nevasca é uniforme** na área: a borda leva o mesmo que o centro.
+     Simplificação assumida, não medida contra a ficha.
+5. ⏳ As frentes que continuam abertas: modelos 3D, renderizador `?r3d=1`,
    licença da arte, e a casca de desktop (Electron × Tauri, não escolhida).
 
 ---
