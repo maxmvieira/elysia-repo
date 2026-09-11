@@ -1,6 +1,6 @@
 # Handoff — 2026-09-11 · PONTO DE RETOMADA
 
-> Typecheck limpo nos 3 pacotes, **652 testes** (624 shared + 28 server).
+> Typecheck limpo nos 3 pacotes, **653 testes** (625 shared + 28 server).
 > `npm run dev:test` → `localhost:5173`. **Duas frentes em paralelo neste dia** —
 > o herói/interface (abaixo) e a Nevasca (logo a seguir). O histórico ficou em
 > LINHA RETA: três commits de Nevasca, os QUATRO do Max (herói, combate,
@@ -28,6 +28,7 @@
 | 🎯 **Assistente de mira** | o clique da magia de alvo único é puxado para o monstro mais perto |
 | ⚡ **Esfera Elétrica** | a ficha da Jupitel Thunder, **nove voltas**: projétil, choques em série, arremesso, folha recortada, perseguição do alvo |
 | 🪄 **Impulso mágico** | todas as magias ofensivas sobem **20 %**, num número só |
+| ⛈️ **Descarga Elétrica** | de AoE sem arte a **um relâmpago que cai do céu**: 13 commits, 3 folhas, 3 formas |
 
 🔴 **Três achados que valem mais que as features**, todos do mesmo tipo — código
 que compila, roda e não faz nada:
@@ -44,6 +45,102 @@ que compila, roda e não faz nada:
 ⚠️ **Os três só apareceram quando alguém olhou a coisa funcionando** — dois
 jogando, um medindo. Nenhum teste do repositório os pegaria, porque todos
 passavam.
+
+## ⛈️ A DESCARGA ELÉTRICA — 13 commits, e o que eles ensinaram
+
+A magia existia desde sempre como AoE sem arte (um ziguezague amarelo
+desenhado por código). Virou **um relâmpago enorme que desce de uma nuvem e
+castiga a área**. O caminho valeu mais que o destino.
+
+### 🔴 O erro de processo, e é o mais importante do dia
+
+A especificação da arte pedia **alvo único**, três vezes, com todas as letras. O
+`GDD-doc1` dizia o contrário: a Descarga é a *"AoE rápida"* do ramo do raio
+(`DD-SOR-018`). **Eu segui o prompt, anotei a divergência no commit e segui em
+frente.** O dono desfez na mesma tarde.
+
+⚠️ **A regra está no topo do `docs/` e eu a tratei como negociável: o que está no
+documento não muda por causa de um prompt.** Divergência entre o pedido e o
+documento é PERGUNTA, não decisão de quem implementa. Custou uma rodada de teste
+dele para descobrir algo que o repositório já respondia.
+
+### Três formas em uma tarde, e o que cada troca custou
+
+| | |
+|---|---|
+| **alvo único** | da especificação — desfeita pelo dono no mesmo dia |
+| **tempestade** | vários raios sorteados na área — *"somente esse grande"* |
+| **relâmpago único** | o que ficou: um raio no centro, 2 → 4 descargas enquanto bate |
+
+A ficha final: área **9×9 → 11×11**, dano por alvo 1,40 → 2,90 (+33 % a pedido),
+conjuração 0,9 → 1,6 s, recarga 5 s.
+
+🔴 **Duas consequências de equilíbrio que ninguém vai lembrar depois**, e por isso
+estão escritas na ficha: no Lv.7 ela **passa a Nevasca em área** (uma Lv.25 contra
+uma suprema de Lv.50), e é hoje **a melhor magia do Feiticeiro por segundo** —
+3,48× ATQM por alvo contra 4,54 do Meteoro, com metade da recarga e num bloco
+11×11. As duas são decisão do dono, tomadas jogando.
+
+### Três folhas, e um cortador novo
+
+A arte trocou três vezes. A que ficou tem 24 quadros em três atos — a nuvem se
+juntando, a descarga, a dissipação — e pediu o `tools/nuvem2fx.mjs`, o **quinto
+cortador** do projeto.
+
+🔴 **A chave dele é nova:** alinha pelo CHÃO onde o raio encosta e pela NUVEM onde
+ele ainda não desceu. Os quatro cortadores anteriores alinham por caixa, e aqui a
+caixa mente — nos primeiros quadros o "rodapé" do desenho é a ponta do raio, que
+DESCE. Encostar isso no rodapé faria a nuvem subir enquanto o raio cresce.
+
+### 🔴 O defeito que explicou três rodadas de "ainda não está bom"
+
+O dono reclamou do impacto três vezes seguidas. Eu somei peso três vezes: tremor
+mais forte, clarão em duas camadas, tranco na escala, 22 estilhaços. Nada
+resolveu.
+
+**A arte estava dois tiles no ar.** A âncora de toda queda é o RODAPÉ do quadro, e
+isso vale enquanto o desenho termina onde ele bate. Este não termina: medido na
+saída, o núcleo do impacto fica a **88,5 % da altura**, e os 11,5 % de baixo são o
+brilho espalhando no chão.
+
+⚠️ O tremor, os estilhaços e o anel **já estavam certos** — os três usam a
+ÂNCORA, que sempre foi o tile. Quem estava fora era só a arte. As quatro camadas
+de peso estavam todas acontecendo dois tiles abaixo do estouro desenhado.
+
+✅ **Regra que sai disto: quando um efeito "não bate" mesmo com peso somado em
+cima, conferir primeiro se as camadas estão no MESMO lugar.** Somar é o instinto
+errado; medir é o certo.
+
+### Outros três achados menores, todos do mesmo feitio
+
+1. **O relâmpago caía em silêncio.** O tremor e os estilhaços eram disparados
+   dentro do bloco do risco desenhado por código; ele não tem risco, então nunca
+   sacudia a tela nem cuspia nada. E não tinha entrada em `PARTICULAS` — dois
+   silêncios somados, nenhum com erro.
+2. **A nuvem virava borrão cinza.** Cor média `rgb(52,75,122)` somada ao gramado
+   dá `rgb(115,165,174)`: mistura aditiva só clareia, e arte escura não sobrevive
+   a ela. É a única folha do jogo em mistura normal.
+3. **Um conserto revelou o outro.** A troca para mistura normal expôs um corte que
+   decepava 52 px do topo da nuvem — em aditiva a borda sumia na soma.
+
+### A mira, e duas camadas herdadas
+
+O anel de conjuração levava `tint` **âmbar** e um **disco de preenchimento**, os
+dois herdados do traço laranja de 11/09. O traço era fino: laranja era cor de
+mira e o disco dizia que a área é cheia. Quando o traço virou ARTE do tamanho da
+área, as duas razões morreram e as duas camadas continuaram sendo desenhadas.
+
+⚠️ Saíram as duas, e entrou uma curva de alfa no corte: medido, **46 % da célula
+está acesa e metade dos pixels acesos tem alfa abaixo de 64** — o véu difuso. O
+traço vive nos 15 % acima de 160.
+
+### ⚠️ Uma falta descoberta no caminho
+
+**A arte-fonte do `anel_conjuracao` não está em `arte-fonte/`.** Sem ela não dá
+para recortar o anel de novo, nem em outro tamanho. O conserto de hoje foi feito
+pelo modo `--recurva`, que aplica a curva sobre a saída já cortada — remendo, não
+o jeito normal. Se o arquivo original existir em algum lugar, ele precisa entrar
+no repositório.
 
 ## ⚡ A ESFERA ELÉTRICA, EM NOVE VOLTAS
 
@@ -730,6 +827,10 @@ paradas.
    de uma vez. ⚠️ Antes disso, conferir que só existe **uma** pilha de
    `npm run dev:test` rodando — três delas em paralelo derrubaram a sessão de
    teste de 12/09 inteira.
+   ✅ A **Descarga Elétrica**, ao contrário, foi jogada e aprovada pelo dono.
+0.5 ⚠️ **A arte-fonte do `anel_conjuracao` está órfã** — não existe em
+   `arte-fonte/`, e sem ela o anel não pode ser recortado de novo. Ver a seção da
+   Descarga. Se o arquivo aparecer, ele entra no repositório.
 1. 🔴 **UM BUG ABERTO, NÃO REPRODUZIDO.** O dono relatou: *"clico 2x nas flechas
    e elas desaparecem do mundo"*. Os quatro caminhos plausíveis foram lidos e
    **todos passaram**: `use` recusa munição (a categoria `ammo` existe para
