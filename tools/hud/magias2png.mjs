@@ -64,7 +64,7 @@ const MAGIAS = {
   blizzard: 26, //      garras de gelo cruzando: os estilhaços da nevasca
 
   // ⚡ Raio — amarelo e azul elétrico.
-  lightning_ball: 13, //    esfera de raios, literal
+  electric_sphere: 13, //   esfera de raios, literal (id renomeado em 12/09)
   electric_discharge: 48, // anel elétrico que se abre em volta
   thor_wrath: 35, //        vários raios de uma vez
 

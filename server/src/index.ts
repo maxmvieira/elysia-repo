@@ -4004,6 +4004,38 @@ function castSpell(
     }
   }
 
+  /*
+   * 🔴 **ALVO ÚNICO: o alvo é TRAVADO AQUI, antes de o relógio começar** —
+   * defeito relatado pelo dono em 12/09: *"se o monstro andar para fora da
+   * área, ele não solta a magia e dá o aviso alvo longe demais"*.
+   *
+   * A distância só era conferida no FIM. Com magia instantânea dava no mesmo;
+   * com os 3,8 s da Esfera Elétrica virou armadilha: o jogador escolhe um alvo
+   * válido, fica parado quase quatro segundos, e o monstro dá dois passos e
+   * anula tudo. Nada é gasto, mas o tempo é — e tempo é o recurso que a magia
+   * longa já cobra.
+   *
+   * ✅ Agora o contrato é o de sempre em MMO: **vale a distância no momento em
+   * que você APERTA**. Se o alvo correr durante a conjuração, a magia sai e vai
+   * atrás — a fila de golpes já persegue a criatura, então isso sai de graça.
+   *
+   * ⚠️ O que continua sendo conferido no fim é o que NÃO pode ser ignorado:
+   * o alvo ainda existe, está vivo e no mesmo andar. Morto não apanha.
+   */
+  const alvoTravado = mira.targetId ?? player.targetId;
+  if (!skillMiraNoChao(def) && def.power > 0 && def.shape === 'target') {
+    const c = alvoTravado ? creatures.get(alvoTravado) : undefined;
+    if (!c || !c.alive || c.floor !== player.floor) {
+      send(player, { t: 'denied', reason: 'Escolha um alvo primeiro.' });
+      return;
+    }
+    const limite = skillCastRange(def, nivel);
+    if (chebyshev(player.tileX, player.tileY, c.tileX, c.tileY) > limite) {
+      send(player, { t: 'denied', reason: `Alvo longe demais (alcance ${limite}).` });
+      return;
+    }
+  }
+
   const castMs = skillCastMs(
     def, nivel, skillLevelOf(player.skillLevels, 'cast_mastery'), player.attributes.dex,
   );
@@ -4235,7 +4267,17 @@ function executeSpell(
       send(player, { t: 'denied', reason: 'Escolha um alvo primeiro.' });
       return;
     }
-    if (chebyshev(player.tileX, player.tileY, target.tileX, target.tileY) > alcance) {
+    /*
+     * ⚠️ **A distância NÃO é reconferida em magia com conjuração** — ela já foi
+     * travada quando o jogador apertou. Ver a nota no início de `castSpell`:
+     * reconferir aqui é o que fazia a Esfera Elétrica perder 3,8 s de
+     * conjuração porque o monstro deu dois passos.
+     *
+     * ⚠️ Na magia INSTANTÂNEA a conferência continua valendo e é a mesma coisa:
+     * sem conjuração, "quando apertou" e "agora" são o mesmo instante.
+     */
+    if (!def.castMs
+      && chebyshev(player.tileX, player.tileY, target.tileX, target.tileY) > alcance) {
       send(player, { t: 'denied', reason: 'Alvo longe demais.' });
       return;
     }

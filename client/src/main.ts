@@ -8612,10 +8612,44 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       // ⚠️ O nível do slot que armou tem de sobreviver ao `desarmaMagia`, que
       // o zera — daí a cópia antes.
       const nivel = nivelArmado;
-      // 🎯 O alvo do ímã tem de sobreviver ao desarme, que o zera.
-      const preso = alvoAssistido;
+      /*
+       * 🎯 **O ÍMÃ DECIDE AQUI, no clique — e não guarda a decisão do hover.**
+       *
+       * 🔴 Defeito relatado pelo dono em 12/09: *"o assistente de mira não
+       * funciona direito"*. `alvoAssistido` só era escrito por `pintaMira`, que
+       * roda no MOVIMENTO do mouse. Clicar sem mexer (ou com o ponteiro parado
+       * desde antes de armar) deixava a variável velha ou vazia, e o clique
+       * saía sem `targetId` — a magia então ia pelo TILE, e o tile da criatura
+       * já não era aquele. Perguntar de novo no clique custa uma varredura e
+       * acaba com a categoria inteira de defeito.
+       *
+       * ⚠️ E o TILE mandado é o do alvo preso, não o do cursor. O servidor
+       * procura criatura no tile antes de olhar o `targetId`; mandar o tile do
+       * clique fazia essa busca achar nada — ou, pior, achar OUTRO bicho que
+       * estivesse ali.
+       */
+      const preso = !skillMiraNoChao(SKILLS[id]) ? alvoPerto(t.x, t.y) : undefined;
+      /*
+       * 🔴 **Magia de alvo único sem alvo NÃO SAI, e não vira caminhada.**
+       *
+       * *"Quando clica no chão ele anda e não solta nada"*: `castSpellId` via um
+       * tile longe, mandava o herói andar até lá e só então o servidor recusava
+       * por falta de alvo. Recusar aqui é honesto — a magia precisa de um bicho,
+       * e o chão não é um.
+       */
+      if (!skillMiraNoChao(SKILLS[id]) && !preso) {
+        logChat(`<b>${SKILLS[id].name}</b> precisa de um alvo — clique no monstro.`, 'sys');
+        desarmaMagia();
+        return;
+      }
       desarmaMagia();
-      castSpellId(id, { tileX: t.x, tileY: t.y, targetId: preso }, nivel);
+      castSpellId(
+        id,
+        preso
+          ? { tileX: preso.tileX, tileY: preso.tileY, targetId: preso.id }
+          : { tileX: t.x, tileY: t.y },
+        nivel,
+      );
       return;
     }
     /*
