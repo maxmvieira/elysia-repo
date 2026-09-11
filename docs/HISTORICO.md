@@ -158,6 +158,26 @@ estilhaços. Se o impacto parecer curto em tela, é aqui que está o porquê.
 a célula passou de 144 para 180 px. É a terceira vez que este número persegue uma folha
 nova, e a terceira anotação de que ele é uma razão entre a arte e o tile.
 
+### 🕸️ E o chão passou a contar a área
+
+Última rodada do dia: *"pode ser um pouco menor o meteoro e faça mais rachaduras no chão"*.
+As duas metades se encaixam — com o desenho **menor que o golpe** (197 px contra os 224 do
+quadrado 7×7), quem diz ao jogador onde a magia pega passa a ser a teia, que abre no raio de
+dano cheio.
+
+🔴 **Mais rachaduras não é mais RAIOS.** Eram oito retas saindo do centro; vinte teriam lido
+como estrela, não como chão partido. O que dá a leitura é a **bifurcação**: cada fenda pode
+se dividir no meio do caminho, e o ramo começa a abrir DEPOIS da mãe — é isso que faz a
+trinca parecer que se propaga em vez de aparecer pronta.
+
+⚠️ **E a fenda não começa no centro exato.** Com dezoito saindo do mesmo pixel o miolo vira
+um nó aceso — e o miolo é justamente onde a explosão está desenhada, então o nó não
+acrescenta nada e suja. Saindo de 5 a 18 % do caminho, o centro respira.
+
+⚠️ Para a bifurcação existir, cada fenda passou a ser uma **sequência de pontos com atraso
+próprio**, e o desenho anda pelos segmentos em vez de escalar os pontos — é o que mantém a
+velocidade de propagação constante quando os trechos têm tamanhos diferentes.
+
 ---
 
 ## 2026-09-11 — O Meteoro ganha oito direções de entrada

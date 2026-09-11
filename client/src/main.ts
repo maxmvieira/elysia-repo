@@ -3259,23 +3259,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * número mora aqui e não na folha: ele é uma razão entre a arte e o TILE, e
      * toda folha nova o desatualiza em silêncio.
      *
-     * ⚠️ **1,96 dá 221 px, e o estouro fica com o tamanho do QUADRADO DE DANO**
-     * (7×7 tiles, 224 px). O caminho até aqui: 3,4 na rodada do *"faça ele ser
-     * maior"*, 2,8 quando o dono achou grande demais, 2,45 no *"um pouco menor"*
-     * seguinte — e 1,96 quando a folha foi trocada e a célula passou de 144 para
-     * 180 px. **Os 221 px na tela são os mesmos; o número mudou porque a arte
-     * mudou de tamanho.** Parar em cima do quadrado de dano é o ponto que dá para
-     * defender: a arte cobre exatamente o que o golpe pega.
+     * ⚠️ **1,75 dá 197 px, seis tiles — um pouco MENOS que o quadrado de dano**
+     * (7×7 tiles, 224 px). O caminho foram quatro cortes seguidos do dono em
+     * tela: 3,4 no *"faça ele ser maior"*, 2,8, 2,45, e 1,75 agora. O número
+     * também mudou de escala no meio do caminho, quando a folha foi trocada e a
+     * célula passou de 144 para 180 px — **o tamanho na tela é o que importa, e é
+     * por isso que este número não significa nada sozinho.**
      *
-     * ⚠️ As outras quedas ainda estouram um pouco MAIORES que a área delas — é a
-     * margem de drama da Chuva. Aqui o dono escolheu o contrário, e a escolha é
-     * dele: a diferença entre 220 e 252 px são quatro pixels de cada lado.
+     * ✅ **Quem passou a contar a área é a TEIA DE RACHADURAS**, que abre no raio
+     * de dano cheio. Com o desenho menor que o golpe, é ela que diz ao jogador
+     * onde a magia pega — e foi por isso que o dono pediu mais rachaduras na
+     * mesma frase em que pediu o meteoro menor.
      *
      * 🔴 **E este número agora governa os DOIS sprites**, o do mergulho e o do
      * estouro — antes de 13/09 o do voo tinha régua própria, e era isso que fazia
      * a pedra dobrar de tamanho no instante do impacto. Ver `trajetoria`.
      */
-    meteor_solo: 1.96,
+    meteor_solo: 1.75,
     /*
      * ❄️ A célula da folha da Nevasca tem 160 px de largura para 3 tiles (96 px)
      * de área de dano. 0,62 põe a coluna de gelo no tamanho da cratera dela.
@@ -3955,23 +3955,55 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     g.zIndex = -0.57;
     objects.addChild(g);
 
-    const N = 8;
-    const linhas: Array<Array<[number, number]>> = [];
+    /*
+     * 🔴 **Dezoito fendas COM BIFURCAÇÃO, e eram oito retas.**
+     *
+     * Pedido do dono em 13/09: *"faça mais rachaduras no chão"*. Só aumentar o
+     * número de raios não resolve — vinte traços saindo todos do mesmo ponto leem
+     * como ESTRELA, não como chão partido. O que dá a leitura é a RAMIFICAÇÃO:
+     * chão rachado de verdade abre uma fenda que se divide no meio do caminho.
+     *
+     * ⚠️ Por isso cada linha guarda uma sequência de pontos e um ATRASO. A
+     * bifurcação nasce no meio da fenda-mãe e começa a abrir depois dela — é o
+     * que faz a trinca parecer que se PROPAGA em vez de aparecer pronta.
+     */
+    const N = 18;
+    const linhas: Array<{ pts: Array<[number, number]>; atraso: number }> = [];
+    // ⚠️ Achatado em Y (0,55): o chão é visto de viés, e uma teia redonda lê como
+    // desenho de pé. É a mesma correção dos estilhaços da Nevasca.
+    const ACHATA = 0.55;
+    const ponto = (
+      a: number, d: number,
+    ): [number, number] => [Math.cos(a) * d, Math.sin(a) * d * ACHATA];
     for (let i = 0; i < N; i++) {
       const a = ((i + 0.15 + Math.random() * 0.7) / N) * Math.PI * 2;
-      const compr = raioPx * (0.45 + Math.random() * 0.55);
-      // ⚠️ Achatado em Y: o chão é visto de viés, e uma teia redonda lê como
-      // desenho de pé. É a mesma correção dos estilhaços da Nevasca.
+      const compr = raioPx * (0.4 + Math.random() * 0.6);
       const quebra = 0.35 + Math.random() * 0.3;
       const desvio = (Math.random() - 0.5) * 0.7;
-      linhas.push([
-        [0, 0],
-        [Math.cos(a) * compr * quebra, Math.sin(a) * compr * quebra * 0.55],
-        [
-          Math.cos(a + desvio) * compr,
-          Math.sin(a + desvio) * compr * 0.55,
-        ],
-      ]);
+      const meio = ponto(a, compr * quebra);
+      /*
+       * ⚠️ **A fenda não começa no centro EXATO, e sim um pouco fora.** Com
+       * dezoito saindo do mesmo pixel, o miolo vira um nó aceso — e o miolo é
+       * justamente onde a explosão está desenhada, então o nó não acrescenta
+       * nada e suja. Sair de 5 a 18 % do caminho deixa o centro respirar.
+       */
+      linhas.push({
+        pts: [ponto(a, compr * (0.05 + Math.random() * 0.13)), meio, ponto(a + desvio, compr)],
+        atraso: 0,
+      });
+      /*
+       * ⚠️ Só uma parte bifurca, e é sorteio: se todas se dividissem, a teia
+       * voltaria a ficar regular — trocaria uma estrela de dezoito pontas por uma
+       * de trinta e seis.
+       */
+      if (Math.random() < 0.55) {
+        const ramo = a + (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
+        const ate = ponto(ramo, compr * (0.5 + Math.random() * 0.35));
+        linhas.push({
+          pts: [meio, [meio[0] + ate[0] * 0.6, meio[1] + ate[1] * 0.6]],
+          atraso: 0.35,
+        });
+      }
     }
 
     const nasceu = performance.now();
@@ -3985,19 +4017,37 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * é a colisão. O resto é brasa esfriando, e é ela que o dono pediu que
        * sumisse "gradualmente".
        */
-      const abre = Math.min(1, r / 0.18);
       const vive = 1 - Math.max(0, (r - 0.18) / 0.82) ** 1.5;
+      /*
+       * Desenha o começo da fenda, até a fração `f` do comprimento dela. Andar
+       * pelos segmentos (em vez de escalar os pontos) é o que deixa a trinca
+       * AVANÇAR com velocidade constante mesmo quando os trechos têm tamanhos
+       * diferentes — e é o que permite a bifurcação, que não começa na origem.
+       */
+      const traca = (pts: Array<[number, number]>, f: number): void => {
+        let total = 0;
+        for (let i = 1; i < pts.length; i++) {
+          total += Math.hypot(pts[i]![0] - pts[i - 1]![0], pts[i]![1] - pts[i - 1]![1]);
+        }
+        let resta = total * f;
+        g.moveTo(pts[0]![0], pts[0]![1]);
+        for (let i = 1; i < pts.length && resta > 0; i++) {
+          const [x0, y0] = pts[i - 1]!;
+          const [x1, y1] = pts[i]!;
+          const d = Math.hypot(x1 - x0, y1 - y0) || 1;
+          const t = Math.min(1, resta / d);
+          g.lineTo(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t);
+          resta -= d;
+        }
+      };
       for (const l of linhas) {
-        const p1 = l[1]!;
-        const p2 = l[2]!;
-        g.moveTo(0, 0);
-        g.lineTo(p1[0] * abre, p1[1] * abre);
-        if (abre >= 1) g.lineTo(p2[0], p2[1]);
+        // A abertura leva 18 % do ciclo; a bifurcação usa o que sobra do atraso.
+        const f = Math.min(1, Math.max(0, (r - 0.18 * l.atraso) / (0.18 * (1 - l.atraso))));
+        if (f <= 0) continue;
         // Duas passadas: um miolo claro sobre um traço largo e alaranjado.
+        traca(l.pts, f);
         g.stroke({ width: 4.5, color: 0xff5a10, alpha: vive * 0.55 });
-        g.moveTo(0, 0);
-        g.lineTo(p1[0] * abre, p1[1] * abre);
-        if (abre >= 1) g.lineTo(p2[0], p2[1]);
+        traca(l.pts, f);
         g.stroke({ width: 1.8, color: 0xffd070, alpha: vive * 0.9 });
       }
     };
