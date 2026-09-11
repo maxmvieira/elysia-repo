@@ -3192,7 +3192,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     node.anchor.set(0.5, 1);
     node.x = wx;
     node.y = wy;
-    node.zIndex = 9999;
+    // ⚠️ Sobrescrito logo abaixo: o estouro desce para a camada do chão.
     node.visible = false;
 
     /*
@@ -3222,7 +3222,25 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       ? duracaoEstouro
       : QUEDA_RISCO ? Math.max(160, DUR_QUEDA - tempoQueda) : DUR_QUEDA;
     node.animationSpeed = usados.length / (dur / (1000 / 60));
-    fxLayer.addChild(node);
+    /*
+     * 🔴 **O ESTOURO FICA POR BAIXO DOS MONSTROS** — dono, 11/09: *"está passando
+     * por cima dos monstros, deveria ficar por baixo deles... a mesma coisa o
+     * meteoro."*
+     *
+     * ⚠️ E o RISCO não desce junto, de propósito: ele é a coisa CAINDO, está no
+     * ar, e passar por trás de uma árvore no meio da queda seria o erro
+     * simétrico. O estouro acontece no chão, onde os bichos pisam.
+     *
+     * ✅ O que isto compra é leitura: com 240 px de fogo por cima, o jogador
+     * perdia de vista o que estava acertando. Por baixo, o monstro fica em pé
+     * dentro da explosão — que é o que se quer ver.
+     *
+     * ⚠️ `objects` ordena por `zIndex` e as marcas de chão vivem no negativo
+     * (`hoverMark` −0,9, `destMark` −0,8, `targetRing` −0,5). O estouro entra
+     * entre elas e as entidades.
+     */
+    node.zIndex = -0.6;
+    objects.addChild(node);
 
     let risco: { node: Graphics; t: number; deY: number; dur: number } | undefined;
     if (QUEDA_RISCO) {
@@ -7132,9 +7150,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   let magiaArmada: SkillId | null = null;
   const miraLabel = el('spellcursor');
   const miraMarca = new Graphics();
-  miraMarca.zIndex = 9998;
+  miraMarca.zIndex = -0.75;
   miraMarca.visible = false;
-  fxLayer.addChild(miraMarca);
+  objects.addChild(miraMarca);
 
   /**
    * ⭕ **O CÍRCULO DE CONJURAÇÃO** — pedido do dono em 11/09: *"esse círculo vai
@@ -7158,13 +7176,35 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const circuloConj = new Sprite();
   circuloConj.anchor.set(0.5);
   circuloConj.blendMode = 'add';
-  circuloConj.zIndex = 9997;
+  circuloConj.zIndex = -0.73;
   circuloConj.visible = false;
-  fxLayer.addChild(circuloConj);
+  objects.addChild(circuloConj);
+
+  /**
+   * ⭕ **O MESMO ANEL, agora também na MIRA** — pedido do dono em 11/09:
+   * *"substitua a área quando vou selecionar onde vou jogar a magia"*.
+   *
+   * 🔴 **É o mesmo desenho nos dois momentos, e é isso que o torna útil.** Antes
+   * a mira era um traço laranja e a conjuração era o anel: duas linguagens para
+   * a mesma pergunta ("onde isto vai cair?"). Agora o jogador vê a MESMA marca
+   * enquanto escolhe e enquanto a magia carrega — o que ele mirou é literalmente
+   * o que ficou no chão.
+   *
+   * ⚠️ **Nó separado do de conjuração de propósito.** Os dois quase nunca
+   * coexistem (mirar acaba no clique, conjurar começa nele), mas compartilhar
+   * um nó acoplaria o `tint` e a rotação de dois estados diferentes — e o
+   * primeiro quadro depois do clique mostraria o anel da mira com a cor errada.
+   */
+  const circuloMira = new Sprite();
+  circuloMira.anchor.set(0.5);
+  circuloMira.blendMode = 'add';
+  circuloMira.zIndex = -0.74;
+  circuloMira.visible = false;
+  objects.addChild(circuloMira);
   /** Quem é o dono do círculo agora. Sem isto, um `casting: null` de OUTRO mago apagaria o círculo deste. */
   let circuloDe: string | null = null;
   void Assets.load<Texture>('/assets/fx/circulo_conjuracao.png')
-    .then((t) => { circuloConj.texture = t; })
+    .then((t) => { circuloConj.texture = t; circuloMira.texture = t; })
     .catch((e: unknown) => console.warn('[fx] círculo de conjuração não carregou:', e));
 
   /** ⭕ Mostra o círculo no ponto e no tamanho da área, ou o esconde. */
@@ -7187,11 +7227,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * de lá vale aqui: as quinas apanham mesmo estando fora do desenho.
      */
     const lado = (ponto.raio * 2 + 1) * TS;
+    /*
+     * 🔴 **QUADRADO, e a primeira versão errou aqui.** A arte chegou desenhada
+     * em perspectiva e eu mantive a proporção dela, achando que elipse era o que
+     * "deitado no chão" queria dizer. O dono viu em tela: *"está torto e não está
+     * no chão"*. O chão deste jogo NÃO tem perspectiva — a marca de mira sempre
+     * foi um círculo perfeito —, e pior: **elipse girando em 2D lê como anel
+     * INCLINADO mudando de inclinação**, não como disco rodando. A arte foi
+     * reesticada para redonda (`tools/circulo2fx.mjs`) e aqui os dois eixos são
+     * iguais.
+     */
     circuloConj.width = lado;
-    // ⚠️ A arte já vem ACHATADA (o anel é uma elipse vista de viés). Manter a
-    // proporção dela é o que faz o círculo parecer deitado no chão em vez de
-    // em pé na frente da câmera.
-    circuloConj.height = lado * (circuloConj.texture.height / circuloConj.texture.width);
+    circuloConj.height = lado;
     circuloConj.rotation = 0;
     circuloConj.alpha = 0;
     circuloConj.visible = true;
@@ -7210,6 +7257,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     magiaArmada = null;
     miraLabel.style.display = 'none';
     miraMarca.visible = false;
+    // ⭕ O anel da mira some junto: ele é a MESMA marca, e deixar um sem o
+    // outro mostraria meia mira no chão.
+    circuloMira.visible = false;
     viewportEl.style.cursor = '';
     // ⚠️ Esc cancela também a caminhada para conjurar. Sem isto o herói
     // continuaria andando e soltaria a magia sozinho, depois de o jogador já
@@ -7251,11 +7301,29 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const py = ty * TS;
     miraMarca.clear();
     if (raio > 0) {
-      miraMarca
-        .circle(px + TS / 2, py + TS / 2, (raio + 0.5) * TS)
-        .fill({ color: cor, alpha: 0.12 })
-        .stroke({ color: cor, width: 1.5, alpha: 0.85 });
+      /*
+       * ⭕ **O ANEL desenhado substituiu o traço laranja** (dono, 11/09). O que
+       * ficou do antigo é o **preenchimento**: um disco de alfa 0,12 por baixo
+       * do anel. Ele não é enfeite — é o que diz que a área é CHEIA e não só uma
+       * borda, e foi o que o traço sozinho já fazia. Tirar a arte e deixar o
+       * fill é feio; tirar o fill e deixar a arte esconde o que apanha.
+       *
+       * ⚠️ O `tint` carrega o "longe demais" que a cor do traço carregava. Sem
+       * ele, a única pista de que a magia não sai seria o rótulo ao lado do
+       * cursor — e ninguém lê rótulo com o mouse em movimento.
+       */
+      miraMarca.circle(px + TS / 2, py + TS / 2, (raio + 0.5) * TS)
+        .fill({ color: cor, alpha: 0.12 });
+      const lado = (raio * 2 + 1) * TS;
+      circuloMira.x = px + TS / 2;
+      circuloMira.y = py + TS / 2;
+      circuloMira.width = lado;
+      circuloMira.height = lado;
+      circuloMira.tint = cor;
+      circuloMira.alpha = fora ? 0.5 : 0.8;
+      circuloMira.visible = true;
     } else {
+      circuloMira.visible = false;
       // Alvo único: círculo pequeno no tile, como o dono pediu.
       miraMarca
         .circle(px + TS / 2, py + TS / 2, TS * 0.42)
@@ -8221,7 +8289,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       // mesmo tile disputariam a leitura, e quem está mirando não vai andar.
       hoverMark.visible = false;
       if (dentro) pintaMira(ev.clientX, ev.clientY, t.x, t.y);
-      else miraMarca.visible = false;
+      else { miraMarca.visible = false; circuloMira.visible = false; }
       return;
     }
     // Só destaca onde clicar REALMENTE anda: o contorno prometendo caminhada num
@@ -8978,9 +9046,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     /*
      * ⭕ **O CÍRCULO GIRA DEVAGAR enquanto a magia carrega.**
      *
-     * ⚠️ 0,00035 rad/ms dá uma volta a cada ~30 s. Parece pouco de propósito: o
-     * pedido foi *"girando LENTAMENTE"*, e num anel cheio de estrelinhas uma
-     * volta rápida vira cintilação — o olho lê piscada, não rotação.
+     * ⚠️ **0,0008 rad/ms: uma volta a cada ~8 s.** Comecei em 0,00035 (~30 s por
+     * volta) achando que *"girando LENTAMENTE"* pedia o mínimo possível — e em
+     * tela isso não gira: a conjuração dura ~3 s, e 30 s por volta dão 36° no
+     * total, que o olho lê como parado. A 8 s por volta são ~135° durante o
+     * carregamento, o bastante para ver o anel andar.
+     *
+     * ⚠️ E o teto continua valendo pelo outro lado: num anel cheio de
+     * estrelinhas, volta rápida vira cintilação — o olho lê piscada, não
+     * rotação. O número certo é o que cabe DENTRO de uma conjuração.
      *
      * ⚠️ **Ele nasce e morre em FADE.** Aparecer de uma vez, no tamanho cheio,
      * lê como erro de desenho; 180 ms de entrada bastam para o olho entender
@@ -8992,7 +9066,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       // declarado, e mover o bloco para depois dele separaria o círculo da
       // varredura de quem conjura, que é onde ele nasce e morre.
       const dtC = app.ticker.deltaMS;
-      circuloConj.rotation += dtC * 0.00035;
+      circuloConj.rotation += dtC * 0.0008;
       circuloConj.alpha = Math.min(0.85, circuloConj.alpha + dtC / 180 * 0.85);
     }
 

@@ -11,6 +11,18 @@
  * larga e desigual; guardar a moldura faria o círculo nascer descentralizado em
  * relação ao tile que ele marca, e um marcador de mira torto é pior que nenhum.
  *
+ * 🔴 **A SAÍDA É QUADRADA, e a elipse de origem é ESTICADA para caber nela.**
+ *
+ * A arte chega desenhada em perspectiva — uma elipse, como um anel visto de
+ * viés. Parece o certo e não é: **o chão deste jogo é desenhado sem
+ * perspectiva**. A marca de mira que já existia é um círculo PERFEITO, e é ela
+ * que define o que "deitado no chão" quer dizer aqui.
+ *
+ * ⚠️ E há uma segunda razão, que foi o defeito relatado em 11/09 (*"está torto
+ * e não está no chão"*): **elipse não pode girar em 2D.** Girar um círculo
+ * achatado não lê como disco rodando no chão — lê como anel INCLINADO, mudando
+ * de inclinação. Redondo, a rotação funciona sozinha.
+ *
  *   node tools/circulo2fx.mjs <imagem.png> <nome> [largura]
  */
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -45,7 +57,10 @@ if (x1 < 0) { console.error('[circulo] nada acima do piso de alfa'); process.exi
 
 const CW = x1 - x0 + 1;
 const CH = y1 - y0 + 1;
-const ALT = Math.max(1, Math.round((LARG * CH) / CW));
+/*
+ * REDONDO, e nao a proporcao da imagem. Ver a nota do cabecalho.
+ */
+const ALT = LARG;
 const out = Buffer.alloc(LARG * ALT * 4);
 
 for (let y = 0; y < ALT; y++) {

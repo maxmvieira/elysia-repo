@@ -74,12 +74,29 @@ em vez de rotação.
 40). É o terceiro asset do dia a vir com halo de alfa 16–60 muito além do
 desenho — em mistura aditiva isso acende um retângulo em volta.
 
-### 🔴 NÃO FOI VISTO EM TELA
+### Três correções, todas vindas da tela
 
-O login não autopreencheu a senha na última rodada e eu não digito senha. O
-arquivo serve (200), typecheck e build passam, mas **o círculo não foi conferido
-jogando**. O que olhar: se ele nasce no lugar certo, se o tamanho bate com a área
-(deve ser o quadrado `raio × 2 + 1`), e se some ao soltar a magia.
+🔴 **Estava TORTO e não parecia no chão.** A arte chegou em perspectiva (uma
+elipse) e eu mantive a proporção, achando que era isso que "deitado no chão"
+queria dizer. Dois erros num: o chão deste jogo NÃO tem perspectiva — a marca de
+mira sempre foi um círculo perfeito —, e **elipse não pode girar em 2D**, porque
+girar um círculo achatado lê como anel INCLINADO mudando de inclinação. A arte
+foi reesticada para redonda no conversor.
+
+🔴 **Uma volta a cada 30 s não é girar.** Comecei devagar demais por seguir o
+"lentamente" ao pé da letra: a conjuração dura ~3 s, e 30 s por volta dão 36° no
+total — o olho lê parado. Ficou em ~8 s por volta (~135° durante o carregamento).
+O número certo é o que cabe DENTRO de uma conjuração.
+
+🔴 **Passava por cima dos monstros.** O anel e o ESTOURO das quedas desceram para
+a camada do chão (`objects`, zIndex negativo, junto das marcas de clique). O
+**risco não desceu**: ele é a coisa caindo, está no ar, e passar por trás de uma
+árvore no meio da queda seria o erro simétrico. O que se ganha é leitura — com
+240 px de fogo por cima, o jogador perdia de vista o que estava acertando.
+
+✅ E a mira passou a usar o MESMO anel, no lugar do traço laranja: o jogador vê a
+mesma marca enquanto escolhe e enquanto a magia carrega. O que sobrou do antigo é
+o preenchimento de alfa 0,12, que é o que diz que a área é cheia e não só borda.
 
 ## 🌠 O METEORO GANHOU FOLHA PRÓPRIA (fim do dia)
 
