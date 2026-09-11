@@ -160,10 +160,14 @@ nova, e a terceira anotação de que ele é uma razão entre a arte e o tile.
 
 ### 🕸️ E o chão passou a contar a área
 
-Última rodada do dia: *"pode ser um pouco menor o meteoro e faça mais rachaduras no chão"*.
-As duas metades se encaixam — com o desenho **menor que o golpe** (197 px contra os 224 do
-quadrado 7×7), quem diz ao jogador onde a magia pega passa a ser a teia, que abre no raio de
-dano cheio.
+Última rodada do dia: *"pode ser um pouco menor o meteoro e faça mais rachaduras no chão"*,
+e mais um corte logo depois. As duas metades se encaixam — com o desenho **bem menor que o
+golpe** (174 px contra os 224 do quadrado 7×7), quem diz ao jogador onde a magia pega passa
+a ser a teia, que abre no raio de dano cheio.
+
+⚠️ **Cinco cortes de tamanho no mesmo dia**, do 3,4 do *"faça ele ser maior"* até 1,55. Vale
+como medida de quanto "o tamanho certo" só existe em tela: nenhuma das cinco escolhas era
+errada no papel, e o dono viu as cinco diferentes jogando.
 
 🔴 **Mais rachaduras não é mais RAIOS.** Eram oito retas saindo do centro; vinte teriam lido
 como estrela, não como chão partido. O que dá a leitura é a **bifurcação**: cada fenda pode

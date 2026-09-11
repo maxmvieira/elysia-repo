@@ -3259,12 +3259,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * número mora aqui e não na folha: ele é uma razão entre a arte e o TILE, e
      * toda folha nova o desatualiza em silêncio.
      *
-     * ⚠️ **1,75 dá 197 px, seis tiles — um pouco MENOS que o quadrado de dano**
-     * (7×7 tiles, 224 px). O caminho foram quatro cortes seguidos do dono em
-     * tela: 3,4 no *"faça ele ser maior"*, 2,8, 2,45, e 1,75 agora. O número
-     * também mudou de escala no meio do caminho, quando a folha foi trocada e a
-     * célula passou de 144 para 180 px — **o tamanho na tela é o que importa, e é
-     * por isso que este número não significa nada sozinho.**
+     * ⚠️ **1,55 dá 174 px, cinco tiles e meio — bem MENOS que o quadrado de
+     * dano** (7×7 tiles, 224 px). O caminho foram cinco cortes seguidos do dono
+     * em tela: 3,4 no *"faça ele ser maior"*, depois 2,8, 2,45, 1,75 e 1,55. O
+     * número ainda mudou de escala no meio, quando a folha foi trocada e a célula
+     * passou de 144 para 180 px — **o tamanho na TELA é o que importa, e é por
+     * isso que este número não significa nada sozinho.**
      *
      * ✅ **Quem passou a contar a área é a TEIA DE RACHADURAS**, que abre no raio
      * de dano cheio. Com o desenho menor que o golpe, é ela que diz ao jogador
@@ -3275,7 +3275,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * estouro — antes de 13/09 o do voo tinha régua própria, e era isso que fazia
      * a pedra dobrar de tamanho no instante do impacto. Ver `trajetoria`.
      */
-    meteor_solo: 1.75,
+    meteor_solo: 1.55,
     /*
      * ❄️ A célula da folha da Nevasca tem 160 px de largura para 3 tiles (96 px)
      * de área de dano. 0,62 põe a coluna de gelo no tamanho da cratera dela.
