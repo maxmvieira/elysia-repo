@@ -20,7 +20,7 @@
 
   Endereços:
     (nenhum)  a queda animada, com a linha do chão
-    #tiras    os 16 quadros lado a lado, no tamanho em que o jogo desenha
+    #tiras    os 27 quadros lado a lado, no tamanho em que o jogo desenha
 -->
 <meta charset="utf-8">
 <title>Meteoro — bancada</title>
@@ -37,11 +37,11 @@
   const TS = 32;
 
   // Da ficha: `quedaMs` (o mergulho, e quando o dano chega) e a área 7×7.
-  const MERGULHO = 850, RAIO = 3;
+  const MERGULHO = 650, RAIO = 3;
   // Do cliente: `trajetoria`, `fracaoQueda`, `duracaoEstouro` e `ancoraY`.
-  const QUEDA = 430, CRESCE = [0.55, 0.75], FRACAO = 8 / 9;
-  const ESTOURO = 380, ANCORA_Y = 0.88;
-  const ESCALA_QUEDA = 0.625, ESCALA_IMPACTO = 1.55;
+  const QUEDA = 430, CRESCE = [0.55, 0.75], FRACAO = 19 / 27;
+  const ESTOURO = 560, ANCORA_Y = 0.88;
+  const ESCALA_QUEDA = 0.625, ESCALA_IMPACTO = 2.18;
   const ESCALA = ESCALA_QUEDA * ESCALA_IMPACTO;
   const CICLO = MERGULHO + ESTOURO + 600;
 
@@ -53,7 +53,7 @@
     i.src = '/assets/fx/meteoro_queda.png';
   });
   const LH = img.height;
-  const LW = LH * (180 / 280);        // a célula do cortador: 180×280
+  const LW = LH * (128 / 218);        // a célula do cortador: 128×218
   const N = Math.round(img.width / LW);
   const VOO = Math.round(N * FRACAO);
 

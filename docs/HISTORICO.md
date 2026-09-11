@@ -182,6 +182,28 @@ acrescenta nada e suja. Saindo de 5 a 18 % do caminho, o centro respira.
 próprio**, e o desenho anda pelos segmentos em vez de escalar os pontos — é o que mantém a
 velocidade de propagação constante quando os trechos têm tamanhos diferentes.
 
+### 🧱 Terceira folha, e desta vez havia grade mesmo
+
+A folha foi trocada de novo (6×5, 30 desenhos) e o cortador **errou a ordem**: com trinta
+quadros, cada um com sua nuvem destacada no alto, juntar ilha pequena com a vizinha
+embaralhou metade deles.
+
+🔴 **A causa é que esta folha É uma grade, e eu estava adivinhando.** Medidos, os vales
+entre fileiras estão exatamente 307 px um do outro e o desenho ali é **zero** — não "pouco".
+As duas folhas anteriores não tinham grade nenhuma (fileiras de 211 a 470 px), e eu tinha
+concluído *"esta arte não é grade"* como se valesse para as próximas.
+
+✅ Agora a pergunta é MEDIDA a cada folha: existe um vale VAZIO perto de cada divisa
+teórica? Se existe, a grade manda; se não, voltam as ilhas. As duas saídas ficam no
+cortador, e a folha decide qual usar.
+
+⚠️ **A lição é a de sempre, na direção contrária.** Das duas primeiras folhas eu tirei uma
+regra ("não confie na grade") quando o que havia era uma MEDIDA sobre aquelas duas. Regra
+tirada de dois casos é palpite com currículo.
+
+⚡ **E a queda foi a 650 ms** — terceiro pedido de *"mais rápido"* no mesmo dia: 12 → 15 →
+**20 tiles/s**. São 19 quadros de mergulho, 34 ms cada.
+
 ---
 
 ## 2026-09-11 — O Meteoro ganha oito direções de entrada

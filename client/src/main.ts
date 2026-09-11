@@ -2823,8 +2823,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * usam o mesmo número.
      */
     {
-      magia: 'meteor_solo', arquivo: 'meteoro_queda', bolts: 1, quadros: 9,
-      fracaoQueda: 8 / 9, duracaoEstouro: 380, desvanece: 320, ancoraY: 0.88,
+      magia: 'meteor_solo', arquivo: 'meteoro_queda', bolts: 1, quadros: 27,
+      fracaoQueda: 19 / 27, duracaoEstouro: 560, desvanece: 180, ancoraY: 0.88,
       /*
        * ☄️ **A pedra já ENTRA grande, e cresce pouco.** Pedido do dono em 13/09:
        * *"pode ser o meteoro um pouco menor e a animação já saindo um meteoro
@@ -3281,7 +3281,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * estouro — antes de 13/09 o do voo tinha régua própria, e era isso que fazia
      * a pedra dobrar de tamanho no instante do impacto. Ver `trajetoria`.
      */
-    meteor_solo: 1.55,
+    meteor_solo: 2.18,
     /*
      * ❄️ A célula da folha da Nevasca tem 160 px de largura para 3 tiles (96 px)
      * de área de dano. 0,62 põe a coluna de gelo no tamanho da cratera dela.

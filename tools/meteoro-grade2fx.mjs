@@ -43,8 +43,8 @@ import { decode, encode } from './hud/png.mjs';
 const DESTINO = 'client/public/assets/fx';
 
 /** Quantas colunas a folha tem, e quantos desenhos há em cada uma. */
-const COL = 3;
-const POR_COL = 3;
+const COL = 6;
+const POR_COL = 5;
 
 /**
  * 🔴 **A CHAVE É A SATURAÇÃO, e não o brilho.**
@@ -83,12 +83,12 @@ const BRANCO_TETO = 240;
 const ESCURO = 34;
 
 /** A janela recortada da FONTE, em pixels dela. Cabe o maior quadro (218×446). */
-const JAN_W = 360;
-const JAN_H = 560;
+const JAN_W = 200;
+const JAN_H = 340;
 
 /** A célula de saída. Metade da janela: é uma redução, que sai limpa. */
-const LARG = 180;
-const ALT = 280;
+const LARG = 128;
+const ALT = 218;
 
 /**
  * Onde o RODAPÉ do desenho fica dentro da célula — e o `ancoraY` do cliente.
@@ -200,8 +200,53 @@ for (let k = 1; k < COL; k++) {
 divisasX.push(img.w - 1);
 const colunas = divisasX.slice(0, -1).map((a, i) => [a, divisasX[i + 1]]);
 
-/** Os desenhos de UMA coluna: ilhas do perfil de linha, com a contagem acertada. */
+/*
+ * 🔴 **ALGUMAS FOLHAS SÃO GRADE DE VERDADE, e vale conferir antes de adivinhar.**
+ *
+ * As duas primeiras folhas verticais não eram: as fileiras derivavam de 211 a
+ * 470 px e nenhuma divisão regular as descrevia. A terceira (6×5, 13/09) é — os
+ * vales entre fileiras estão exatamente 307 px um do outro e o desenho ali é
+ * ZERO, não "pouco".
+ *
+ * ✅ Então a pergunta é medida, não declarada: se existe um vale VAZIO perto de
+ * cada divisa teórica, a folha tem grade e é ela que manda. Se não existe,
+ * volta-se a achar cada quadro pelas ilhas — que é o que salvou as outras duas.
+ *
+ * ⚠️ Isto importa porque as ilhas erram nesta folha: cada quadro tem uma nuvem
+ * destacada no alto, e com trinta quadros a junção pela vizinha mais próxima
+ * embaralha metade deles. A grade não tem como errar quando ela existe.
+ */
+function grade() {
+  const perfil = new Float64Array(img.h);
+  for (let y = 0; y < img.h; y++) {
+    let s = 0;
+    for (let x = 0; x < img.w; x++) s += alfa(x, y);
+    perfil[y] = s;
+  }
+  const pico = perfil.reduce((m, v) => Math.max(m, v), 0);
+  const passo = img.h / POR_COL;
+  const cortes = [0];
+  for (let k = 1; k < POR_COL; k++) {
+    const alvo = k * passo;
+    let menor = Infinity;
+    let melhor = -1;
+    for (let y = Math.round(alvo - passo * 0.2); y <= Math.round(alvo + passo * 0.2); y++) {
+      if (y < 1 || y >= img.h - 1) continue;
+      if (perfil[y] < menor) { menor = perfil[y]; melhor = y; }
+    }
+    // "Vazio" é medido contra o pico da folha: meio por cento ainda é vazio.
+    if (melhor < 0 || menor > pico * 0.005) return null;
+    cortes.push(melhor);
+  }
+  cortes.push(img.h);
+  return cortes;
+}
+const CY = grade();
+console.log(`[meteoro] fileiras: ${CY ? CY.join(' ') : 'sem grade — achadas por ilha'}`);
+
+/** Os desenhos de UMA coluna: a grade, quando há; senão as ilhas do perfil. */
 function desenhosDaColuna(x0, x1) {
+  if (CY) return CY.slice(0, -1).map((a, i) => [a, CY[i + 1] - 1]);
   const perfil = new Float64Array(img.h);
   for (let y = 0; y < img.h; y++) {
     let s = 0;
