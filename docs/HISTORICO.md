@@ -270,6 +270,45 @@ diferentes para dois jogadores, e a dica deixaria de servir para comparar.
 ✅ **E o que o teste confirmou funcionando:** as três camadas aparecem, o `shatter` toca na
 batida, o congelamento pinta o monstro de azul com o floco por cima, e a tempestade mata.
 
+### ⚖️ A Nevasca troca TEMPO por MANA — override do dono sobre a ficha
+
+Jogando, o veredito: *"o tempo de conjuração está muito demorado. O cooldown também"* — e,
+na mesma conversa, o contrapeso: *"mas gaste mais mana para equilibrar"*.
+
+| | antes (ficha do RO) | agora |
+|---|---|---|
+| conjuração Lv.10 | 6,3 s | **3,0 s** |
+| recarga | 20 s | **13 s** |
+| mana Lv.10 | 274 | **386** |
+
+Em ritmo sustentado, contra as outras duas supremas:
+
+| | conj/min | mana/min |
+|---|---|---|
+| **Nevasca** | **4,6** | **1 782** |
+| Chuva de Meteoros | 4,0 | 1 208 |
+| Ira de Thor | 3,3 | 867 |
+
+A Nevasca virou a suprema **mais disponível e a mais cara** — o dano por minuto sobe ~53 %,
+o consumo de mana mais que dobra. Quem quiser mantê-la no ar escolhe entre isso e ter mana
+para o resto.
+
+⚠️ **O que NÃO mudou é o formato: ela ainda CRESCE com o nível**, e é a única do jogo assim.
+Encolheu a escala, não a ideia. Comprimir mais é decisão do dono; apagar o crescimento
+descaracteriza a magia.
+
+🔴 **E um teste foi REESCRITO por causa disto, o que vale mais que a mudança.** O teste das
+supremas travava `cooldownMs >= 15000` e `castMs >= 2000` — números. Ele caiu, corretamente,
+e a lição é que travar número transforma o teste num **veto a decisões de equilíbrio**, que
+não é o trabalho dele. Passou a travar a intenção ("suprema não é botão de spam") como soma
+de quatro condições: nível alto, conjuração madura interrompível, recarga que cobre uma
+conjuração inteira, e **mana alta** — a trava nova, que é a que sustenta as outras. Sem ela,
+o próximo a achar "a mana está alta" desfaz metade da troca e sobra a suprema barata e
+rápida.
+
+⚠️ A conjuração agora é medida com `skillCastMs(d, 10, 0, 0)` e não em `castMs` cru:
+comparar a base puniria justamente a magia que fica mais lenta ao ficar forte.
+
 🔴 **O congelamento foi INVERTIDO, e o argumento anterior estava certo sobre a regra e
 errado sobre a magia.** A versão de ontem rolava uma vez e deixava o alvo imune ao resto da
 tempestade, para o gelo não se quebrar sozinho. Mas o quique **é** a Nevasca: *"se sofrer

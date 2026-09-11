@@ -26,6 +26,7 @@ import {
   skillConditionChance,
   skillConditionDuration,
   skillPower,
+  skillManaCost,
   skillCastMs,
   castDexReduction,
   DEX_CONJURACAO_INSTANTANEA,
@@ -286,6 +287,75 @@ test('❄️ Nevasca no modelo do RO: congela a cada 3º acerto, e o quique é a
   assert.ok(
     passo * n.congelaEmAcertos! < n.durationMs,
     'a tempestade acaba antes do terceiro acerto — a regra nunca roda',
+  );
+});
+
+test('❄️ a Nevasca troca TEMPO por MANA — o override do dono sobre a ficha', () => {
+  /*
+   * 🔴 **OVERRIDE CONSCIENTE, registrado aqui porque o número da ficha do
+   * Ragnarok dizia outra coisa** (11/09, depois de jogar): *"melhore o tempo de
+   * conjuração, está muito demorado. O cooldown também"* e, na mesma conversa,
+   * *"mas gaste mais mana para equilibrar"*.
+   *
+   * | | antes (ficha do RO) | agora (dono) |
+   * |---|---|---|
+   * | conjuração Lv.10 | 6,3 s | 3,0 s |
+   * | recarga | 20 s | 13 s |
+   * | mana Lv.10 | 274 | 386 |
+   *
+   * Em conjurações por minuto: de ~2,3 para ~3,7. Em mana por minuto: de 630
+   * para ~1 430. O dano sobe uns 60 %, o custo mais que dobra — é essa a troca,
+   * e é ela que este teste guarda.
+   */
+  const n = SKILLS.blizzard;
+
+  /*
+   * 1. 🔴 **A conjuração continua CRESCENDO com o nível.** Isto é o desenho da
+   * Nevasca e não um número: ela é a única magia do jogo assim, e o que o dono
+   * encolheu foi a ESCALA, não a ideia. Comprimir mais é decisão dele; apagar o
+   * crescimento descaracteriza a magia.
+   */
+  assert.ok(
+    skillCastMs(n, 10, 0, 0) > skillCastMs(n, 1, 0, 0),
+    'a conjuração da Nevasca tem de crescer com o nível — é o contrajogo dela',
+  );
+
+  /*
+   * 2. A FAIXA, e não o número exato. O dono pode voltar a mexer; o que não
+   * pode voltar é a magia suprema do gelo passar mais tempo parada que a do
+   * fogo por margem larga, que foi a queixa.
+   */
+  const cast10 = skillCastMs(n, 10, 0, 0);
+  assert.ok(
+    cast10 >= 2000 && cast10 <= 3500,
+    `conjuração de ${cast10} ms no Lv.10, e a faixa combinada é 2000–3500`,
+  );
+  assert.ok(
+    cast10 <= skillCastMs(SKILLS.meteor_storm, 10, 0, 0),
+    'a Nevasca não pode conjurar mais devagar que a Chuva de Meteoros',
+  );
+
+  /*
+   * 3. 🔴 **O PREÇO DA PRESSA: a mais cara das supremas.** É a metade da troca
+   * que equilibra a outra. Se um dia alguém baixar a mana "porque está alta"
+   * sem devolver o tempo, a Nevasca vira a melhor magia do jogo de graça.
+   */
+  for (const rival of ['meteor_storm', 'thor_wrath'] as const) {
+    assert.ok(
+      skillManaCost(n, 10) > skillManaCost(SKILLS[rival], 10),
+      `a Nevasca tem de custar mais mana que ${SKILLS[rival].name} — ela é a mais rápida`,
+    );
+  }
+
+  /*
+   * 4. ⚠️ **A recarga ainda tem de impedir duas tempestades no ar.** Uma
+   * conjuração ocupa cast + duração; recarga menor que isso deixaria a segunda
+   * Nevasca começar antes de a primeira acabar, e o empurrão de duas
+   * tempestades sobrepostas não tem leitura nenhuma em tela.
+   */
+  assert.ok(
+    n.cooldownMs > cast10 + n.durationMs,
+    `recarga de ${n.cooldownMs} ms não cobre os ${cast10 + n.durationMs} ms de uma conjuração`,
   );
 });
 
@@ -717,10 +787,52 @@ test('todo pré-requisito do Feiticeiro aponta para outra magia dele', () => {
 });
 
 test('as supremas são caras, lentas e de nível alto — nenhuma é spam', () => {
+  /*
+   * 🔴 **ESTE TESTE FOI REESCRITO EM 11/09, e o motivo importa mais que o
+   * conteúdo.** Ele travava `cooldownMs >= 15000` e `castMs >= 2000`, e caiu
+   * quando o dono encurtou os dois da Nevasca pagando em mana. Travar o NÚMERO
+   * fazia dele um veto a decisões de equilíbrio — que não é o trabalho dele.
+   *
+   * ✅ O que ele guarda agora é a INTENÇÃO: "suprema não é botão de spam". Isso
+   * não é um só número; é a soma de quatro travas, e uma magia pode ser barata
+   * em tempo desde que seja cara em mana (foi o caminho que o dono escolheu).
+   */
   for (const id of ['meteor_storm', 'blizzard', 'thor_wrath'] as const) {
     const d = SKILLS[id];
     assert.ok(d.reqLevel >= 50, `${id} deveria exigir nível alto`);
-    assert.ok(d.cooldownMs >= 15000, `${id} deveria ter CD longo`);
-    assert.ok(d.castMs && d.castMs >= 2000, `${id} deveria ser interrompível`);
+
+    /*
+     * ⚠️ **A conjuração é medida no Lv.10, e não em `castMs` cru.** A Nevasca
+     * cresce com o nível (`castMsAtLv10`), então a base dela é a do Lv.1 —
+     * comparar a base puniria justamente a magia que fica mais lenta quando
+     * fica forte. O que precisa ser verdade é que a suprema MADURA dê tempo de
+     * reação ao adversário.
+     */
+    const cast = skillCastMs(d, 10, 0, 0);
+    assert.ok(cast >= 2000, `${id} no Lv.10 deveria ser interrompível (${cast} ms)`);
+
+    // Recarga: longa o bastante para não virar rotação, mesmo depois do corte.
+    assert.ok(d.cooldownMs >= 12000, `${id} deveria ter CD longo`);
+
+    /*
+     * 🔴 **E CARA.** Esta trava é nova, e é ela que sustenta as outras: foi
+     * aceitando pagar mais mana que a Nevasca ganhou o direito de ser rápida.
+     * Sem ela, o próximo a achar "a mana está alta" desfaz a troca pela metade
+     * e sobra a magia suprema barata E rápida.
+     */
+    assert.ok(
+      skillManaCost(d, 10) >= 250,
+      `${id} custa ${skillManaCost(d, 10)} de mana no Lv.10 — suprema tem de doer`,
+    );
+
+    /*
+     * ⚠️ **E nunca duas da mesma no ar.** A recarga tem de cobrir a conjuração
+     * mais a duração do efeito; abaixo disso a segunda começa antes de a
+     * primeira acabar, e área sobre área não tem leitura em tela.
+     */
+    assert.ok(
+      d.cooldownMs > cast + (d.durationMs ?? 0),
+      `${id}: a recarga não cobre uma conjuração inteira`,
+    );
   }
 });

@@ -1976,9 +1976,30 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       { skill: 'ice_wall', level: 5 },
       { skill: 'glacial_burst', level: 5 },
     ],
-    manaCost: 130,
-    manaPerLevel: 16,
-    cooldownMs: 20000,
+    /**
+     * ❄️ **A MAIS CARA DAS SUPREMAS, e é isso que paga a pressa** (dono, 11/09:
+     * *"melhore o tempo de conjuração... o cooldown também... mas gaste mais
+     * mana para equilibrar"*).
+     *
+     * 170 no Lv.1 e **386 no Lv.10**, contra 302 da Chuva de Meteoros e 260 da
+     * Ira de Thor. Era 274, a mais BARATA das três — o que fazia sentido quando
+     * ela era também a mais lenta e a de recarga mais longa.
+     *
+     * 🔴 **A troca, em números por minuto.** Antes: 6,3 s de conjuração e 20 s
+     * de recarga davam ~2,3 conjurações e 630 de mana. Agora: 3,0 s e 13 s dão
+     * ~3,7 conjurações e ~1 430 de mana. O dano por minuto sobe uns 60 %; o
+     * custo mais que dobra. Quem quiser manter a Nevasca no ar agora escolhe
+     * entre isso e ter mana para o resto.
+     */
+    manaCost: 170,
+    manaPerLevel: 24,
+    /*
+     * ❄️ **13 s, era 20.** Com 3,0 s de conjuração e 4,5 s de tempestade, uma
+     * conjuração ocupa 7,5 s — a recarga ainda impede duas Nevascas no ar ao
+     * mesmo tempo, que é o que ela precisa garantir. Encurtar mais que isto
+     * começaria a empilhar tempestade sobre tempestade.
+     */
+    cooldownMs: 13000,
     /**
      * ❄️ **120 % → 570 % de ATQM, e o número é POR BOLA.**
      *
@@ -2008,23 +2029,32 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * ⚠️ A coluna que cresce na ficha (4,5 → 6,3 s) é **conjuração**, não
      * duração — no Ragnarok o cast da Nevasca sobe com o nível. A tempestade em
      * si dura os mesmos 4,5 s sempre, e é o que a primeira linha da descrição
-     * diz. Ver `castMs`.
+     * diz. Ver `castMs`, cujos números o dono depois encolheu.
      */
     durationMs: 4500,
     /**
-     * ❄️ **2,5 s → 6,3 s de conjuração**, a coluna "conjuração variável".
+     * ❄️ **1,5 s → 3,0 s de conjuração.** Era 2,5 → 6,3.
      *
-     * 🔴 **Subir com o nível é o oposto de toda outra magia deste jogo**, e é
-     * de propósito: no Ragnarok a Nevasca é a magia que se paga com TEMPO
-     * PARADO, e quanto mais forte, mais tempo. É o contrajogo dela — e casa com
-     * o `castMs` de 3 s da Chuva de Meteoros, que existe pela mesma razão.
+     * 🔴 **OVERRIDE DO DONO sobre a ficha do Ragnarok** (11/09, depois de jogar:
+     * *"o tempo de conjuração está muito demorado"*). A coluna "conjuração
+     * variável" do RO vai a 6,3 s no Lv.10, e eu a tinha copiado. Em tela isso
+     * não passa: 6,3 s parado, interrompível, mais 4,5 s de tempestade e 20 s de
+     * recarga faziam a magia suprema do gelo ser um botão que quase não se usa.
      *
-     * ⚠️ A base é 2,5 s (a que ela já tinha) e não os 4,5 da ficha: 4,5 s de
-     * conjuração no NÍVEL 1 tornaria a magia inconjurável na prática, e a ficha
-     * do Ragnarok pressupõe redutores de cast que este jogo dá por Destreza.
+     * ⚠️ **O que NÃO mudou é o formato: ela ainda CRESCE com o nível**, e é a
+     * única do jogo que faz isso. Esse é o desenho da Nevasca — mais forte, mais
+     * tempo parado. O que encolheu foi a escala, não a ideia. Quem for mexer de
+     * novo: comprimir mais ainda é possível, apagar o crescimento não.
+     *
+     * ⚠️ No Lv.10 ela empata com a Chuva de Meteoros (3,0 s) e ainda é mais
+     * lenta que a Ira de Thor (2,0 s). No Lv.1 é a mais rápida das três — o
+     * crescimento é o que inverte isso conforme ela ganha poder.
+     *
+     * 🔴 **E a pressa foi PAGA EM MANA, a pedido do dono** (*"mas gaste mais
+     * mana para equilibrar"*). Ver `manaCost`.
      */
-    castMs: 2500,
-    castMsAtLv10: 6300,
+    castMs: 1500,
+    castMsAtLv10: 3000,
     magic: true,
     damageType: 'ice',
     /**
