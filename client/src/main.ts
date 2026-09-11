@@ -2615,22 +2615,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     /** Desenha ACIMA das entidades, e não na camada do chão. Ver `porCima`. */
     porCima?: boolean;
     /**
-     * ☄️ A arte JÁ vem desenhada no rumo certo — não girar.
-     *
-     * ⚠️ Girar é o que se faz quando há uma folha só; com arte por direção,
-     * girar por cima seria virar duas vezes.
-     */
-    preRotacionada?: boolean;
-    /**
      * Onde, na altura do quadro, fica o ponto que tem de cair NO TILE.
      * Ausente = 1 (o rodapé). Ver `ancoraY` em `FOLHAS_QUEDA`.
      */
     ancoraY?: number;
     /**
-     * 🌠 A DESCIDA desenhada pela própria folha, em DIAGONAL. Ver `trajetoria`
-     * em `FOLHAS_QUEDA`. Ausente = o traço desenhado por código, na vertical.
+     * ☄️ **A DESCIDA desenhada pelos quadros da própria folha, na vertical.**
+     *
+     * `queda` é de quantos pixels acima do alvo a coisa nasce, e `cresce` a
+     * escala do começo ao fim do mergulho. Ausente = a descida é o traço
+     * desenhado por código (ver `FORMA_RISCO`).
+     *
+     * ⚠️ **Havia também uma versão DIAGONAL disto**, com `dist` e um giro
+     * medido a partir do rumo nativo da arte; saiu em 13/09 quando o dono
+     * trocou as oito folhas por direção por uma queda vertical só. O histórico
+     * guarda o que ela fazia e o git guarda o código.
      */
-    trajetoria?: { dist: number; subida: number; cresce: readonly [number, number] };
+    trajetoria?: { queda: number; cresce: readonly [number, number] };
   }
   const folhasQueda = new Map<string, FolhaDeQueda[]>();
 
@@ -2688,24 +2689,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * `'fire_bolt'` no meio do tratador; com a segunda, isso viraria uma lista de
    * ifs que envelhece a cada folha nova.
    */
-  /**
-   * ☄️ **A FORMA DA ENTRADA DO METEORO, num lugar só.**
-   *
-   * 🔴 Mora fora das entradas porque agora são NOVE folhas com a mesma forma —
-   * a girada e as oito desenhadas por rumo. Repetir os três números em cada uma
-   * seria nove cópias de um valor que o dono ainda vai querer ajustar em tela, e
-   * a próxima mudança acertaria oito das nove. Ver `trajetoria` em `meteor_solo`
-   * para o porquê de cada número.
-   */
-  const METEORO_TRAJETO = { dist: 420, subida: 160, cresce: [0.25, 1.15] as const };
-
-  /**
-   * ☄️ **OS OITO RUMOS DE ENTRADA, na ordem dos oitavos de volta a partir do
-   * LESTE.** É essa ordem que deixa `rumoDaEntrada` ser uma divisão, e não uma
-   * escada de ifs: o índice sai do ângulo dividido por 45°.
-   */
-  const RUMOS_QUEDA = ['e', 'se', 's', 'sw', 'w', 'nw', 'n', 'ne'] as const;
-
   const FOLHAS_QUEDA = [
     /*
      * ⚠️ `fracaoQueda` é onde a DESCIDA acaba dentro da tira, e ela é MEDIDA em
@@ -2794,43 +2777,46 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * fileiras (a fumaça esfriando) passavam antes de serem vistas. A 1400 são
      * 58 ms por quadro, e a dissipação inteira aparece.
      */
-    {
-      magia: 'meteor_solo', arquivo: 'meteoro40', bolts: 1, quadros: 40,
-      fracaoQueda: 16 / 40, duracaoEstouro: 1400,
-      trajetoria: METEORO_TRAJETO,
-    },
     /*
-     * ☄️ **AS OITO FOLHAS POR RUMO, e por que a girada acima continua.**
+     * ☄️ **A FOLHA VERTICAL, e ela substitui as oito por rumo** (13/09).
      *
-     * 🔴 **Girar uma folha só gira A FUMAÇA JUNTO.** Foi o argumento do dono em
-     * 12/09, e eu tinha defendido o contrário: *"uma folha girada cobre as oito
-     * direções e todos os ângulos entre elas"*. Cobre a ROCHA. Não cobre o
-     * rastro: fumaça sobe, ela não acompanha a trajetória. O meteoro girado para
-     * o norte fica com o rastro apontando para o chão, e é visível.
+     * 🔴 **Uma animação só para as oito direções, e a decisão é do dono**: *"vou
+     * usar a mesma animação para todas as direções; o meteoro vai cair de cima da
+     * área de conjuração"*. As oito folhas direcionais funcionaram e foram
+     * cortadas — o histórico de 13/09 guarda o que elas custaram —, mas oito
+     * desenhos é oito coisas para manter, e a queda vertical lê igual de qualquer
+     * lado do mapa.
      *
-     * ✅ Por isso são oito desenhos, um por rumo, com `preRotacionada` — a arte
-     * já vem no ângulo certo, com a fumaça subindo, e o cliente não gira nada.
+     * 🔴 **A FOLHA NÃO TEM GRADE, e o cortador reenquadra quadro a quadro.** Ver
+     * `tools/meteoro-grade2fx.mjs`: as fileiras da arte derivam de 211 a 470 px,
+     * então cada desenho é achado sozinho e ancorado pelo RODAPÉ. Com isso a
+     * descida sai do desenho — cada quadro mostra o meteoro parado, crescendo —
+     * e quem move é a `trajetoria` daqui.
      *
-     * ⚠️ **As oito estão listadas, e só quatro existem no disco.** `se`, `sw`,
-     * `ne` e `nw` chegaram em 13/09; as quatro cardeais ainda não. O `catch` do
-     * carregador engole a ausência, `folhaPara` devolve `null` para o que falta,
-     * e o rumo sem arte cai na `meteor_solo` GIRADA — o efeito de ontem, não uma
-     * magia sem animação. O dia em que o arquivo chegar, ele entra sozinho.
+     * ⚠️ **Nove dos 25 desenhos são NUVEM DE FAGULHA solta**, enfeite do rastro
+     * que o gerador pôs fora do quadro a que pertence. O cortador os descarta
+     * pela massa, e sobram 16: onze de queda e cinco de estouro.
      *
-     * ⚠️ **`quadros: 0` porque a contagem DIFERE entre elas** — 24, 24, 24 e 21
-     * nas quatro medidas, apesar de o gerador do dono prometer *"mesmo número de
-     * frames"*. Ver o carregador.
+     * ⚠️ **`queda: 430` são treze tiles de altura.** Perto o bastante para a
+     * pedra nascer dentro da janela do jogador, longe o bastante para ler como
+     * *"veio do céu"* — e não como *"uma pedra apareceu em cima do inimigo"*, que
+     * é o que o dono não quer desde 12/09.
      *
-     * ⚠️ **`fracaoQueda: 1/3` é MEDIDO e vale nas quatro**: o voo é sempre a
-     * primeira das três fileiras (8 de 24, 7 de 21). É a única coisa que as
-     * quatro realmente têm em comum, e por isso é o único número que dá para
-     * escrever uma vez.
+     * ⚠️ **`ancoraY: 0.88` é MEDIDO pelo cortador**, e é o mesmo nos DOIS sprites
+     * — é ele que faz a pedra e a cratera caírem no mesmo ponto. O rodapé puro
+     * (1) subiria o impacto quase dois tiles, que foi o defeito do relâmpago em
+     * 12/09.
+     *
+     * ⚠️ **700 ms de estouro, contra os 1100 ms de queda que o servidor conta em
+     * `quedaMs`.** Não há sincronia para acertar à mão: o dano chega quando a
+     * pedra toca o chão, que é o fim do mergulho, e os dois lados usam o mesmo
+     * número.
      */
-    ...RUMOS_QUEDA.map((rumo) => ({
-      magia: `meteor_solo_${rumo}`, arquivo: `meteoro_${rumo}`, bolts: 1, quadros: 0,
-      fracaoQueda: 1 / 3, duracaoEstouro: 1400,
-      trajetoria: METEORO_TRAJETO, preRotacionada: true,
-    })),
+    {
+      magia: 'meteor_solo', arquivo: 'meteoro_queda', bolts: 1, quadros: 16,
+      fracaoQueda: 11 / 16, duracaoEstouro: 700, ancoraY: 0.88,
+      trajetoria: { queda: 430, cresce: [0.42, 1] },
+    },
     /*
      * ❄️ A BOLA DE NEVE da Nevasca. A folha do dono é uma coluna de gelo que
      * cresce (0–8), gira (9–26) e some (27–35).
@@ -3011,7 +2997,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           ...('porCima' in folha ? { porCima: folha.porCima } : {}),
           ...('ancoraY' in folha ? { ancoraY: folha.ancoraY } : {}),
           ...('trajetoria' in folha ? { trajetoria: folha.trajetoria } : {}),
-          ...('preRotacionada' in folha ? { preRotacionada: folha.preRotacionada } : {}),
           frames: Array.from({ length: quantos }, (_, i) => new Texture({
             source: tex.source,
             frame: new Rectangle(i * cw, 0, cw, ch),
@@ -3080,34 +3065,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const q = { node, atraso: 0, morto: false, magia: '', risco: undefined };
     node.onComplete = () => { q.morto = true; };
     quedas.push(q);
-  }
-
-  /**
-   * ☄️ **Por qual dos oito rumos a coisa ENTRA NA TELA.**
-   *
-   * 🔴 O ângulo é o da viagem VISTA, e não o da linha conjurador → alvo. São
-   * diferentes: a partida é o alvo recuado ao longo da linha **mais `subida`**,
-   * então a viagem é `(u·dist, u·dist + subida)` — sempre um pouco mais para
-   * baixo que a linha. É o que se quer: o meteoro vem do alto mesmo indo para o
-   * lado. Classificar pela linha crua escolheria a folha `e` para uma entrada
-   * que em tela desce a 21°.
-   *
-   * ⚠️ **Y cresce para BAIXO**, então `atan2` positivo é SUL. Já errei o sinal
-   * deste mesmo eixo duas vezes no giro do voo; aqui a ordem de `RUMOS_QUEDA`
-   * (leste, depois no sentido do sul) é o que mantém o acordo.
-   *
-   * Os oito rumos puros caem cada um no seu oitavo — conferido: com `dist` 420 e
-   * `subida` 160, o nordeste sai a −25° e o noroeste a −155°, dentro dos seus
-   * por pouco. Se `subida` crescer muito, os dois de cima escorregam para leste
-   * e oeste; é o mesmo número que decide a forma da entrada, e não há dois.
-   */
-  function rumoDaEntrada(
-    vx: number, vy: number, t: { dist: number; subida: number },
-  ): string {
-    const comp = Math.hypot(vx, vy) || 1;
-    const ang = Math.atan2((vy / comp) * t.dist + t.subida, (vx / comp) * t.dist);
-    const i = Math.round(ang / (Math.PI / 4));
-    return RUMOS_QUEDA[((i % 8) + 8) % 8]!;
   }
 
   /** A folha desta magia que melhor representa `n` bolts, ou a menor que há. */
@@ -3183,6 +3140,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * no mesmo lugar.
      */
     lightning_fall: 'nenhuma',
+    /*
+     * ☄️ **O Meteoro avulso não aparece aqui, e é de propósito**: quem desenha a
+     * descida dele é a `trajetoria` da folha, e esse caminho é testado ANTES
+     * desta tabela. A Chuva (`meteor_fall`) continua com a rocha de código, e
+     * não é descuido — lá caem dezoito por conjuração e cada uma é pequena; a
+     * folha nova desenha UM meteoro ocupando a tela.
+     */
   };
 
   /**
@@ -3736,105 +3700,37 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       cresce?: readonly [number, number];
     } | undefined;
 
-    /*
-     * 🌠 **A TRAJETÓRIA DIAGONAL, e ela reusa a máquina do risco inteira.**
-     *
-     * Pedido do dono em 12/09, para o Meteoro: *"não deve mostrar um meteoro
-     * simplesmente caindo verticalmente; ele aparece à distância, entra em cena
-     * em trajetória diagonal e atinge o monstro de lado"*. E a frase que resume:
-     * *"não deve parecer que uma pedra apareceu em cima do inimigo"*.
-     *
-     * 🔴 **O que muda é QUEM desenha a descida, não a máquina.** O `risco` já
-     * nasce escondido, aparece no fim do atraso, interpola de um ponto de
-     * partida até o alvo, e ao chegar se destrói e solta o estouro. Tudo isso
-     * fica. O que entra é: a partida ganha um `deX` (daí a diagonal), o desenho
-     * passa a ser os QUADROS DE VOO da folha em vez de um traço, e a escala
-     * cresce pelo caminho — que é o que dá a profundidade.
-     *
-     * ⚠️ **Os 16 quadros de voo do meteoro nunca tocaram até hoje.** Estavam na
-     * folha desde 11/09, e o modo risco os descartava (`fracaoQueda`). Era o
-     * pendente do handoff — *"trocar exige resolver dois ritmos num
-     * `AnimatedSprite` que tem uma velocidade só"*. A resposta acabou sendo não
-     * resolver: são **dois sprites**, o do voo e o do estouro, cada um com o seu.
-     */
     if (QUEDA_RISCO && folha.trajetoria) {
-      const t = folha.trajetoria;
       /*
-       * 🌠 **A DIREÇÃO SAI DA LINHA CONJURADOR → ALVO, e não da ficha.**
+       * ☄️ **A QUEDA DESENHADA PELA FOLHA, e ela reusa a máquina do risco.**
        *
-       * Pedido do dono em 12/09, depois de ver a primeira versão errar o lado:
-       * *"ele vai ter que descer de acordo com a posição que eu lançar a magia.
-       * Lanço ela pra baixo, o meteoro vem meio de cima pra baixo; se lanço pra
-       * cima, o meteoro desce do alto mas ATRÁS do personagem para atingir o
-       * ponto de conjuração."*
+       * O `risco` já nasce escondido, aparece no fim do atraso, interpola de um
+       * ponto de partida até o alvo e ao chegar se destrói soltando o estouro.
+       * Tudo isso fica. O que muda é QUEM desenha a descida: em vez do traço de
+       * código, os quadros de voo da própria folha, crescendo pelo caminho.
        *
-       * ✅ **Uma regra só atende os três casos: ele entra por TRÁS de quem
-       * conjurou e voa na direção do alvo.** A partida é o alvo recuado ao longo
-       * dessa linha, mais uma subida fixa para ele vir sempre do alto.
+       * 🔴 **São dois sprites, o do voo e o do estouro**, e não um. Um
+       * `AnimatedSprite` tem uma velocidade só, e os dois ritmos são diferentes:
+       * onze quadros em 1,1 s de mergulho contra cinco em 300 ms de explosão.
        *
-       *   alvo a LESTE   → parte de cima-esquerda, cruza por cima do mago
-       *   alvo ao SUL    → parte bem no alto, quase reto  (*"de cima pra baixo"*)
-       *   alvo ao NORTE  → parte ATRÁS do mago e sobe a tela até o alvo
-       *
-       * 🔴 **O caso do norte é o que a ficha fixa nunca ia acertar**, e é o que
-       * o dono descreveu com mais cuidado. Um meteoro subindo a tela parece
-       * estranho escrito, e em tela é o contrário: é a pedra passando por cima
-       * do ombro do jogador e indo embora até o ponto marcado. Cair "do céu"
-       * sobre um alvo ao norte faria ela vir de ONDE NINGUÉM olhou.
-       *
-       * ⚠️ Alvo em cima do próprio mago (ou sem `fromX`) cai no padrão de
-       * cima-esquerda: sem linha, qualquer direção serve, e o que não pode é a
-       * divisão por zero virar uma queda reta sem rumo.
+       * ⚠️ **A âncora é a MESMA nos dois** (`ancoraY`), e é isso que faz a pedra
+       * e a cratera caírem no mesmo ponto. O cortador ancora todo quadro pelo
+       * rodapé do desenho justamente para isto: no meteoro caindo o rodapé é a
+       * pedra, no estouro é o chão.
        */
-      const vx = deOnde ? deOnde.x : -1;
-      const vy = deOnde ? deOnde.y : -1;
-      const comp = Math.hypot(vx, vy) || 1;
-      const deXreal = (-vx / comp) * t.dist;
-      const deYreal = (vy / comp) * t.dist + t.subida;
       const corte = Math.round(frames.length * fracaoQueda);
       const voo = new AnimatedSprite(frames.slice(0, corte));
-      voo.anchor.set(0.5, 0.5);
+      voo.anchor.set(0.5, folha.ancoraY ?? 1);
       voo.blendMode = mistura;
       voo.loop = false;
       voo.animationSpeed = corte / (tempoQueda / (1000 / 60));
       voo.play();
-      /*
-       * ⚠️ **O giro sai da DIREÇÃO de voo, e a arte já vem inclinada.** O
-       * meteoro da folha aponta para baixo-direita a ~45°; a rotação é a
-       * diferença entre o rumo real e esse 45° de origem. Sem isso, uma
-       * trajetória vinda da direita desenharia o meteoro voando de costas.
-       *
-       * ⚠️ **O rumo é `(−deX, +deY)`, e o sinal do Y engana.** A partida fica em
-       * `(x + deX, y − deY)` — o `deY` é subtraído porque em tela o Y cresce
-       * para BAIXO e o meteoro nasce em cima. O vetor de viagem é então
-       * `alvo − partida = (−deX, +deY)`. A primeira versão escreveu
-       * `atan2(−deY, −deX)` e girava o meteoro 90°: ele atravessava a tela
-       * apontando para cima.
-       *
-       * 🔴 **E o rumo NATIVO da arte é baixo-ESQUERDA, não baixo-direita.** Olhar
-       * a folha e supor foi o segundo erro de 90° no mesmo cálculo: a cabeça de
-       * rocha fica no canto inferior ESQUERDO do quadro e o rastro sobe para a
-       * direita — ou seja, ela já voa para 135°, e não para 45°. Descontar 45°
-       * espelhava o meteoro, e em tela ele descia para o lado errado com a
-       * trajetória certa.
-       */
-      /*
-       * ☄️ **E com arte POR DIREÇÃO o giro some.**
-       *
-       * 🔴 Girar uma folha só gira **a fumaça junto** — e fumaça sobe, ela não
-       * acompanha a trajetória. Foi o argumento do dono em 12/09 quando ele
-       * decidiu desenhar as oito variações em vez de aceitar uma girada, e ele
-       * estava certo: a rocha a 135° girada para o norte fica com o rastro
-       * apontando para o chão. Nas folhas `meteor_solo_<rumo>` a arte já vem no
-       * rumo certo, com a fumaça desenhada subindo — girar por cima seria virar
-       * duas vezes. Ver `preRotacionada`.
-       */
-      voo.rotation = folha.preRotacionada
-        ? 0
-        : Math.atan2(deYreal, -deXreal) - Math.PI * 0.75;
       voo.zIndex = 9999;
       fxLayer.addChild(voo);
-      risco = { node: voo, t: 0, deX: deXreal, deY: deYreal, dur: tempoQueda, cresce: t.cresce };
+      risco = {
+        node: voo, t: 0, deX: 0, deY: folha.trajetoria.queda,
+        dur: tempoQueda, cresce: folha.trajetoria.cresce,
+      };
     } else if (QUEDA_RISCO && FORMA_RISCO[magia] !== 'nenhuma') {
       /*
        * A LANÇA: um traço vertical fino, claro no núcleo e alaranjado na
@@ -4095,24 +3991,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     magia: string, wx: number, wy: number, n: number, alvo?: string, quedaMs?: number,
     raioDano?: number, deOnde?: { x: number; y: number },
   ): void {
-    let folha = folhaPara(magia, n);
+    const folha = folhaPara(magia, n);
     if (!folha) return;
-    /*
-     * ☄️ **A ARTE POR RUMO, quando ela existe.**
-     *
-     * ⚠️ **A base é consultada PRIMEIRO de propósito**: é dela que sai a
-     * `trajetoria`, e é a trajetória que diz para onde o meteoro vai na TELA.
-     * Classificar pelo vetor cru conjurador → alvo daria outra resposta, porque
-     * `subida` inclina toda entrada para baixo — um alvo a leste não é atingido
-     * na horizontal, e sim descendo uns 20°.
-     *
-     * ⚠️ Sem `deOnde` (servidor antigo, ou alvo em cima do próprio mago) fica a
-     * folha girada: sem linha não há rumo para escolher.
-     */
-    if (folha.trajetoria && deOnde) {
-      const rumo = rumoDaEntrada(deOnde.x, deOnde.y, folha.trajetoria);
-      folha = folhaPara(`${magia}_${rumo}`, n) ?? folha;
-    }
     const copias = Math.max(1, Math.ceil(n / folha.bolts));
     for (let i = 0; i < copias; i++) {
       spawnQueda(magia, wx, wy, folha, i * INTERVALO_BOLT_MS, alvo, quedaMs, raioDano, deOnde);

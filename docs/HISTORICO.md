@@ -9,6 +9,64 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-11 (fim do dia) — O Meteoro volta a ser vertical, e as oito folhas saem
+
+**Onde mora:** `tools/meteoro-grade2fx.mjs` · `meteor_solo` e `trajetoria` em
+`FOLHAS_QUEDA`, `client/src/main.ts` · `arte-fonte/fx/meteoro_vertical.png`
+
+Decisão do dono, poucas horas depois de as oito folhas direcionais entrarem: *"vamos
+voltar ao que tínhamos antes, vou usar a mesma animação para todas as direções; o meteoro
+vai cair de cima da área de conjuração"*. Com ela saíram `rumoDaEntrada`, as oito entradas
+de `FOLHAS_QUEDA`, `preRotacionada` e a trajetória diagonal inteira — e entrou uma folha
+nova, vertical, de 25 desenhos.
+
+### 🔪 A folha nova quebra duas suposições do cortador anterior
+
+🔴 **O fundo NÃO é transparente.** Ela chegou com um cinza de fumaça OPACO na tela inteira:
+medida, a mediana da luminância é 37,9 e um quarto dos pixels é cinza escuro com alfa acima
+de 230. Nenhum dos cinco cortadores serve — o de alfa existente devolveria a folha com
+fundo e tudo. A chave virou **brilho acima do fundo**, com a cor perdendo o piso junto:
+levantar só o alfa deixaria o cinza colado no fogo, e a chama sairia lavada.
+
+🔴 **NÃO HÁ GRADE.** Parece 5×5 e não é: medidas as distâncias entre o topo de uma fileira
+e o da seguinte, dão **211, 333, 470 e 215 px**. O gerador desenha os meteoros cada vez
+maiores e empurra o resto para baixo. Quatro tentativas, nesta ordem, e o que cada uma
+custou:
+
+| tentativa | resultado |
+|---|---|
+| divisão exata 5×5 | o quadro seguinte aparece no rodapé da célula |
+| grade deslocada por um número medido | quatro pedras decepadas na divisa |
+| divisas medidas soltas | fileiras de 347/230/384/268 px, três quadros vazios |
+| divisas com altura presa a ±12 % | as mesmas três, espremidas |
+
+✅ **O que funciona é não ter grade**: cada desenho é achado pelas ilhas do perfil dentro da
+sua coluna e reenquadrado. E a âncora é o **rodapé do desenho**, que serve para os dois
+tipos de quadro — no meteoro caindo o rodapé é a pedra, no estouro é o chão.
+
+⚠️ **Nove dos 25 desenhos são nuvem de fagulha solta**, enfeite do rastro que o gerador pôs
+fora do quadro a que pertence. Juntá-las ao quadro certo foi tentado de três maneiras e
+nenhuma fecha: em algumas colunas a nuvem está mais perto do meteoro ANTERIOR. O que
+separa sem ambiguidade é a massa **depois de recortada**: as fagulhas pesam de 174 a 771 e
+todo quadro de verdade pesa de 1065 a 8630.
+
+⚠️ **E a massa tem de ser medida na SAÍDA, não na fonte** — na fonte a faixa de uma fagulha
+inclui pedaços do vizinho, e o mesmo critério descartou três quadros em vez de nove. É a
+mesma família de erro do dia: **medir um passo antes de onde o defeito aparece**.
+
+### ☄️ O que o cliente ficou fazendo
+
+Sobraram **16 quadros**: onze de queda e cinco de estouro. Como os quadros foram
+reenquadrados, a descida saiu do desenho — quem move o meteoro voltou a ser o cliente, com
+uma `trajetoria` agora **vertical** (`queda: 430`, treze tiles) e sem giro nenhum.
+
+✅ **A sincronia deixou de ser uma conta.** O dano do servidor chega em `quedaMs`, que é
+exatamente o fim do mergulho: os dois lados usam o mesmo número. Na versão anterior era
+preciso casar `duracaoEstouro` com a fração em que o impacto aparecia na tira — um número
+copiado que ninguém conseguia conferir.
+
+---
+
 ## 2026-09-11 — O Meteoro ganha oito direções de entrada
 
 **Onde mora:** `tools/meteoro2fx.mjs` · `METEORO_TRAJETO`/`RUMOS_QUEDA`/`FOLHAS_QUEDA`/

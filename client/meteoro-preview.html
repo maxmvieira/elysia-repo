@@ -3,15 +3,21 @@
   🌠 Bancada do Meteoro. FORA de `public/`, como as outras três: serve no
   `npm run dev` e não entra no pacote publicado.
 
-  Existe para conferir a coisa que não dá para ver numa folha de contato: a
-  TRAJETÓRIA. O pedido do dono (12/09) é que se leia *"um meteoro veio de longe
-  e atingiu esse inimigo em cheio"*, e o contrário dele — *"uma pedra apareceu
-  em cima do inimigo"* — só se distingue em movimento.
+  ☄️ **A folha VERTICAL** (13/09): o dono decidiu usar uma animação só para as
+  oito direções — *"o meteoro vai cair de cima da área de conjuração"*. São 16
+  quadros, onze de queda e cinco de estouro, todos ancorados pelo RODAPÉ do
+  desenho (a pedra no voo, o chão no impacto).
+
+  A bancada confere as duas coisas que decidem se funciona:
+    1. a pedra e a cratera caem NO MESMO ponto — a linha do chão;
+    2. a pedra chega lá no fim do mergulho, que é quando o dano do servidor cai.
 
   ⚠️ Os números aqui são CÓPIAS da ficha e do cliente, e a bancada não sabe
   quando eles mudam. Ao mexer num dos dois lados, mexa aqui também.
 
-  `#tiras` desenha o voo quadro a quadro, para conferir o giro e o crescimento.
+  Endereços:
+    (nenhum)  a queda animada, com a linha do chão
+    #tiras    os 16 quadros lado a lado, no tamanho em que o jogo desenha
 -->
 <meta charset="utf-8">
 <title>Meteoro — bancada</title>
@@ -25,156 +31,106 @@
 <script type="module">
   const c = document.getElementById('c');
   const g = c.getContext('2d');
-  const img = await new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.src = '/assets/fx/meteoro40.png'; });
-  const N = 40, LW = img.width / N, LH = img.height;
-  const VOO = 16;                 // fracaoQueda 16/40: os quadros de voo
   const TS = 32;
 
-  // Da ficha: quedaMs 1100 (o mergulho) e área 7×7.
+  // Da ficha: `quedaMs` (o mergulho, e quando o dano chega) e a área 7×7.
   const MERGULHO = 1100, RAIO = 3;
-  // Do cliente: trajetoria e ESCALA_IMPACTO.
-  const DIST = 420, SUBIDA = 160, CRESCE = [0.25, 1.15];
-  /*
-   * A direção sai da linha CONJURADOR -> ALVO. Aqui o vetor vem do endereço
-   * para dar para comparar os casos que o dono descreveu:
-   *   #leste #oeste #sul (lanco pra baixo) #norte (lanco pra cima)
-   */
-  const CASOS = { leste: [5,0], oeste: [-5,0], sul: [0,5], norte: [0,-5] };
-  const [VX, VY] = CASOS[location.hash.slice(1)] ?? [4, 4];
-  const COMP = Math.hypot(VX, VY) || 1;
-  const DE_X = (-VX / COMP) * DIST;
-  const DE_Y = (VY / COMP) * DIST + SUBIDA;
+  // Do cliente: `trajetoria`, `fracaoQueda`, `duracaoEstouro` e `ancoraY`.
+  const QUEDA = 430, CRESCE = [0.42, 1], FRACAO = 11 / 16;
+  const ESTOURO = 700, ANCORA_Y = 0.88;
   const ESCALA_QUEDA = 0.625, ESCALA_IMPACTO = 2.1;
-  const ESTOURO = 1400;
-  const CICLO = MERGULHO + ESTOURO + 700;
+  const ESCALA = ESCALA_QUEDA * ESCALA_IMPACTO;
+  const CICLO = MERGULHO + ESTOURO + 600;
 
-  const CX = 660, CHAO = 470;
+  const CX = 480, CHAO = 430;
 
-  function quadro(t) {
-    g.fillStyle = '#3f5a34'; g.fillRect(0, 0, c.width, c.height);
-    const ciclo = t % CICLO;
+  const img = await new Promise((ok) => {
+    const i = new Image();
+    i.onload = () => ok(i);
+    i.src = '/assets/fx/meteoro_queda.png';
+  });
+  const LH = img.height;
+  const LW = LH * (144 / 256);        // a célula do cortador: 144×256
+  const N = Math.round(img.width / LW);
+  const VOO = Math.round(N * FRACAO);
 
-    // A área de dano e dois "monstros" dentro dela.
-    g.strokeStyle = '#ffffff26'; g.lineWidth = 2;
+  function cenario() {
+    g.fillStyle = '#3f5a34';
+    g.fillRect(0, 0, c.width, c.height);
+    g.strokeStyle = '#ffffff26';
+    g.lineWidth = 2;
     g.strokeRect(CX - (RAIO + 0.5) * TS, CHAO - (RAIO + 0.5) * TS * 0.55,
       (RAIO * 2 + 1) * TS, (RAIO * 2 + 1) * TS * 0.55);
     g.fillStyle = '#00000040';
     g.fillRect(CX - 16, CHAO - 40, 32, 40);
     g.fillRect(CX + 40, CHAO - 40, 32, 40);
-    // O conjurador, para o empurrão ter direção legível.
-    g.fillStyle = '#00000055';
-    g.fillRect(CX - 340, CHAO - 44, 26, 44);
+    // 🎯 A linha do CHÃO: é nela que a pedra e a cratera têm de cair.
+    g.strokeStyle = '#ffe08a66';
+    g.beginPath();
+    g.moveTo(CX - 170, CHAO);
+    g.lineTo(CX + 170, CHAO);
+    g.stroke();
+  }
 
+  /** Desenha o quadro `k` com a âncora do cliente, no ponto (x, y). */
+  function poe(k, x, y, escala) {
+    const w = LW * escala;
+    const h = LH * escala;
+    g.drawImage(img, k * LW, 0, LW, LH, x - w / 2, y - h * ANCORA_Y, w, h);
+    return [w, h];
+  }
+
+  function desenha(t) {
+    cenario();
+    const ciclo = t % CICLO;
     g.globalCompositeOperation = 'lighter';
     if (ciclo < MERGULHO) {
       /*
-       * O MERGULHO. Fração acelerada: o meteoro ganha velocidade ao se
-       * aproximar. Expoente 1,6 e não 2: ao quadrado ele passava meio mergulho
-       * fora da tela. Ver `trajetoria` no cliente.
+       * O MERGULHO: a pedra nasce `QUEDA` px acima do alvo e desce até ele,
+       * crescendo. A fração é LINEAR aqui porque a folha só tem queda vertical —
+       * a curva acelerada existia para a entrada diagonal, que saiu.
        */
       const frac = ciclo / MERGULHO;
-      const p = frac ** 1.6;
       const k = Math.min(VOO - 1, Math.floor(frac * VOO));
-      const s = CRESCE[0] + (CRESCE[1] - CRESCE[0]) * p;
-      const w = LW * s, h = LH * s;
-      const x = CX + DE_X * (1 - p);
-      const y = CHAO - DE_Y * (1 - p);
-      g.save();
-      g.translate(x, y);
-      // A arte aponta para baixo-ESQUERDA (135°); o giro é a diferença do rumo.
-      // O LADO real vem do conjurador no jogo; aqui é fixo para poder comparar.
-      g.rotate(Math.atan2(DE_Y, -DE_X) - Math.PI * 0.75);
-      g.drawImage(img, k * LW, 0, LW, LH, -w / 2, -h / 2, w, h);
-      g.restore();
+      const s = ESCALA * (CRESCE[0] + (CRESCE[1] - CRESCE[0]) * frac);
+      const [w, h] = poe(k, CX, CHAO - QUEDA * (1 - frac), s);
+      g.globalCompositeOperation = 'source-over';
       document.getElementById('leg').textContent =
         `MERGULHO ${Math.round(ciclo)}/${MERGULHO} ms · quadro ${k + 1} de ${VOO}`
-        + ` · escala ${s.toFixed(2)} · ${Math.round(Math.hypot(x - CX, y - CHAO) / TS)} tiles do alvo`;
+        + ` · ${Math.round(w)}×${Math.round(h)} px`
+        + ` · ${((QUEDA * (1 - frac)) / TS).toFixed(1)} tiles acima do alvo`;
     } else if (ciclo < MERGULHO + ESTOURO) {
       const dt = ciclo - MERGULHO;
       const k = VOO + Math.min(N - VOO - 1, Math.floor((dt / ESTOURO) * (N - VOO)));
-      const s = ESCALA_QUEDA * ESCALA_IMPACTO;
-      const w = LW * s, h = LH * s;
-      g.drawImage(img, k * LW, 0, LW, LH, CX - w / 2, CHAO - h, w, h);
+      const [w] = poe(k, CX, CHAO, ESCALA);
+      g.globalCompositeOperation = 'source-over';
       document.getElementById('leg').textContent =
         `ESTOURO ${Math.round(dt)}/${ESTOURO} ms · quadro ${k + 1} de ${N}`
-        + ` · ${Math.round(w)} px de largura (${(w / TS).toFixed(1)} tiles) contra ${(RAIO * 2 + 1)} de dano`;
+        + ` · ${Math.round(w)} px de largura (${(w / TS).toFixed(1)} tiles)`
+        + ` contra ${(RAIO * 2 + 1)} de dano`;
     } else {
+      g.globalCompositeOperation = 'source-over';
       document.getElementById('leg').textContent = 'fim do ciclo';
     }
-    g.globalCompositeOperation = 'source-over';
   }
 
-  if (location.hash === '#oito') {
-    /*
-     * 🌠 **AS OITO DIREÇÕES lado a lado**, cada quadro mostrando três instantes
-     * do mesmo mergulho — longe, no meio e quase no alvo.
-     *
-     * É a resposta visual ao pedido de *"suporte a 8 direções de entrada"*: não
-     * há oito folhas nem oito casos no código. Há UMA folha girada pelo rumo
-     * real, e ela cobre as oito direções e todos os ângulos entre elas.
-     */
-    const D = [['N', 0, -1], ['NE', 1, -1], ['E', 1, 0], ['SE', 1, 1],
-      ['S', 0, 1], ['SW', -1, 1], ['W', -1, 0], ['NW', -1, -1]];
-    const CEL = 300, COL = 4;
+  if (location.hash === '#tiras') {
+    const COL = 8;
+    const w = LW * ESCALA, h = LH * ESCALA;
     const alvo = document.createElement('canvas');
-    alvo.width = CEL * COL;
-    alvo.height = CEL * 2;
+    alvo.width = COL * w;
+    alvo.height = Math.ceil(N / COL) * h;
     const ag = alvo.getContext('2d');
     ag.fillStyle = '#3f5a34';
     ag.fillRect(0, 0, alvo.width, alvo.height);
-    D.forEach(([nome, vx, vy], i) => {
-      const ox = (i % COL) * CEL;
-      const oy = Math.floor(i / COL) * CEL;
-      const cx = ox + CEL / 2;
-      const cy = oy + CEL / 2 + 40;
-      const comp = Math.hypot(vx, vy) || 1;
-      const dX = (-vx / comp) * DIST;
-      const dY = (vy / comp) * DIST + SUBIDA;
-      ag.save();
-      ag.beginPath();
-      ag.rect(ox + 2, oy + 2, CEL - 4, CEL - 4);
-      ag.clip();
-      // A área de dano, e o conjurador na direção de onde ele mirou.
-      ag.strokeStyle = '#ffffff30';
-      ag.lineWidth = 2;
-      ag.strokeRect(cx - 3.5 * TS, cy - 1.9 * TS, 7 * TS, 3.8 * TS);
-      ag.fillStyle = '#00000066';
-      ag.fillRect(cx - (vx / comp) * 95 - 10, cy - (vy / comp) * 95 - 34, 20, 34);
-      ag.globalCompositeOperation = 'lighter';
-      for (const frac of [0.25, 0.6, 0.95]) {
-        const pr = frac ** 1.6;
-        const k = Math.min(VOO - 1, Math.floor(frac * VOO));
-        const sc = CRESCE[0] + (CRESCE[1] - CRESCE[0]) * pr;
-        const w = LW * sc;
-        const h = LH * sc;
-        ag.save();
-        ag.translate(cx + dX * (1 - pr), cy - dY * (1 - pr));
-        ag.rotate(Math.atan2(dY, -dX) - Math.PI * 0.75);
-        ag.globalAlpha = 0.4 + frac * 0.6;
-        ag.drawImage(img, k * LW, 0, LW, LH, -w / 2, -h / 2, w, h);
-        ag.restore();
-      }
-      ag.globalCompositeOperation = 'source-over';
-      ag.globalAlpha = 1;
-      ag.fillStyle = '#dff';
-      ag.font = 'bold 15px system-ui';
-      ag.fillText(`alvo ao ${nome}`, ox + 10, oy + 22);
-      ag.restore();
-    });
-    c.replaceWith(alvo);
-  } else if (location.hash === '#tiras') {
-    const COL = 6, CEL = 150, N2 = 12;
-    const alvo = document.createElement('canvas');
-    alvo.width = CEL * COL; alvo.height = 150 * Math.ceil(N2 / COL);
-    const ag = alvo.getContext('2d');
-    for (let i = 0; i < N2; i++) {
-      quadro((i / N2) * (MERGULHO + ESTOURO));
-      ag.drawImage(c, 0, 0, 960, 620, (i % COL) * CEL, Math.floor(i / COL) * 150, CEL, 150 * 620 / 960);
+    ag.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < N; k++) {
+      ag.drawImage(img, k * LW, 0, LW, LH, (k % COL) * w, Math.floor(k / COL) * h, w, h);
     }
     c.replaceWith(alvo);
   } else {
     const t0 = performance.now();
-    const laco = () => { quadro(performance.now() - t0); requestAnimationFrame(laco); };
+    const laco = () => { desenha(performance.now() - t0); requestAnimationFrame(laco); };
     laco();
   }
 </script>
