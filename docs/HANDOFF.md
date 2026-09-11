@@ -188,8 +188,15 @@ Agora sai **"18 impactos de 104 % · ~2,7 acertam cada alvo · ~277 %"**.
 impacto (o Fire Bolt persegue o alvo). Nos dois a dica volta a mostrar o total
 cheio, porque ali ele é verdade.
 
-⚠️ **Não foi visto em tela** — a extensão do Chrome caiu na hora de conferir. O
-typecheck e os 624 testes passam; falta o olho.
+✅ **Conferido em tela.** A Chuva mostra *"18 impactos de 104 % · ~2,7 acertam cada
+alvo · ~277 %"* e a Nevasca mostra *"Total 570 %"* — a exceção do 
+funcionando.
+
+⚠️ E a conferência achou mais uma: a DESCRIÇÃO da Chuva ainda dizia *"10
+meteoros no Lv.10"* enquanto a linha de números logo abaixo, na mesma janela,
+dizia 18. Texto de descrição não repete número que a ficha já mostra — fica
+desatualizado em silêncio, e aqui chegou a desmentir a própria dica. Varri as
+outras: só essa estava defasada.
 
 ### 📐 Medir o anel: três métodos, e por que os dois primeiros erraram
 

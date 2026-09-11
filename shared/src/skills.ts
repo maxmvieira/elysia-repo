@@ -1812,7 +1812,14 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       power: 8,
     },
     fx: 'meteor_storm',
-    desc: 'O céu cai. 10 meteoros no Lv.10, em posições aleatórias da área.',
+    /*
+     * ⚠️ **Dizia "10 meteoros" e a ficha solta 18** desde que o dono subiu a
+     * contagem em 11/09 — a descrição ficou para trás e contradizia a linha de
+     * números logo abaixo dela, na mesma dica. Texto de descrição não repete
+     * número que a ficha já mostra: fica desatualizado em silêncio, e aqui
+     * chegou a desmentir a própria janela.
+     */
+    desc: 'O céu cai. Meteoros despencam em posições aleatórias da área.',
   },
 
   // ------------------------------- ❄️ GELO (4) ------------------------------
