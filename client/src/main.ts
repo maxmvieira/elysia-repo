@@ -8090,18 +8090,24 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     miraMarca.clear();
     if (raio > 0) {
       /*
-       * ⭕ **O ANEL desenhado substituiu o traço laranja** (dono, 11/09). O que
-       * ficou do antigo é o **preenchimento**: um disco de alfa 0,12 por baixo
-       * do anel. Ele não é enfeite — é o que diz que a área é CHEIA e não só uma
-       * borda, e foi o que o traço sozinho já fazia. Tirar a arte e deixar o
-       * fill é feio; tirar o fill e deixar a arte esconde o que apanha.
+       * ⭕ **O DISCO DE PREENCHIMENTO SAIU** — dono, 12/09, comparando as duas
+       * telas: *"ainda está com bordas demais antes de lançar a magia; depois
+       * que lanço ficou perfeito"*.
        *
-       * ⚠️ O `tint` carrega o "longe demais" que a cor do traço carregava. Sem
-       * ele, a única pista de que a magia não sai seria o rótulo ao lado do
-       * cursor — e ninguém lê rótulo com o mouse em movimento.
+       * 🔴 A diferença entre mirar e conjurar era exatamente ele: um disco de
+       * alfa 0,12 cobrindo a área inteira, por baixo do anel. Ele foi herdado do
+       * traço laranja de 11/09 e tinha uma razão — *dizer que a área é CHEIA e
+       * não só uma borda*.
+       *
+       * ✅ Essa razão morreu quando o anel virou ARTE do tamanho da área. O
+       * desenho tem estrelas, correntes e losangos do centro à beirada: ele já
+       * mostra o miolo. O disco virou um véu chapado com borda visível em cima
+       * de um desenho que não precisava dele — e é o mesmo defeito que o âmbar
+       * tinha, só que em forma em vez de cor.
+       *
+       * ⚠️ E a informação do `fora` não se perde: o `tint` do anel continua
+       * carregando o "longe demais", e ele é o mesmo anel inteiro em vermelho.
        */
-      miraMarca.circle(px + TS / 2, py + TS / 2, (raio + 0.5) * TS)
-        .fill({ color: cor, alpha: 0.12 });
       const lado = (raio * 2 + 1) * TS;
       circuloMira.x = px + TS / 2;
       circuloMira.y = py + TS / 2;
