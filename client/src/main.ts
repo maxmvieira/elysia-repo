@@ -14932,7 +14932,17 @@ function makeItemView(
     g.rect(TS / 2 - 5, TS - 19, 10, 3).fill(0x6a4a24).stroke({ width: 1, color: 0x3a2410 });
     c.addChild(g);
     c.eventMode = 'static';
-    c.cursor = 'pointer';
+    /*
+     * ⚠️ **SEM `cursor` aqui, de propósito** — a mesma razão que tirou o
+     * `crosshair` das criaturas, e o mesmo defeito visto de novo. O Pixi copia
+     * esta propriedade para o estilo do CANVAS quando o mouse entra, e estilo
+     * inline vence a classe do `body`: sobre uma bolsa aparecia a mãozinha
+     * DESENHADA e, por cima dela, o dedinho do sistema (dono, 12/09).
+     *
+     * ✅ Sem a propriedade o Pixi aplica `inherit` e quem manda volta a ser o
+     * `body` — inclusive o `cursor: none` que esconde o ponteiro do sistema
+     * enquanto a mão do jogo está na tela. Ver `cursorDoJogo`.
+     */
     c.hitArea = new Rectangle(0, 0, TS, TS);
     c.on('pointertap', soBotaoEsquerdo(() => onCorpseClick?.(e.id)));
     c.addChild(nameLabel(e.name, 0xd9b26a));
@@ -14956,7 +14966,17 @@ function makeItemView(
     g.circle(TS / 2 - 4.5, TS - 18, 1.2).fill(0x2a2620);
     c.addChild(g);
     c.eventMode = 'static';
-    c.cursor = 'pointer';
+    /*
+     * ⚠️ **SEM `cursor` aqui, de propósito** — a mesma razão que tirou o
+     * `crosshair` das criaturas, e o mesmo defeito visto de novo. O Pixi copia
+     * esta propriedade para o estilo do CANVAS quando o mouse entra, e estilo
+     * inline vence a classe do `body`: sobre uma bolsa aparecia a mãozinha
+     * DESENHADA e, por cima dela, o dedinho do sistema (dono, 12/09).
+     *
+     * ✅ Sem a propriedade o Pixi aplica `inherit` e quem manda volta a ser o
+     * `body` — inclusive o `cursor: none` que esconde o ponteiro do sistema
+     * enquanto a mão do jogo está na tela. Ver `cursorDoJogo`.
+     */
     c.hitArea = new Rectangle(0, 0, TS, TS);
     c.on('pointertap', soBotaoEsquerdo(() => onCorpseClick?.(e.id)));
     c.addChild(nameLabel(e.name, 0xd8a0a0));
@@ -15014,7 +15034,17 @@ function makeItemView(
    * continua intacto: arrastar empurra, clicar pega.
    */
   c.eventMode = 'static';
-  c.cursor = 'pointer';
+  /*
+   * ⚠️ **SEM `cursor` aqui, de propósito** — a mesma razão que tirou o
+   * `crosshair` das criaturas, e o mesmo defeito visto de novo. O Pixi copia
+   * esta propriedade para o estilo do CANVAS quando o mouse entra, e estilo
+   * inline vence a classe do `body`: sobre uma bolsa aparecia a mãozinha
+   * DESENHADA e, por cima dela, o dedinho do sistema (dono, 12/09).
+   *
+   * ✅ Sem a propriedade o Pixi aplica `inherit` e quem manda volta a ser o
+   * `body` — inclusive o `cursor: none` que esconde o ponteiro do sistema
+   * enquanto a mão do jogo está na tela. Ver `cursorDoJogo`.
+   */
   c.hitArea = new Rectangle(0, 0, TS, TS);
   c.on('pointertap', soBotaoEsquerdo(() => onPickup?.(e.id)));
   c.zIndex = c.y / TS + 0.2; // itens ficam abaixo dos personagens no mesmo tile
@@ -15154,7 +15184,17 @@ function finalizaNodeView(
   const cor = NODES[e.nodeKind ?? 'ore']?.color ?? 0x9a8a7a;
 
   c.eventMode = 'static';
-  c.cursor = 'pointer';
+  /*
+   * ⚠️ **SEM `cursor` aqui, de propósito** — a mesma razão que tirou o
+   * `crosshair` das criaturas, e o mesmo defeito visto de novo. O Pixi copia
+   * esta propriedade para o estilo do CANVAS quando o mouse entra, e estilo
+   * inline vence a classe do `body`: sobre uma bolsa aparecia a mãozinha
+   * DESENHADA e, por cima dela, o dedinho do sistema (dono, 12/09).
+   *
+   * ✅ Sem a propriedade o Pixi aplica `inherit` e quem manda volta a ser o
+   * `body` — inclusive o `cursor: none` que esconde o ponteiro do sistema
+   * enquanto a mão do jogo está na tela. Ver `cursorDoJogo`.
+   */
   /*
    * 🔴 A área de clique é o TILE, não o sprite. O cristal de 64 px transborda
    * para cima e invadiria o tile de trás; quem clicasse ali pediria para
