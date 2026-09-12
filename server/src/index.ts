@@ -4279,8 +4279,14 @@ function executeSpell(
    * ⚠️ Sem mira, o centro continua sendo o jogador — é o caminho de um cliente
    * antigo, e o comportamento de antes.
    */
-  const cx = mira.tileX ?? player.tileX;
-  const cy = mira.tileY ?? player.tileY;
+  /*
+   * ❄️ **`emVolta` ignora a mira de propósito**, e não por falta dela: a Explosão
+   * Glacial estoura NOS PÉS de quem lançou. Se o centro viesse da mira, um
+   * cliente adulterado poderia empurrá-la para longe — e a magia que existe para
+   * descolar viraria uma área à distância, com o dobro do alcance útil.
+   */
+  const cx = def.emVolta ? player.tileX : (mira.tileX ?? player.tileX);
+  const cy = def.emVolta ? player.tileY : (mira.tileY ?? player.tileY);
 
   if (def.shape === 'target') {
     /*
@@ -4782,6 +4788,32 @@ function executeSpell(
   // meteoros não podem dar dez chances de queimar. `DD-SOR-018` (a Descarga não
   // controla) é respeitado por ausência de `applies` na ficha dela.
   if (def.applies) aplicaCondicaoDaSkill(player, def, nivel, targets, now);
+
+  /*
+   * 🌬️ **EMPURRÃO SEM `knockback`**, e ele existe porque uma magia só tem UMA
+   * condição.
+   *
+   * 🔴 Até aqui, empurrar era efeito colateral de `applies.id === 'knockback'` —
+   * quem empurrava não podia congelar. A Explosão Glacial precisa das duas
+   * coisas ao mesmo tempo (dono, 13/09: *"tem chance de congelamento e empurra os
+   * que estão atacando um pouco para trás"*), e a segunda não cabia na primeira.
+   *
+   * ✅ Agora quem manda empurrar é `empurraTiles` na ficha, e a condição fica
+   * livre para ser outra.
+   *
+   * ⚠️ **Duas guardas, cada uma por um caminho que já existia:** `knockback` já
+   * empurra dentro de `aplicaCondicaoDaSkill` (empurraria duas vezes), e a magia
+   * de QUEDA empurra no primeiro impacto, lá no `empurraAoAcerto` — o Meteoro
+   * arremessa três tiles, e sem a guarda arremessaria seis.
+   *
+   * ⚠️ E vem DEPOIS da condição: empurrar não causa dano, então o congelamento
+   * recém-aplicado sobrevive ao empurrão.
+   */
+  if (def.empurraTiles !== undefined && !def.queda && def.applies?.id !== 'knockback') {
+    for (const c of targets) {
+      if (c.alive) empurra(player, c, skillEmpurrao(def, nivel));
+    }
+  }
 
   // Usar a habilidade treina a maestria de arma como um golpe normal
   // (uma vez só, mesmo quando o Bash acerta cinco monstros).

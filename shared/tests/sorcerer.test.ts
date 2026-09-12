@@ -34,6 +34,7 @@ import {
   skillManaCost,
   skillCastMs,
   castDexReduction,
+  skillMiraNoChao,
   DEX_CONJURACAO_INSTANTANEA,
   PISO_CONJURACAO_MS,
   skillModifiers,
@@ -527,6 +528,61 @@ test('Explosão Glacial é 360° ao redor de si — a resposta a quem colou', ()
   const g = SKILLS.glacial_burst;
   assert.equal(g.shape, 'area');
   assert.ok(g.range <= 2, 'curta: serve para descolar, não para farmar');
+
+  /*
+   * ❄️ **DEIXOU DE SER MIRADA** (13/09, ficha do dono): *"não consegue mais jogar
+   * ela em uma determinada área, ela vai ser uma magia mais defensiva contra
+   * inimigos que colaram no personagem"*.
+   *
+   * 🔴 O que este teste guarda é a CONSEQUÊNCIA de `emVolta`, não o campo: uma
+   * magia que estoura nos próprios pés não pode ser mirada no chão, senão o
+   * cliente pede um clique e o servidor aceita um centro que veio de fora.
+   */
+  assert.equal(g.emVolta, true);
+  assert.equal(skillMiraNoChao(g), false, 'em volta de si não se mira');
+});
+
+test('❄️ Explosão Glacial: defesa é reação — rápida, frequente e CARA', () => {
+  const g = SKILLS.glacial_burst;
+
+  /*
+   * 🔴 **As três metades da ficha do dono, e elas se seguram.** Rápida e
+   * frequente para servir de resposta; cara para não virar botão de pânico.
+   * Travar as RELAÇÕES (e não os números) é o que deixa o dono reequilibrar sem
+   * abrir o teste — e o que impede que uma das três se solte sozinha.
+   */
+  assert.ok(
+    skillCastMs(g, 10, 0, 0) < skillCastMs(g, 1, 0, 0),
+    'conjuração encurta com o nível',
+  );
+  assert.ok(skillCooldown(g, 10) < skillCooldown(g, 1), 'recarga encurta com o nível');
+  assert.ok(skillManaCost(g, 10) > skillManaCost(g, 1) * 1.5, 'o SP sobe junto');
+
+  /*
+   * ⚠️ **O freio é o SP por SEGUNDO**, e é ele que responde "por que isto não é
+   * abusivo": no nível máximo a magia sai a cada 2 s por 120 de mana, ou 60 SP/s.
+   * Se um dia a recarga cair sem o custo subir, este número afrouxa e o teste
+   * avisa.
+   */
+  const porSegundo = skillManaCost(g, 10) / (skillCooldown(g, 10) / 1000);
+  assert.ok(porSegundo >= 50, `SP por segundo é o freio da magia; achei ${porSegundo}`);
+
+  /*
+   * ❄️ **Congela, mas não prende para sempre.** `DD-SOR-012` existe para o gelo
+   * não ser controle garantido, e uma defesa que sai a cada 2 s é justamente
+   * onde isso escorregaria.
+   */
+  assert.equal(g.applies?.id, 'freeze');
+  assert.ok((g.applies?.chanceAtLv10 ?? 1) <= 0.5, 'metade dos cercadores, no máximo');
+  assert.ok((g.applies?.durationAtLv10 ?? 0) <= 3000, 'congelamento CURTO: dá o passo, não a luta');
+
+  /*
+   * 🌬️ **E empurra — sem `knockback`.** A magia só tem uma condição, e ela é o
+   * congelamento; quem manda empurrar é `empurraTiles`. Se alguém trocar a
+   * condição por `knockback` achando que é assim que se empurra, perde o gelo.
+   */
+  assert.equal(g.empurraTiles, 1);
+  assert.notEqual(g.applies?.id, 'knockback');
 });
 
 // ---------------------------------------------------------------------------
@@ -587,12 +643,23 @@ test('⚡ Esfera Elétrica: a ficha da Jupitel Thunder', () => {
    */
   assert.equal(skillCooldown(lb, 1), 2000);
   assert.equal(skillCooldown(lb, 10), 1200);
+  /*
+   * ✅ **A segunda exceção chegou, e o teste cobrou a conversa** (13/09). A
+   * Explosão Glacial passou a encurtar a recarga pelo mesmo motivo que a Esfera:
+   * é uma DEFESA, e defesa com recarga longa não é defesa — é sorte.
+   *
+   * ⚠️ **A régua geral continua valendo**: subir de nível deixa mais forte, não
+   * mais frequente. As duas exceções têm o mesmo argumento e o mesmo freio — a
+   * Esfera é limitada pelo GCD, a Glacial por 120 de SP no Lv.10. Uma terceira
+   * precisa trazer o seu, e vai ter de abrir este teste para isso.
+   */
   const comRecargaPorNivel = Object.values(SKILLS)
     .filter((d) => d.cooldownAtLv10 !== undefined)
-    .map((d) => d.id);
+    .map((d) => d.id)
+    .sort();
   assert.deepEqual(
-    comRecargaPorNivel, ['electric_sphere'],
-    `só a Esfera encurta a recarga com o nível; achei ${comRecargaPorNivel.join(', ')}`,
+    comRecargaPorNivel, ['electric_sphere', 'glacial_burst'],
+    `só estas duas encurtam a recarga com o nível; achei ${comRecargaPorNivel.join(', ')}`,
   );
 
   /*

@@ -3095,16 +3095,42 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * 72% da altura do quadro (medido: y=64..110 num quadro de 120). Ancorar na
    * base jogaria o anel 26 px acima do personagem.
    */
+  /**
+   * ❄️ **As folhas que NÃO são de buff**, com âncora, escala e tempo próprios.
+   *
+   * A tabela existe porque os seis efeitos originais são todos do mesmo pacote —
+   * mesmo tamanho, mesmo anel no chão, mesma duração — e a Explosão Glacial não
+   * é: ela é uma explosão radial de 192 px que tem de cobrir cinco tiles e
+   * estourar em 700 ms.
+   */
+  const FOLHA_FEITIO: Record<
+    string, { ancoraY: number; escala: number; dur: number }
+  > = {
+    /*
+     * ⚠️ **Âncora 0,5 na vertical, e não 0,72.** O cortador (`nova2fx`) centra
+     * cada quadro no NÚCLEO do estouro — o clarão —, então o ponto que tem de
+     * cair nos pés do mago é o meio do quadro. Os 0,72 dos buffs existem porque
+     * lá o anel fica a 72 % da altura; aqui isso jogaria o gelo para cima.
+     *
+     * ⚠️ **Escala 1,7: a área de dano tem 5×5 tiles (160 px)** e o quadro tem
+     * 192 — a 1,0 a arte ficaria MENOR que o golpe. A 1,7 são 326 px, um pouco
+     * mais que a área, que é a margem de drama que o resto do jogo usa.
+     */
+    glacial_burst: { ancoraY: 0.5, escala: 1.7, dur: 700 },
+  };
+
   function tocaEfeito(nome: string, wx: number, wy: number): void {
     const frames = folhasEfeito.get(nome);
     if (!frames) return;
+    const feitio = FOLHA_FEITIO[nome];
     const node = new AnimatedSprite(frames);
     node.loop = false;
-    node.anchor.set(0.5, 0.72);
+    node.anchor.set(0.5, feitio?.ancoraY ?? 0.72);
+    if (feitio) node.scale.set(feitio.escala);
     node.x = wx;
     node.y = wy;
     node.zIndex = 9997;
-    node.animationSpeed = frames.length / (DUR_EFEITO / (1000 / 60));
+    node.animationSpeed = frames.length / ((feitio?.dur ?? DUR_EFEITO) / (1000 / 60));
     fxLayer.addChild(node);
     /*
      * ⚠️ Entra na MESMA lista das quedas, com atraso zero. O laço de lá já
@@ -4477,6 +4503,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * cortadas e sem uso.
    */
   function folhaDoFx(kind: string): string | null {
+    // ❄️ A Explosão Glacial tem folha própria, com nome igual ao do `fx`.
+    if (kind === 'glacial_burst') return 'glacial_burst';
     if (kind === 'magic_protection') return 'immunity';
     if (kind === 'buff_amplify') return 'mana_recovery';
     if (FX_CURA.has(kind)) return 'life_recovery';
@@ -8349,8 +8377,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     circuloConj.visible = true;
   }
 
+  /*
+   * ❄️ **`emVolta` entra aqui junto com `self` e `party`**, e é o que faz a tecla
+   * DISPARAR em vez de armar: a Explosão Glacial estoura nos pés de quem lançou,
+   * então pedir um clique seria pedir que o jogador apontasse para si mesmo —
+   * com um monstro em cima, no segundo em que ele precisa da magia.
+   */
   const precisaMira = (def: SkillDef): boolean =>
-    def.shape !== 'self' && def.shape !== 'party';
+    def.shape !== 'self' && def.shape !== 'party' && !def.emVolta;
 
   /**
    * Teto da perseguição para conjurar.
@@ -8793,9 +8827,18 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const golpes = skillHits(def, n);
     if (golpes > 1) p.push(`${golpes} golpes`);
     if (def.shape !== 'self') {
-      p.push(skillMiraNoChao(def)
-        ? `raio ${skillRange(def, n)} · até ${skillCastRange(def, n)}`
-        : `alcance ${skillRange(def, n)}`);
+      /*
+       * ❄️ **A que estoura em volta mostra só o RAIO**, sem o "até": não há
+       * distância de mira para informar, e escrever "alcance 2" diria ao jogador
+       * que ele pode lançá-la a dois tiles de distância — que é o contrário do
+       * que ela faz.
+       */
+      if (def.emVolta) p.push(`raio ${skillRange(def, n)} · ao seu redor`);
+      else {
+        p.push(skillMiraNoChao(def)
+          ? `raio ${skillRange(def, n)} · até ${skillCastRange(def, n)}`
+          : `alcance ${skillRange(def, n)}`);
+      }
     }
     const dur = skillDuration(def, n);
     if (dur > 0) p.push(`${(dur / 1000).toFixed(1)}s`);

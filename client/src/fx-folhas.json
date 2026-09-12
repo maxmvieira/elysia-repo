@@ -4,5 +4,6 @@
   "immunity": 16,
   "life_recovery": 12,
   "mana_recovery": 12,
-  "strength_buff": 12
+  "strength_buff": 12,
+  "glacial_burst": 20
 }

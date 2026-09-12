@@ -9,6 +9,79 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-11 (fim do dia) — A Explosão Glacial vira defesa
+
+**Onde mora:** `emVolta` em `SkillDef` e `skillMiraNoChao` · `glacial_burst` em
+`shared/src/skills.ts` · `cx`/`cy` e o empurrão em `castSpell`, `server/src/index.ts` ·
+`precisaMira`, `folhaDoFx` e `FOLHA_FEITIO` em `client/src/main.ts` · `tools/nova2fx.mjs`
+
+Ficha do dono: *"não consegue mais jogar ela em uma determinada área, ela vai ser uma magia
+mais defensiva contra inimigos que colaram no personagem, tem chance de congelamento e
+empurra os que estão atacando um pouco para trás"*.
+
+### 🧭 `emVolta`: um campo que mexe em três lugares
+
+A magia continua `shape: 'area'`, mas com **`emVolta: true`** ela deixa de ser mirada. Um
+campo, três consequências, e é de propósito que seja um só:
+
+| | |
+|---|---|
+| `skillMiraNoChao` | diz **não** → o cliente não entra em modo de mira e a tecla dispara direto |
+| servidor | `cx`/`cy` passam a ser o tile do jogador, ignorando a mira que chegou |
+| dica da skill | mostra *"raio 2 · ao seu redor"* em vez de um alcance que não existe |
+
+🔴 **O servidor ignora a mira em vez de confiar nela.** Um cliente adulterado poderia mandar
+um centro qualquer, e a magia que existe para descolar viraria uma área à distância com o
+dobro do alcance útil.
+
+### 🌬️ Empurrar deixou de depender de `knockback`
+
+Até aqui, empurrar era efeito colateral da condição `knockback` — quem empurrava **não podia
+congelar**, porque uma magia só tem uma `applies`. A ficha pede as duas coisas juntas.
+
+✅ Agora quem manda empurrar é `empurraTiles`, e a condição fica livre. Duas guardas, cada
+uma por um caminho que já existia: `knockback` continua empurrando dentro de
+`aplicaCondicaoDaSkill` (empurraria duas vezes) e a magia de QUEDA empurra no primeiro
+impacto (o Meteoro arremessaria seis tiles em vez de três).
+
+⚠️ E o empurrão vem **depois** da condição: empurrar não causa dano, então o congelamento
+recém-aplicado sobrevive. Se viesse antes, a ordem não importaria — mas o dano vem antes dos
+dois, e é por isso que o gelo do próprio golpe não se quebra sozinho.
+
+### ⚖️ Os números, e o que segura cada um
+
+| | Lv.1 | Lv.10 |
+|---|---|---|
+| conjuração | 1,2 s | 0,7 s |
+| recarga | 4 s | 2 s |
+| SP | 60 | **120** |
+| congelar | 25 % por 1,2 s | 50 % por 2,5 s |
+
+🔴 **O SP é o único freio que sobrou**, e é isso que o dono pediu: *"consumo alto para o mago
+ter que fazer uma boa gestão de mana"*. No Lv.10 são 60 SP por segundo se alguém insistir —
+um mago de 600 SP mantém isso por dez segundos.
+
+⚠️ **O congelamento é curto de propósito.** Ele bloqueia mover, atacar e conjurar; 50 % por
+2,5 s a cada 2 s já é quase prisão, e foi por isso que a duração não acompanhou a chance.
+
+🧪 **O teste da Esfera cobrou a conversa.** Ele travava *"só a Esfera encurta a recarga com o
+nível"* justamente para obrigar a segunda exceção a se defender. A defesa: os dois casos têm
+o mesmo argumento (frequência é a razão de ser da habilidade) e freios diferentes — a Esfera
+pelo GCD, a Glacial pelo SP.
+
+### ❄️ E um cortador novo, `nova2fx`
+
+A folha é 5×4 sobre preto CHAPADO (mediana 0), o caso fácil. O que muda é a **âncora**: no
+Meteoro o que cai no tile é o rodapé do desenho; aqui é o **núcleo** do estouro, e ele não
+está no rodapé nem no meio do quadro — nas primeiras fileiras a arte põe o anel a uns 60 %
+da altura, nas últimas a estrela é centrada. A âncora sai do centro de massa dos pixels mais
+quentes, que numa explosão é o clarão.
+
+✅ **E ele CONFERE a grade em vez de supor**, avisando quando um vale entre células não está
+vazio. É a lição das três folhas do Meteoro, onde supus grade duas vezes e errei as duas.
+
+---
+
 ## 2026-09-11 (fim do dia) — O Meteoro volta a ser vertical, e as oito folhas saem
 
 **Onde mora:** `tools/meteoro-grade2fx.mjs` · `meteor_solo` e `trajetoria` em

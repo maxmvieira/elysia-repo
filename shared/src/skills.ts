@@ -335,6 +335,20 @@ export interface SkillDef {
   power: number;
   powerPerLevel: number;
   shape: SkillShape;
+  /**
+   * ❄️ **A área nasce NO CONJURADOR, e não num ponto mirado.**
+   *
+   * 🔴 É o que separa uma magia de área OFENSIVA (o jogador escolhe onde cai) de
+   * uma DEFENSIVA (ela estoura em volta de quem lançou). Sem este campo as duas
+   * usavam a mesma forma `area`, e a defensiva herdava a mira — que não faz
+   * sentido: ninguém mira o próprio chão.
+   *
+   * ⚠️ **Mexe em três lugares de uma vez**, e é de propósito que seja um campo e
+   * não três: `skillMiraNoChao` passa a dizer NÃO (o cliente não entra em modo de
+   * mira e a tecla dispara direto), o servidor centra o efeito no tile do
+   * jogador, e o alcance de mira deixa de ser consultado.
+   */
+  emVolta?: boolean;
   /** Alcance (alvo único) ou raio (área) em tiles, no Lv.1. */
   range: number;
   /** A cada quantos níveis o raio cresce em 1 tile (só área). 0 = nunca. */
@@ -2136,26 +2150,84 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     classes: ['sorcerer'],
     reqLevel: 22,
     requires: [{ skill: 'cold_bolt', level: 5 }],
-    manaCost: 40,
-    manaPerLevel: 5,
-    cooldownMs: 12000,
+    /**
+     * ❄️ **SP ALTO, e é ele que equilibra a magia** — dono, 13/09: *"consumo de
+     * SP será alto para o mago ter que fazer uma boa gestão de mana para não
+     * gastar tudo de uma vez"*.
+     *
+     * 🔴 **É o único freio que sobrou.** No Lv.10 a recarga cai para 2 s e a
+     * conjuração para 0,7 — quase nada impede o jogador de apertar de novo. Se o
+     * custo fosse baixo, a magia viraria um botão de pânico permanente e o
+     * Feiticeiro deixaria de ter o problema que a define: ficar sem mana.
+     *
+     * 60 no Lv.1 e **120 no Lv.10**, contra 40+5 de antes. Com a recarga de 2 s,
+     * são 60 SP por segundo se alguém insistir — um mago de 600 SP mantém isso
+     * por dez segundos, e é essa a conta que ele tem de fazer.
+     */
+    manaCost: 60,
+    manaPerLevel: 6.67,
+    /**
+     * ⚠️ **4 s no Lv.1 e 2 s no Lv.10, e eram 12 s fixos.** A ficha do dono
+     * (13/09) transformou a magia: de um estouro caro e raro para a **resposta
+     * imediata a quem colou**. Uma defesa com recarga de doze segundos não é
+     * defesa — é sorte.
+     */
+    cooldownMs: 4000,
+    cooldownAtLv10: 2000,
+    /**
+     * ⚠️ **Conjuração de 1,2 s caindo para 0,7** — *"quase que instantânea"*. É o
+     * que a torna utilizável com o monstro em cima: 3 s de conjuração morreriam
+     * antes de sair, porque quem está colado interrompe.
+     */
+    castMs: 1200,
+    castMsAtLv10: 700,
     power: 1.0,
     powerPerLevel: 0.12,
+    /**
+     * ❄️ **Área DEFENSIVA: nasce nos pés de quem lançou.** Ver `emVolta`. O raio
+     * de 2 é o *"colados ou no máximo 2 células"* da ficha do dono — perto o
+     * bastante para ser resposta a cerco, curto o bastante para não virar farm.
+     */
     shape: 'area',
+    emVolta: true,
     range: 2,
     rangeEvery: 0,
+    /**
+     * 🌬️ **EMPURRA UM TILE**, e o empurrão é metade do ponto da magia: ela existe
+     * para DESCOLAR. Sem isso, congelar 30 % dos cercadores ainda deixa o resto
+     * em cima do mago no quadro seguinte.
+     *
+     * ⚠️ Um tile, e não três como a Esfera: empurrar demais tiraria os monstros
+     * da própria área de dano dela, e o jogador perderia o alvo em vez de ganhar
+     * espaço.
+     */
+    empurraTiles: 1,
     durationMs: 0,
     magic: true,
     damageType: 'ice',
+    /**
+     * ❄️ **CONGELA, e não mais `slow`** — *"tem chance de congelamento"*.
+     *
+     * 🔴 **A chance é modesta e a duração é CURTA de propósito.** Congelamento
+     * bloqueia tudo (mover, atacar, conjurar) e a magia pode sair a cada 2 s no
+     * Lv.10: 60 % por dois segundos, repetido, é prisão permanente. 25 % → 50 %
+     * com 1,2 s → 2,5 s dá ao mago o passo que ele precisa para sair, sem
+     * transformar a defesa em controle total.
+     *
+     * ⚠️ **E o próprio dano NÃO quebra este congelamento**, porque a condição é
+     * aplicada DEPOIS do golpe — ver a nota em `castSpell`. O que quebra é o
+     * golpe SEGUINTE, de quem quer que seja, e isso é a tensão que o
+     * `DD-SOR-012` quer preservar.
+     */
     applies: {
-      id: 'slow',
-      chanceAtLv1: 0.45,
-      chanceAtLv10: 0.90,
-      durationAtLv1: 3000,
-      durationAtLv10: 6000,
+      id: 'freeze',
+      chanceAtLv1: 0.25,
+      chanceAtLv10: 0.50,
+      durationAtLv1: 1200,
+      durationAtLv10: 2500,
     },
     fx: 'glacial_burst',
-    desc: 'Estoura gelo em 360°. A resposta a quem colou em você.',
+    desc: 'Estoura gelo em 360° ao seu redor: empurra, congela e abre espaço.',
   },
   /**
    * 🔴 A suprema de gelo. "Tempestade persistente, múltiplos ciclos", e o
@@ -4088,6 +4160,8 @@ export function skillCastRange(def: SkillDef, nivel: number): number {
 
 /** A magia é MIRADA num ponto (área/chão) em vez de num alvo? */
 export function skillMiraNoChao(def: SkillDef): boolean {
+  // ❄️ A que estoura em volta de quem lançou não se mira. Ver `emVolta`.
+  if (def.emVolta) return false;
   return def.shape === 'area' || def.shape === 'ground';
 }
 
