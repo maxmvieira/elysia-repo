@@ -6,6 +6,15 @@
     <title>Elysia Online</title>
     <style>
       :root {
+        /*
+         * 🖱️ O ponteiro do jogo, em UM lugar. Ver a nota longa em `body`.
+         *
+         * ⚠️ **Existe como variável porque `cursor: default` aparece oito vezes**
+         * — botão desabilitado, slot vazio, canto do equipamento. Com o ponteiro
+         * trocado, cada um desses voltava para a SETA DO SISTEMA, e o cursor
+         * piscava entre dois desenhos ao passar por eles.
+         */
+        --cursor-jogo: url("/assets/hud/cursor.png") 0 0, default;
         color-scheme: dark;
         --panel: #1c1a17;
         --border: #3a352d;
@@ -54,6 +63,23 @@
         color: var(--text);
         font-family: "Segoe UI", system-ui, sans-serif;
         overflow: hidden;
+        /*
+         * 🖱️ **O PONTEIRO DO JOGO** (dono, 12/09: *"este aqui será o mouse padrão
+         * do jogo agora em diante"*). Recortado por `tools/cursor2hud.mjs`.
+         *
+         * 🔴 **`0 0` é o PONTO QUENTE, e ele é medido, não escolhido**: é a ponta
+         * da seta, que na arte cai exatamente na quina superior esquerda da
+         * caixa do desenho. Um ponto quente errado não deixa o cursor feio —
+         * deixa o jogo impreciso, com o jogador clicando no tile ao lado.
+         *
+         * ⚠️ **`default` no fim é obrigatório.** Se o PNG não carregar, sem o
+         * fallback o navegador fica SEM cursor nenhum: o jogador perde o mouse
+         * dentro do jogo e não tem como sair.
+         *
+         * ⚠️ 35×48, contra os 32 do padrão do Windows. A arte é ornamentada e a
+         * 32 vira borrão; trocar de tamanho é mexer aqui **e** no cortador.
+         */
+        cursor: var(--cursor-jogo);
       }
       #app {
         display: flex;
@@ -646,7 +672,7 @@
        */
       .btnico:disabled {
         background-image: var(--ico-off);
-        cursor: default;
+        cursor: var(--cursor-jogo);
       }
       .btnico:disabled::after { opacity: 0; }
 
@@ -1824,7 +1850,7 @@
       }
       .ccrow button:disabled {
         opacity: 0.35;
-        cursor: default;
+        cursor: var(--cursor-jogo);
       }
       /* O efeito de cada atributo, em cinza: ninguém decide build no escuro. */
       .ccrow .ae {
@@ -1904,7 +1930,7 @@
       }
       #playbtn:disabled {
         opacity: 0.4;
-        cursor: default;
+        cursor: var(--cursor-jogo);
       }
       /* Painel de personagem (tecla C) */
       /* ---- Construtor de mapas (tecla E) -------------------------------
@@ -2088,7 +2114,7 @@
       }
       .attrrow button:disabled {
         opacity: 0.25;
-        cursor: default;
+        cursor: var(--cursor-jogo);
       }
       .attrrow small {
         color: #7f7768;
@@ -2176,7 +2202,7 @@
       }
       .arow button:disabled {
         opacity: 0.22;
-        cursor: default;
+        cursor: var(--cursor-jogo);
       }
       #attrderived {
         margin-top: 6px;
@@ -2318,7 +2344,7 @@
          perderia a memória muscular da posição de cada opção. */
       #ctxmenu button:disabled {
         color: #6d675b;
-        cursor: default;
+        cursor: var(--cursor-jogo);
       }
       #ctxmenu button:disabled:hover {
         background: none;
@@ -2529,7 +2555,7 @@
         border: none;
         background: transparent;
         box-shadow: none;
-        cursor: default;
+        cursor: var(--cursor-jogo);
       }
       #bpgrid,
       #qvgrid,
@@ -2567,7 +2593,7 @@
       }
       .islot.empty,
       .islot.empty:hover {
-        cursor: default;
+        cursor: var(--cursor-jogo);
         box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.85), inset 0 0 0 1px #211d17;
       }
       /* Animação de clique: a célula "afunda". */
@@ -2958,7 +2984,7 @@
       }
       .skrow button:disabled {
         opacity: 0.25;
-        cursor: default;
+        cursor: var(--cursor-jogo);
       }
       .skrow .dsc {
         color: #a89f8f;
@@ -3036,7 +3062,7 @@
       }
       .skuse button:disabled {
         opacity: 0.35;
-        cursor: default;
+        cursor: var(--cursor-jogo);
       }
       .skuse b {
         min-width: 14px;
@@ -3081,7 +3107,7 @@
       }
       #sp-reset:disabled {
         opacity: 0.35;
-        cursor: default;
+        cursor: var(--cursor-jogo);
       }
       /* Barra de magias flutuante (estilo Ragnarok): F1, F2, … */
       #spellbar {
@@ -3216,7 +3242,7 @@
         transition: transform 0.07s ease;
       }
       .sslot.free {
-        cursor: default;
+        cursor: var(--cursor-jogo);
       }
       .sslot:not(.free):hover {
         background-image: url('/assets/hud/icones/slot_ativo.png');
@@ -3426,7 +3452,7 @@
       }
       .shoprow button:disabled {
         opacity: 0.4;
-        cursor: default;
+        cursor: var(--cursor-jogo);
       }
       /* Botão de VENDER: vermelho-ouro, para não ser confundido com Comprar. */
       .shoprow button.sell {
