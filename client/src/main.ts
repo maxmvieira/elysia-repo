@@ -2184,6 +2184,74 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   });
   viewportEl.appendChild(app.canvas);
 
+  /*
+   * 🔬 **JANELA DE DEPURAÇÃO — só em `dev`.**
+   *
+   * 🔴 **Existe porque quase todo o trabalho deste projeto é VFX julgado em
+   * tela, e até 12/09 a única ferramenta era o dono olhar e descrever.** Isso
+   * funciona para *"está muito grande"* e não funciona para *"o estouro cresce
+   * cedo demais"* — coisa de 40 ms que ninguém vê a olho nu. Com o `app` na mão
+   * dá para EXTRAIR quadro a quadro e olhar devagar.
+   *
+   * ⚠️ **`import.meta.env.DEV` some no build**, então isto não vai para o
+   * cliente publicado — o Vite elimina o bloco inteiro. Não é uma porta aberta
+   * em produção, e não pode virar uma: nada aqui deve ser lido pelo jogo.
+   */
+  if (import.meta.env.DEV) {
+    (window as unknown as { elysia: unknown }).elysia = {
+      app,
+      /**
+       * O contêiner do mundo — serve para converter ponto de tela em ponto de
+       * mundo.
+       *
+       * ⚠️ **Acessador, e não valor.** `objects` nasce depois deste bloco; lido
+       * agora seria `undefined` congelado. Lido na hora do uso, é o de verdade.
+       */
+      get mundo() { return objects; },
+      /**
+       * Toca o efeito de QUEDA de uma magia num ponto do mundo, sem servidor,
+       * sem SP e sem recarga.
+       *
+       * ⚠️ **É o efeito, e não a magia**: não há dano, não há alvo, e o servidor
+       * não fica sabendo. Serve para olhar a animação quantas vezes for preciso
+       * — que é o gargalo real de ajustar VFX, porque a conjuração de verdade
+       * tem 0,8 s de cast e segundos de recarga entre uma olhada e a seguinte.
+       */
+      efeito(
+        magia: string, wx: number, wy: number,
+        opts: { raioDano?: number; bolts?: number; quedaMs?: number } = {},
+      ): void {
+        spawnQuedaDaConjuracao(
+          magia, wx, wy, opts.bolts ?? 1, undefined, opts.quedaMs ?? 520, opts.raioDano ?? 2,
+        );
+      },
+      /**
+       * Toca um efeito de FOLHA (buff, cura, Explosão Glacial) num tile.
+       *
+       * ⚠️ **Recebe TILE, e não pixel, porque é assim que o servidor manda.** O
+       * `fx` traz `x`/`y` em tiles e o cliente converte com `+TS/2` no eixo X e
+       * `+TS` no Y — o rodapé do tile. Reproduzir a conversão aqui é o que faz o
+       * ensaio cair no mesmo lugar que a magia de verdade; receber pixel
+       * convidaria a errar meio tile e a "consertar" a âncora por causa disso.
+       */
+      feitio(nome: string, tileX: number, tileY: number): void {
+        tocaEfeito(nome, tileX * TS + TS / 2, tileY * TS + TS);
+      },
+      /**
+       * O tile do herói local, para o ensaio cair EM CIMA dele.
+       *
+       * ⚠️ **Medir centragem exige o tile exato, não o centro da tela.** A câmera
+       * segue o herói com folga, então usar o meio da tela como se fosse ele
+       * introduz justamente o erro de meio tile que se está tentando medir.
+       */
+      get heroi() {
+        const v = myId ? sprites.get(myId) : undefined;
+        if (!v) return undefined;
+        return { tileX: Math.round(v.container.x / TS), tileY: Math.round(v.container.y / TS) };
+      },
+    };
+  }
+
   // ---- Identidade no HUD: nome e classe -----------------------------------
   //
   // ⚠️ **Não há mais retrato.** O medalhão é só o anel, com o miolo vazio — foi
@@ -3174,26 +3242,33 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * entre o desenho do personagem e o tile — a mesma família de `ESCALA_IMPACTO`,
      * que já perseguiu cinco folhas do Meteoro. Se o herói crescer, isto cresce.
      *
-     * 🔴 **E `sobeY` VOLTOU A ZERO poucos minutos depois, com a arte nova.**
+     * 🔴 **FOI A ZERO E VOLTOU, e o caminho vale mais que o número.**
      *
-     * Chegaram os cristais que o dono anunciou (*"esfinges que saem do chão"*),
-     * e com eles a regra: *"elas têm que sair diretamente do chão para parecer
-     * que são forjadas na magia"*. Isso decide a âncora contra o pedido
-     * anterior, e não é contradição — **eram artes diferentes**. O anel velho era
-     * um estouro FLUTUANDO em volta do mago, e um estouro se centra no corpo. Um
-     * círculo de cristais é CHÃO: a base deles tem de encostar onde o mago pisa,
-     * senão o gelo nasce no ar.
+     * Com os cristais novos (*"esfinges que saem do chão"*, *"têm que sair
+     * diretamente do chão para parecer que são forjadas na magia"*) eu zerei
+     * isto: um círculo de cristais é CHÃO, e a base deles tem de encostar onde o
+     * mago pisa. O raciocínio estava certo e a conclusão, errada — porque eu
+     * tinha respondido a pergunta errada.
      *
-     * ✅ **E o mago continua visível, medido:** o buraco da roda tem raio de 41 a
-     * 55 px e o herói tem 38 px desenhados, dos quais 35 acima dos pés. Centrada
-     * nos pés, a roda o engole inteiro sem tocá-lo — que era a exigência
-     * original (*"não pode sobrepor o personagem no centro"*). Foi a folha que
-     * resolveu o conflito entre os dois pedidos, não um meio-termo.
+     * ✅ **MEDIDO em 12/09, capturando o jogo quadro a quadro:** a roda sai
+     * centrada nos pés com erro de **1 px** (caixa do gelo 62–239 × 77–255, centro
+     * 150,5/166,0 contra 150/166 dos pés). Ou seja: a magia SEMPRE esteve
+     * centrada onde o dono pisa. O que não está centrado é o HERÓI — ele é
+     * desenhado para cima a partir dos pés, ocupa de −35 a +3 px, e o meio do
+     * corpo dele fica 16 px acima do meio da roda. *"Centralizada no personagem"*
+     * e *"centrada no tile"* são dois lugares diferentes, e o dono pede o
+     * primeiro.
      *
-     * ⚠️ `sobeY` fica no código porque a próxima arte pode voltar a flutuar. O
-     * número medido para "meio do corpo" é `TS / 2` — ver a dedução acima.
+     * ⚠️ **E os 16 px nunca tinham chegado à tela.** Eu os pus, a arte mudou
+     * minutos depois, e eu os tirei antes que ele visse — então a queixa que veio
+     * a seguir era sobre o mesmo defeito de antes, não sobre o conserto.
+     *
+     * ⚠️ **O preço é meio tile, e é invisível:** a roda tem 2,75 tiles de raio, e
+     * subir 16 px desloca o círculo de chão meio tile ao norte. Num jogo visto de
+     * cima, sem perspectiva, isso não lê como "o gelo nasceu no ar" — lê como o
+     * mago no meio da roda, que é o pedido.
      */
-    glacial_burst: { ancoraY: 0.5, escala: 0.95, dur: 800, sobeY: 0 },
+    glacial_burst: { ancoraY: 0.5, escala: 0.95, dur: 800, sobeY: TS / 2 },
   };
 
   function tocaEfeito(nome: string, wx: number, wy: number): void {
