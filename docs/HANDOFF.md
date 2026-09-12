@@ -2,7 +2,7 @@
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
-> Último commit: `0f6e54d`. Árvore limpa, tudo empurrado.
+> Último commit: `098669d`. Árvore limpa, tudo empurrado.
 >
 > O dia foi **inteiro de apresentação**: VFX das magias de manhã, e da tarde em
 > diante a CAMADA DE INTERAÇÃO — ponteiro do jogo, marcador de destino, o que
@@ -17,22 +17,40 @@ cedo, e o dono **não detalhou o que está errado** — pergunte ou peça para v
 tela, não invente a lista. O fogo já levou uma rodada de conserto (*"não parece
 vivo no chão"*); o gelo nunca foi ajustado em tela, só implementado.
 
-✅ **A Explosão Glacial fechou, e vale saber COMO.** Eu entreguei a arte nova
-avisando que ela é DIRECIONAL — os espinhos saem para um lado só, contra os 360°
-da ficha. O dono não trocou a arte: trocou a MAGIA. Agora é **um estouro por
-inimigo, virado para ele**; cercado, eles fecham a roda sozinhos, e sem ninguém
-por perto saem seis em volta. A limitação da arte virou a regra da habilidade.
+🔴 **O EQUILÍBRIO DO CONGELAMENTO PRECISA DE OLHO, e a conta está no teste.**
+O dono mandou o gelo durar 3 s → 5 s (era 1,2 → 2,5), por um motivo legítimo e de
+LEITURA: a 1,2 s o bloco mal terminava de crescer e já derretia. Só que no Lv.10
+a magia tem 50 % de chance, 5 s de gelo e **2 s de recarga** — em média cada
+conjuração prende um alvo por 2,5 s e ela sai a cada 2 s, ou seja, **contra um
+monstro sozinho o gelo tende a ser permanente**. O que resta de freio é o SP alto
+e a chance ser sorteada POR ALVO.
 
-⚠️ **E a lista de alvos vem do SERVIDOR** (campo `alvos` no `S2C_Effect`). Quem
-decide o dano decide para onde os espinhos apontam; se o cliente escolhesse, o
-desenho mostraria um conjunto de alvos e o dano cobraria outro.
+✅ **Se virar controle demais em teste, o número a mexer é a CHANCE** — a duração
+agora tem razão visual, a chance não tem nenhuma. E há uma guarda nova em
+`shared/tests/sorcerer.test.ts`: o gelo não pode passar de 2,5× a recarga. Hoje
+bate EXATAMENTE no teto, então qualquer aumento de duração — ou queda de recarga —
+derruba o teste de propósito, para alguém parar e decidir de novo.
+
+✅ **A Explosão Glacial fechou, e o caminho vale mais que o resultado.** A arte
+nova é DIRECIONAL — os espinhos saem para um lado só, contra os 360° da ficha. O
+dono não trocou a arte: trocou a MAGIA, primeiro para um leque POR inimigo e
+depois, vendo em tela, para uma **roda fixa de seis**, sempre igual. O motivo da
+segunda troca é bom de guardar: com monstros do mesmo lado os leques se
+empilhavam e a magia parecia mais FRACA do que com um só.
+
+⚠️ **E o campo `alvos` do `S2C_Effect` nasceu e morreu no mesmo dia** por causa
+disso. Se alguém precisar de mira por alvo outra vez, o histórico tem o desenho
+inteiro — e a regra dele: quem decide o dano decide para onde o efeito aponta.
 
 ⚠️ **Uma decisão ainda com o dono:** a ficha nova da Glacial pede `castTime: 0`,
 contra os 1,2 s → 0,7 s que ele mesmo especificou quando redesenhou a skill.
 Ficaram os dele.
 
-⚠️ **O que ainda não foi visto em jogo:** um leque por inimigo com dois ou três
-monstros ESPALHADOS (não em volta). Em volta já foi conferido.
+⚠️ **O que ainda não foi visto em jogo:** um congelamento de VERDADE em combate.
+O bloco de gelo foi conferido por medida (nó criado, 8 quadros, âncora e escala
+proporcionais ao corpo do bicho), mas o `setFrozen` manual é sobrescrito pelo
+snapshot em ~66 ms — o servidor sendo autoritativo, correto, e justamente por
+isso impossível de encenar sem briga real.
 
 ## ⏸️ O QUE ENTROU EM 12/09
 
@@ -44,7 +62,8 @@ monstros ESPALHADOS (não em volta). Em volta já foi conferido.
 | 🖱️ **Ponteiro do jogo** | cursor próprio, mais a variante VERMELHA sobre monstro |
 | 🎯 **Marcador de destino** | o quadrado verde virou animação de 12 quadros que congela no último |
 | 🏷️ **Nome sob o mouse** | monstro, bolsa, corpo, nó e NPC deixam de anunciar o nome; só o jogador mantém |
-| 🩸 **Vida após o dano** | barra e contorno vermelho no alvo, e vida SÓ depois de dano confirmado |
+| 🩸 **Vida após o dano** | vida só depois de dano confirmado — e aí visível PARA SEMPRE, até o bicho morrer |
+| 🧊 **Bloco de gelo** | o congelamento virou animação de 8 quadros, proporcional ao corpo do monstro |
 | ⚔️ **Área de clique** | de um tile fixo para a SILHUETA do desenho |
 | 🔬 **Sala de revisão** | capturar o jogo quadro a quadro para julgar VFX devagar |
 
