@@ -5353,8 +5353,28 @@ function tickGroundAreas(now: number): void {
          * ficha ela devolve sempre `true`, e a área volta a ser a de antes.
          */
         if (!podeContato(a, c.id, now)) continue;
+        /*
+         * 🔥 **O PONTO DO CONTATO é onde ele TOCOU, e não onde ele parou.**
+         * Guardado antes do empurrão: o estouro de brasa tem de sair na muralha,
+         * que é o que o jogador está olhando, e não dois tiles atrás — onde o
+         * monstro só aparece depois.
+         */
+        const tocouX = c.tileX;
+        const tocouY = c.tileY;
         golpeDeArea(dono, a, c, now);
         marcaContato(a, c.id, now);
+        /*
+         * 💥 **E o contato AVISA o cliente** — dono, 13/09: *"os monstros
+         * precisam ter impacto ao tocarem nela"*. Sem isto, o único sinal era o
+         * número de dano: o monstro era arremessado dois tiles em silêncio, e em
+         * tela parecia que ele tinha escorregado.
+         *
+         * ⚠️ Só quando há contato de verdade. Mandar por tique encheria a rede de
+         * pacotes enquanto um chefe imune ao empurrão estivesse em pé no fogo.
+         */
+        broadcastFloor(a.floor, {
+          t: 'fx', kind: 'fire_wall_hit', x: tocouX, y: tocouY, floor: a.floor,
+        });
         /*
          * 🌬️ **E o empurrão vem DEPOIS do dano, com o alvo ainda vivo.**
          * Arremessar um cadáver não tem efeito nenhum no jogo, mas move a

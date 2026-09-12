@@ -1757,10 +1757,15 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     powerPerLevel: 0,
     shape: 'ground',
     /**
-     * ⚠️ **`range` aqui é o meio-comprimento da LINHA**: 1 dá as três células da
-     * ficha. Não confundir com a distância de lançamento, que é `castRange`.
+     * ⚠️ **`range` aqui é o meio-comprimento da LINHA**: 2 dá as CINCO células
+     * que o dono pediu depois de ver as três em tela. Não confundir com a
+     * distância de lançamento, que é `castRange`.
+     *
+     * 🔴 E ele muda o ALCANCE REAL da magia, não a aparência: cinco células de
+     * parede barram um corredor inteiro, onde três deixavam passar pelas
+     * beiradas. É a diferença entre atrapalhar e bloquear.
      */
-    range: 1,
+    range: 2,
     rangeEvery: 0,
     castRange: 9,
     castRangeEvery: 0,

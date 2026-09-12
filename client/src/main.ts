@@ -3648,6 +3648,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * cristal é a mesma; o que muda a leitura é o tom.
      */
     meteor_solo: { cristais: 28, espalha: 80, cor: 0xffb066 },
+    /*
+     * 🔥 **O contato com a Muralha, e ele é o MENOR da tabela.** Oito num raio de
+     * meio tile: o contato acontece toda vez que um bicho encosta, e um bando
+     * inteiro batendo na parede com vinte estilhaços cada viraria uma cortina de
+     * brasa em cima da muralha que o jogador está tentando ler.
+     */
+    fire_wall_hit: { cristais: 8, espalha: 16, cor: 0xffb066 },
   };
 
   /**
@@ -4521,6 +4528,48 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     node.y = tileY * TS + TS / 2;
     node.zIndex = 9998;
 
+    /*
+     * 💥 **O CONTATO COM A MURALHA DE FOGO** — dono, 13/09: *"os monstros
+     * precisam ter impacto ao tocarem nela"*.
+     *
+     * 🔴 O empurrão de dois tiles já existia e era INVISÍVEL: o monstro aparecia
+     * mais atrás no quadro seguinte, sem nada dizendo por quê. O que faltava era
+     * o instante — o clarão de onde ele bateu.
+     *
+     * ⚠️ **Nasce e some em 260 ms**, mais curto que qualquer outro efeito do
+     * arquivo. Um contato acontece toda vez que um bicho encosta, e num bando
+     * inteiro batendo na parede um efeito longo viraria um borrão aceso
+     * cobrindo a muralha que o jogador quer ver.
+     */
+    if (kind === 'fire_wall_hit') {
+      const g = new Graphics();
+      g.blendMode = 'add';
+      node.addChild(g);
+      // 🔥 Estilhaços de brasa, com a mesma tabela dos outros impactos.
+      cospeEstilhacos('fire_wall_hit', node.x, node.y);
+      const nasceu = performance.now();
+      const DUR = 260;
+      const passo = (): void => {
+        const r = (performance.now() - nasceu) / DUR;
+        if (r >= 1) { node.destroy({ children: true }); app.ticker.remove(passo); return; }
+        g.clear();
+        /*
+         * ⚠️ **Abre depressa e apaga devagar**, como as rachaduras do meteoro: é
+         * o perfil que lê como BATIDA. Linear nos dois lados lê como pulsar.
+         */
+        const abre = Math.min(1, r / 0.25);
+        const vive = 1 - Math.max(0, (r - 0.25) / 0.75) ** 1.4;
+        // Anel achatado: o chão é visto de viés, e um círculo redondo lê de pé.
+        g.ellipse(0, 0, TS * (0.35 + abre * 0.7), TS * (0.16 + abre * 0.32))
+          .stroke({ width: 3, color: 0xffb347, alpha: vive * 0.85 });
+        g.ellipse(0, 0, TS * 0.3 * abre, TS * 0.14 * abre)
+          .fill({ color: 0xffe9b0, alpha: vive * 0.5 });
+      };
+      app.ticker.add(passo);
+      fxLayer.addChild(node);
+      return;
+    }
+
     if (kind === 'bash') {
       // Anel de corte + lâminas girando para fora, cobrindo o raio real da magia.
       const R = (radius + 0.5) * TS;
@@ -4778,45 +4827,83 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * desenho não denuncia. Esticar na horizontal engorda as línguas de fogo e
      * denuncia na hora.
      */
-    const ESTICA_ALTURA = 3;
-    const ALARGA = 1.3;
     const deitada = raioX > raioY;
+    const comprimento = (deitada ? raioX : raioY) * 2 + 1;
     /*
-     * ⚠️ **A altura sai da largura BASE, não da alargada.** Multiplicar os dois
-     * fatores compunha: 1,3 × 3 dava 3,9 vezes de altura, ou 9,4 tiles de chama —
-     * uma torre. O 3× que o dono pediu é sobre o tamanho que ele viu em tela.
+     * ⚠️ **Cada cópia cobre TRÊS células, e não a muralha inteira.** A arte é uma
+     * parede de três chamas; esticá-la por cinco engorda cada língua de fogo em
+     * 67 % e ela deixa de parecer chama. Com o comprimento virando cinco (dono,
+     * 13/09), a linha passou a ser coberta por DUAS cópias de 2,5 células — que
+     * é quase o tamanho para o qual a arte foi desenhada.
      */
-    const base = deitada ? (raioX * 2 + 1) * TS : TS * 1.6;
-    const largura = base * ALARGA;
-    const altura = (base / 160) * 128 * ESTICA_ALTURA;
-    let fase = 0;
+    const porCopia = deitada ? Math.min(3, comprimento) : 1.6;
+    const copias = deitada ? Math.ceil(comprimento / 3) : comprimento;
+    /*
+     * 🔴 **A ALTURA é fixa em tiles, e não derivada da largura.** Ela era
+     * proporcional, e com a muralha passando de três para cinco células as chamas
+     * teriam crescido 67 % junto — o dono já tinha aprovado a altura, e ela não
+     * pode mudar porque o comprimento mudou.
+     *
+     * ⚠️ 7,2 tiles é o 3× que ele pediu sobre o tamanho que viu em tela.
+     */
+    const ALTURA_TILES = 7.2;
+    const largura = porCopia * TS * 1.3;
+    const altura = ALTURA_TILES * TS;
+
+    /*
+     * 🔥 **A BRASA NO CHÃO, e é ela que prende a muralha ao solo.**
+     *
+     * Dono, 13/09: *"elas não parecem estar fixas no chão, e sim flutuando"*. A
+     * causa não é a âncora — as chamas já nasciam na linha do tile. É que **fogo
+     * de verdade ilumina o chão em volta**, e sem esse halo o desenho não tem
+     * nada que o ligue ao piso: ele lê como um adesivo alto pairando sobre a
+     * grama.
+     *
+     * ✅ Duas elipses por célula, achatadas (o chão é visto de viés): uma escura
+     * de chamuscado por baixo e uma alaranjada de luz por cima. Custa duas formas
+     * e resolve a queixa inteira.
+     */
+    const chao = new Graphics();
     for (let dy = -raioY; dy <= raioY; dy++) {
       for (let dx = -raioX; dx <= raioX; dx++) {
-        if (deitada && dx !== 0) continue; // um desenho só cobre as três
-        const s = new AnimatedSprite(quadros.slice(0, MURALHA_NASCE));
-        /*
-         * ⚠️ **Âncora em 0,93 na vertical**: o recorte alinha as três fileiras
-         * pelo CHÃO, e a linha de onde as chamas sobem fica quase no rodapé do
-         * quadro. Ancorar no meio deixaria a parede flutuando meio tile.
-         */
-        s.anchor.set(0.5, 0.93);
-        s.x = dx * TS;
-        s.y = dy * TS + TS / 2;
-        s.scale.set(largura / 160, altura / 128);
-        s.animationSpeed = MURALHA_NASCE / (700 / (1000 / 60));
-        s.currentFrame = fase % MURALHA_NASCE;
-        s.loop = false;
-        s.onComplete = () => {
-          // Nasceu: passa a ARDER, em laço, até o servidor mandar apagar.
-          s.textures = quadros.slice(MURALHA_ARDE, MURALHA_NASCE);
-          s.loop = true;
-          s.animationSpeed = (MURALHA_NASCE - MURALHA_ARDE) / (600 / (1000 / 60));
-          s.gotoAndPlay(fase % (MURALHA_NASCE - MURALHA_ARDE));
-        };
-        s.play();
-        node.addChild(s);
-        fase += 2;
+        const cx = dx * TS;
+        const cy = dy * TS + TS / 4;
+        chao.ellipse(cx, cy, TS * 0.75, TS * 0.34).fill({ color: 0x2a1408, alpha: 0.5 });
+        chao.ellipse(cx, cy, TS * 0.62, TS * 0.26).fill({ color: 0xff7a1a, alpha: 0.35 });
+        chao.ellipse(cx, cy, TS * 0.34, TS * 0.15).fill({ color: 0xffd27a, alpha: 0.45 });
       }
+    }
+    node.addChild(chao);
+
+    let fase = 0;
+    for (let i = 0; i < copias; i++) {
+      // Espalha as cópias pelo comprimento, centradas no meio da muralha.
+      const passo = comprimento / copias;
+      const off = (i + 0.5) * passo - comprimento / 2;
+      const s = new AnimatedSprite(quadros.slice(0, MURALHA_NASCE));
+      /*
+       * ⚠️ **Âncora em 0,99: o PÉ da chama, medido.** O recorte alinha as três
+       * fileiras pelo chão e o desenho termina em 0,984–0,992 da altura do
+       * quadro. Com 0,93 sobravam 6 % de quadro abaixo da linha do tile — a
+       * muralha ficava enterrada meio tile, que de longe lê como flutuando.
+       */
+      s.anchor.set(0.5, 0.99);
+      s.x = deitada ? off * TS : 0;
+      s.y = (deitada ? 0 : off * TS) + TS / 4;
+      s.scale.set(largura / 160, altura / 128);
+      s.animationSpeed = MURALHA_NASCE / (700 / (1000 / 60));
+      s.currentFrame = fase % MURALHA_NASCE;
+      s.loop = false;
+      s.onComplete = () => {
+        // Nasceu: passa a ARDER, em laço, até o servidor mandar apagar.
+        s.textures = quadros.slice(MURALHA_ARDE, MURALHA_NASCE);
+        s.loop = true;
+        s.animationSpeed = (MURALHA_NASCE - MURALHA_ARDE) / (600 / (1000 / 60));
+        s.gotoAndPlay(fase % (MURALHA_NASCE - MURALHA_ARDE));
+      };
+      s.play();
+      node.addChild(s);
+      fase += 2;
     }
   }
 

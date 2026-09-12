@@ -96,6 +96,30 @@ diz "pequeno".
 
 ⚠️ Os dois fatores não se multiplicam: a altura sai da largura BASE. Compondo-os, o 3× virava
 3,9× e a muralha saía com 9,4 tiles de chama — uma torre.
+### 🔥 Cinco colunas, e o que fazia a muralha parecer flutuando
+
+Segunda rodada em tela: *"pode ser em vez de só 3 colunas, faça 5 colunas de fogo; elas não
+parecem estar fixas no chão, e sim flutuando; os monstros precisam ter impacto ao tocarem
+nela"*. Três coisas, três causas diferentes.
+
+**Cinco células** (`range` 1 → 2) mudam o ALCANCE, não a aparência: cinco de parede barram um
+corredor inteiro, onde três deixavam passar pelas beiradas.
+
+🔴 **O "flutuando" NÃO era a âncora** — as chamas já nasciam na linha do tile (e estavam 6 %
+do quadro enterradas, o que também estava errado, mas para o outro lado). **É que fogo de
+verdade ilumina o chão em volta**, e sem esse halo o desenho não tem nada que o ligue ao
+piso: lê como adesivo alto pairando sobre a grama. Três elipses achatadas por célula —
+chamuscado escuro, luz alaranjada, brasa clara — resolveram a queixa inteira.
+
+⚠️ **E o impacto do contato era INVISÍVEL.** O empurrão de dois tiles já acontecia: o monstro
+aparecia mais atrás no quadro seguinte, sem nada dizendo por quê — em tela parecia que ele
+tinha escorregado. Agora o servidor avisa o contato e o cliente abre um anel de brasa no
+ponto TOCADO (guardado antes do empurrão, senão o clarão sairia dois tiles atrás, onde o
+monstro só aparece depois).
+
+⚠️ A altura virou número FIXO em tiles. Era proporcional à largura, e com o comprimento indo
+de três para cinco as chamas teriam crescido 67 % junto — a altura já tinha sido aprovada, e
+não podia mudar porque outra coisa mudou.
 ⚠️ E cada célula começa num quadro diferente: três cópias em sincronia leem como um desenho
 só piscando, que é justamente o *"aspecto completamente estático"* que a ficha pede para
 evitar.

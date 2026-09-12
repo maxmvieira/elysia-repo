@@ -553,8 +553,8 @@ test('🔥 Muralha de Fogo: barreira de CONTATO, não área que pulsa', () => {
    * conhecido de se perder sozinha.
    */
   assert.equal(g.linha, true, 'é uma LINHA de 1×3, não um quadrado');
-  assert.equal(skillRange(m, 1), 1, 'raio 1 = três células');
-  assert.equal(skillRange(m, 10), 1, 'e não cresce: o que cresce são os contatos');
+  assert.equal(skillRange(m, 1), 2, 'raio 2 = cinco células');
+  assert.equal(skillRange(m, 10), 2, 'e não cresce: o que cresce são os contatos');
   assert.equal(skillCastRange(m, 1), 9);
 
   /*
