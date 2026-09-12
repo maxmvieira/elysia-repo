@@ -4850,16 +4850,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * surpreende.
    */
   const itensPorTile = new Map<number, EntitySnapshot>();
-  /**
-   * ⚔️ As CRIATURAS por tile — a fonte do cursor de ataque.
-   *
-   * ⚠️ **Entra no mesmo laço de snapshot que os outros dois mapas**, e não num
-   * sistema próprio de detecção: é o laço que já sabe quem morreu, quem andou e
-   * quem apareceu. Uma varredura paralela teria a própria noção de "quem está
-   * ali" e divergiria da que manda no clique — o cursor prometeria ataque onde o
-   * clique não ataca.
-   */
-  const criaturasPorTile = new Map<number, EntitySnapshot>();
   /** Último snapshot indexado por id: a ficha do menu sai daqui, sem ida ao servidor. */
   const porId = new Map<string, EntitySnapshot>();
 
@@ -10114,7 +10104,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // exatamente isso que muda de um snapshot para o outro.
     jogadoresPorTile.clear();
     itensPorTile.clear();
-    criaturasPorTile.clear();
     porId.clear();
     // Reconstruídos a cada snapshot porque é exatamente isso que muda de um para
     // o outro: monstro andou, monstro morreu, corpo apareceu.
@@ -10130,8 +10119,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         tilesClicaveis.add(tile);
         if (e.kind === 'player') jogadoresPorTile.set(tile, e);
         if (e.kind === 'item') itensPorTile.set(tile, e);
-        // ⚠️ `hp > 0` porque a ficha pede: monstro morto volta ao cursor padrão.
-        if (e.kind === 'creature' && (e.hp ?? 0) > 0) criaturasPorTile.set(tile, e);
       }
       const isSelf = e.id === myId;
       let view = sprites.get(e.id);
@@ -10463,7 +10450,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    */
   type EstadoCursor = 'padrao' | 'ataque';
   let cursorAtual: EstadoCursor = 'padrao';
-  let tileSobOMouse: { x: number; y: number } | undefined;
+  let mouseNoMapa = false;
+  /** O id da criatura sob o mouse, ou `undefined`. */
+  let criaturaSobOMouse: string | undefined;
 
   function cursorDoJogo(estado: EstadoCursor): void {
     if (estado === cursorAtual) return;
@@ -10485,16 +10474,28 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * primeira linha quando nada mudou.
    */
   function avaliaCursor(): void {
-    const t = tileSobOMouse;
-    if (!t || magiaArmada) { cursorDoJogo('padrao'); return; }
-    const dentro = t.x >= 0 && t.y >= 0 && t.x < map.width && t.y < map.height;
-    const alvo = dentro && criaturasPorTile.has(t.y * map.width + t.x);
-    cursorDoJogo(alvo ? 'ataque' : 'padrao');
+    criaturaSobOMouse = undefined;
+    if (!mouseNoMapa || magiaArmada) { cursorDoJogo('padrao'); return; }
+    /*
+     * 🔴 **Quem responde "o que está sob o mouse" é o PRÓPRIO TESTE DE ACERTO do
+     * Pixi**, e não um mapa por tile como na primeira versão. A diferença não é
+     * de estilo: o clique de ataque usa esse mesmo teste, então perguntar a ele
+     * é a única forma de o cursor prometer exatamente o que o clique cumpre.
+     * Por tile, um monstro de quatro tiles de altura acendia só no tile dos pés
+     * — que era a queixa do dono.
+     */
+    const p = app.renderer.events.pointer.global;
+    let n = app.renderer.events.rootBoundary.hitTest(p.x, p.y) as Container | null;
+    while (n && !(typeof n.label === 'string' && n.label.startsWith('criatura:'))) {
+      n = n.parent as Container | null;
+    }
+    criaturaSobOMouse = n ? String(n.label).slice('criatura:'.length) : undefined;
+    cursorDoJogo(criaturaSobOMouse ? 'ataque' : 'padrao');
   }
 
   viewportEl.addEventListener('mousemove', (ev) => {
     const t = tileDoEvento(ev);
-    tileSobOMouse = t;
+    mouseNoMapa = true;
     avaliaCursor();
     if (!magiaArmada) return;
     const dentro = t.x >= 0 && t.y >= 0 && t.x < map.width && t.y < map.height;
@@ -10503,7 +10504,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   });
   // ⚠️ Saiu do mapa: não há tile sob o mouse, então não há ataque a prometer.
   viewportEl.addEventListener('mouseleave', () => {
-    tileSobOMouse = undefined;
+    mouseNoMapa = false;
     avaliaCursor();
   });
 
@@ -12470,7 +12471,16 @@ function makeEntity(
   onTargetClick: (id: string) => void,
   mini: MiniAssets,
 ): EntityView {
-  if (e.kind === 'creature') return makeCreatureView(e, anims, onTargetClick, mini);
+  if (e.kind === 'creature') {
+    const v = makeCreatureView(e, anims, onTargetClick, mini);
+    /*
+     * ⚔️ **A ETIQUETA é o que o cursor procura.** `makeMiniActor` também monta
+     * jogador e NPC, então não dá para perguntar ao construtor: quem sabe que
+     * isto é criatura é este `if`, e é aqui que a marca tem de ser posta.
+     */
+    v.container.label = `criatura:${e.id}`;
+    return v;
+  }
   if (e.kind === 'item') return makeItemView(e, mini.itemTexture, mini.openCorpse, mini.pegarItem);
   if (e.kind === 'node') return makeNodeView(e, mini.gatherNode, mini.chaoEm);
   if (e.kind === 'npc') {
@@ -12662,6 +12672,32 @@ interface MiniActorOpts {
   onClick?: (id: string) => void;
 }
 
+/**
+ * ⚔️ **A ÁREA CLICÁVEL DE UM ATOR: O DESENHO INTEIRO, nunca menor que o tile.**
+ *
+ * 🔴 Dono, 12/09: *"esses monstros maiores só muda o mouse quando eu passo na
+ * bolinha preta embaixo dele, gostaria que fosse no monstro inteiro"*. E o
+ * cursor estava sendo HONESTO: a área de acerto era `Rectangle(0, -8, TS, TS+12)`
+ * — um tile — em toda criatura, do slime ao chefe. No monstro grande o desenho
+ * cobre três ou quatro tiles, mas só a sombra nos pés respondia ao clique. Não
+ * era defeito do cursor novo; era um defeito velho que o cursor novo tornou
+ * VISÍVEL, porque agora existe um aviso na tela que denuncia a discordância.
+ *
+ * ✅ A caixa sai do sprite JÁ ESCALADO, com a âncora dele — o mesmo desenho que o
+ * jogador enxerga. E a UNIÃO com o tile é de propósito: bicho menor que um tile
+ * (o rato, o morcego) continua com a área mínima de sempre, senão o conserto dos
+ * grandes encolheria os pequenos.
+ */
+function areaDoAtor(sprite: AnimatedSprite): Rectangle {
+  const w = Math.abs(sprite.width);
+  const h = Math.abs(sprite.height);
+  const x0 = Math.min(0, sprite.x - sprite.anchor.x * w);
+  const y0 = Math.min(-8, sprite.y - sprite.anchor.y * h);
+  const x1 = Math.max(TS, sprite.x + (1 - sprite.anchor.x) * w);
+  const y1 = Math.max(TS + 4, sprite.y + (1 - sprite.anchor.y) * h);
+  return new Rectangle(x0, y0, x1 - x0, y1 - y0);
+}
+
 function makeMiniActor(opts: MiniActorOpts): EntityView {
   const { e, anim, scale, nameColor, alwaysAnimate, onClick } = opts;
   const c = new Container();
@@ -12696,6 +12732,8 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   sprite.scale.set(scale);
   sprite.loop = true;
   c.addChild(sprite);
+  // ⚔️ Agora que o sprite existe e está escalado, a área de acerto é ELE.
+  if (onClick) c.hitArea = areaDoAtor(sprite);
 
   /**
    * As camadas de equipamento: um sprite irmão por peça, com a MESMA âncora,
@@ -13503,6 +13541,8 @@ function makeSpriteActor(opts: SpriteActorOpts): EntityView {
   sprite.scale.set(cfg.scale); // scale.x é reaplicado no flip
   sprite.loop = true;
   c.addChild(sprite);
+  // ⚔️ Agora que o sprite existe e está escalado, a área de acerto é ELE.
+  if (onClick) c.hitArea = areaDoAtor(sprite);
 
   const hpbar = makeHpBar();
   c.addChild(hpbar.node);
