@@ -2486,14 +2486,97 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   hoverMark.eventMode = 'none';
   objects.addChild(hoverMark);
 
-  const destMark = new Graphics();
-  destMark.rect(1, 1, TS - 2, TS - 2)
-    .fill({ color: 0x5fd15f, alpha: 0.16 })
-    .stroke({ width: 2, color: 0x6cf06c, alpha: 0.95 });
-  destMark.zIndex = -0.8;
-  destMark.visible = false;
-  destMark.eventMode = 'none';
-  objects.addChild(destMark);
+  /**
+   * 🎯 **O MARCADOR DE DESTINO — era um quadrado verde, virou animação** (dono,
+   * 12/09: *"quero substituir o quadrado verde padrão"*).
+   *
+   * 🔴 **A LÓGICA DE MOVIMENTO NÃO MUDOU UMA LINHA, e isso é o ponto.** O
+   * quadrado tinha exatamente quatro usos — aparecer ao traçar a rota, aparecer
+   * ao perseguir um alvo, sumir ao cancelar e sumir ao chegar. Trocar o DESENHO
+   * é trocar esses quatro pontos por `marcaDestino`/`limpaDestino`; rota,
+   * pathfinding, passo e autoridade do servidor ficam onde estavam. A ficha
+   * pedia isso com todas as letras, e é também o jeito de não introduzir bug de
+   * movimentação num pedido que é de arte.
+   *
+   * ⚠️ **O último quadro CONGELA sozinho** — `AnimatedSprite` com `loop = false`
+   * para no último e continua visível. É o comportamento que a ficha pede
+   * ("HOLDING_LAST_FRAME"), e escrevê-lo à mão só criaria um segundo lugar onde
+   * o congelamento pode divergir. Quem remove o marcador é a CHEGADA, nunca o
+   * fim da animação.
+   *
+   * 🔴 **E o mesmo tile NÃO reinicia a animação.** Não é capricho: a perseguição
+   * (`aproximaDe`) recalcula a rota toda vez que o alvo anda e chama isto de
+   * novo com o MESMO destino. Sem a guarda, o marcador renasceria a cada
+   * recálculo e o losango ficaria caindo em loop no chão. É a diferença entre
+   * "clicou em outro ponto" e "o código pediu de novo o mesmo ponto".
+   */
+  const MARCADOR = {
+    folha: 'marcador_destino',
+    /**
+     * ⚠️ **0,70 é MEDIDO pelo cortador, não escolhido aqui.** É onde o
+     * `marcador2fx` põe a linha do chão dentro da célula — ver a nota lá sobre a
+     * folha vir com as duas fileiras desalinhadas. Mexer num sem o outro faz o
+     * marcador flutuar acima do tile.
+     */
+    ancoraY: 0.70,
+    /**
+     * ⚠️ **0,5 porque a elipse tem 89 px na célula de 96**, ou 2,78 tiles — o
+     * dobro do que um marcador de destino deve ocupar. A 0,5 ela fica com 45 px,
+     * 1,4 tile: cobre o tile clicado com uma folga de brilho e não invade os
+     * vizinhos, que era o que o quadrado verde fazia com uma borda de 1 px.
+     */
+    escala: 0.5,
+    /** 12 quadros em 600 ms = 50 ms cada. A queda tem 6 e o círculo, 6. */
+    dur: 600,
+  };
+
+  let marcador: { node: AnimatedSprite; tileX: number; tileY: number } | undefined;
+  /**
+   * O destino que foi pedido ANTES de a folha terminar de carregar.
+   *
+   * 🔴 **As folhas de FX carregam sem `await`**, e nos primeiros instantes de
+   * mundo o mapa delas está vazio — está escrito em `MAGIAS_QUE_CAEM`, que
+   * existe pelo mesmo motivo. O quadrado verde era geometria e nascia pronto;
+   * uma folha não. Sem isto, clicar logo depois de entrar no jogo daria um
+   * caminho SEM marcador nenhum, uma vez a cada tantas entradas — o tipo de
+   * falha que só aparece na máquina de quem tem disco lento.
+   */
+  let marcadorPendente: { tileX: number; tileY: number } | undefined;
+
+  function limpaDestino(): void {
+    marcador?.node.destroy();
+    marcador = undefined;
+    marcadorPendente = undefined;
+  }
+
+  function marcaDestino(tx: number, ty: number): void {
+    if (marcador && marcador.tileX === tx && marcador.tileY === ty) return;
+    limpaDestino();
+    const quadros = folhasEfeito.get(MARCADOR.folha);
+    if (!quadros || quadros.length === 0) {
+      // ⚠️ Guarda o pedido; o carregador toca assim que a folha chegar.
+      marcadorPendente = { tileX: tx, tileY: ty };
+      return;
+    }
+    const s = new AnimatedSprite(quadros);
+    s.loop = false;
+    s.anchor.set(0.5, MARCADOR.ancoraY);
+    s.scale.set(MARCADOR.escala);
+    /*
+     * ⚠️ **`TS - 2` no eixo Y, igual ao `targetRing`.** É a linha onde o
+     * personagem PISA dentro do tile, e é onde todo anel de chão deste jogo é
+     * desenhado. Centrar no meio do tile poria o círculo dois pixels acima dos
+     * pés de quem chegasse ali.
+     */
+    s.x = tx * TS + TS / 2;
+    s.y = ty * TS + TS - 2;
+    s.zIndex = -0.8;
+    s.eventMode = 'none';
+    s.animationSpeed = quadros.length / (MARCADOR.dur / (1000 / 60));
+    objects.addChild(s);
+    s.play();
+    marcador = { node: s, tileX: tx, tileY: ty };
+  }
 
   // Anel de alvo (sob o inimigo selecionado) e camada de efeitos (números).
   const targetRing = new Graphics();
@@ -3169,6 +3252,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           source: tex.source,
           frame: new Rectangle(i * cw, 0, cw, tex.height),
         })));
+        /*
+         * 🎯 O destino pedido enquanto esta folha ainda carregava. Ver
+         * `marcadorPendente`: sem isto, um clique nos primeiros instantes de
+         * mundo andaria sem marcador algum.
+         */
+        if (nome === MARCADOR.folha && marcadorPendente) {
+          const p = marcadorPendente;
+          marcadorPendente = undefined;
+          marcaDestino(p.tileX, p.tileY);
+        }
       })
       .catch(() => { /* folha ausente: o efeito simplesmente não toca */ });
   }
@@ -3977,7 +4070,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * dentro da explosão — que é o que se quer ver.
      *
      * ⚠️ `objects` ordena por `zIndex` e as marcas de chão vivem no negativo
-     * (`hoverMark` −0,9, `destMark` −0,8, `targetRing` −0,5). O estouro entra
+     * (`hoverMark` −0,9, o marcador de destino −0,8, `targetRing` −0,5). O estouro entra
      * entre elas e as entidades.
      *
      * 🔴 **MENOS O RELÂMPAGO, e a regra de 11/09 continua certa para o resto.**
@@ -4853,7 +4946,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   function cancelarRota(): void {
     caminho = [];
-    destMark.visible = false;
+    limpaDestino();
   }
 
   function irPara(tx: number, ty: number): void {
@@ -4864,9 +4957,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
     caminho = rota;
     passoPedidoEm = 0;
-    destMark.x = tx * TS;
-    destMark.y = ty * TS;
-    destMark.visible = true;
+    marcaDestino(tx, ty);
   }
 
   /**
@@ -10547,9 +10638,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     caminho = melhor;
     passoPedidoEm = 0;
     const fim = melhor[melhor.length - 1]!;
-    destMark.x = fim.x * TS;
-    destMark.y = fim.y * TS;
-    destMark.visible = true;
+    marcaDestino(fim.x, fim.y);
   }
 
   // ---- Menu de contexto ---------------------------------------------------
@@ -11096,7 +11185,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       if (proximo.x === myTileX && proximo.y === myTileY) {
         caminho.shift();
         passoPedidoEm = 0;
-        if (caminho.length === 0) destMark.visible = false;
+        // 🎯 A CHEGADA é quem apaga o marcador — nunca o fim da animação.
+        if (caminho.length === 0) limpaDestino();
       } else {
         const dx = Math.sign(proximo.x - myTileX);
         const dy = Math.sign(proximo.y - myTileY);
