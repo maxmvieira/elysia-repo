@@ -3286,7 +3286,26 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * estourar em 700 ms.
    */
   const FOLHA_FEITIO: Record<
-    string, { ancoraY: number; escala: number; dur: number; sobeY?: number; fenda?: number }
+    string, {
+      ancoraY: number;
+      /**
+       * ⚠️ **Âncora em X, e o padrão 0,5 não serve para toda arte.** Na folha dos
+       * espinhos o PÉ da explosão não fica no meio da célula: fica a 0,287 dela,
+       * porque os cristais crescem para um lado só. Centrar no meio poria o
+       * personagem fora da própria explosão.
+       */
+      ancoraX?: number;
+      escala: number;
+      dur: number;
+      sobeY?: number;
+      /**
+       * ⚠️ **Desenha na camada do CHÃO, sob as entidades.** Pedido da ficha
+       * (*"abaixo do personagem, acima do terreno"*) e é o certo para uma
+       * explosão que nasce do solo: por cima, ela taparia o mago que está no
+       * meio dela.
+       */
+      noChao?: boolean;
+    }
   > = {
     /*
      * ⚠️ **Âncora 0,5 na vertical, e não 0,72.** O cortador (`nova2fx`) centra
@@ -3361,19 +3380,48 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * cima, sem perspectiva, isso não lê como "o gelo nasceu no ar" — lê como o
      * mago no meio da roda, que é o pedido.
      */
-    /*
-     * ⚠️ **`dur` foi de 800 para 1100 ms — *"solta a animação toda"* (dono,
-     * 12/09).** São 24 quadros: a 800 ms cada um durava 33 ms, e as duas últimas
-     * fileiras, que são a névoa se desfazendo, passavam antes de existirem. A
-     * 1100 são 46 ms, e o arco inteiro — nascer, ficar, sumir — aparece. É a
-     * mesma queixa que o estouro do Meteoro já tinha levantado.
+    /**
+     * ❄️ **ESPINHOS DE GELO — a quarta arte da Glacial, e a primeira que NASCE do
+     * chão de verdade** (ficha do dono, 12/09). As três anteriores eram anéis
+     * vistos de cima; esta é uma explosão que brota do solo e se abre.
      *
-     * ⚠️ **`fenda: 74` é o raio das rachaduras no chão, em pixels de mundo.** O
-     * anel desenhado tem uns 88 px de raio; as fendas ficam por DENTRO dele, sob
-     * os cristais, porque é de lá que eles saem. Passando de 88 a rachadura
-     * apareceria fora do gelo, e o chão pareceria ter partido sozinho.
+     * 🔴 **ÂNCORA NO PÉ, medida pelo cortador: 0,287 / 0,946.** Não é o meio da
+     * célula, e não podia ser: os cristais crescem para UM lado, então o halo do
+     * chão — o ponto que fica sob o mago — vive a 29 % da largura. Ver
+     * `espinhos2fx`, que mede isso quadro a quadro porque na folha o pé anda de
+     * 82 a 123 px dentro de cada desenho.
+     *
+     * ⚠️ **`sobeY: 0` e `noChao`.** Explosão que sai do solo pertence à camada do
+     * solo, e o mago fica em pé DENTRO dela — era o pedido literal da ficha
+     * ("abaixo do personagem", "sem esconder o personagem"). É também o oposto
+     * do anel anterior, que flutuava e por isso subia meio tile.
+     *
+     * 🔴 **E o `geloDoChao` FOI EMBORA com ela.** Aquelas fendas desenhadas por
+     * código existiam porque o anel anterior não encostava no chão; esta arte
+     * traz o próprio halo. Somar as duas seria desenhar duas vezes a mesma
+     * ideia — as "partículas exageradas" que a ficha proíbe —, e deixar a função
+     * sem quem a chame seria pior: código que ninguém executa é a família de
+     * defeito que mais se repete neste projeto.
+     *
+     * ⚠️ **Escala 0,75, MEDIDA nos quadros e não estimada na célula.** O alcance
+     * do desenho a partir do pé vai a 182 px no quadro do ápice, mas os quadros
+     * TÍPICOS ficam em 116 — e é por eles que a magia é vista, não pelo pico. A
+     * 0,5 o típico dava 1,8 tile e sumia atrás do mago; a 0,75 dá 2,7, com o
+     * ápice em 4,3.
+     *
+     * 🔴 **E a direção do erro é conhecida:** o marcador de destino foi
+     * 0,5 → 0,65 → 0,98 em três rodadas, sempre para cima, porque arte de CHÃO
+     * parece maior na folha do que fica em tela. Aqui já entrou corrigida.
+     *
+     * ⚠️ O raio do DANO continua vindo da ficha da skill — 2 tiles —, nunca do
+     * tamanho da imagem. São dois números de propósito, como a ficha pede.
+     *
+     * ⚠️ **1000 ms para 17 quadros** (59 ms cada), que é o ritmo sugerido na
+     * ficha — e são 17, não 14: a folha foi medida, não contada no olho.
      */
-    glacial_burst: { ancoraY: 0.5, escala: 0.95, dur: 1100, sobeY: TS / 2, fenda: 74 },
+    glacial_burst: {
+      ancoraX: 0.287, ancoraY: 0.946, escala: 0.75, dur: 1000, sobeY: 0, noChao: true,
+    },
   };
 
   function tocaEfeito(nome: string, wx: number, wy: number): void {
@@ -3382,24 +3430,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const feitio = FOLHA_FEITIO[nome];
     const node = new AnimatedSprite(frames);
     node.loop = false;
-    node.anchor.set(0.5, feitio?.ancoraY ?? 0.72);
+    node.anchor.set(feitio?.ancoraX ?? 0.5, feitio?.ancoraY ?? 0.72);
     if (feitio) node.scale.set(feitio.escala);
     node.x = wx;
     // ⚠️ `sobeY` sobe o efeito dos PÉS para o meio do corpo. Ver `FOLHA_FEITIO`.
     node.y = wy - (feitio?.sobeY ?? 0);
-    node.zIndex = 9997;
+    // ⚠️ Chão: sob as entidades, como o estouro do Meteoro. Ver `noChao`.
+    node.zIndex = feitio?.noChao ? -0.55 : 9997;
     node.animationSpeed = frames.length / ((feitio?.dur ?? DUR_EFEITO) / (1000 / 60));
-    /*
-     * ❄️ O chão parte junto — ver `geloDoChao`. Sem isto o efeito lê como
-     * decalque colado por cima da grama.
-     *
-     * ⚠️ **Usa `wy`, e não `node.y`.** O sprite subiu `sobeY` para ficar no meio
-     * do CORPO; a fenda é chão e tem de ficar onde o mago PISA. São dois pontos
-     * diferentes de propósito, e passar o mesmo aos dois poria a rachadura
-     * flutuando meio tile acima do solo.
-     */
-    if (feitio?.fenda) geloDoChao(node.x, wy, feitio.fenda);
-    fxLayer.addChild(node);
+    (feitio?.noChao ? objects : fxLayer).addChild(node);
     /*
      * ⚠️ Entra na MESMA lista das quedas, com atraso zero. O laço de lá já
      * dispara o `play()` e destrói no fim; uma lista própria seria uma segunda
@@ -4553,97 +4592,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         aceso.moveTo(x - Math.cos(p.ang) * rabo, y - z - Math.sin(p.ang) * rabo * ACHATA);
         aceso.lineTo(x, y - z);
         aceso.stroke({ width: p.tam, color: p.cor, alpha: (1 - f) * 0.95 });
-      }
-    };
-    app.ticker.add(passo);
-  }
-
-  /**
-   * ❄️ **O CHÃO SE PARTINDO, para o cristal ter de onde sair.**
-   *
-   * 🔴 Dono, 12/09: *"os espinhos têm que sair do chão mesmo"*. A folha já cresce
-   * os cristais do pequeno ao grande — o que faltava não era animação, era
-   * CONSEQUÊNCIA. Um efeito que só aparece por cima da grama lê como decalque;
-   * o que o olho aceita como "nasceu dali" é o solo reagir no mesmo instante.
-   *
-   * ✅ **Três coisas, e todas no CHÃO, sob as entidades:** fendas que se abrem do
-   * centro para fora, uma auréola de geada que se alastra, e lascas rentes ao
-   * solo. Nenhuma delas está na folha, e é por isso que existem em código.
-   *
-   * ⚠️ **Mistura NORMAL, não aditiva.** Gelo sobre grama precisa CLAREAR e
-   * dessaturar, e soma só clareia — o verde atravessaria por baixo e a geada
-   * ficaria esverdeada. É a mesma lição da fumaça do Meteoro, do outro lado: lá
-   * o problema era não conseguir escurecer.
-   *
-   * ⚠️ **Abre em 15 % do tempo e passa o resto apagando.** Fenda que aparece
-   * devagar lê como desenho surgindo; o que lê como rachar é abrir num quadro e
-   * esfriar devagar.
-   */
-  function geloDoChao(wx: number, wy: number, raioPx: number): void {
-    const g = new Graphics();
-    g.x = wx;
-    g.y = wy;
-    g.zIndex = -0.57;
-    objects.addChild(g);
-
-    // ⚠️ Achatado em 0,55 como as rachaduras do Meteoro: chão visto de viés.
-    const ACHATA = 0.55;
-    const sorte = (a: number, b: number): number => a + Math.random() * (b - a);
-    const ponto = (a: number, d: number): [number, number] => [
-      Math.cos(a) * d, Math.sin(a) * d * ACHATA,
-    ];
-
-    const N = 14;
-    const fendas: Array<Array<[number, number]>> = [];
-    for (let i = 0; i < N; i++) {
-      const a = ((i + 0.2 + Math.random() * 0.6) / N) * Math.PI * 2;
-      const compr = raioPx * sorte(0.55, 1.0);
-      const meio = ponto(a, compr * sorte(0.4, 0.6));
-      fendas.push([
-        // Sai de longe do centro: é lá que o mago está, e é o que ele quer ver.
-        ponto(a, compr * 0.18), meio, ponto(a + sorte(-0.3, 0.3), compr),
-      ]);
-    }
-    const lascas = Array.from({ length: 22 }, () => {
-      const a = Math.random() * Math.PI * 2;
-      const d = raioPx * sorte(0.35, 1.05);
-      return { x: Math.cos(a) * d, y: Math.sin(a) * d * ACHATA, r: sorte(1.6, 4.2), a };
-    });
-
-    const nasceu = performance.now();
-    const DUR = 900;
-    const passo = (): void => {
-      const t = (performance.now() - nasceu) / DUR;
-      if (t >= 1) { g.destroy(); app.ticker.remove(passo); return; }
-      g.clear();
-      const abre = Math.min(1, t / 0.15);
-      const vive = t < 0.35 ? 1 : 1 - (t - 0.35) / 0.65;
-
-      // A auréola de geada: clareia o chão em volta e some por fora.
-      g.ellipse(0, 0, raioPx * (0.3 + 0.8 * abre), raioPx * (0.3 + 0.8 * abre) * ACHATA);
-      g.fill({ color: 0xcfe6ff, alpha: 0.16 * vive });
-
-      for (const pts of fendas) {
-        const ate = 1 + (pts.length - 1) * abre;
-        const traca = (): void => {
-          g.moveTo(pts[0]![0], pts[0]![1]);
-          for (let k = 1; k < Math.min(pts.length, Math.ceil(ate)); k++) {
-            g.lineTo(pts[k]![0], pts[k]![1]);
-          }
-        };
-        traca();
-        g.stroke({ width: 3.4, color: 0x7fb6ee, alpha: vive * 0.5 });
-        traca();
-        g.stroke({ width: 1.3, color: 0xeaf6ff, alpha: vive * 0.85 });
-      }
-
-      for (const l of lascas) {
-        // Lasca deitada: um losango baixo, que lê como caco no chão e não como bola.
-        g.moveTo(l.x - l.r, l.y);
-        g.lineTo(l.x, l.y - l.r * 0.7);
-        g.lineTo(l.x + l.r, l.y);
-        g.lineTo(l.x, l.y + l.r * 0.45);
-        g.fill({ color: 0xdcefff, alpha: vive * 0.75 * abre });
       }
     };
     app.ticker.add(passo);
