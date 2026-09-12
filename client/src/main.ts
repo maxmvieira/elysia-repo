@@ -4764,6 +4764,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // -------------------------------------------------------------------------
 
   const groundAreaNodes = new Map<string, Container>();
+  /**
+   * Qual barreira cada nó desenha, para a QUEBRA saber que folha tocar.
+   *
+   * ⚠️ O `areagone` só traz o id — a magia que criou a área não volta com ele.
+   * Sem esta memória, o cliente tocaria os quadros de dissipação do fogo numa
+   * parede de gelo, ou (pior) não tocaria nenhum e a parede sumiria piscando.
+   */
+  const muralhaDoNo = new Map<string, string>();
 
 
 
@@ -4794,11 +4802,39 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * dissipação (13–18) —, e eles são tocados como a barreira vive: nasce uma vez,
    * ARDE em laço enquanto durar, e só apaga quando o servidor manda.
    */
-  const MURALHA_NASCE = 12;
-  const MURALHA_ARDE = 5;
-  function chamasDaMuralha(node: Container, raioX: number, raioY: number): void {
-    const quadros = folhasEfeito.get('muralha18');
-    if (!quadros || quadros.length < 18) return;
+  /**
+   * 🧱 **As barreiras de chão que têm FOLHA, e o que cada uma pede.**
+   *
+   * 🔴 Duas magias, um desenho só: a de fogo e a de gelo são a mesma coisa em
+   * tela — uma fileira de algo que cresce do chão, arde/brilha enquanto dura e se
+   * desfaz no fim. O que muda são números, e é por isso que eles moram numa
+   * tabela em vez de num ramo por magia.
+   *
+   * ⚠️ **O ESTICÃO é 1 no gelo e 1,45 no fogo**, e a diferença não é gosto:
+   * cristal esticado vira estalactite torta (a forma dele é rígida e o olho
+   * conhece), enquanto chama esticada ainda lê como chama até certo ponto. Foi o
+   * dono quem encontrou o limite do fogo em tela: a 3× virou vela.
+   */
+  const MURALHAS: Record<string, {
+    folha: string; nasce: number; arde: number; larguraTiles: number; estica: number;
+  }> = {
+    // 🔥 18 quadros: nasce (1–12), arde em laço (6–12), dissipa (13–18).
+    fire_wall: { folha: 'muralha18', nasce: 12, arde: 5, larguraTiles: 2.3, estica: 1.45 },
+    /*
+     * ❄️ 25 quadros, e a ficha do dono descreve as três fases: formação (1–15),
+     * parede ativa (11–20) e destruição (21–25). O laço da parede ativa começa
+     * ANTES do fim da formação de propósito — os cristais continuam crescendo um
+     * pouco depois de a parede já bloquear, e é isso que tira o ar de desenho
+     * parado que a ficha pede para evitar.
+     */
+    ice_wall: { folha: 'gelo25', nasce: 15, arde: 10, larguraTiles: 1.9, estica: 1 },
+  };
+  function chamasDaMuralha(node: Container, raioX: number, raioY: number, fx: string): void {
+    const receita = MURALHAS[fx];
+    if (!receita) return;
+    const quadros = folhasEfeito.get(receita.folha);
+    if (!quadros || quadros.length <= receita.nasce) return;
+    const { nasce: NASCE, arde: ARDE } = receita;
     const deitada = raioX > raioY;
     const comprimento = (deitada ? raioX : raioY) * 2 + 1;
 
@@ -4843,16 +4879,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * mesmo ritmo — seis chamas idênticas lado a lado, que é o que o olho lê como
      * papel de parede em vez de fogo.
      */
-    const ESTICA = 1.45;
+    const ESTICA = receita.estica;
     const copias = comprimento;
-    const largura = (deitada ? 2.3 : 1.8) * TS;
+    const largura = receita.larguraTiles * (deitada ? 1 : 0.8) * TS;
     const altura = (largura / 160) * 128 * ESTICA;
 
     const acende = (
       i: number, atras: boolean,
     ): void => {
       const off = i - (comprimento - 1) / 2;
-      const s = new AnimatedSprite(quadros.slice(0, MURALHA_NASCE));
+      const s = new AnimatedSprite(quadros.slice(0, NASCE));
       /*
        * ⚠️ **Âncora 0,99: o PÉ da chama, medido.** O recorte alinha as fileiras
        * pelo chão e o desenho termina em 0,984–0,992 da altura do quadro.
@@ -4877,15 +4913,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * nascer errado.
        */
       const ritmo = 0.82 + ((i * 7 + (atras ? 3 : 0)) % 5) * 0.09;
-      s.animationSpeed = (MURALHA_NASCE / (700 / (1000 / 60))) * ritmo;
-      s.currentFrame = (i * 3 + (atras ? 5 : 0)) % MURALHA_NASCE;
+      s.animationSpeed = (NASCE / (700 / (1000 / 60))) * ritmo;
+      s.currentFrame = (i * 3 + (atras ? 5 : 0)) % NASCE;
       s.loop = false;
       s.onComplete = () => {
         // Nasceu: passa a ARDER, em laço, até o servidor mandar apagar.
-        s.textures = quadros.slice(MURALHA_ARDE, MURALHA_NASCE);
+        s.textures = quadros.slice(ARDE, NASCE);
         s.loop = true;
-        s.animationSpeed = ((MURALHA_NASCE - MURALHA_ARDE) / (600 / (1000 / 60))) * ritmo;
-        s.gotoAndPlay((i * 2 + (atras ? 3 : 0)) % (MURALHA_NASCE - MURALHA_ARDE));
+        s.animationSpeed = ((NASCE - ARDE) / (600 / (1000 / 60))) * ritmo;
+        s.gotoAndPlay((i * 2 + (atras ? 3 : 0)) % (NASCE - ARDE));
       };
       s.play();
       node.addChild(s);
@@ -4916,8 +4952,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * chamas. O retângulo continua para as outras seis, onde o efeito é discreto
      * e sem ele ninguém sabe onde a magia pega.
      */
-    if (folhasEfeito.has('muralha18') && fx === 'fire_wall') {
-      chamasDaMuralha(node, raioX ?? radius, raioY ?? radius);
+    if (MURALHAS[fx] && folhasEfeito.has(MURALHAS[fx]!.folha)) {
+      chamasDaMuralha(node, raioX ?? radius, raioY ?? radius, fx);
+      muralhaDoNo.set(id, fx);
       fxLayer.addChild(node);
       groundAreaNodes.set(id, node);
       setTimeout(() => removeGroundArea(id), durationMs + 1500);
@@ -4964,15 +5001,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * que o `desvanece` das quedas existe para evitar. Os filhos são
      * `AnimatedSprite`; qualquer outra área cai no `destroy` de sempre.
      */
-    const quadros = folhasEfeito.get('muralha18');
-    const chamas = quadros && quadros.length >= 18
+    const receita = MURALHAS[muralhaDoNo.get(id) ?? ''];
+    muralhaDoNo.delete(id);
+    const quadros = receita ? folhasEfeito.get(receita.folha) : undefined;
+    const chamas = quadros
       ? node.children.filter((c): c is AnimatedSprite => c instanceof AnimatedSprite)
       : [];
-    if (chamas.length === 0) { node.destroy({ children: true }); return; }
+    if (!quadros || !receita || chamas.length === 0) {
+      node.destroy({ children: true });
+      return;
+    }
+    const quebra = quadros.slice(receita.nasce);
     for (const s of chamas) {
-      s.textures = quadros!.slice(MURALHA_NASCE);
+      s.textures = quebra;
       s.loop = false;
-      s.animationSpeed = (18 - MURALHA_NASCE) / (500 / (1000 / 60));
+      s.animationSpeed = quebra.length / (500 / (1000 / 60));
       s.gotoAndPlay(0);
     }
     // ⚠️ Um relógio só para o nó inteiro: `onComplete` por chama destruiria o

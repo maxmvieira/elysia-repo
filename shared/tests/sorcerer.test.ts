@@ -27,6 +27,7 @@ import {
   skillGroundDuration,
   skillGroundMax,
   skillGroundContatos,
+  skillGroundHp,
   skillConditionChance,
   skillConditionDuration,
   skillPower,
@@ -176,14 +177,34 @@ test('a série do Fire Bolt dura MAIS que a recarga — e isso é intencional', 
 // ❄️ Gelo
 // ---------------------------------------------------------------------------
 
-test('Ice Wall: 1 parede no Lv.1, 3 no Lv.10, durando de 20 s a 60 s', () => {
-  // Citação: "1→3 paredes simultâneas, 20 s→60 s".
+test('❄️ Ice Wall: parede de 5 células com VIDA, e os dois relógios batem', () => {
   const w = SKILLS.ice_wall;
-  assert.equal(skillGroundMax(w, 1), 1);
-  assert.equal(skillGroundMax(w, 10), 3);
-  assert.equal(skillGroundDuration(w, 1), 20000);
-  assert.equal(skillGroundDuration(w, 10), 60000);
+  assert.equal(skillGroundMax(w, 1), 1, '1 parede no Lv.1');
+  assert.equal(skillGroundMax(w, 10), 3, '3 no Lv.10');
   assert.equal(w.ground?.blocks, true, 'é barreira física de verdade');
+  assert.equal(w.ground?.linha, true, 'linha de 5, não quadrado');
+  assert.equal(skillRange(w, 1), 2, 'raio 2 = cinco células');
+
+  /*
+   * ❄️ **A ficha do dono trocou a régua em 13/09**: de 20–60 s para 8–44 s, e a
+   * duração deixou de ser o único relógio — a parede passou a ter VIDA.
+   *
+   * 🔴 **O que este teste guarda é que os dois relógios BATEM.** Com 50 de
+   * desgaste por segundo, a vida tem de acabar junto com a duração: se alguém
+   * mexer num dos três números (vida, desgaste, duração) sem mexer nos outros, a
+   * parede passa a morrer por um motivo que o jogador não vê. É a única coisa
+   * aqui que não dá para descobrir lendo a ficha.
+   */
+  const desgaste = w.ground?.desgasteHpPorSeg ?? 0;
+  assert.ok(desgaste > 0, 'a parede se desgasta sozinha');
+  for (const nivel of [1, 5, 10]) {
+    const vida = skillGroundHp(w, nivel) ?? 0;
+    const segundos = vida / desgaste;
+    assert.equal(
+      Math.round(segundos * 1000), skillGroundDuration(w, nivel),
+      `no Lv.${nivel} a vida tem de acabar junto com o tempo`,
+    );
+  }
 });
 
 test('a Ice Wall é a ÚNICA magia que bloqueia passagem', () => {

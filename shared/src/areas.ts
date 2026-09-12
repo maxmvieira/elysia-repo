@@ -118,6 +118,22 @@ export interface GroundArea {
   /** Quantos tiles o contato arremessa. Ausente = não empurra. */
   empurraTiles?: number;
   /**
+   * ❄️ **A estrutura tem VIDA PRÓPRIA, e é ela que decide quando cai.**
+   *
+   * 🔴 A ficha do dono (13/09) dá à Muralha de Gelo duas mortes: o tempo e o HP.
+   * A segunda é a que importa — *"a barreira perde 50 HP por segundo enquanto
+   * estiver ativa"* —, e é ela que faz uma parede de 400 pontos no Lv.1 durar
+   * oito segundos mesmo com a duração dizendo outra coisa.
+   *
+   * ⚠️ **`hp` é opcional de propósito.** As outras seis áreas não têm vida: elas
+   * morrem só pelo relógio, e dar HP a todas seria inventar um estado que
+   * ninguém lê. Quem não declara continua exatamente como antes.
+   */
+  hp?: number;
+  hpMax?: number;
+  /** Quanto de vida a estrutura perde por segundo, só de existir. */
+  desgasteHpPorSeg?: number;
+  /**
    * 🪤 Já disparou? Só as armadilhas usam.
    *
    * Existe em vez de simplesmente remover a área na hora porque o tique que
@@ -158,6 +174,24 @@ export function podeContato(a: GroundArea, alvoId: string, now: number): boolean
   if (!c) return true;
   if (c.n >= a.maxContatos) return false;
   return now - c.ultimo >= (a.contatoMs ?? 0);
+}
+
+/**
+ * ❄️ **Tira vida de uma estrutura de chão. Devolve `true` se ela CAIU.**
+ *
+ * 🔴 Genérico de propósito, e não "danifica a muralha de gelo": a ficha do dono
+ * pede *"uma implementação reutilizável para objetos temporários destrutíveis,
+ * não uma lógica exclusiva"*. Quem chama não precisa saber que área é — só que
+ * ela tem vida.
+ *
+ * ⚠️ Sem `hp` na área, ninguém sofre nada: uma Muralha de Fogo não "quebra" por
+ * levar espadada, e chamar isto nela é inofensivo em vez de ser um caso especial
+ * em cada chamador.
+ */
+export function danificaArea(a: GroundArea, dano: number): boolean {
+  if (a.hp === undefined) return false;
+  a.hp = Math.max(0, a.hp - Math.max(0, dano));
+  return a.hp <= 0;
 }
 
 /** Registra o contato deste alvo. Chamar DEPOIS de aplicar o dano. */

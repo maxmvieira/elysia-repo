@@ -228,6 +228,14 @@ export interface SkillGround {
   contatosAtLv10?: number;
   /** Intervalo mínimo entre dois contatos do MESMO alvo. */
   contatoMs?: number;
+  /**
+   * ❄️ **VIDA da estrutura**, para as barreiras que podem ser derrubadas. Ver
+   * `hp` em `GroundArea`. Ausente = a área só morre pelo relógio.
+   */
+  hpAtLv1?: number;
+  hpAtLv10?: number;
+  /** Quanto de vida ela perde por segundo só de existir. */
+  desgasteHpPorSeg?: number;
 }
 
 export const MAX_SKILL_LEVEL = 10;
@@ -2209,30 +2217,73 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     classes: ['sorcerer'],
     reqLevel: 12,
     requires: [{ skill: 'cold_bolt', level: 3 }],
-    manaCost: 30,
-    manaPerLevel: 4,
-    cooldownMs: 12000,
+    /**
+     * ❄️ **20 de SP em todos os níveis** — ficha do dono, 13/09. A magia não dá
+     * dano nenhum: o que ela cobra é a decisão de onde pôr a parede, e um custo
+     * crescente puniria quem a usa como ela foi desenhada.
+     */
+    manaCost: 20,
+    manaPerLevel: 0,
+    /**
+     * ⚠️ **8 s de recarga, e a ficha não fala dela.** O número é meu e vem do
+     * mesmo raciocínio da Muralha de Fogo: o teto é de três paredes no Lv.10, e
+     * com a recarga antiga (12 s) contra 44 s de duração dava para ter as três —
+     * mas a primeira levava 24 s para ficar de pé. A 8 s a formação acompanha a
+     * intenção tática.
+     */
+    cooldownMs: 8000,
     power: 0,
     powerPerLevel: 0,
     shape: 'ground',
-    range: 0,
+    /**
+     * ❄️ **Raio 2 = as CINCO células da ficha**, e a linha nasce perpendicular à
+     * mira, como a Muralha de Fogo. Ver `linha` e `emVolta`.
+     */
+    range: 2,
     rangeEvery: 0,
+    castRange: 9,
+    castRangeEvery: 0,
     durationMs: 20000,
+    /**
+     * ⚠️ **Conjuração de 1 s.** A ficha não pede número, mas pede a aura branca e
+     * a escolha da célula: sem tempo de conjuração não haveria o que interromper,
+     * e o fluxo que o dono desenhou (conjura → mira → valida → cria) perderia o
+     * meio.
+     */
+    castMs: 1000,
     magic: true,
     ground: {
       kind: 'wall',
-      // Parede não pulsa: o tique é irrelevante, mas o campo é obrigatório.
+      /**
+       * ❄️ **1 s de tique, e agora ELE TEM TRABALHO.** Antes era um campo
+       * obrigatório sem uso — parede não pulsa. Hoje é o relógio do desgaste: 50
+       * de vida por segundo, que é a segunda morte da barreira.
+       */
       tickMs: 1000,
-      durationAtLv1: 20000,
-      durationAtLv10: 60000,
+      durationAtLv1: 8000,
+      durationAtLv10: 44000,
       hitsPlayers: false,
       hitsCreatures: false,
       blocks: true,
+      linha: true,
+      /**
+       * ❄️ **VIDA de 400 a 2200, e ela é quem manda.** Com 50 de desgaste por
+       * segundo, a parede do Lv.1 cai em 8 s e a do Lv.10 em 44 — exatamente a
+       * duração da ficha. **Os dois números contam a MESMA história de propósito**:
+       * a duração é o teto, o HP é o que sobra depois de alguém bater nela.
+       *
+       * ⚠️ É isso que dá sentido a atacar a muralha: sem o desgaste, HP e tempo
+       * seriam dois relógios independentes e o jogador não saberia qual está
+       * correndo.
+       */
+      hpAtLv1: 400,
+      hpAtLv10: 2200,
+      desgasteHpPorSeg: 50,
       maxAtLv1: 1,
       maxAtLv10: 3,
     },
     fx: 'ice_wall',
-    desc: 'Ergue uma parede de gelo que bloqueia a passagem. Até 3 no Lv.10.',
+    desc: 'Ergue uma parede de gelo de 5 células que bloqueia a passagem até ser quebrada.',
   },
   /**
    * 🔴 "360° ao redor de si, **para quando o melee cola nele**" — citação, e é
@@ -4375,6 +4426,18 @@ export function skillGroundMax(def: SkillDef, nivel: number): number {
  * Devolve `undefined` quando a ficha não declara limite — e o `undefined` é
  * significativo: é ele que faz a área pulsar para sempre, como as outras seis.
  */
+/**
+ * ❄️ Vida da estrutura no nível informado, ou `undefined` quando a ficha não dá
+ * vida nenhuma — e o `undefined` é significativo: é ele que faz a área morrer só
+ * pelo relógio, como as outras seis.
+ */
+export function skillGroundHp(def: SkillDef, nivel: number): number | undefined {
+  const g = def.ground;
+  if (!g || g.hpAtLv1 === undefined) return undefined;
+  const lv10 = g.hpAtLv10 ?? g.hpAtLv1;
+  return Math.max(1, Math.round(porNivel(nivel, g.hpAtLv1, lv10)));
+}
+
 export function skillGroundContatos(def: SkillDef, nivel: number): number | undefined {
   const g = def.ground;
   if (!g || g.contatosAtLv1 === undefined) return undefined;

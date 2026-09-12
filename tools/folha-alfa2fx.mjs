@@ -82,6 +82,24 @@ const FOLHAS = {
     passoX: 295,
     fileiras: [[52, 263], [308, 538], [597, 817]],
   },
+  /**
+   * ❄️ **A MURALHA DE GELO (13/09)**, 5 colunas × 5 fileiras.
+   *
+   * ⚠️ **Esta folha NÃO tem alfa: o fundo é preto chapado.** É a exceção que o
+   * nome do arquivo não previa, e por isso existe a chave por BRILHO — o recorte sai
+   * da luminância em vez do canal. Todo o resto vale igual, e é por isso que ela
+   * mora aqui em vez de num cortador novo: o que importa nela é o MESMO que
+   * importa na muralha de fogo — fileiras de alturas diferentes alinhadas pelo
+   * CHÃO, que é a linha de onde os cristais crescem.
+   */
+  gelo25: {
+    larg: 160,
+    alt: 96,
+    colunas: 5,
+    passoX: 306,
+    fileiras: [[58, 153], [205, 326], [364, 519], [555, 721], [773, 904]],
+    chaveBrilho: true,
+  },
 };
 
 const [folhaArq, nome] = process.argv.slice(2);
@@ -141,7 +159,16 @@ for (const [y0, y1] of grade.fileiras) {
       for (let x = 0; x < w; x++) {
         const o = ((y0 + y) * img.w + x0 + x) * 4;
         const d = (y * w + x) * 4;
-        const a = img.px[o + 3];
+        /*
+         * ⚠️ Chave por BRILHO: fundo preto em vez de alfa. A rampa é curta (16→64)
+         * porque o preto desta arte é chapado — não há meio-tom de fundo para
+         * separar, só o halo dos cristais, que é o que se quer manter.
+         */
+        const a = grade.chaveBrilho
+          ? Math.round(Math.max(0, Math.min(1,
+            (0.299 * img.px[o] + 0.587 * img.px[o + 1] + 0.114 * img.px[o + 2] - 16) / 48,
+          )) * 255)
+          : img.px[o + 3];
         if (a < PISO_ALFA) continue;
         cel[d] = img.px[o];
         cel[d + 1] = img.px[o + 1];
