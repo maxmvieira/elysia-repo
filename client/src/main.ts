@@ -2513,18 +2513,27 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     ancoraY: 0.70,
     /**
-     * ⚠️ **0,65, e a elipse tem 89 px na célula de 96** — 2,78 tiles a escala 1.
-     * A 0,65 ela fica com 58 px, ou **1,8 tile**.
+     * ⚠️ **0,98, e a elipse tem 89 px na célula de 96** — 2,78 tiles a escala 1.
+     * A 0,98 ela fica com 87 px, ou **2,7 tiles**.
      *
-     * ⚠️ **Era 0,5 (1,4 tile) e o dono pediu maior em tela.** O quadrado verde
-     * marcava UM tile exato, e eu tinha copiado essa medida achando que a
-     * precisão era o valor — mas o quadrado precisava ser exato porque era a
-     * única marca; um círculo de brilho difuso lê como MIRA, e mira pequena
-     * demais some no chão. O que ele marca continua sendo o tile do centro.
+     * 🔴 **Foi 0,5 → 0,65 → 0,98 em três rodadas de tela, e a direção foi sempre
+     * a mesma: MAIOR.** Vale registrar por que eu errei para baixo todas as
+     * vezes. Eu ancorei no quadrado verde, que marcava UM tile exato, e tratei a
+     * precisão como o valor a preservar. Mas o quadrado precisava ser exato
+     * porque era a única marca na tela; um círculo de brilho difuso não é uma
+     * medida, é uma MIRA — e mira some no chão muito antes de ficar imprecisa.
+     * O tile marcado continua sendo o do centro, por maior que fique o brilho.
      */
-    escala: 0.65,
-    /** 12 quadros em 600 ms = 50 ms cada. A queda tem 6 e o círculo, 6. */
-    dur: 600,
+    escala: 0.98,
+    /**
+     * ⚠️ **400 ms, e eram 600** (dono: *"e ela seja mais rápida também"*). São 12
+     * quadros a 33 ms — a mesma cadência dos outros efeitos do jogo.
+     *
+     * ⚠️ **O que encurta é a ANIMAÇÃO, não o marcador.** O último quadro fica
+     * congelado até o herói chegar, então correr mais aqui não faz o destino
+     * sumir antes: faz o losango cair mais rápido, que é o que o dono vê.
+     */
+    dur: 400,
   };
 
   let marcador: { node: AnimatedSprite; tileX: number; tileY: number } | undefined;
