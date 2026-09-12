@@ -3112,11 +3112,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * cair nos pés do mago é o meio do quadro. Os 0,72 dos buffs existem porque
      * lá o anel fica a 72 % da altura; aqui isso jogaria o gelo para cima.
      *
-     * ⚠️ **Escala 1,7: a área de dano tem 5×5 tiles (160 px)** e o quadro tem
-     * 192 — a 1,0 a arte ficaria MENOR que o golpe. A 1,7 são 326 px, um pouco
-     * mais que a área, que é a margem de drama que o resto do jogo usa.
+     * 🔴 **Escala 0,95, e era 1,7.** A folha foi trocada em 13/09 por um ANEL, e
+     * o pedido veio com ela: *"ela deve ser só em volta do personagem"*. A arte
+     * velha era um estouro que se justificava grande; a nova tem um buraco no
+     * meio por onde o mago aparece, e esse buraco só funciona se o anel couber
+     * perto dele.
+     *
+     * ⚠️ 182 px são 5,7 tiles, contra os 5×5 (160 px) que a magia machuca — a
+     * margem de drama de sempre, e nada além dela. A 1,7 o anel tinha dez tiles:
+     * o mago ficava perdido dentro de um círculo de gelo do tamanho da tela.
      */
-    glacial_burst: { ancoraY: 0.5, escala: 1.7, dur: 700 },
+    glacial_burst: { ancoraY: 0.5, escala: 0.95, dur: 800 },
   };
 
   function tocaEfeito(nome: string, wx: number, wy: number): void {

@@ -186,6 +186,27 @@ nível"* justamente para obrigar a segunda exceção a se defender. A defesa: os
 o mesmo argumento (frequência é a razão de ser da habilidade) e freios diferentes — a Esfera
 pelo GCD, a Glacial pelo SP.
 
+### 🔄 A folha da Glacial foi trocada no mesmo dia, e o cortador aprendeu a escada
+
+*"Substitua a sprite da explosão glacial também por essa; ela deve ser só em volta do
+personagem"*. A arte nova é um ANEL com um buraco no meio — o mago aparece por ele —, e com
+ela a escala caiu de 1,7 para 0,95: 5,7 tiles contra os 5×5 que a magia machuca. A 1,7 o
+mago ficava perdido dentro de um círculo de gelo do tamanho da tela.
+
+🔴 **E o corte custou quatro tentativas, todas pela mesma causa: o perfil de um ANEL é
+BIMODAL.** Ele tem dois picos (as laterais, onde estão os cristais) e um vale no meio (o
+buraco). Procurar o máximo gruda o centro numa borda; procurar o centro de massa numa janela
+larga o bastante para achar o anel certo também alcança os vizinhos, porque nesta folha os
+anéis são MAIORES que o passo entre eles.
+
+✅ **O que funciona é medir as PONTAS.** Os quadros de uma folha são regularmente espaçados —
+é o que faz dela uma folha. O primeiro e o último desenho estão isolados por construção (não
+têm vizinho de um dos lados); medidos os dois, o resto sai por interpolação. Um erro de meia
+dúzia de pixels no meio da escada é invisível; um de 70 px corta o anel ao meio, que foi o
+que as três primeiras tentativas fizeram.
+
+⚠️ **E a cerca virou REDONDA.** Como o efeito é radial, apagar o que passa do raio não tira
+nada dele — e leva junto o vizinho que entra pelo canto da janela quadrada.
 ### ❄️ E um cortador novo, `nova2fx`
 
 A folha é 5×4 sobre preto CHAPADO (mediana 0), o caso fácil. O que muda é a **âncora**: no
