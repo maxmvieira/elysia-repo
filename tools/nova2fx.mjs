@@ -72,22 +72,58 @@ const TEM_ALFA = (() => {
 /** Piso do alfa: o véu fantasma das folhas geradas por IA. */
 const PISO_ALFA = 24;
 /**
- * 🔴 **FUNDO CLARO: a chave é a SATURAÇÃO.**
+ * 🔴 **FUNDO NEUTRO PINTADO: a chave é a SATURAÇÃO, e os limiares são MEDIDOS.**
  *
- * A quarta folha glacial (13/09) chegou com o xadrez de transparência PINTADO —
- * o arquivo é 100 % opaco e o "fundo" é um cinza de 210. Nem o alfa (não existe)
- * nem o brilho (o cinza é mais claro que metade do desenho) separam nada.
+ * Duas folhas glaciais (12/09) chegaram com o xadrez de transparência PINTADO —
+ * arquivo 100 % opaco, "fundo" cinza. Nem o alfa (não existe) nem o brilho
+ * separam nada: numa delas o cinza é 210, mais claro que metade do desenho.
  *
  * ✅ O cinza é NEUTRO e o gelo é AZUL: medida, a saturação do fundo fica em 0,01
  * e a dos cristais passa de 0,3. O branco do reflexo, que é quase sem cor, entra
- * por um corte de brilho ALTO — acima do cinza do xadrez, que nunca chega lá.
+ * por um corte de brilho ALTO.
+ *
+ * 🔴 **E os dois limiares saem da PRÓPRIA folha, porque a primeira versão disto
+ * errou a folha seguinte.** Eu tinha escrito *"mediana de luminância > 140"*,
+ * tirada de UM caso em que o cinza era 210. A folha de 00h58 veio com xadrez
+ * escuro — mediana 132 — e o ramo não ligou: o recorte saiu com um disco
+ * quadriculado e, com tudo virando "desenho", a centragem foi junto. É a mesma
+ * lição das três folhas do Meteoro, cobrada pela terceira vez.
+ *
+ * ✅ O que separa xadrez pintado de fundo PRETO não é o brilho em absoluto: é o
+ * fundo ser neutro **e** não ser preto. E o teto do brilho sai do percentil 75
+ * dos pixels SEM COR — o topo do próprio xadrez —, em vez de um número cravado
+ * que a próxima folha invalida.
  */
-const FUNDO_CLARO = (() => {
-  const v = [];
-  for (let i = 0; i < img.px.length; i += 4 * 401) v.push(lum(i));
-  v.sort((a, b) => a - b);
-  return !TEM_ALFA && (v[v.length >> 1] ?? 0) > 140;
+const FUNDO = (() => {
+  const lums = [];
+  const neutros = [];
+  for (let i = 0; i < img.px.length; i += 4 * 97) {
+    const mx = Math.max(img.px[i], img.px[i + 1], img.px[i + 2]);
+    const mn = Math.min(img.px[i], img.px[i + 1], img.px[i + 2]);
+    const sat = mx > 0 ? (mx - mn) / mx : 0;
+    const L = lum(i);
+    lums.push(L);
+    if (sat < 0.08) neutros.push(L);
+  }
+  lums.sort((a, b) => a - b);
+  neutros.sort((a, b) => a - b);
+  const medianaLum = lums[lums.length >> 1] ?? 0;
+  const fracaoNeutra = neutros.length / Math.max(1, lums.length);
+  /*
+   * ⚠️ **PRETO NÃO É XADREZ.** Uma folha de fundo preto também é neutra, e lá a
+   * chave certa é o BRILHO — que recupera a fumaça cinza do meteoro, coisa que a
+   * saturação jogaria fora. O que separa os dois casos é só isto: xadrez tem
+   * brilho, preto não.
+   */
+  const pintado = !TEM_ALFA && medianaLum > 60 && fracaoNeutra > 0.5;
+  const teto = (neutros[Math.floor(neutros.length * 0.75)] ?? 0) + 12;
+  if (pintado) {
+    console.log(`[nova] fundo pintado: mediana ${Math.round(medianaLum)},`
+      + ` ${Math.round(fracaoNeutra * 100)} % sem cor, teto de brilho ${Math.round(teto)}`);
+  }
+  return { pintado, teto };
 })();
+const FUNDO_CLARO = FUNDO.pintado;
 const alfa = (x, y) => {
   if (FUNDO_CLARO) {
     const o2 = (y * img.w + x) * 4;

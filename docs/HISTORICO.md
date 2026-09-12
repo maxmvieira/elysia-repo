@@ -9,6 +9,88 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-12 (madrugada) — A fumaça do Meteoro sai no corte, e a Glacial aterrissa
+
+**Onde mora:** `veuFumaca` em `tools/meteoro-grade2fx.mjs` · `FUNDO` em
+`tools/nova2fx.mjs` · `sobeY` em `FOLHA_FEITIO` e `tocaEfeito`,
+`client/src/main.ts` · `arte-fonte/fx/glacial6.png`
+
+Três pedidos do dono na mesma madrugada, e cada um cobrou uma regra que já estava escrita.
+
+### 🌫️ A coroa de fumaça é LARANJA no arquivo e MARROM no jogo
+
+*"Essa nuvem mais do meio pro final da magia de meteoro não precisa; seria somente quando o
+meteoro desce do céu no início, depois é somente o meteoro mesmo."*
+
+🔴 **A queixa tem uma causa física, e não é gosto.** A coroa é feita de filamentos de alfa
+baixo. Esta folha usa mistura NORMAL (foi o conserto de *"ele está muito transparente"*), e
+alfa baixo em mistura normal é o desenho MISTURADO com o fundo — laranja ralo sobre grama dá
+barro. Sobre o preto da folha de contato a mesma coroa é bonita. **Toda arte de FX tem de
+ser julgada sobre o chão em que vai rodar**; foi por isso que as medições desta noite saíram
+compostas sobre verde, e não sobre xadrez.
+
+✅ **O corte é medido na célula de 128×218:** a rocha vive em y 160–192, o rastro aceso sobe
+até ~130, e de ~90 para cima é só coroa. Daí `FUMACA_TOPO = 128` com 42 px de rampa — o
+rastro se dissolve subindo, sem aresta reta.
+
+✅ **E a força cresce com o QUADRO**, que é o que atende a frase. Medido, 40 % do mergulho
+acontece fora da tela: a pedra entra em cena lá pelo quadro 8. Apagando de 7 a 14, o jogador
+vê a fumaça entrar junto com o meteoro e ficar para trás.
+
+🔴 **O limite da queda tem de vir de FORA do cortador.** Os quadros do estouro carregam de 28
+a 40 % da massa acima da mesma linha — é a nuvem do cogumelo, que é o efeito. Uma rampa cega
+comeria o estouro inteiro. O `19` do `fracaoQueda` do cliente virou argumento de linha de
+comando.
+
+⚠️ **E a massa continua medida ANTES do véu.** Ela decide quais desenhos são fagulha e saem
+da tira; essa pergunta é sobre o que o gerador DESENHOU, não sobre o que escolhemos mostrar.
+Descontar a fumaça ali faria um quadro de queda virar fagulha por causa de uma decisão de
+gosto.
+
+⚠️ **Armadilha achada no caminho: a fonte é a `meteoro_vertical3.png`.** Recortar da
+`meteoro_vertical.png` dá 17 quadros em vez de 27 — o cortador não erra, é outra arte. As
+três folhas que o dono trocou no mesmo dia continuam no `arte-fonte/`, e agora o comando
+certo está escrito na ficha do cliente.
+
+### 🧊 "Ainda não está no centro do personagem" — e não estava mesmo
+
+O efeito chegava centrado onde devia: o `fx` traz o TILE do conjurador. Só que o herói é
+desenhado PARA CIMA a partir dos pés, então um anel centrado nos pés deixa o corpo todo na
+metade de cima do buraco.
+
+✅ **16 px, e são medidos:** a célula da folha de classe é 16 px, a escala do herói é 2,4 e a
+âncora dele é 0,92 — 38,4 px desenhados, dos quais 0,42 ficam acima do ponto de apoio. Dá
+16,1, e meio tile é a mesma coisa até o pixel. Entrou como `sobeY` no `FOLHA_FEITIO`.
+
+🔄 **E foi a zero vinte minutos depois**, quando chegou a arte nova: *"elas têm que sair
+diretamente do chão para parecer que são forjadas na magia"*. Não é contradição — **eram
+artes diferentes**. O anel velho era um estouro FLUTUANDO em volta do mago, e estouro se
+centra no corpo; um círculo de cristais é CHÃO, e a base deles tem de encostar onde o mago
+pisa. O campo fica porque a próxima arte pode voltar a flutuar.
+
+✅ **Quem resolveu o conflito entre os dois pedidos foi a folha, e não um meio-termo:** o
+buraco da roda tem raio de 41 a 55 px contra 35 px de herói acima dos pés. Centrada nos pés,
+ela o engole inteiro sem tocá-lo.
+
+### 🔴 O limiar tirado de UM caso errou a folha seguinte, como sempre
+
+O `FUNDO_CLARO` de ontem dizia *"mediana de luminância > 140"*, medida numa folha cujo xadrez
+pintado era cinza 210. A folha das 00h58 veio com xadrez ESCURO — mediana 132 — e o ramo não
+ligou: o recorte saiu com um disco quadriculado e, com tudo virando "desenho", a centragem
+foi junto, cortando os anéis pela metade.
+
+✅ **O que separa xadrez pintado de fundo PRETO não é o brilho em absoluto:** é o fundo ser
+NEUTRO **e** não ser preto (folha preta também é neutra, e lá a chave certa é o brilho, que
+recupera a fumaça cinza do Meteoro). Os dois viraram medida da própria folha, e o teto do
+corte de brilho passou a sair do percentil 75 dos pixels sem cor — o topo do próprio xadrez —
+em vez de um 236 cravado.
+
+⚠️ É a **terceira** vez que uma regra tirada de um ou dois casos custa uma rodada neste
+projeto. Fica a frase de 11/09, agora com juros: *regra tirada de dois casos é palpite com
+currículo*.
+
+---
+
 ## 2026-09-12 — A quarta folha da Glacial, e a chave que lê fundo CLARO
 
 **Onde mora:** `FUNDO_CLARO` em `tools/nova2fx.mjs` · `glacial_burst` em

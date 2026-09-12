@@ -2830,6 +2830,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ⚠️ **O estouro não tem sincronia para acertar à mão**: o dano chega quando
      * a pedra toca o chão, que é o fim do mergulho (`quedaMs`), e os dois lados
      * usam o mesmo número.
+     *
+     * 🌫️ **A COROA DE FUMAÇA É APAGADA NO CORTE, do meio da queda para o fim**
+     * (dono, 12/09: *"essa nuvem mais do meio pro final não precisa… depois é
+     * somente o meteoro mesmo"*). Quem faz isso é o `veuFumaca` do
+     * `meteoro-grade2fx`, e ele precisa saber onde a queda acaba — os quadros do
+     * estouro têm de 28 a 40 % da massa acima da mesma linha, e essa nuvem é o
+     * efeito. **O 19 do `fracaoQueda` abaixo é o mesmo número**, e vai na linha
+     * de comando do cortador.
+     *
+     * 🔴 **E a fonte é a `meteoro_vertical3.png`, não a `meteoro_vertical.png`.**
+     * Recortar da primeira dá 17 quadros em vez de 27 — o cortador acha as
+     * ilhas, não erra, é outra arte mesmo. Ficam as três no `arte-fonte/` porque
+     * o dono trocou a folha duas vezes no mesmo dia. Refazer o asset é:
+     *
+     *     node tools/meteoro-grade2fx.mjs arte-fonte/fx/meteoro_vertical3.png meteoro_queda 19
      */
     {
       magia: 'meteor_solo', arquivo: 'meteoro_queda', bolts: 1, quadros: 27,
@@ -3104,7 +3119,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * estourar em 700 ms.
    */
   const FOLHA_FEITIO: Record<
-    string, { ancoraY: number; escala: number; dur: number }
+    string, { ancoraY: number; escala: number; dur: number; sobeY?: number }
   > = {
     /*
      * ⚠️ **Âncora 0,5 na vertical, e não 0,72.** O cortador (`nova2fx`) centra
@@ -3122,14 +3137,57 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * margem de drama de sempre, e nada além dela. A 1,7 o anel tinha dez tiles:
      * o mago ficava perdido dentro de um círculo de gelo do tamanho da tela.
      *
-     * ⚠️ **A escala sobreviveu à quarta folha porque o BURACO foi medido.** O
-     * anel de 24 quadros (12/09) tem vão de raio 38–41 px em quadros de 192 —
-     * a 0,95, 2,3 tiles de diâmetro livre para um personagem de 1 tile. Era a
-     * exigência do dono: *"não pode sobrepor o personagem no centro"*. Toda
-     * folha nova precisa dessa medida ANTES de mexer na escala; a escala aqui é
-     * razão entre arte e tile, e não quer dizer nada sozinha.
+     * ⚠️ **A escala sobreviveu a TRÊS trocas de folha porque o BURACO é medido.**
+     * O anel tinha vão de raio 38–41 px em quadros de 192; os cristais que
+     * vieram depois medem de 41 a 55. A 0,95 isso dá de 2,4 a 3,3 tiles de
+     * diâmetro livre, e o herói tem 38 px desenhados. Toda folha nova precisa
+     * dessa medida ANTES de mexer na escala; a escala aqui é razão entre arte e
+     * tile, e não quer dizer nada sozinha.
+     *
+     * ⚠️ **`dur` anda junto com a CONTAGEM, não sozinho:** 800 ms para 24
+     * quadros são 33 ms cada. Se a folha mudar de contagem, este número muda
+     * também, senão as últimas fileiras — aqui, a névoa que sobra do gelo —
+     * passam antes de serem vistas. Foi a queixa do dono no estouro do Meteoro
+     * (*"aproveite todos os frames"*).
      */
-    glacial_burst: { ancoraY: 0.5, escala: 0.95, dur: 800 },
+    /*
+     * 🔴 **`sobeY` existe porque "centro do personagem" NÃO é onde ele pisa.**
+     *
+     * Dono, 12/09, com a magia já rodando: *"ainda não está no centro do
+     * personagem"*. O efeito chegava centrado onde devia — o `fx` traz o TILE do
+     * conjurador, e `tocaEfeito` recebia o rodapé dele. Só que o herói é
+     * desenhado PARA CIMA a partir dos pés, então um anel centrado nos pés fica
+     * com o corpo todo na metade de cima do buraco.
+     *
+     * ✅ **16 px são MEDIDOS, não arredondados por sorte:** a célula da folha de
+     * classe é 16 px (`CELL`, `miniworld.ts`), a escala do herói é 2,4 e a âncora
+     * dele é 0,92 — 38,4 px desenhados, dos quais 0,42 ficam acima do ponto de
+     * apoio. Dá 16,1 px, e o meio tile é a mesma coisa até o pixel.
+     *
+     * ⚠️ **Quem mudar o tamanho do herói invalida este número.** Ele é uma razão
+     * entre o desenho do personagem e o tile — a mesma família de `ESCALA_IMPACTO`,
+     * que já perseguiu cinco folhas do Meteoro. Se o herói crescer, isto cresce.
+     *
+     * 🔴 **E `sobeY` VOLTOU A ZERO poucos minutos depois, com a arte nova.**
+     *
+     * Chegaram os cristais que o dono anunciou (*"esfinges que saem do chão"*),
+     * e com eles a regra: *"elas têm que sair diretamente do chão para parecer
+     * que são forjadas na magia"*. Isso decide a âncora contra o pedido
+     * anterior, e não é contradição — **eram artes diferentes**. O anel velho era
+     * um estouro FLUTUANDO em volta do mago, e um estouro se centra no corpo. Um
+     * círculo de cristais é CHÃO: a base deles tem de encostar onde o mago pisa,
+     * senão o gelo nasce no ar.
+     *
+     * ✅ **E o mago continua visível, medido:** o buraco da roda tem raio de 41 a
+     * 55 px e o herói tem 38 px desenhados, dos quais 35 acima dos pés. Centrada
+     * nos pés, a roda o engole inteiro sem tocá-lo — que era a exigência
+     * original (*"não pode sobrepor o personagem no centro"*). Foi a folha que
+     * resolveu o conflito entre os dois pedidos, não um meio-termo.
+     *
+     * ⚠️ `sobeY` fica no código porque a próxima arte pode voltar a flutuar. O
+     * número medido para "meio do corpo" é `TS / 2` — ver a dedução acima.
+     */
+    glacial_burst: { ancoraY: 0.5, escala: 0.95, dur: 800, sobeY: 0 },
   };
 
   function tocaEfeito(nome: string, wx: number, wy: number): void {
@@ -3141,7 +3199,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     node.anchor.set(0.5, feitio?.ancoraY ?? 0.72);
     if (feitio) node.scale.set(feitio.escala);
     node.x = wx;
-    node.y = wy;
+    // ⚠️ `sobeY` sobe o efeito dos PÉS para o meio do corpo. Ver `FOLHA_FEITIO`.
+    node.y = wy - (feitio?.sobeY ?? 0);
     node.zIndex = 9997;
     node.animationSpeed = frames.length / ((feitio?.dur ?? DUR_EFEITO) / (1000 / 60));
     fxLayer.addChild(node);

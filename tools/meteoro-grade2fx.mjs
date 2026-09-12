@@ -110,11 +110,46 @@ const ALT = 218;
  */
 const ANCORA = 0.88;
 
-const [arq, nome] = process.argv.slice(2);
+const [arq, nome, quedaArg] = process.argv.slice(2);
 if (!arq || !nome) {
-  console.error('uso: node tools/meteoro-grade2fx.mjs <folha.png> <nome-de-saida>');
+  console.error('uso: node tools/meteoro-grade2fx.mjs <folha.png> <nome-de-saida> [quadros-de-queda]');
   process.exit(1);
 }
+
+/**
+ * 🌫️ **A COROA DE FUMAÇA SAI DO MEIO DA QUEDA PARA O FIM.**
+ *
+ * Dono, 12/09, com a magia rodando: *"essa nuvem mais do meio pro final da magia
+ * de meteoro não precisa, seria somente quando o meteoro desce do céu no início,
+ * depois é somente o meteoro mesmo"*.
+ *
+ * 🔴 **E ele tem razão por um motivo que a arte esconde: a coroa é LARANJA no
+ * arquivo e MARROM no jogo.** Ela é feita de filamentos de alfa baixo; em
+ * mistura aditiva isso clarearia a grama, mas esta folha usa mistura NORMAL (ver
+ * `mistura` em `FOLHAS_QUEDA`), e alfa baixo em mistura normal é o desenho
+ * MISTURADO com o fundo — laranja ralo sobre verde dá barro. Sobre o preto da
+ * folha de contato ela é bonita; sobre grama é uma mancha.
+ *
+ * ✅ **Medido na célula de 128×218:** a rocha vive em y 160–192, o rastro aceso
+ * sobe até ~130, e de ~90 para cima é só coroa. Daí o corte em 128 com 42 px de
+ * rampa: nada de aresta reta, o rastro se dissolve subindo.
+ *
+ * ⚠️ **A força cresce com o QUADRO, e é isso que atende o pedido.** Medido, 40 %
+ * do mergulho acontece fora da tela — a pedra entra em cena lá pelo quadro 8.
+ * Começar a apagar em 7 e terminar em 14 faz o jogador ver a fumaça entrar junto
+ * com o meteoro e ficar para trás, que é a frase dele em imagem.
+ *
+ * 🔴 **E o limite da queda TEM de vir de fora.** Os quadros do estouro carregam
+ * de 28 a 40 % da massa acima dessa mesma linha — é a nuvem do cogumelo, que é o
+ * efeito. Uma rampa cega comeria o estouro inteiro. O número é o mesmo
+ * `fracaoQueda` do cliente (19/27, em `FOLHAS_QUEDA`); sem ele, o cortador não
+ * apaga nada.
+ */
+const QUEDA = Number(quedaArg ?? 0) || 0;
+const FUMACA_TOPO = 128;
+const FUMACA_RAMPA = 42;
+const FUMACA_DE = 7;
+const FUMACA_ATE = 14;
 
 const img = decode(arq);
 const lum = (o) => 0.299 * img.px[o] + 0.587 * img.px[o + 1] + 0.114 * img.px[o + 2];
@@ -341,6 +376,19 @@ for (let l = 0; l < POR_COL; l++) {
   for (let c = 0; c < colunas.length; c++) ordem.push(janelas[c * POR_COL + l]);
 }
 
+/**
+ * Quanto do alfa sobrevive na altura `y` do quadro `k`. Ver `FUMACA_TOPO`.
+ *
+ * ⚠️ **Só vale para os quadros de QUEDA**, e `k` aqui é o índice da SAÍDA — o
+ * mesmo que o cliente usa para fatiar a tira. Quadro de estouro passa inteiro.
+ */
+function veuFumaca(k, y) {
+  if (QUEDA <= 0 || k >= QUEDA) return 1;
+  const forca = presa((k - FUMACA_DE) / (FUMACA_ATE - FUMACA_DE));
+  if (forca <= 0) return 1;
+  return 1 - forca * presa((FUMACA_TOPO - y) / FUMACA_RAMPA);
+}
+
 /** Desenha uma janela numa célula do buffer de saída. */
 function pinta(q, destino, larguraTotal, k) {
   let massa = 0;
@@ -386,13 +434,20 @@ function pinta(q, destino, larguraTotal, k) {
         }
       }
       const alvo = Math.round((sa / Math.max(1, total)) * 255);
+      /*
+       * 🔴 **A MASSA é medida ANTES do véu, de propósito.** Ela decide quais
+       * desenhos são fagulha e saem da tira (ver abaixo), e essa pergunta é
+       * sobre o que o gerador DESENHOU — não sobre o que escolhemos mostrar.
+       * Descontar a fumaça aqui mudaria quem é descartado, e um quadro de queda
+       * viraria fagulha por causa de uma decisão de gosto.
+       */
       massa += alvo;
       if (!destino) continue;
       const d = (y * larguraTotal + k * LARG + x) * 4;
       destino[d] = peso > 0 ? Math.round(sr / peso) : 0;
       destino[d + 1] = peso > 0 ? Math.round(sg / peso) : 0;
       destino[d + 2] = peso > 0 ? Math.round(sb / peso) : 0;
-      destino[d + 3] = alvo;
+      destino[d + 3] = Math.round(alvo * veuFumaca(k, y));
     }
   }
   return massa / 255;
