@@ -12754,11 +12754,35 @@ function uiDeMonstro(opts: {
   let hpAtual: number | undefined;
   let hpMax: number | undefined;
 
-  const contorno = sprite ? new Sprite() : new Graphics();
+  /*
+   * 🔴 **O CONTORNO SÃO OITO CÓPIAS DESLOCADAS, e era UMA cópia inchada.**
+   *
+   * Dono, 12/09, vendo em tela: *"está bem grosseira"*. E estava: uma cópia a
+   * 1,12× não é um contorno, é uma SOMBRA MAIOR — ela cresce a partir da âncora,
+   * então sobra muito de um lado e nada do outro, e o vermelho vaza em bloco nas
+   * partes largas do desenho.
+   *
+   * ✅ Oito cópias a 2 px em volta, todas por trás, desenham a silhueta REAL: o
+   * vermelho só aparece onde o desenho tem borda, com a mesma espessura em toda
+   * a volta. É o truque clássico de contorno sem shader, e aqui ele cabe porque
+   * só existe UM monstro selecionado por vez — oito sprites, não oitenta.
+   */
+  const RAIO = 2;
+  const VOLTAS = 8;
+  const copias: Sprite[] = [];
+  const contorno = sprite ? new Container() : new Graphics();
   contorno.visible = false;
   if (sprite) {
-    (contorno as Sprite).tint = 0xff2a2a;
-    (contorno as Sprite).anchor.set(sprite.anchor.x, sprite.anchor.y);
+    for (let i = 0; i < VOLTAS; i++) {
+      const a = (i / VOLTAS) * Math.PI * 2;
+      const copia = new Sprite();
+      copia.tint = 0xff2a2a;
+      copia.anchor.set(sprite.anchor.x, sprite.anchor.y);
+      copia.x = Math.cos(a) * RAIO;
+      copia.y = Math.sin(a) * RAIO;
+      copias.push(copia);
+      (contorno as Container).addChild(copia);
+    }
     c.addChildAt(contorno, c.getChildIndex(sprite));
   } else {
     (contorno as Graphics).circle(TS / 2, TS - 12, TS * 0.55)
@@ -12780,13 +12804,14 @@ function uiDeMonstro(opts: {
     else hpbar.node.visible = false;
     contorno.visible = ui.contorno;
     if (ui.contorno && sprite) {
-      const g = contorno as Sprite;
-      g.texture = sprite.texture;
-      g.x = sprite.x;
-      g.y = sprite.y;
-      // ⚠️ Preserva o SINAL da escala: é ele que espelha o bicho ao virar.
-      g.scale.set(sprite.scale.x * 1.12, sprite.scale.y * 1.12);
-      g.alpha = 0.85;
+      // ⚠️ O grupo fica no lugar do sprite; cada cópia guarda o próprio desvio.
+      contorno.x = sprite.x;
+      contorno.y = sprite.y;
+      for (const copia of copias) {
+        copia.texture = sprite.texture;
+        // ⚠️ Preserva o SINAL da escala: é ele que espelha o bicho ao virar.
+        copia.scale.set(sprite.scale.x, sprite.scale.y);
+      }
     }
   }
 
@@ -12873,14 +12898,86 @@ interface MiniActorOpts {
  * (o rato, o morcego) continua com a área mínima de sempre, senão o conserto dos
  * grandes encolheria os pequenos.
  */
-function areaDoAtor(sprite: AnimatedSprite): Rectangle {
-  const w = Math.abs(sprite.width);
-  const h = Math.abs(sprite.height);
-  const x0 = Math.min(0, sprite.x - sprite.anchor.x * w);
-  const y0 = Math.min(-8, sprite.y - sprite.anchor.y * h);
-  const x1 = Math.max(TS, sprite.x + (1 - sprite.anchor.x) * w);
-  const y1 = Math.max(TS + 4, sprite.y + (1 - sprite.anchor.y) * h);
-  return new Rectangle(x0, y0, x1 - x0, y1 - y0);
+/**
+ * 🎯 **A SILHUETA de uma textura, numa grade grosseira de 24×24.**
+ *
+ * 🔴 Dono, 12/09: *"o monstro pequeno quando passa próximo de um grande não
+ * consigo selecionar mais"*. A causa é o RETÂNGULO: o cogumelo tem 2,5 tiles de
+ * altura e quase metade da caixa dele é ar — e esse ar roubava o clique de quem
+ * passasse por trás. Aumentar a área para o desenho inteiro foi certo; usar um
+ * retângulo para representá-lo, não.
+ *
+ * ✅ **A máscara é lida da própria imagem**, uma vez por textura e guardada. Não
+ * há leitura de GPU: a folha já está na memória como imagem, e desenhá-la
+ * reduzida num canvas de 24×24 dá a silhueta com precisão de sobra para decidir
+ * cliques — o erro máximo é um vigésimo quarto do desenho.
+ *
+ * ⚠️ **Por TEXTURA, não por ator.** Vinte criaturas da mesma espécie dividem a
+ * mesma medida; e como a chave é a textura do quadro atual, a silhueta acompanha
+ * a animação sem ninguém precisar avisá-la.
+ */
+const MASCARAS = new Map<number, { n: number; m: Uint8Array } | null>();
+function silhuetaDa(tex: Texture): { n: number; m: Uint8Array } | null {
+  const achada = MASCARAS.get(tex.uid);
+  if (achada !== undefined) return achada;
+  let r: { n: number; m: Uint8Array } | null = null;
+  try {
+    const fonte = (tex.source as unknown as { resource?: CanvasImageSource }).resource;
+    const N = 24;
+    if (fonte) {
+      const cv = document.createElement('canvas');
+      cv.width = N; cv.height = N;
+      const ctx = cv.getContext('2d', { willReadFrequently: true });
+      const f = tex.frame;
+      if (ctx) {
+        ctx.drawImage(fonte, f.x, f.y, f.width, f.height, 0, 0, N, N);
+        const d = ctx.getImageData(0, 0, N, N).data;
+        const m = new Uint8Array(N * N);
+        for (let i = 0; i < N * N; i++) m[i] = (d[i * 4 + 3] ?? 0) > 24 ? 1 : 0;
+        r = { n: N, m };
+      }
+    }
+  } catch {
+    // Textura de origem inacessível (canvas sujo por CORS): cai no retângulo.
+    r = null;
+  }
+  MASCARAS.set(tex.uid, r);
+  return r;
+}
+
+/**
+ * 🎯 **A ÁREA CLICÁVEL DE UM ATOR: o TILE sempre, mais a silhueta do desenho.**
+ *
+ * ⚠️ **O tile entra por baixo, incondicionalmente.** É o mínimo histórico e o
+ * que garante que bicho pequeno, ou bicho cuja arte não pôde ser medida, continue
+ * clicável onde ele PISA. Sem isso, um erro na leitura da imagem deixaria um
+ * monstro impossível de selecionar, que é pior que um clique folgado.
+ *
+ * ⚠️ **Fora do tile, vale o desenho — e só onde ele é opaco.** É isto que
+ * devolve ao monstro pequeno o clique que o grande havia tomado.
+ */
+function areaDoAtor(sprite: AnimatedSprite): { contains: (x: number, y: number) => boolean } {
+  const tile = new Rectangle(0, -8, TS, TS + 12);
+  return {
+    contains(x: number, y: number): boolean {
+      if (tile.contains(x, y)) return true;
+      const w = Math.abs(sprite.width);
+      const h = Math.abs(sprite.height);
+      if (w <= 0 || h <= 0) return false;
+      const esq = sprite.x - sprite.anchor.x * w;
+      const topo = sprite.y - sprite.anchor.y * h;
+      let u = (x - esq) / w;
+      const v = (y - topo) / h;
+      if (u < 0 || u > 1 || v < 0 || v > 1) return false;
+      // ⚠️ Espelhado ao virar para a esquerda: a silhueta vira junto.
+      if (sprite.scale.x < 0) u = 1 - u;
+      const sil = silhuetaDa(sprite.texture);
+      if (!sil) return true; // sem medida, o desenho inteiro vale
+      const cx = Math.min(sil.n - 1, Math.max(0, Math.floor(u * sil.n)));
+      const cy = Math.min(sil.n - 1, Math.max(0, Math.floor(v * sil.n)));
+      return sil.m[cy * sil.n + cx] === 1;
+    },
+  };
 }
 
 function makeMiniActor(opts: MiniActorOpts): EntityView {
