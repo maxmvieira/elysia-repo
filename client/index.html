@@ -14,7 +14,14 @@
          * trocado, cada um desses voltava para a SETA DO SISTEMA, e o cursor
          * piscava entre dois desenhos ao passar por eles.
          */
-        --cursor-jogo: url("/assets/hud/cursor.png") 0 0, default;
+        --cursor-jogo: url("/assets/hud/cursor.png") 2 1, default;
+        /*
+         * ⚔️ **O MESMO PONTO QUENTE, 2 1, nos dois.** Não é coincidência: o
+         * cortador põe as duas artes no MESMO quadro e imprime um ponto quente
+         * só. Se cada uma tivesse o seu, o ponteiro saltaria alguns pixels toda
+         * vez que o mouse encostasse num monstro.
+         */
+        --cursor-ataque: url("/assets/hud/cursor_ataque.png") 2 1, default;
         color-scheme: dark;
         --panel: #1c1a17;
         --border: #3a352d;
@@ -76,12 +83,19 @@
          * fallback o navegador fica SEM cursor nenhum: o jogador perde o mouse
          * dentro do jogo e não tem como sair.
          *
-         * ⚠️ **26×36, e começou em 35×48.** O dono cortou em tela ("está muito
+         * ⚠️ **30×40 de quadro, com a seta em 36 px de altura.** O dono cortou em tela ("está muito
          * grande"). O piso é 32, onde a gema e o bisel viram borrão — 36 é o
          * menor tamanho em que a arte ainda se lê. Trocar é mexer no cortador
          * (`tools/cursor2hud.mjs`) e conferir o ponto quente que ele imprime.
          */
         cursor: var(--cursor-jogo);
+      }
+      /*
+       * ⚔️ Sobre um monstro vivo. Ver `cursorDoJogo` no `main.ts`: é uma classe
+       * no `body`, trocada só quando o ESTADO muda — não a cada pixel de mouse.
+       */
+      body.mira-monstro {
+        cursor: var(--cursor-ataque);
       }
       #app {
         display: flex;

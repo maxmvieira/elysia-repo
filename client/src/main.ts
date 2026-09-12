@@ -4850,6 +4850,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * surpreende.
    */
   const itensPorTile = new Map<number, EntitySnapshot>();
+  /**
+   * ⚔️ As CRIATURAS por tile — a fonte do cursor de ataque.
+   *
+   * ⚠️ **Entra no mesmo laço de snapshot que os outros dois mapas**, e não num
+   * sistema próprio de detecção: é o laço que já sabe quem morreu, quem andou e
+   * quem apareceu. Uma varredura paralela teria a própria noção de "quem está
+   * ali" e divergiria da que manda no clique — o cursor prometeria ataque onde o
+   * clique não ataca.
+   */
+  const criaturasPorTile = new Map<number, EntitySnapshot>();
   /** Último snapshot indexado por id: a ficha do menu sai daqui, sem ida ao servidor. */
   const porId = new Map<string, EntitySnapshot>();
 
@@ -10096,6 +10106,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // exatamente isso que muda de um snapshot para o outro.
     jogadoresPorTile.clear();
     itensPorTile.clear();
+    criaturasPorTile.clear();
     porId.clear();
     // Reconstruídos a cada snapshot porque é exatamente isso que muda de um para
     // o outro: monstro andou, monstro morreu, corpo apareceu.
@@ -10111,6 +10122,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         tilesClicaveis.add(tile);
         if (e.kind === 'player') jogadoresPorTile.set(tile, e);
         if (e.kind === 'item') itensPorTile.set(tile, e);
+        // ⚠️ `hp > 0` porque a ficha pede: monstro morto volta ao cursor padrão.
+        if (e.kind === 'creature' && (e.hp ?? 0) > 0) criaturasPorTile.set(tile, e);
       }
       const isSelf = e.id === myId;
       let view = sprites.get(e.id);
@@ -10424,12 +10437,66 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * primeira linha — não calcula tile nem consulta `podeAndar` a cada pixel de
    * movimento do mouse. O `mouseleave` foi junto: ele só escondia o quadrado.
    */
+  /**
+   * ⚔️ **O ESTADO DO CURSOR** (ficha do dono, 12/09).
+   *
+   * 🔴 **Dois estados e nada mais.** A ficha previa um terceiro, `INVALID_TARGET`,
+   * e mandava fazê-lo "voltar para o padrão ou usar o estado inválido já
+   * existente". Não existe estado inválido neste jogo — clicar fora de alcance
+   * anda até lá e ataca —, então o terceiro estado seria um nome sem
+   * comportamento próprio: exatamente o tipo de campo que fica escrito e nunca
+   * é lido. Se um dia houver alvo inválido de verdade, ele entra aqui com
+   * desenho próprio.
+   *
+   * ⚠️ **Troca por CLASSE no `body`, e só quando o estado muda.** Escrever
+   * `style.cursor` a cada `mousemove` faria o navegador reavaliar o ponteiro
+   * dezenas de vezes por segundo; a guarda no início é o que a ficha pede com
+   * *"não criar um novo cursor a cada movimento do mouse"*.
+   */
+  type EstadoCursor = 'padrao' | 'ataque';
+  let cursorAtual: EstadoCursor = 'padrao';
+  let tileSobOMouse: { x: number; y: number } | undefined;
+
+  function cursorDoJogo(estado: EstadoCursor): void {
+    if (estado === cursorAtual) return;
+    cursorAtual = estado;
+    document.body.classList.toggle('mira-monstro', estado === 'ataque');
+  }
+
+  /**
+   * Decide o cursor a partir do que está sob o mouse.
+   *
+   * ⚠️ **Com MAGIA ARMADA o cursor volta ao padrão**, mesmo sobre um monstro. O
+   * vermelho promete ATAQUE, e com magia armada o clique conjura — prometer a
+   * ação errada é pior que não prometer nada. É a mesma razão pela qual o antigo
+   * contorno de caminhada também se apagava ao armar.
+   *
+   * ⚠️ **É chamada TODO QUADRO, e não só no `mousemove`.** O monstro pode morrer
+   * ou andar para fora do tile com o mouse parado, e a ficha pede que o cursor
+   * volte ao padrão nesses casos. Custa um `Map.has`, e o `cursorDoJogo` sai na
+   * primeira linha quando nada mudou.
+   */
+  function avaliaCursor(): void {
+    const t = tileSobOMouse;
+    if (!t || magiaArmada) { cursorDoJogo('padrao'); return; }
+    const dentro = t.x >= 0 && t.y >= 0 && t.x < map.width && t.y < map.height;
+    const alvo = dentro && criaturasPorTile.has(t.y * map.width + t.x);
+    cursorDoJogo(alvo ? 'ataque' : 'padrao');
+  }
+
   viewportEl.addEventListener('mousemove', (ev) => {
-    if (!magiaArmada) return;
     const t = tileDoEvento(ev);
+    tileSobOMouse = t;
+    avaliaCursor();
+    if (!magiaArmada) return;
     const dentro = t.x >= 0 && t.y >= 0 && t.x < map.width && t.y < map.height;
     if (dentro) pintaMira(ev.clientX, ev.clientY, t.x, t.y);
     else { miraMarca.visible = false; circuloMira.visible = false; }
+  });
+  // ⚠️ Saiu do mapa: não há tile sob o mouse, então não há ataque a prometer.
+  viewportEl.addEventListener('mouseleave', () => {
+    tileSobOMouse = undefined;
+    avaliaCursor();
   });
 
   // Botão esquerdo no CHÃO = ir até lá.
@@ -11036,6 +11103,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // Loop de render ---------------------------------------------------------
   app.ticker.add((ticker) => {
     if (myFloor !== renderedFloor) rebuildFloor(myFloor);
+
+    // ⚔️ O monstro pode morrer ou sair do tile com o mouse parado. Ver `avaliaCursor`.
+    avaliaCursor();
 
     const now = performance.now();
 
