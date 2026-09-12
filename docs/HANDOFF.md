@@ -1,4 +1,117 @@
-# Handoff — 2026-09-12 · PONTO DE RETOMADA
+# Handoff — 2026-09-12 (fim do dia) · PONTO DE RETOMADA
+
+> Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
+> `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
+> Último commit: `1fd9ceb`. Árvore limpa, tudo empurrado.
+>
+> O dia foi **inteiro de apresentação**: VFX das magias de manhã, e da tarde em
+> diante a CAMADA DE INTERAÇÃO — ponteiro do jogo, marcador de destino, o que
+> responde ao mouse e o que o monstro mostra. A mecânica de combate e de
+> movimento não mudou uma linha; o que mudou foi o que o jogador vê e o que ele
+> consegue clicar.
+
+## 🎯 O QUE ESTÁ COMBINADO PARA DEPOIS
+
+🔴 **Corrigir a Muralha de Fogo e a Muralha de Gelo.** Continua de pé desde
+cedo, e o dono **não detalhou o que está errado** — pergunte ou peça para ver em
+tela, não invente a lista. O fogo já levou uma rodada de conserto (*"não parece
+vivo no chão"*); o gelo nunca foi ajustado em tela, só implementado.
+
+⚠️ **Duas decisões que estão com o dono, não com o código:**
+
+1. **A arte da Explosão Glacial é DIRECIONAL** — os espinhos saem para um lado
+   só, enquanto a ficha dele descreve 360°. Ou vem arte radial, ou se desenha a
+   mesma folha espelhada (que esbarra no *"não adicionar por código"* dele).
+2. **A ficha nova da Glacial pede `castTime: 0`**, contra os 1,2 s → 0,7 s que
+   ele mesmo especificou quando redesenhou a skill. Ficaram os dele.
+
+## ⏸️ O QUE ENTROU EM 12/09
+
+| | |
+|---|---|
+| 🪨 **Escombros do Meteoro** | pedra, fagulha e poeira desenhadas; o jogo só tinha UMA espécie de partícula (o cristal da Nevasca) |
+| ☄️ **Meteoro** | quarta folha (7×4), nuvem apagada no corte, janela do cortador que decepava as laterais |
+| ❄️ **Glacial** | três artes em um dia; a atual são espinhos que nascem do chão, em 17 quadros |
+| 🖱️ **Ponteiro do jogo** | cursor próprio, mais a variante VERMELHA sobre monstro |
+| 🎯 **Marcador de destino** | o quadrado verde virou animação de 12 quadros que congela no último |
+| 🏷️ **Nome sob o mouse** | monstro, bolsa, corpo, nó e NPC deixam de anunciar o nome; só o jogador mantém |
+| 🩸 **Vida após o dano** | barra e contorno vermelho no alvo, e vida SÓ depois de dano confirmado |
+| ⚔️ **Área de clique** | de um tile fixo para a SILHUETA do desenho |
+| 🔬 **Sala de revisão** | capturar o jogo quadro a quadro para julgar VFX devagar |
+
+## 🔬 A FERRAMENTA NOVA QUE VALE CONHECER
+
+Quase todo o trabalho aqui é **VFX julgado em tela**, e a diferença entre acertar
+e errar mora em 40 ms. Existe agora como capturar o jogo RODANDO, quadro a quadro:
+
+- **`window.elysia`** (só em `dev`, o Vite elimina no build): o `app` do Pixi, o
+  contêiner do mundo, o tile do herói, e `efeito`/`feitio` para TOCAR uma
+  animação sem conjurar — sem SP, sem recarga, sem servidor.
+- **`POST /__captura`** no servidor de dev grava a tira em disco (preso a
+  `.captura/`, que está no `.gitignore`).
+- **O relógio preso:** `performance.now` sobreposto mais `update()` manual.
+
+🔴 **E o relógio são DOIS.** `app.ticker` **não** é o `Ticker.shared`: o laço do
+jogo e os efeitos por código vivem no primeiro, todo `AnimatedSprite` vive no
+segundo. Bombeando só um, a captura sai com o sprite CONGELADO e o resto andando
+— e eu publiquei uma assim antes de descobrir.
+
+⚠️ E o recorte tem de SEGUIR o ponto do mundo: preso à tela, ele deriva com a
+câmera assim que o herói dá um passo (medido: 32 px de erro).
+
+## 🪤 ARMADILHAS DESTA ÁREA
+
+1. **A fonte de cada folha muda, e recortar da errada NÃO dá erro** — dá outro
+   número de quadros. Os comandos certos estão na ficha de cada magia em
+   `client/src/main.ts`. Os de hoje:
+
+       node tools/meteoro-grade2fx.mjs arte-fonte/fx/meteoro_vertical4.png meteoro_queda 14 7 4
+       node tools/espinhos2fx.mjs arte-fonte/fx/glacial7.png glacial_burst 160
+       node tools/marcador2fx.mjs arte-fonte/fx/marcador_destino.png marcador_destino 6 2 96
+       node tools/cursor2hud.mjs arte-fonte/hud/cursor.png arte-fonte/hud/cursor_ataque.png --altura=36
+
+2. **`client/src/fx-folhas.json` tem a CONTAGEM por onde o cliente fatia a
+   textura.** Trocar a arte sem trocar o número dá um quadro fantasma, em silêncio.
+
+3. **A folha quase nunca vem alinhada.** Três vezes hoje: as duas fileiras do
+   marcador tinham o chão em alturas diferentes (pulo de 62 px); a folha dos
+   espinhos não tem grade nenhuma; e uma fileira fraca de outra folha se
+   centrava sozinha no lugar errado. **Meça a chave do alinhamento antes de
+   cortar** — é sempre a coisa que precisa ficar PARADA entre um quadro e o
+   seguinte.
+
+4. **Arte de FX se julga sobre o CHÃO em que vai rodar.** Alfa baixo em mistura
+   normal é o desenho misturado com o fundo: laranja ralo sobre verde dá barro.
+   As folhas de contato deste repositório saem compostas sobre grama por isso.
+
+5. **Arte de chão parece maior na folha do que fica em tela.** O marcador de
+   destino foi 0,5 → 0,65 → 0,98 em três rodadas, sempre para cima. Na dúvida,
+   erre para o grande.
+
+6. **Número que é razão entre a ARTE e o TILE não quer dizer nada sozinho** —
+   `escala`, `ancoraX`/`ancoraY`, `sobeY`, `ESCALA_IMPACTO`. Toda folha nova os
+   invalida, e a medida que os justifica tem de ser refeita.
+
+7. **Campo escrito que ninguém lê é a família de defeito que mais se repete
+   aqui.** Três apareceram hoje (`criaturasPorTile`, `geloDoChao`, o `fenda` do
+   `FOLHA_FEITIO`), e os três saíram no mesmo commit em que perderam o leitor.
+
+## ⚠️ PENDÊNCIAS ANTIGAS QUE NINGUÉM FECHOU
+
+- **O terceiro quadro do Meteoro guarda um resto de nuvem** — limitação de
+  método (o corte é ancorado embaixo e ali a nuvem ESTÁ embaixo), não parâmetro.
+- **A transição "primeiro dano → barra de vida" não foi encenada** pelo navegador
+  automatizado; a checagem foi estrutural. É o primeiro lugar para olhar jogando.
+- **`anel_conjuracao` não tem arte-fonte** em `arte-fonte/`.
+- **~50 MB de folhas direcionais do Meteoro sem uso** em `arte-fonte/`.
+- **O repositório é PÚBLICO** e os docs assumem privado; há assets de terceiros
+  expostos. Continua sem decisão.
+- O bloco *📍 ONDE ESTAMOS* do `ROADMAP-elysia.md` está de 30/07. **Este arquivo
+  é o recente** — é o que o próprio ROADMAP manda seguir.
+
+---
+
+# Handoff — 2026-09-12 (manhã)
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
