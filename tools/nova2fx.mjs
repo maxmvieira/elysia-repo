@@ -51,7 +51,31 @@ const LIN = Number(linArg ?? 4);
 const img = decode(arq);
 const lum = (o) => 0.299 * img.px[o] + 0.587 * img.px[o + 1] + 0.114 * img.px[o + 2];
 const presa = (v) => Math.max(0, Math.min(1, v));
-const alfa = (x, y) => presa((lum((y * img.w + x) * 4) - PISO) / (TETO - PISO));
+/*
+ * 🔴 **Se a folha TEM alfa, é ele que manda.**
+ *
+ * As duas primeiras folhas glaciais vieram com fundo preto chapado, e a chave
+ * era o brilho. A terceira (13/09) veio recortada, com um halo cinza de alfa
+ * baixo em volta de cada estouro — e o brilho não sabe distinguir halo de
+ * desenho: o corte saiu com um disco cinza em cada quadro.
+ *
+ * ⚠️ A detecção é por MEIO-TOM: uma folha sem alfa tem tudo em 0 ou 255. Se
+ * existe pixel no meio, o canal foi usado de propósito, e ignorá-lo é jogar
+ * fora o recorte que o artista já fez.
+ */
+const TEM_ALFA = (() => {
+  for (let i = 3; i < img.px.length; i += 4 * 97) {
+    if (img.px[i] > 24 && img.px[i] < 250) return true;
+  }
+  return false;
+})();
+/** Piso do alfa: o véu fantasma das folhas geradas por IA. */
+const PISO_ALFA = 24;
+const alfa = (x, y) => {
+  const o = (y * img.w + x) * 4;
+  if (TEM_ALFA) return img.px[o + 3] < PISO_ALFA ? 0 : img.px[o + 3] / 255;
+  return presa((lum(o) - PISO) / (TETO - PISO));
+};
 
 const cw = img.w / COL;
 const ch = img.h / LIN;
@@ -148,20 +172,77 @@ function escada(p, quantos, tamanho) {
   const vao = (ultimo - primeiro) / (quantos - 1);
   return Array.from({ length: quantos }, (_, k) => Math.round(primeiro + k * vao));
 }
-const CX = escada(pcol, COL, img.w);
+/**
+ * 🔴 **CADA FILEIRA TEM AS SUAS COLUNAS, e isso não era esperado.**
+ *
+ * A terceira folha glacial (13/09) não é regular em eixo nenhum: na primeira
+ * fileira os estouros ficam a 170, 173, 180, 188, 193, 192 e 196 px um do outro —
+ * o espaçamento CRESCE junto com o desenho —, e na última eles estão a 225. Uma
+ * escada só, por mais bem medida que seja, erra 46 px no meio do caminho, e 46 px
+ * num estouro de 190 corta cristal.
+ *
+ * ✅ Então as colunas são achadas DENTRO de cada fileira, pelas ilhas do perfil.
+ * Onde duas se tocam (nas fileiras finais, em que o estouro é maior que o vão), a
+ * maior é partida no vale — a mesma regra do , e pelo mesmo
+ * motivo: passo teórico não sobrevive a arte desenhada à mão.
+ */
+function ilhas(v, limiar) {
+  const o = [];
+  let j = -1;
+  for (let k = 0; k <= v.length; k++) {
+    if (k < v.length && v[k] > limiar) { if (j < 0) j = k; }
+    else if (j >= 0) { o.push([j, k - 1]); j = -1; }
+  }
+  return o;
+}
+function colunasDaFileira(y0, y1) {
+  const perf = new Float64Array(img.w);
+  for (let x = 0; x < img.w; x++) {
+    let s2 = 0;
+    for (let y = y0; y <= y1; y++) s2 += alfa(x, y);
+    perf[x] = s2;
+  }
+  const pico = perf.reduce((m, v) => Math.max(m, v), 0);
+  const f = ilhas(perf, pico * 0.02);
+  while (f.length > COL) {
+    let k = 0;
+    for (let i2 = 1; i2 < f.length; i2++) if (f[i2][1] - f[i2][0] < f[k][1] - f[k][0]) k = i2;
+    if (k < f.length - 1) f.splice(k, 2, [f[k][0], f[k + 1][1]]);
+    else f.splice(k - 1, 2, [f[k - 1][0], f[k][1]]);
+  }
+  while (f.length < COL && f.length > 0) {
+    let k = 0;
+    for (let i2 = 1; i2 < f.length; i2++) if (f[i2][1] - f[i2][0] > f[k][1] - f[k][0]) k = i2;
+    const [a2, b2] = f[k];
+    const m0 = a2 + Math.round((b2 - a2) * 0.35);
+    const m1 = a2 + Math.round((b2 - a2) * 0.65);
+    let corte = Math.round((a2 + b2) / 2);
+    let menor = Infinity;
+    for (let x = m0; x <= m1; x++) if (perf[x] < menor) { menor = perf[x]; corte = x; }
+    f.splice(k, 1, [a2, corte - 1], [corte, b2]);
+    f.sort((p2, q2) => p2[0] - q2[0]);
+  }
+  return f.map(([a2, b2]) => Math.round((a2 + b2) / 2));
+}
+
 const CY = escada(plin, LIN, img.h);
-console.log(`[nova] centros x: ${CX.join(' ')}`);
-console.log(`[nova] centros y: ${CY.join(' ')}`);
+const FILEIRAS = ilhas(plin, 0.5);
+/** A faixa vertical que contém este centro, para procurar as colunas dentro dela. */
+const faixaDe = (cy) => FILEIRAS.find(([a2, b2]) => cy >= a2 && cy <= b2)
+  ?? [Math.max(0, cy - 80), Math.min(img.h - 1, cy + 80)];
+const CXPorFileira = CY.map((cy) => colunasDaFileira(...faixaDe(cy)));
+console.log("[nova] fileiras: " + CY.join(" "));
 /*
- * ⚠️ **A JANELA é o menor passo REAL entre centros vizinhos**, e não a célula
- * teórica. É ela que decide quanto do vizinho entra, e na folha nova os anéis
- * (270 px de ponta a ponta) são maiores que o passo vertical: sem medir, o corte
- * ou decepa o anel ou traz metade do de cima.
+ * ⚠️ **A JANELA é o menor vão entre dois estouros VIZINHOS**, medido em todas as
+ * fileiras. É ele que decide quanto do vizinho entra pela borda, e nesta folha o
+ * vão varia de 170 a 225 — usar o maior traria meio estouro alheio em cada quadro
+ * da primeira fileira.
  */
 const passos = [];
-for (let k = 1; k < CX.length; k++) passos.push(CX[k] - CX[k - 1]);
-for (let k = 1; k < CY.length; k++) passos.push(CY[k] - CY[k - 1]);
-const JANELA = Math.min(...passos);
+for (const linha of CXPorFileira) {
+  for (let k = 1; k < linha.length; k++) passos.push(linha[k] - linha[k - 1]);
+}
+const JANELA = passos.length > 0 ? Math.min(...passos) : Math.min(cw, ch);
 
 const N = COL * LIN;
 const W = LADO * N;
@@ -172,8 +253,8 @@ for (let k = 0; k < N; k++) {
    * 🔴 **A célula é centrada no CENTRO MEDIDO**, e não na divisão teórica. Ver
    * `centros`: os anéis derivam da grade, e seguir a grade parte o desenho.
    */
-  const cx = CX[k % COL];
   const cy = CY[Math.floor(k / COL)];
+  const cx = CXPorFileira[Math.floor(k / COL)][k % COL] ?? Math.round((k % COL + 0.5) * cw);
   const jan = JANELA;
   const x0 = Math.round(cx - jan / 2);
   const x1 = Math.round(cx + jan / 2) - 1;
