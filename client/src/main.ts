@@ -2831,24 +2831,30 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * a pedra toca o chão, que é o fim do mergulho (`quedaMs`), e os dois lados
      * usam o mesmo número.
      *
-     * 🌫️ **A COROA DE FUMAÇA É APAGADA NO CORTE, do meio da queda para o fim**
-     * (dono, 12/09: *"essa nuvem mais do meio pro final não precisa… depois é
-     * somente o meteoro mesmo"*). Quem faz isso é o `veuFumaca` do
+     * 🌫️ **A NUVEM É APAGADA NO CORTE** (dono, 12/09: *"remove as nuvens do
+     * terceiro em diante"*). Quem faz isso é o `veuFumaca` do
      * `meteoro-grade2fx`, e ele precisa saber onde a queda acaba — os quadros do
      * estouro têm de 28 a 40 % da massa acima da mesma linha, e essa nuvem é o
-     * efeito. **O 19 do `fracaoQueda` abaixo é o mesmo número**, e vai na linha
+     * efeito. **O 14 do `fracaoQueda` abaixo é o mesmo número**, e vai na linha
      * de comando do cortador.
      *
-     * 🔴 **E a fonte é a `meteoro_vertical3.png`, não a `meteoro_vertical.png`.**
-     * Recortar da primeira dá 17 quadros em vez de 27 — o cortador acha as
-     * ilhas, não erra, é outra arte mesmo. Ficam as três no `arte-fonte/` porque
-     * o dono trocou a folha duas vezes no mesmo dia. Refazer o asset é:
+     * ⚠️ **O TERCEIRO quadro guarda um resto de nuvem, e é limitação de método.**
+     * O cortador ancora cada desenho pelo RODAPÉ dele, e nos dois primeiros
+     * quadros não existe pedra: o rodapé é a própria nuvem. Um corte medido de
+     * baixo para cima — que é o que mantém a rocha parada no tile — não alcança
+     * uma nuvem que ESTÁ no rodapé. Do quarto em diante o céu sai limpo. Na
+     * prática ninguém vê: 40 % do mergulho acontece fora da tela.
      *
-     *     node tools/meteoro-grade2fx.mjs arte-fonte/fx/meteoro_vertical3.png meteoro_queda 19
+     * 🔴 **E a FONTE muda a cada folha.** A quarta (`meteoro_vertical4.png`,
+     * 7×4) substituiu a terceira (6×5). Recortar da errada não dá erro — dá
+     * outro número de quadros, e foi assim que uma tira de 17 quase entrou no
+     * lugar de uma de 27. Refazer o asset é:
+     *
+     *     node tools/meteoro-grade2fx.mjs arte-fonte/fx/meteoro_vertical4.png meteoro_queda 14 7 4
      */
     {
       magia: 'meteor_solo', arquivo: 'meteoro_queda', bolts: 1, quadros: 27,
-      fracaoQueda: 19 / 27, duracaoEstouro: 560, desvanece: 180, ancoraY: 0.88,
+      fracaoQueda: 14 / 27, duracaoEstouro: 560, desvanece: 180, ancoraY: 0.88,
       /*
        * ☄️ **A pedra já ENTRA grande, e cresce pouco.** Pedido do dono em 13/09:
        * *"pode ser o meteoro um pouco menor e a animação já saindo um meteoro

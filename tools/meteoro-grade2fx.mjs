@@ -40,12 +40,14 @@
  * `trajetoria` vertical. É de propósito: é o que faz a pedra chegar no tile certo
  * em qualquer ponto da tela, em vez de cair dentro do próprio quadro.
  *
- * ⚠️ **`COL`, `POR_COL` e a janela mudam A CADA FOLHA.** Não há como adivinhar:
- * as três vieram 5×5, 3×3 e 6×5, com células de tamanhos diferentes. Trocar a
- * folha é medir e ajustar estas constantes — e conferir a tira de contato.
+ * ⚠️ **A GRADE MUDA A CADA FOLHA, e por isso ela vem de fora.** As quatro que
+ * passaram por aqui vieram 5×5, 3×3, 6×5 e 7×4, com células de tamanhos
+ * diferentes. `COL` e `POR_COL` são argumentos desde 12/09; a JANELA (`JAN_W`,
+ * `JAN_H`) ainda é medida à mão, e trocar a folha continua exigindo conferir a
+ * tira de contato.
  *
  * Uso:
- *   node tools/meteoro-grade2fx.mjs arte-fonte/fx/meteoro_vertical3.png meteoro_queda
+ *   node tools/meteoro-grade2fx.mjs arte-fonte/fx/meteoro_vertical4.png meteoro_queda 14 7 4
  */
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -54,9 +56,18 @@ import { decode, encode } from './hud/png.mjs';
 
 const DESTINO = 'client/public/assets/fx';
 
-/** Quantas colunas a folha tem, e quantos desenhos há em cada uma. */
-const COL = 6;
-const POR_COL = 5;
+const [arq, nome, quedaArg, colArg, linArg] = process.argv.slice(2);
+
+/**
+ * Quantas colunas a folha tem, e quantos desenhos há em cada uma.
+ *
+ * ⚠️ **Vêm da linha de comando desde 12/09, e o padrão é a folha anterior.** O
+ * dono trocou a arte do Meteoro quatro vezes em dois dias, e a quarta veio 7×4
+ * contra o 6×5 das outras. Cravar a grade aqui obrigava a editar o cortador para
+ * cada folha nova — e um cortador editado a cada uso deixa de ser reproduzível.
+ */
+const COL = Number(colArg ?? 6) || 6;
+const POR_COL = Number(linArg ?? 5) || 5;
 
 /**
  * 🔴 **A CHAVE É A SATURAÇÃO, e não o brilho.**
@@ -110,9 +121,9 @@ const ALT = 218;
  */
 const ANCORA = 0.88;
 
-const [arq, nome, quedaArg] = process.argv.slice(2);
 if (!arq || !nome) {
-  console.error('uso: node tools/meteoro-grade2fx.mjs <folha.png> <nome-de-saida> [quadros-de-queda]');
+  console.error('uso: node tools/meteoro-grade2fx.mjs <folha.png> <nome-de-saida>'
+    + ' [quadros-de-queda] [colunas] [fileiras]');
   process.exit(1);
 }
 
@@ -130,26 +141,31 @@ if (!arq || !nome) {
  * MISTURADO com o fundo — laranja ralo sobre verde dá barro. Sobre o preto da
  * folha de contato ela é bonita; sobre grama é uma mancha.
  *
- * ✅ **Medido na célula de 128×218:** a rocha vive em y 160–192, o rastro aceso
- * sobe até ~130, e de ~90 para cima é só coroa. Daí o corte em 128 com 42 px de
- * rampa: nada de aresta reta, o rastro se dissolve subindo.
+ * ⚠️ **Os quatro números abaixo são desta ARTE, e morrem com ela.** Eles saíram
+ * medidos na folha 7×4 de 12/09 (`meteoro_vertical4.png`), onde o pedido foi
+ * *"remove as nuvens do terceiro em diante"*. Na folha 6×5 anterior os mesmos
+ * papéis eram 128/42/7/14 — a nuvem lá era uma COROA que crescia no meio da
+ * queda, aqui é o NINHO de onde a pedra sai. Folha nova, medida nova.
  *
- * ⚠️ **A força cresce com o QUADRO, e é isso que atende o pedido.** Medido, 40 %
- * do mergulho acontece fora da tela — a pedra entra em cena lá pelo quadro 8.
- * Começar a apagar em 7 e terminar em 14 faz o jogador ver a fumaça entrar junto
- * com o meteoro e ficar para trás, que é a frase dele em imagem.
+ * ✅ **Medido na célula de 128×218:** o ninho de fumaça ocupa do topo do desenho
+ * até y ≈ 138, e o facho aceso desce de ~130 até a rocha, que está em ~190. Daí
+ * o corte em 150 com 32 px de rampa — o facho se dissolve subindo, sem aresta.
+ *
+ * ⚠️ **E aqui a força NÃO cresce devagar: ela liga no terceiro quadro**, que é o
+ * que o dono pediu com essas palavras. Um quadro dura 26 ms; rampa longa aqui
+ * seria interpretação minha, não o pedido dele.
  *
  * 🔴 **E o limite da queda TEM de vir de fora.** Os quadros do estouro carregam
  * de 28 a 40 % da massa acima dessa mesma linha — é a nuvem do cogumelo, que é o
  * efeito. Uma rampa cega comeria o estouro inteiro. O número é o mesmo
- * `fracaoQueda` do cliente (19/27, em `FOLHAS_QUEDA`); sem ele, o cortador não
+ * `fracaoQueda` do cliente (14/27, em `FOLHAS_QUEDA`); sem ele, o cortador não
  * apaga nada.
  */
 const QUEDA = Number(quedaArg ?? 0) || 0;
-const FUMACA_TOPO = 128;
-const FUMACA_RAMPA = 42;
-const FUMACA_DE = 7;
-const FUMACA_ATE = 14;
+const FUMACA_TOPO = 150;
+const FUMACA_RAMPA = 32;
+const FUMACA_DE = 1;
+const FUMACA_ATE = 2;
 
 const img = decode(arq);
 const lum = (o) => 0.299 * img.px[o] + 0.587 * img.px[o + 1] + 0.114 * img.px[o + 2];

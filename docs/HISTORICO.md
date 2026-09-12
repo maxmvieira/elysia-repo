@@ -9,6 +9,47 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-12 (madrugada) — A quarta folha do Meteoro, e a nuvem que o rodapé não deixa apagar
+
+**Onde mora:** `COL`/`POR_COL` por argumento e os quatro `FUMACA_*` em
+`tools/meteoro-grade2fx.mjs` · `fracaoQueda` em `FOLHAS_QUEDA`,
+`client/src/main.ts` · `arte-fonte/fx/meteoro_vertical4.png`
+
+*"Remove as nuvens do terceiro em diante e troca no lugar do que estava."* Folha 7×4, fundo
+preto, com um NINHO de fumaça no alto de onde a pedra sai — desenho diferente da anterior,
+onde a nuvem era uma COROA que crescia atrás do meteoro no meio da queda.
+
+### A máquina de apagar fumaça já existia; o que mudou foram as medidas
+
+O `veuFumaca` entrou horas antes para a folha 6×5 e serviu inteiro. O que não serviu foram
+os números: lá o corte era em y 128 com rampa de 42, ligando do quadro 7 ao 14; aqui é 150
+com rampa de 32, ligando de uma vez no terceiro. ⚠️ **Os quatro são desta ARTE e morrem com
+ela** — é a mesma natureza da `ESCALA_IMPACTO`, que já perseguiu cinco folhas.
+
+✅ **E a grade saiu do código.** Quatro folhas em dois dias vieram 5×5, 3×3, 6×5 e 7×4;
+`COL` e `POR_COL` viraram argumentos. Um cortador que precisa ser EDITADO a cada uso deixa
+de ser reproduzível — e foi exatamente isso que quase me custou o asset errado, ao recortar
+da `meteoro_vertical.png` em vez da `3`: saíram 17 quadros no lugar de 27, sem erro nenhum
+na tela.
+
+### 🔴 O terceiro quadro guarda um resto de nuvem, e é limitação de MÉTODO
+
+O corte é medido de baixo para cima, porque o que tem de ficar parado no tile é a ROCHA — é
+a mesma regra que faz o cortador ancorar tudo pelo rodapé do desenho. Só que nos dois
+primeiros quadros **não existe rocha**: o meteoro ainda está dentro do ninho, e o rodapé do
+desenho é a própria nuvem. Um corte ancorado embaixo não alcança uma nuvem que está embaixo.
+
+⚠️ Do quarto quadro em diante o céu sai limpo. O terceiro fica com um resto, e na prática
+ninguém o vê: 40 % do mergulho acontece fora da tela. Se incomodar, o conserto barato é
+descartar os dois ou três primeiros quadros da tira — não é ajuste de parâmetro.
+
+✅ **`fracaoQueda` passou de 19/27 para 14/27**, medido na tira: as duas primeiras fileiras
+são queda (14 quadros) e as duas últimas, estouro (13). O mesmo número vai na linha de
+comando do cortador, porque os quadros do estouro carregam de 28 a 40 % da massa acima da
+linha de corte — aquela nuvem é o cogumelo, e apagá-la seria apagar o efeito.
+
+---
+
 ## 2026-09-12 (madrugada) — A fumaça do Meteoro sai no corte, e a Glacial aterrissa
 
 **Onde mora:** `veuFumaca` em `tools/meteoro-grade2fx.mjs` · `FUNDO` em
