@@ -2,7 +2,7 @@
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
-> Último commit: `7b2ca3c`. Árvore limpa. **Ainda NÃO empurrado** — o dono não
+> Último commit de código: `bf03d23`. Árvore limpa. **Ainda NÃO empurrado** — o dono não
 > pediu; é uma linha de `git push`.
 >
 > O dia foi **quase inteiro de apresentação**: VFX das magias de manhã, e da
