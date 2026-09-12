@@ -2244,6 +2244,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * segue o herói com folga, então usar o meio da tela como se fosse ele
        * introduz justamente o erro de meio tile que se está tentando medir.
        */
+      /**
+       * ❄️ Liga/desliga o CONGELAMENTO visual de uma criatura, sem combate.
+       *
+       * ⚠️ O bloco de gelo é proporcional ao corpo do bicho, então conferi-lo
+       * exige um bicho de verdade — e esperar um congelamento real em briga é
+       * lento e incerto. Aqui é imediato, e não toca no servidor.
+       */
+      congela(id: string, v: boolean): void {
+        sprites.get(id)?.setFrozen?.(v);
+      },
       get heroi() {
         const v = myId ? sprites.get(myId) : undefined;
         if (!v) return undefined;
@@ -6277,34 +6287,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
               const apontado = FOLHA_FEITIO[folha]?.aponta;
               if (apontado === undefined) {
                 tocaEfeito(folha, px, py);
-              } else if (msg.alvos && msg.alvos.length > 0) {
-                /*
-                 * ❄️ **UM ESTOURO POR INIMIGO, virado para ele** (dono, 12/09:
-                 * *"se tiver somente 1 monstro, saem espinhos direcionados nesse
-                 * monstro; se ele estiver completamente cercado, precisa sair
-                 * espinhos para todos"*).
-                 *
-                 * ⚠️ **A lista vem do SERVIDOR.** Ver `alvos` no protocolo: quem
-                 * decide o dano decide para onde os espinhos apontam, senão o
-                 * desenho mostraria um conjunto de alvos e o dano cobraria outro.
-                 */
-                for (const a of msg.alvos) {
-                  const ax = a.x * TS + TS / 2;
-                  const ay = a.y * TS + TS;
-                  tocaEfeito(folha, px, py, Math.atan2(ay - py, ax - px) - apontado);
-                }
               } else {
                 /*
-                 * ❄️ **Sem ninguém por perto, sai a RODA INTEIRA.**
+                 * ❄️ **A RODA INTEIRA, SEMPRE** (dono, 12/09: *"pode manter essa
+                 * animação independente do lado que tenha monstro"*).
                  *
-                 * ⚠️ A magia sai mesmo sem alvo (regra do dono, 13/09), e a primeira
-                 * versão disto soltava UM estouro sem girar — do jeito que a arte foi
-                 * desenhada. O dono viu e mostrou: um leque solto apontando para o
-                 * nada lê como bug, porque a direção parece escolhida e não é.
+                 * 🔴 **E a versão anterior apontava um leque para CADA inimigo** — a
+                 * lista vinha do servidor, no campo `alvos`. Funcionava e foi
+                 * descartada pelo dono depois de ver as duas em tela: com dois ou
+                 * três monstros do mesmo lado, os leques se empilhavam e a magia
+                 * parecia mais fraca do que com um só. A roda fixa tem sempre o
+                 * mesmo peso, e o peso é o que a magia comunica.
                  *
-                 * ✅ Seis estouros em volta é o mesmo desenho do "completamente
-                 * cercado" — a forma própria da magia, e não uma direção inventada.
-                 * Seis porque o leque da arte abre uns 60°: fecham a volta sem
+                 * ✅ Seis porque o leque da arte abre uns 60°: fecham a volta sem
                  * empilhar.
                  */
                 const VOLTAS = 6;
@@ -13000,6 +12995,38 @@ function areaDoAtor(sprite: AnimatedSprite): { contains: (x: number, y: number) 
   };
 }
 
+/**
+ * ❄️ **O BLOCO DE GELO: 8 quadros, fatiados uma vez.**
+ *
+ * ⚠️ **Sai do MESMO carregador das outras folhas de efeito** (`fx-folhas.json`),
+ * e é lido daqui com `Assets.get` porque este construtor é de módulo e não
+ * enxerga o mapa que vive dentro do `startGame`. Um carregador, dois leitores.
+ *
+ * 🔴 **A falha NÃO é guardada.** As folhas carregam sem `await`, e um monstro
+ * pode congelar antes desta chegar; gravar o `null` deixaria o bloco ausente
+ * para sempre naquela sessão, por causa de meio segundo de disco.
+ */
+const GELO_QUADROS = 8;
+/** O PÉ do cristal dentro da célula, medido pelo `espinhos2fx`. */
+const GELO_PE_X = 0.508;
+const GELO_PE_Y = 0.985;
+/** O ápice, medido: 128 px de cristal contra 63 do primeiro quadro. */
+const GELO_PICO = 4;
+/** Quanto leva para o cristal crescer e, depois, para derreter. */
+const GELO_MS = 420;
+let geloQuadros: Texture[] | undefined;
+function quadrosDoGelo(): Texture[] | undefined {
+  if (geloQuadros) return geloQuadros;
+  const tex = Assets.get<Texture>(`/assets/fx/gelo_congelado.png`);
+  if (!tex) return undefined;
+  const cw = Math.max(1, Math.round(tex.width / GELO_QUADROS));
+  geloQuadros = Array.from({ length: GELO_QUADROS }, (_, i) => new Texture({
+    source: tex.source,
+    frame: new Rectangle(i * cw, 0, cw, tex.height),
+  }));
+  return geloQuadros;
+}
+
 function makeMiniActor(opts: MiniActorOpts): EntityView {
   const { e, anim, scale, nameColor, alwaysAnimate, onClick } = opts;
   const c = new Container();
@@ -13732,31 +13759,61 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
    * escala própria. Centrar no tile poria o bloco nos pés de uns e na cabeça de
    * outros.
    */
-  let geloNode: Sprite | undefined;
+  let geloNode: AnimatedSprite | undefined;
+  /**
+   * ❄️ **O BLOCO DE GELO DE QUEM CONGELOU.**
+   *
+   * 🔴 **Era uma imagem PARADA, e virou animação** (dono, 12/09). A folha nova
+   * tem 8 quadros: o cristal CRESCE do chão até o quadro 4 e depois derrete.
+   * Então congelar toca 0→4 e SEGURA no 4 pelo tempo que durar; descongelar
+   * toca 5→7 e some. É o mesmo padrão do marcador de destino: a animação tem
+   * início e fim, mas quem decide a DURAÇÃO é o estado, não a folha.
+   *
+   * ⚠️ **O tamanho é do BICHO, não do tile** — pedido do dono: *"faça ela
+   * proporcional ao tamanho dos inimigos que estiverem congelados"*. Já era
+   * assim com a imagem parada, e continua: a altura do bloco sai de
+   * `sprite.height`, que é o corpo desenhado. Sem isso o mesmo bloco cobriria
+   * metade de um goblin e um terço de um chefe.
+   *
+   * ⚠️ **A âncora é o PÉ do cristal (0,508 / 0,985), medido pelo cortador**, e
+   * ele cai nos pés do bicho. Ancorar no centro faria o gelo flutuar nos
+   * quadros baixos e afundar nos altos, porque o cristal cresce para CIMA.
+   */
+  let gelado = false;
   function mostraGelo(v: boolean): void {
     if (!v && !geloNode) return;
     if (!geloNode) {
-      const tex = Assets.get<Texture>('/assets/spells/frozen_status_overlay.png');
+      const quadros = quadrosDoGelo();
       // ⚠️ Folha ausente = sem bloco, e o resto do congelamento (cor e animação
       // parada) continua valendo. É a convenção do arquivo inteiro.
-      if (!tex) return;
-      geloNode = new Sprite(tex);
-      geloNode.anchor.set(sprite.anchor.x, sprite.anchor.y);
+      if (!quadros) return;
+      geloNode = new AnimatedSprite(quadros);
+      geloNode.loop = false;
+      geloNode.anchor.set(GELO_PE_X, GELO_PE_Y);
       geloNode.x = sprite.x;
       geloNode.y = sprite.y;
-      /*
-       * ⚠️ A altura do bloco é casada com a do CORPO, não com a do tile: o
-       * desenho tem 72 px para um sprite que em tela tem `sprite.height`. Sem
-       * isso ele cobriria metade de um goblin e um terço de um chefe.
-       */
-      geloNode.scale.set((sprite.height * 1.12) / geloNode.texture.height);
-      geloNode.alpha = 0.9;
+      geloNode.scale.set((sprite.height * 1.12) / geloNode.height);
+      geloNode.animationSpeed = quadros.length / (GELO_MS / (1000 / 60));
       c.addChild(geloNode);
+      /*
+       * ⚠️ **Segura no ápice, medido: o quadro 4 é o mais alto (128 px contra
+       * 63 do primeiro) e o mais pesado.** Depois dele a folha já está
+       * derretendo, e deixar correr faria o gelo sumir com o bicho ainda preso.
+       */
+      geloNode.onFrameChange = (q: number) => {
+        if (gelado && q >= GELO_PICO) geloNode?.gotoAndStop(GELO_PICO);
+      };
+      geloNode.onComplete = () => { if (!gelado && geloNode) geloNode.visible = false; };
     }
-    geloNode.visible = v;
+    if (v) {
+      geloNode.visible = true;
+      geloNode.gotoAndPlay(0);
+    } else {
+      // ❄️ Descongelou: o cristal derrete em vez de piscar para fora.
+      geloNode.gotoAndPlay(GELO_PICO + 1);
+    }
   }
 
-  let gelado = false;
   function setFrozen(v: boolean): void {
     if (v === gelado) return;
     gelado = v;

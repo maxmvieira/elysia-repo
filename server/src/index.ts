@@ -4512,20 +4512,15 @@ function executeSpell(
 
   if (!emQueda) {
     /*
-     * ❄️ **A magia que nasce EM VOLTA manda para onde mirar.** Ver `alvos` no
-     * protocolo: a Glacial virou um estouro POR inimigo, cada um virado para
-     * ele, e a lista tem de vir de quem decidiu o dano. O cliente aponta; ele
-     * não escolhe.
-     *
-     * ⚠️ Só `emVolta` paga esses bytes. Para o resto das magias a lista seria
-     * ruído por pacote, e nenhuma delas aponta nada.
+     * ❄️ **A Glacial JÁ MANDOU a lista de alvos daqui, e não manda mais.** Ela
+     * chegou a apontar um leque de espinhos para cada inimigo; o dono viu as
+     * duas versões em tela e ficou com a roda fixa. Sem ninguém lendo a lista,
+     * mandá-la seria peso de rede por nada — e campo escrito que ninguém lê é
+     * a família de defeito que mais se repete neste projeto.
      */
     broadcastFloor(player.floor, {
       t: 'fx', kind: def.fx, x: fxAt.tileX, y: fxAt.tileY, floor: player.floor,
       ...(def.shape === 'area' ? { radius: alcance } : {}),
-      ...(def.emVolta === true
-        ? { alvos: targets.map((c) => ({ x: c.tileX, y: c.tileY })) }
-        : {}),
     });
   }
 
