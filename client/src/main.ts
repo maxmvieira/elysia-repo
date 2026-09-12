@@ -10201,7 +10201,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
          * ⚔️ **Morreu ou sumiu: a seleção vai junto.** A ficha pede que nada
          * fique preso onde o monstro estava — e como o `destroy` logo abaixo
          * leva nome, barra e contorno, basta soltar o alvo. Ver
-         * `atualizaUiDeMonstros`, que limpa a memória de dano no mesmo quadro.
+         * `atualizaUiDasEntidades`, que limpa a memória de dano no mesmo quadro.
          */
         if (id === targetId) targetId = null;
         view.container.destroy();
@@ -10460,8 +10460,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   type EstadoCursor = 'padrao' | 'ataque';
   let cursorAtual: EstadoCursor = 'padrao';
   let mouseNoMapa = false;
-  /** O id da criatura sob o mouse, ou `undefined`. */
-  let criaturaSobOMouse: string | undefined;
+  /** A entidade sob o mouse — espécie e id —, ou `undefined`. */
+  let entidadeSobOMouse: { especie: string; id: string } | undefined;
 
   function cursorDoJogo(estado: EstadoCursor): void {
     if (estado === cursorAtual) return;
@@ -10483,7 +10483,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * primeira linha quando nada mudou.
    */
   function avaliaCursor(): void {
-    criaturaSobOMouse = undefined;
+    entidadeSobOMouse = undefined;
     if (!mouseNoMapa || magiaArmada) { cursorDoJogo('padrao'); return; }
     /*
      * 🔴 **Quem responde "o que está sob o mouse" é o PRÓPRIO TESTE DE ACERTO do
@@ -10495,15 +10495,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     const p = app.renderer.events.pointer.global;
     let n = app.renderer.events.rootBoundary.hitTest(p.x, p.y) as Container | null;
-    while (n && !(typeof n.label === 'string' && n.label.startsWith('criatura:'))) {
+    while (n && !(typeof n.label === 'string' && n.label.startsWith('ent:'))) {
       n = n.parent as Container | null;
     }
-    criaturaSobOMouse = n ? String(n.label).slice('criatura:'.length) : undefined;
-    cursorDoJogo(criaturaSobOMouse ? 'ataque' : 'padrao');
+    const partes = n ? String(n.label).split(':') : [];
+    entidadeSobOMouse = partes.length === 3 ? { especie: partes[1]!, id: partes[2]! } : undefined;
+    // ⚠️ Só CRIATURA acende o vermelho: bolsa e NPC não se atacam.
+    cursorDoJogo(entidadeSobOMouse?.especie === 'creature' ? 'ataque' : 'padrao');
   }
 
   /**
-   * ⚔️ **O CONTROLADOR DA UI DE MONSTRO.**
+   * ⚔️ **O CONTROLADOR DA UI DO MAPA** — nome, vida e contorno.
    *
    * 🔴 **Um lugar só decide, e ele roda TODO QUADRO.** A alternativa seria mexer
    * na UI em cada evento — entrou o mouse, clicou, bateu, morreu — e é assim que
@@ -10519,7 +10521,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   const jaSangrou = new Set<string>();
   const uiAtiva = new Set<string>();
 
-  function atualizaUiDeMonstros(): void {
+  function atualizaUiDasEntidades(): void {
     const novos = new Set<string>();
     const sel = targetId ?? undefined;
     if (sel) {
@@ -10530,7 +10532,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         novos.add(sel);
       }
     }
-    const sob = criaturaSobOMouse;
+    const sob = entidadeSobOMouse?.id;
     if (sob && sob !== sel) {
       // ⚠️ Sob o mouse e não selecionado: SÓ o nome. Sem vida, sem contorno.
       const v = sprites.get(sob);
@@ -11417,7 +11419,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       circuloConj.alpha = Math.min(0.55, circuloConj.alpha + dtC / 180 * 0.55);
     }
 
-    atualizaUiDeMonstros();
+    atualizaUiDasEntidades();
 
     // Números de dano flutuantes (sobem e desaparecem).
     const dt = app.ticker.deltaMS;
@@ -12454,6 +12456,13 @@ function nameLabel(text: string, color: number): Text {
   label.anchor.set(0.5, 1);
   label.x = TS / 2;
   label.y = -WALL_H + 2;
+  /*
+   * 🏷️ **A ETIQUETA identifica a placa de NOME entre os filhos do contêiner.**
+   * Sem ela, esconder "o nome" viraria procurar "algum `Text`" — e a pilha de
+   * itens tem um `Text` que é a QUANTIDADE, que não é nome nenhum e tem de
+   * continuar visível. Procurar por tipo apagaria o número junto.
+   */
+  label.label = 'nome';
   return label;
 }
 
@@ -12511,6 +12520,30 @@ interface MiniAssets {
   itemTexture: (kind: string) => Texture;
 }
 
+/**
+ * 🏷️ **Esconde o NOME de uma entidade até o mouse encostar.**
+ *
+ * 🔴 Dono, 12/09: *"o nome das bolsas que os monstros dropam também devem ficar
+ * invisíveis, o nome dos NPCs todos serão assim também"*. O que começou como
+ * regra de monstro virou regra do MAPA: nada anuncia o próprio nome sozinho.
+ *
+ * ⚠️ **É um envoltório, e não um campo em cada construtor.** Bolsa, corpo, nó de
+ * recurso e NPC são montados por quatro funções diferentes, cada uma com os seus
+ * ramos; entrar em todas para passar um sinalizador seria mexer em muito código
+ * para dizer a mesma coisa. Aqui a placa é achada pela etiqueta `nome` e
+ * escondida — os construtores não precisam saber que isto existe.
+ *
+ * ⚠️ **Só o NOME.** Estas entidades não têm vida nem contorno, e a `mostraUi`
+ * delas ignora os outros dois campos de propósito: um dia um item selecionável
+ * pode querer contorno, e aí o lugar de pôr é aqui, não no controlador.
+ */
+function nomeSoNoMouse(v: EntityView): EntityView {
+  const placa = v.container.children.find((c) => c.label === 'nome') as Text | undefined;
+  if (!placa) return v;
+  placa.visible = false;
+  return { ...v, mostraUi: (ui) => { placa.visible = ui.nome; } };
+}
+
 function makeEntity(
   e: EntitySnapshot,
   isSelf: boolean,
@@ -12526,11 +12559,24 @@ function makeEntity(
      * jogador e NPC, então não dá para perguntar ao construtor: quem sabe que
      * isto é criatura é este `if`, e é aqui que a marca tem de ser posta.
      */
-    v.container.label = `criatura:${e.id}`;
+    v.container.label = `ent:creature:${e.id}`;
     return v;
   }
-  if (e.kind === 'item') return makeItemView(e, mini.itemTexture, mini.openCorpse, mini.pegarItem);
-  if (e.kind === 'node') return makeNodeView(e, mini.gatherNode, mini.chaoEm);
+  /*
+   * 🏷️ **Bolsa, corpo, pilha e nó: nome só sob o mouse.** A etiqueta
+   * `ent:<espécie>:<id>` é o que o cursor e o controlador de UI leem — o
+   * cursor de ataque olha a espécie, o nome vale para todas.
+   */
+  if (e.kind === 'item') {
+    const v = nomeSoNoMouse(makeItemView(e, mini.itemTexture, mini.openCorpse, mini.pegarItem));
+    v.container.label = `ent:item:${e.id}`;
+    return v;
+  }
+  if (e.kind === 'node') {
+    const v = nomeSoNoMouse(makeNodeView(e, mini.gatherNode, mini.chaoEm));
+    v.container.label = `ent:node:${e.id}`;
+    return v;
+  }
   if (e.kind === 'npc') {
     // Clicar abre o painel da FUNÇÃO do NPC. Cada um tem cor própria: os três
     // ficam na mesma praça e usam o MESMO sprite placeholder, então a cor é a
@@ -12545,13 +12591,15 @@ function makeEntity(
       : e.npcRole === 'blacksmith'
         ? mini.openCraft
         : mini.openShop;
-    return makeMiniActor({
+    const v = nomeSoNoMouse(makeMiniActor({
       e, anim: mini.npcAnim ?? mini.classAnims?.archer ?? { down: [], up: [], right: [], left: [] },
       scale: 2.4,
       nameColor: cor,
       tint: e.npcRole === 'vendor' ? undefined : cor,
       onClick: abre,
-    });
+    }));
+    v.container.label = `ent:npc:${e.id}`;
+    return v;
   }
   // A classe/sexo vêm do snapshot (todos os jogadores); para o próprio, o escolhido.
   const cls = e.charClass ?? (isSelf ? mini.selfClass : 'knight');
