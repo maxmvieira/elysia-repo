@@ -1,4 +1,79 @@
-# Handoff — 2026-09-11 · PONTO DE RETOMADA
+# Handoff — 2026-09-12 · PONTO DE RETOMADA
+
+> Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
+> `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
+> Último commit: `9dd62d1`. Árvore limpa, tudo empurrado.
+>
+> A sessão de 11–12/09 foi **quase inteira de VFX das magias do mago**, tocada em
+> rodadas curtas com o dono olhando a tela. O trabalho de mecânica (Muralha de
+> Fogo, Muralha de Gelo, Explosão Glacial defensiva) entrou antes e está descrito
+> no `HISTORICO.md`; o que veio depois foi arte, corte de folha e ajuste fino.
+
+## 🎯 O QUE ESTÁ COMBINADO PARA AMANHÃ
+
+🔴 **Corrigir a Muralha de Fogo e a Muralha de Gelo.** Palavras do dono ao fechar
+o dia: *"temos muito trabalho ainda para corrigir a muralha de fogo e de gelo"*.
+**Ele não detalhou o que está errado** — não invente a lista; pergunte ou peça
+para ver em tela. O que já se sabe que existe:
+
+- as duas nasceram com a ficha completa (linha 1×5, contato por alvo, empurrão, e
+  no gelo vida própria com desgaste) e **passaram por uma rodada de tela cada**;
+- o fogo já foi consertado uma vez por *"não parece vivo no chão"* — virou duas
+  camadas de brasa aditiva com velocidade e espelhamento por cópia;
+- o gelo **nunca foi ajustado em tela**, só implementado.
+
+## ⏸️ O QUE ENTROU NAS ÚLTIMAS HORAS (11–12/09)
+
+| | |
+|---|---|
+| ☄️ **Meteoro** | quarta folha (7×4), nuvem apagada no corte do terceiro quadro em diante, `fracaoQueda` 14/27 |
+| ❄️ **Explosão Glacial** | terceira folha (cristais que nascem do chão), `sobeY` nasceu e voltou a zero, `dur` 800 ms |
+| 🧊 **Muralha de Gelo** | implementada inteira (vida genérica em `GroundArea`, desgaste, `quebraParede`) |
+| 🔥 **Muralha de Fogo** | cinco colunas, presa ao chão, contato visível |
+| ✂️ **Cortadores** | `nova2fx` aprendeu fundo neutro pintado; `meteoro-grade2fx` ganhou o véu de fumaça e a grade por argumento |
+
+## 🪤 ARMADILHAS DESTA ÁREA — leia antes de mexer em FX
+
+1. **A fonte de cada folha muda, e recortar da errada NÃO dá erro.** Dá outro
+   número de quadros. Os comandos certos estão escritos na ficha de cada magia em
+   `client/src/main.ts`. Hoje:
+
+       node tools/meteoro-grade2fx.mjs arte-fonte/fx/meteoro_vertical4.png meteoro_queda 14 7 4
+       node tools/nova2fx.mjs arte-fonte/fx/glacial6.png glacial_burst 6 4
+
+2. **`client/src/fx-folhas.json` tem a CONTAGEM de quadros, e o cliente fatia a
+   textura por ela.** Trocar a folha sem trocar o número dá um quadro fantasma e
+   um passo torto na animação inteira — aconteceu, e não aparece como erro.
+
+3. **Toda arte de FX se julga sobre o CHÃO em que vai rodar.** Uma coroa de
+   fumaça laranja é linda sobre preto e vira barro sobre grama, porque alfa baixo
+   em mistura normal é o desenho misturado com o fundo. As folhas de contato
+   deste repositório saem compostas sobre verde por isso.
+
+4. **Limiar tirado de poucas folhas é palpite.** Custou três rodadas em dois
+   dias. Os cortadores agora medem a própria folha (ver `FUNDO` em `nova2fx`); se
+   você precisar de um número novo, meça — não copie o da folha anterior.
+
+5. **Número que é razão entre a ARTE e o TILE não quer dizer nada sozinho.**
+   `ESCALA_IMPACTO`, `escala` do `FOLHA_FEITIO`, `sobeY`. Toda folha nova os
+   invalida, e a medida que os justifica tem de ser refeita.
+
+## ⚠️ PENDÊNCIAS ANTIGAS QUE NINGUÉM FECHOU
+
+- **O terceiro quadro do Meteoro guarda um resto de nuvem** — limitação de
+  método, não parâmetro (o corte é ancorado embaixo e ali a nuvem ESTÁ embaixo).
+  Conserto barato, se incomodar: descartar os primeiros quadros da tira.
+- **`anel_conjuracao` não tem arte-fonte** em `arte-fonte/`.
+- **~50 MB de folhas direcionais do Meteoro sem uso** em `arte-fonte/`
+  (`meteoro_n/s/e/w/ne/nw/se/sw.png`). O dono foi avisado e não respondeu.
+- **O repositório é PÚBLICO** e os docs assumem privado; há assets de terceiros
+  expostos. Continua sem decisão.
+- O bloco *📍 ONDE ESTAMOS* do `ROADMAP-elysia.md` está de 30/07 e diz 377
+  testes. **Este arquivo é o recente** — é o que o próprio ROADMAP manda seguir.
+
+---
+
+# Handoff — 2026-09-11 (sessão anterior)
 
 > Typecheck limpo nos 3 pacotes, **653 testes** (625 shared + 28 server).
 > `npm run dev:test` → `localhost:5173`. **Duas frentes em paralelo neste dia** —
