@@ -292,6 +292,49 @@ const faixaDe = (cy) => FILEIRAS.find(([a2, b2]) => cy >= a2 && cy <= b2)
   ?? [Math.max(0, cy - 80), Math.min(img.h - 1, cy + 80)];
 const CXPorFileira = CY.map((cy) => colunasDaFileira(...faixaDe(cy)));
 console.log("[nova] fileiras: " + CY.join(" "));
+
+/**
+ * 🔴 **FILEIRA FRACA NÃO CENTRA A SI MESMA — ela herda a de cima.**
+ *
+ * O dono viu em tela (12/09): *"o final dela está com bug, sumindo pro lado
+ * errado"*. Medido, a causa não estava na arte: na FONTE os quadros da última
+ * fileira têm o centro de massa a 0–3 px do meio da célula; no CORTE, a 9–10 px.
+ * O desvio era meu.
+ *
+ * ✅ **Porque centrar por CONTEÚDO exige conteúdo.** A última fileira é a névoa
+ * se desfazendo — cacos soltos e assimétricos. O detector de colunas acha a ilha
+ * que existe e a chama de centro, e o centro de um punhado de estilhaços não é o
+ * eixo do anel. Nas fileiras cheias o mesmo detector acerta, porque ali o
+ * desenho é um anel simétrico.
+ *
+ * ⚠️ **O critério é a MASSA da fileira, medida contra a mediana das fileiras.**
+ * Abaixo de 35 % dela, a fileira é declarada fraca e copia as colunas da fileira
+ * confiável mais próxima. Não é "a última fileira é especial": é *"quem não tem
+ * o que medir não decide"*, e vale para qualquer folha que termine se desfazendo.
+ */
+{
+  const massaDaFileira = CY.map((cy) => {
+    const [y0, y1] = faixaDe(cy);
+    let s = 0;
+    for (let y = y0; y <= y1; y++) for (let x = 0; x < img.w; x++) s += alfa(x, y);
+    return s;
+  });
+  const ordenadas = [...massaDaFileira].sort((a, b) => a - b);
+  const mediana = ordenadas[ordenadas.length >> 1] ?? 0;
+  const confiavel = massaDaFileira.map((m) => m >= mediana * 0.35);
+  for (let r = 0; r < CY.length; r++) {
+    if (confiavel[r]) continue;
+    let doador = -1;
+    for (let d = 1; d < CY.length; d++) {
+      if (confiavel[r - d]) { doador = r - d; break; }
+      if (confiavel[r + d]) { doador = r + d; break; }
+    }
+    if (doador < 0) continue;
+    CXPorFileira[r] = CXPorFileira[doador];
+    console.log(`[nova] fileira ${r + 1} fraca (${Math.round(100 * massaDaFileira[r] / mediana)} %`
+      + ` da mediana) — herda as colunas da ${doador + 1}`);
+  }
+}
 /*
  * ⚠️ **A JANELA é o menor vão entre dois estouros VIZINHOS**, medido em todas as
  * fileiras. É ele que decide quanto do vizinho entra pela borda, e nesta folha o

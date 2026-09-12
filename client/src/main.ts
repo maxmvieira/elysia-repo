@@ -3193,7 +3193,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * estourar em 700 ms.
    */
   const FOLHA_FEITIO: Record<
-    string, { ancoraY: number; escala: number; dur: number; sobeY?: number }
+    string, { ancoraY: number; escala: number; dur: number; sobeY?: number; fenda?: number }
   > = {
     /*
      * ⚠️ **Âncora 0,5 na vertical, e não 0,72.** O cortador (`nova2fx`) centra
@@ -3268,7 +3268,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * cima, sem perspectiva, isso não lê como "o gelo nasceu no ar" — lê como o
      * mago no meio da roda, que é o pedido.
      */
-    glacial_burst: { ancoraY: 0.5, escala: 0.95, dur: 800, sobeY: TS / 2 },
+    /*
+     * ⚠️ **`dur` foi de 800 para 1100 ms — *"solta a animação toda"* (dono,
+     * 12/09).** São 24 quadros: a 800 ms cada um durava 33 ms, e as duas últimas
+     * fileiras, que são a névoa se desfazendo, passavam antes de existirem. A
+     * 1100 são 46 ms, e o arco inteiro — nascer, ficar, sumir — aparece. É a
+     * mesma queixa que o estouro do Meteoro já tinha levantado.
+     *
+     * ⚠️ **`fenda: 74` é o raio das rachaduras no chão, em pixels de mundo.** O
+     * anel desenhado tem uns 88 px de raio; as fendas ficam por DENTRO dele, sob
+     * os cristais, porque é de lá que eles saem. Passando de 88 a rachadura
+     * apareceria fora do gelo, e o chão pareceria ter partido sozinho.
+     */
+    glacial_burst: { ancoraY: 0.5, escala: 0.95, dur: 1100, sobeY: TS / 2, fenda: 74 },
   };
 
   function tocaEfeito(nome: string, wx: number, wy: number): void {
@@ -3284,6 +3296,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     node.y = wy - (feitio?.sobeY ?? 0);
     node.zIndex = 9997;
     node.animationSpeed = frames.length / ((feitio?.dur ?? DUR_EFEITO) / (1000 / 60));
+    /*
+     * ❄️ O chão parte junto — ver `geloDoChao`. Sem isto o efeito lê como
+     * decalque colado por cima da grama.
+     *
+     * ⚠️ **Usa `wy`, e não `node.y`.** O sprite subiu `sobeY` para ficar no meio
+     * do CORPO; a fenda é chão e tem de ficar onde o mago PISA. São dois pontos
+     * diferentes de propósito, e passar o mesmo aos dois poria a rachadura
+     * flutuando meio tile acima do solo.
+     */
+    if (feitio?.fenda) geloDoChao(node.x, wy, feitio.fenda);
     fxLayer.addChild(node);
     /*
      * ⚠️ Entra na MESMA lista das quedas, com atraso zero. O laço de lá já
@@ -4438,6 +4460,97 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         aceso.moveTo(x - Math.cos(p.ang) * rabo, y - z - Math.sin(p.ang) * rabo * ACHATA);
         aceso.lineTo(x, y - z);
         aceso.stroke({ width: p.tam, color: p.cor, alpha: (1 - f) * 0.95 });
+      }
+    };
+    app.ticker.add(passo);
+  }
+
+  /**
+   * ❄️ **O CHÃO SE PARTINDO, para o cristal ter de onde sair.**
+   *
+   * 🔴 Dono, 12/09: *"os espinhos têm que sair do chão mesmo"*. A folha já cresce
+   * os cristais do pequeno ao grande — o que faltava não era animação, era
+   * CONSEQUÊNCIA. Um efeito que só aparece por cima da grama lê como decalque;
+   * o que o olho aceita como "nasceu dali" é o solo reagir no mesmo instante.
+   *
+   * ✅ **Três coisas, e todas no CHÃO, sob as entidades:** fendas que se abrem do
+   * centro para fora, uma auréola de geada que se alastra, e lascas rentes ao
+   * solo. Nenhuma delas está na folha, e é por isso que existem em código.
+   *
+   * ⚠️ **Mistura NORMAL, não aditiva.** Gelo sobre grama precisa CLAREAR e
+   * dessaturar, e soma só clareia — o verde atravessaria por baixo e a geada
+   * ficaria esverdeada. É a mesma lição da fumaça do Meteoro, do outro lado: lá
+   * o problema era não conseguir escurecer.
+   *
+   * ⚠️ **Abre em 15 % do tempo e passa o resto apagando.** Fenda que aparece
+   * devagar lê como desenho surgindo; o que lê como rachar é abrir num quadro e
+   * esfriar devagar.
+   */
+  function geloDoChao(wx: number, wy: number, raioPx: number): void {
+    const g = new Graphics();
+    g.x = wx;
+    g.y = wy;
+    g.zIndex = -0.57;
+    objects.addChild(g);
+
+    // ⚠️ Achatado em 0,55 como as rachaduras do Meteoro: chão visto de viés.
+    const ACHATA = 0.55;
+    const sorte = (a: number, b: number): number => a + Math.random() * (b - a);
+    const ponto = (a: number, d: number): [number, number] => [
+      Math.cos(a) * d, Math.sin(a) * d * ACHATA,
+    ];
+
+    const N = 14;
+    const fendas: Array<Array<[number, number]>> = [];
+    for (let i = 0; i < N; i++) {
+      const a = ((i + 0.2 + Math.random() * 0.6) / N) * Math.PI * 2;
+      const compr = raioPx * sorte(0.55, 1.0);
+      const meio = ponto(a, compr * sorte(0.4, 0.6));
+      fendas.push([
+        // Sai de longe do centro: é lá que o mago está, e é o que ele quer ver.
+        ponto(a, compr * 0.18), meio, ponto(a + sorte(-0.3, 0.3), compr),
+      ]);
+    }
+    const lascas = Array.from({ length: 22 }, () => {
+      const a = Math.random() * Math.PI * 2;
+      const d = raioPx * sorte(0.35, 1.05);
+      return { x: Math.cos(a) * d, y: Math.sin(a) * d * ACHATA, r: sorte(1.6, 4.2), a };
+    });
+
+    const nasceu = performance.now();
+    const DUR = 900;
+    const passo = (): void => {
+      const t = (performance.now() - nasceu) / DUR;
+      if (t >= 1) { g.destroy(); app.ticker.remove(passo); return; }
+      g.clear();
+      const abre = Math.min(1, t / 0.15);
+      const vive = t < 0.35 ? 1 : 1 - (t - 0.35) / 0.65;
+
+      // A auréola de geada: clareia o chão em volta e some por fora.
+      g.ellipse(0, 0, raioPx * (0.3 + 0.8 * abre), raioPx * (0.3 + 0.8 * abre) * ACHATA);
+      g.fill({ color: 0xcfe6ff, alpha: 0.16 * vive });
+
+      for (const pts of fendas) {
+        const ate = 1 + (pts.length - 1) * abre;
+        const traca = (): void => {
+          g.moveTo(pts[0]![0], pts[0]![1]);
+          for (let k = 1; k < Math.min(pts.length, Math.ceil(ate)); k++) {
+            g.lineTo(pts[k]![0], pts[k]![1]);
+          }
+        };
+        traca();
+        g.stroke({ width: 3.4, color: 0x7fb6ee, alpha: vive * 0.5 });
+        traca();
+        g.stroke({ width: 1.3, color: 0xeaf6ff, alpha: vive * 0.85 });
+      }
+
+      for (const l of lascas) {
+        // Lasca deitada: um losango baixo, que lê como caco no chão e não como bola.
+        g.moveTo(l.x - l.r, l.y);
+        g.lineTo(l.x, l.y - l.r * 0.7);
+        g.lineTo(l.x + l.r, l.y);
+        g.lineTo(l.x, l.y + l.r * 0.45);
+        g.fill({ color: 0xdcefff, alpha: vive * 0.75 * abre });
       }
     };
     app.ticker.add(passo);
