@@ -9235,7 +9235,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // outro mostraria meia mira no chão.
     circuloMira.visible = false;
     alvoAssistido = null;
-    viewportEl.style.cursor = '';
     // ⚠️ Esc cancela também a caminhada para conjurar. Sem isto o herói
     // continuaria andando e soltaria a magia sozinho, depois de o jogador já
     // ter desistido dela.
@@ -9447,7 +9446,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       nivelArmado = nivel;
       miraLabel.style.display = 'block';
       miraLabel.textContent = def.name;
-      viewportEl.style.cursor = 'crosshair';
+      /*
+       * ⚠️ **A CRUZ DO SISTEMA SAIU TAMBÉM** (dono, 12/09: *"está aparecendo uma
+       * cruz branca no meu jogo ainda"*). Ela marcava o modo de mira, mas era o
+       * `crosshair` do navegador — a única coisa na tela que ainda não era arte
+       * do jogo, e num jogo com ponteiro desenhado isso lê como bug.
+       *
+       * ✅ **O modo de mira não ficou sem sinal:** continuam o rótulo com o nome
+       * da magia, o círculo de conjuração e a marca no chão sob o cursor. São
+       * três avisos, e nenhum deles é um cursor emprestado do sistema.
+       */
       return;
     }
     /*
@@ -12659,7 +12667,14 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   const c = new Container();
   if (onClick) {
     c.eventMode = 'static';
-    c.cursor = 'crosshair';
+    /*
+     * ⚠️ **SEM `cursor` aqui, de propósito.** O Pixi escreve o valor desta
+     * propriedade no canvas assim que o mouse entra no contêiner, e isso
+     * ATROPELA o ponteiro do jogo: era um `crosshair` do sistema — a cruz branca
+     * que o dono viu em 12/09 — aparecendo justamente sobre monstro, que é onde
+     * o cursor de ataque devia estar. Sem a propriedade, o Pixi aplica
+     * `inherit` e quem manda volta a ser o `body`. Ver `cursorDoJogo`.
+     */
     c.hitArea = new Rectangle(0, -8, TS, TS + 12);
     c.on('pointertap', soBotaoEsquerdo(() => onClick(e.id)));
   }
@@ -13469,7 +13484,14 @@ function makeSpriteActor(opts: SpriteActorOpts): EntityView {
   const c = new Container();
   if (onClick) {
     c.eventMode = 'static';
-    c.cursor = 'crosshair';
+    /*
+     * ⚠️ **SEM `cursor` aqui, de propósito.** O Pixi escreve o valor desta
+     * propriedade no canvas assim que o mouse entra no contêiner, e isso
+     * ATROPELA o ponteiro do jogo: era um `crosshair` do sistema — a cruz branca
+     * que o dono viu em 12/09 — aparecendo justamente sobre monstro, que é onde
+     * o cursor de ataque devia estar. Sem a propriedade, o Pixi aplica
+     * `inherit` e quem manda volta a ser o `body`. Ver `cursorDoJogo`.
+     */
     c.hitArea = new Rectangle(0, -8, TS, TS + 12);
     c.on('pointertap', soBotaoEsquerdo(() => onClick(e.id)));
   }
@@ -13798,7 +13820,14 @@ function makeCreatureView(
 
   const c = new Container();
   c.eventMode = 'static';
-  c.cursor = 'crosshair';
+  /*
+   * ⚠️ **SEM `cursor` aqui, de propósito.** O Pixi escreve o valor desta
+   * propriedade no canvas assim que o mouse entra no contêiner, e isso
+   * ATROPELA o ponteiro do jogo: era um `crosshair` do sistema — a cruz branca
+   * que o dono viu em 12/09 — aparecendo justamente sobre monstro, que é onde
+   * o cursor de ataque devia estar. Sem a propriedade, o Pixi aplica
+   * `inherit` e quem manda volta a ser o `body`. Ver `cursorDoJogo`.
+   */
   c.hitArea = new Rectangle(0, -8, TS, TS + 12);
   c.on('pointertap', soBotaoEsquerdo(() => onTargetClick(e.id)));
 
