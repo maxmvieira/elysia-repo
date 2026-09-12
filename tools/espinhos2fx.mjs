@@ -83,18 +83,33 @@ for (const [y0, y1] of fileiras) {
  * ali. Sem isto, dois quadros vizinhos viram um só — e a animação perde um passo
  * e ganha um borrão.
  */
-const larguras = bruto.map((q) => q.x1 - q.x0 + 1).sort((a, b) => a - b);
-const medianaL = larguras[larguras.length >> 1] ?? 1;
-const quadros = [];
-for (const q of bruto) {
+/*
+ * ⚠️ **E a separação é RECURSIVA, porque uma ilha pode ter mais de dois
+ * desenhos.** A primeira versão partia uma vez só e servia para a folha dos
+ * espinhos, onde dois quadros se encostavam. A folha da mãozinha (12/09) trouxe
+ * uma ilha de 944 px onde cabiam QUATRO — partida uma vez, sobravam dois de 472,
+ * cada um com duas mãos dentro. Repetir enquanto houver ilha gorda resolve
+ * qualquer quantidade, e a mediana se recalcula a cada volta.
+ */
+const quadros = [...bruto];
+for (let volta = 0; volta < 16; volta++) {
+  const larguras = quadros.map((q) => q.x1 - q.x0 + 1).sort((a, b) => a - b);
+  const medianaL = larguras[larguras.length >> 1] ?? 1;
+  const gorda = quadros.findIndex((q) => q.x1 - q.x0 + 1 > medianaL * 1.5);
+  if (gorda < 0) break;
+  const q = quadros[gorda];
   const larg = q.x1 - q.x0 + 1;
-  if (larg <= medianaL * 1.6) { quadros.push(q); continue; }
   let corte = q.x0;
   let menor = Infinity;
-  for (let x = q.x0 + Math.round(larg * 0.35); x <= q.x0 + Math.round(larg * 0.65); x++) {
+  /*
+   * ⚠️ A janela de busca é larga (25 % a 75 %) porque numa ilha de quatro o vale
+   * certo NÃO fica no meio: fica a um quarto. Procurar só no miolo cortaria o
+   * desenho do meio ao meio.
+   */
+  for (let x = q.x0 + Math.round(larg * 0.25); x <= q.x0 + Math.round(larg * 0.75); x++) {
     if (q.perfilX[x] < menor) { menor = q.perfilX[x]; corte = x; }
   }
-  quadros.push({ ...q, x1: corte - 1 }, { ...q, x0: corte });
+  quadros.splice(gorda, 1, { ...q, x1: corte - 1 }, { ...q, x0: corte });
   console.log(`[espinhos] ilha de ${larg} px partida em x=${corte} (vale de ${menor} px)`);
 }
 

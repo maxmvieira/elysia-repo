@@ -97,6 +97,17 @@
       body.mira-monstro {
         cursor: var(--cursor-ataque);
       }
+      /*
+       * 🖐️ **Sobre uma bolsa o cursor do navegador SOME**, e quem aparece é a
+       * mãozinha animada, desenhada pelo jogo. Ver `cursorDoJogo` no `main.ts`.
+       *
+       * 🔴 Cursor CSS não anima — trocar a url a cada quadro pisca e custa caro.
+       * Por isso esta é a única das três que não é imagem do navegador; e por
+       * isso o `none` é obrigatório, senão apareceriam os dois ponteiros.
+       */
+      body.mao-coleta {
+        cursor: none;
+      }
       #app {
         display: flex;
         height: 100vh;

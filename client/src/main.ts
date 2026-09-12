@@ -2184,6 +2184,29 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   });
   viewportEl.appendChild(app.canvas);
 
+  /**
+   * 🖐️ **A CAMADA DO PONTEIRO — fora do mundo, de propósito.**
+   *
+   * 🔴 Entra direto no palco, DEPOIS do contêiner do mapa, e é a última coisa
+   * desenhada. É o que mantém a mãozinha da coleta imune a câmera, zoom,
+   * profundidade e ordenação de sprites: ela não está no mundo, está na tela.
+   *
+   * ⚠️ Uma camada só, criada uma vez. A ficha pede para não montar cursor a cada
+   * movimento do mouse, e o lugar de garantir isso é aqui.
+   */
+  const camadaCursor = new Container();
+  camadaCursor.eventMode = 'none';
+  /*
+   * 🔴 **`zIndex` e `sortableChildren`, e não a ordem de inserção.** Esta
+   * camada nasce junto com o canvas, muito ANTES dos contêineres do mapa —
+   * então entrar por último não é opção. Sem ordenar, ela fica no FUNDO e a
+   * mãozinha aparece atrás do chão; foi o que a primeira tentativa fez, e só se
+   * viu perguntando ao palco em que índice ela tinha ficado.
+   */
+  camadaCursor.zIndex = 10000;
+  app.stage.sortableChildren = true;
+  app.stage.addChild(camadaCursor);
+
   /*
    * 🔬 **JANELA DE DEPURAÇÃO — só em `dev`.**
    *
@@ -10484,16 +10507,68 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * dezenas de vezes por segundo; a guarda no início é o que a ficha pede com
    * *"não criar um novo cursor a cada movimento do mouse"*.
    */
-  type EstadoCursor = 'padrao' | 'ataque';
+  /**
+   * 🖐️ **OS ESTADOS DO PONTEIRO, e por que um deles não é um cursor CSS.**
+   *
+   * `padrao` e `ataque` são imagens trocadas pelo navegador, via classe no
+   * `body`. `coleta` NÃO pode ser: **cursor CSS não anima.** Trocar a url a
+   * cada quadro pisca e custa caro, então a mãozinha é um SPRITE desenhado numa
+   * camada de interface, seguindo o ponteiro — e enquanto ela aparece o cursor
+   * do navegador é escondido (`cursor: none`), senão vêm os dois.
+   *
+   * ⚠️ **A prioridade é coleta > ataque > padrão**, como a ficha pede: bolsa em
+   * cima de monstro ganha, porque clicar ali recolhe em vez de atacar.
+   */
+  type EstadoCursor = 'padrao' | 'ataque' | 'coleta';
   let cursorAtual: EstadoCursor = 'padrao';
   let mouseNoMapa = false;
   /** A entidade sob o mouse — espécie e id —, ou `undefined`. */
   let entidadeSobOMouse: { especie: string; id: string } | undefined;
 
+  /**
+   * 🖐️ A mãozinha animada da coleta. Nasce na primeira vez que é precisa.
+   *
+   * ⚠️ **Uma só, reaproveitada.** A ficha é explícita em não criar animação a
+   * cada movimento do mouse; aqui nem isso seria possível, porque quem chama
+   * este bloco é a TROCA de estado, que sai na primeira linha quando nada mudou.
+   */
+  let maoColeta: AnimatedSprite | undefined;
+
   function cursorDoJogo(estado: EstadoCursor): void {
     if (estado === cursorAtual) return;
     cursorAtual = estado;
     document.body.classList.toggle('mira-monstro', estado === 'ataque');
+    document.body.classList.toggle('mao-coleta', estado === 'coleta');
+    if (estado === 'coleta') {
+      if (!maoColeta) {
+        const quadros = folhasEfeito.get('cursor_coleta');
+        // ⚠️ Folha ausente: fica o cursor do sistema, e a coleta funciona igual.
+        if (quadros && quadros.length > 0) {
+          maoColeta = new AnimatedSprite(quadros);
+          maoColeta.loop = true;
+          /*
+           * 🔴 **A ÂNCORA É A PONTA DO INDICADOR, medida no quadro da mão ABERTA:
+           * 0,115 / 0,063.** Não é o ponto pelo qual o cortador ALINHOU os quadros
+           * — aquele é o punho, que é a parte que não se mexe enquanto os dedos
+           * dobram. São dois pontos diferentes de propósito: um serve para a mão
+           * não tremer, o outro para o clique cair onde ela aponta.
+           *
+           * ⚠️ E ele fica FIXO nos 17 quadros, mesmo com a ponta do dedo andando 17
+           * px ao fechar. Seguir a ponta faria o ponto de clique passear.
+           */
+          maoColeta.anchor.set(0.115, 0.063);
+          maoColeta.scale.set(0.75);
+          maoColeta.animationSpeed = 1 / (70 / (1000 / 60));
+          maoColeta.eventMode = "none";
+          camadaCursor.addChild(maoColeta);
+        }
+      }
+      if (maoColeta) { maoColeta.visible = true; maoColeta.gotoAndPlay(0); }
+    } else if (maoColeta) {
+      // ⚠️ Some NA HORA e para o relógio: sem isto o último quadro fica preso.
+      maoColeta.visible = false;
+      maoColeta.stop();
+    }
   }
 
   /**
@@ -10527,8 +10602,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
     const partes = n ? String(n.label).split(':') : [];
     entidadeSobOMouse = partes.length === 3 ? { especie: partes[1]!, id: partes[2]! } : undefined;
-    // ⚠️ Só CRIATURA acende o vermelho: bolsa e NPC não se atacam.
-    cursorDoJogo(entidadeSobOMouse?.especie === 'creature' ? 'ataque' : 'padrao');
+    /*
+     * ⚠️ **A ordem é a prioridade da ficha: coleta, ataque, padrão.** Bolsa e
+     * corpo são `item`; NPC e nó de recurso não mudam o ponteiro, porque clicar
+     * neles abre painel, não recolhe nem ataca.
+     */
+    const esp = entidadeSobOMouse?.especie;
+    cursorDoJogo(esp === 'item' ? 'coleta' : esp === 'creature' ? 'ataque' : 'padrao');
+    if (maoColeta?.visible) {
+      /*
+       * 🔴 **A mão segue o ponteiro em coordenada de TELA**, e por isso vive numa
+       * camada fora do mundo: se entrasse no contêiner do mapa, ela andaria com
+       * a câmera, encolheria com o zoom e entraria na ordenação por profundidade
+       * — três coisas que a ficha proíbe de uma vez.
+       */
+      maoColeta.x = p.x;
+      maoColeta.y = p.y;
+    }
   }
 
   /**
