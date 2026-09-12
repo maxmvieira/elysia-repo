@@ -2479,13 +2479,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   //
   // Dois retângulos desenhados por cima do piso e por baixo de tudo o mais
   // (zIndex negativo): o tile sob o mouse e o destino clicado.
-  const hoverMark = new Graphics();
-  hoverMark.rect(1, 1, TS - 2, TS - 2).stroke({ width: 1, color: 0xd8e8d8, alpha: 0.5 });
-  hoverMark.zIndex = -0.9;
-  hoverMark.visible = false;
-  hoverMark.eventMode = 'none';
-  objects.addChild(hoverMark);
-
   /**
    * 🎯 **O MARCADOR DE DESTINO — era um quadrado verde, virou animação** (dono,
    * 12/09: *"quero substituir o quadrado verde padrão"*).
@@ -4074,7 +4067,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * dentro da explosão — que é o que se quer ver.
      *
      * ⚠️ `objects` ordena por `zIndex` e as marcas de chão vivem no negativo
-     * (`hoverMark` −0,9, o marcador de destino −0,8, `targetRing` −0,5). O estouro entra
+     * (o marcador de destino −0,8, `targetRing` −0,5). O estouro entra
      * entre elas e as entidades.
      *
      * 🔴 **MENOS O RELÂMPAGO, e a regra de 11/09 continua certa para o resto.**
@@ -10417,26 +10410,27 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     return { x: Math.floor(wx / TS), y: Math.floor(wy / TS) };
   }
 
+  /*
+   * 🖱️ **O CONTORNO DE CAMINHADA SAIU** (dono, 12/09: *"remova esse quadrado
+   * transparente toda vez que passo o mouse sobre o chão"*).
+   *
+   * ⚠️ **Ele não era enfeite: prometia onde o clique ANDA** — só acendia em tile
+   * caminhável e fora de monstro ou NPC. O que o aposentou foi o ponteiro novo.
+   * Enquanto o cursor era a seta do sistema, o quadrado era a única resposta do
+   * jogo ao mouse; com uma seta desenhada seguindo o cursor, a resposta já
+   * existe, e duas marcas no mesmo tile viram ruído.
+   *
+   * ⚠️ **O laço ficou, e agora só serve à MIRA.** Sem magia armada ele sai na
+   * primeira linha — não calcula tile nem consulta `podeAndar` a cada pixel de
+   * movimento do mouse. O `mouseleave` foi junto: ele só escondia o quadrado.
+   */
   viewportEl.addEventListener('mousemove', (ev) => {
+    if (!magiaArmada) return;
     const t = tileDoEvento(ev);
     const dentro = t.x >= 0 && t.y >= 0 && t.x < map.width && t.y < map.height;
-    if (magiaArmada) {
-      // ⚠️ Com magia armada o contorno de caminhada some: dois marcadores no
-      // mesmo tile disputariam a leitura, e quem está mirando não vai andar.
-      hoverMark.visible = false;
-      if (dentro) pintaMira(ev.clientX, ev.clientY, t.x, t.y);
-      else { miraMarca.visible = false; circuloMira.visible = false; }
-      return;
-    }
-    // Só destaca onde clicar REALMENTE anda: o contorno prometendo caminhada num
-    // tile de parede, de monstro ou de NPC seria mentira visual.
-    hoverMark.visible = dentro
-      && podeAndar(t.x, t.y)
-      && !tilesClicaveis.has(t.y * map.width + t.x);
-    hoverMark.x = t.x * TS;
-    hoverMark.y = t.y * TS;
+    if (dentro) pintaMira(ev.clientX, ev.clientY, t.x, t.y);
+    else { miraMarca.visible = false; circuloMira.visible = false; }
   });
-  viewportEl.addEventListener('mouseleave', () => { hoverMark.visible = false; });
 
   // Botão esquerdo no CHÃO = ir até lá.
   //
