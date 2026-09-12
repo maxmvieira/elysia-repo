@@ -211,6 +211,23 @@ export interface SkillGround {
   /** Quantas instâncias simultâneas do MESMO conjurador. Ausente = 1. */
   maxAtLv1?: number;
   maxAtLv10?: number;
+  /**
+   * 🔥 **A área é uma LINHA de 1×(2·raio+1), e não um quadrado.**
+   *
+   * A orientação não vem daqui: ela é calculada no lançamento, PERPENDICULAR à
+   * linha conjurador → mira. Quem lança para o leste levanta uma parede de pé,
+   * que é a que barra quem vem de lá — declarar "horizontal" na ficha obrigaria
+   * o jogador a pensar em eixos em vez de em direção.
+   */
+  linha?: boolean;
+  /**
+   * 🔥 **Quantos contatos cada alvo aguenta**, antes de a barreira parar de
+   * feri-lo. Ver `maxContatos` em `GroundArea`. Ausente = sem limite.
+   */
+  contatosAtLv1?: number;
+  contatosAtLv10?: number;
+  /** Intervalo mínimo entre dois contatos do MESMO alvo. */
+  contatoMs?: number;
 }
 
 export const MAX_SKILL_LEVEL = 10;
@@ -1713,28 +1730,103 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     classes: ['sorcerer'],
     reqLevel: 10,
     requires: [{ skill: 'fire_bolt', level: 3 }],
-    manaCost: 35,
-    manaPerLevel: 5,
-    cooldownMs: 14000,
-    power: 0.4,
-    powerPerLevel: 0.06,
+    /**
+     * 🔥 **40 de SP em TODOS os níveis** — ficha do dono, 13/09. É a única magia
+     * ofensiva do Feiticeiro com custo fixo, e o motivo é a função dela: quem
+     * ergue muralha faz isso várias vezes na mesma luta, e um custo que cresce
+     * puniria justamente quem usa a habilidade como ela foi desenhada.
+     */
+    manaCost: 40,
+    manaPerLevel: 0,
+    /**
+     * ⚠️ **5 s de recarga, e a ficha do dono não diz nada sobre ela** — o número
+     * é meu, e a conta é esta: ele pede **três muralhas simultâneas**, e no Lv.10
+     * cada uma dura 14 s. Com os 14 s de recarga de antes, a segunda só nasceria
+     * quando a primeira já tivesse morrido, e o teto de três seria letra morta.
+     * A 5 s dá para ter as três de pé no Lv.10 e uma no Lv.1 (5 s de duração),
+     * que é a progressão que o resto da ficha desenha.
+     */
+    cooldownMs: 5000,
+    /**
+     * 🔥 **50 % de ATQM por CONTATO, e é fixo em toda a régua** (ficha do dono).
+     * O que cresce com o nível é quantas vezes a barreira acerta o mesmo alvo —
+     * de 3 para 12 —, não o quanto cada acerto dói. É uma habilidade de CONTROLE
+     * que subiu de nível, não uma de dano.
+     */
+    power: 0.5,
+    powerPerLevel: 0,
     shape: 'ground',
+    /**
+     * ⚠️ **`range` aqui é o meio-comprimento da LINHA**: 1 dá as três células da
+     * ficha. Não confundir com a distância de lançamento, que é `castRange`.
+     */
     range: 1,
-    rangeEvery: 6,
+    rangeEvery: 0,
+    castRange: 9,
+    castRangeEvery: 0,
     durationMs: 8000,
-    castMs: 800,
+    /**
+     * ⚠️ **2,15 s no Lv.1 e 0,80 no Lv.10**, com os degraus de 0,15 s da ficha —
+     * a interpolação linear do jogo dá exatamente os dez números que o dono
+     * escreveu, então não há tabela para manter.
+     */
+    castMs: 2150,
+    castMsAtLv10: 800,
     magic: true,
     damageType: 'fire',
-    // "Controle de ESPAÇO": ela não bloqueia a passagem (isso é a Ice Wall),
-    // ela torna a passagem cara. Quem atravessar, queima.
+    /**
+     * 🔥 **CONTROLE DE PASSAGEM, e não uma área que pulsa** (ficha do dono,
+     * 13/09). A diferença é grande e está toda aqui:
+     *
+     * 🔴 **Quem entra leva UM contato e é arremessado para fora**, em vez de
+     * queimar a cada segundo enquanto ficar dentro. É isso que faz a barreira
+     * *barrar*: o empurrão de dois tiles desfaz a travessia. E é isso que dá
+     * sentido ao contador por alvo — sem ele, um monstro empurrado voltaria para
+     * sempre.
+     *
+     * ⚠️ **Ela NÃO entra na colisão do jogo** (`blocks` fica falso, que é da Ice
+     * Wall). Se entrasse, o monstro contornaria a parede pelo caminho mais curto
+     * e nunca a tocaria — o que anularia a magia inteira contra qualquer coisa
+     * que saiba andar. O empurrão é o bloqueio.
+     *
+     * ⚠️ **`tickMs: 200` é a taxa de DETECÇÃO, não a de dano.** Quem separa dois
+     * contatos do mesmo alvo é `contatoMs`; o tique curto existe para pegar o
+     * monstro no primeiro momento em que ele pisa, antes de ele sair do outro
+     * lado.
+     */
     ground: {
       kind: 'damage',
-      tickMs: 1000,
-      durationAtLv1: 8000,
+      tickMs: 200,
+      durationAtLv1: 5000,
       durationAtLv10: 14000,
       hitsPlayers: true,
       hitsCreatures: true,
+      linha: true,
+      contatosAtLv1: 3,
+      contatosAtLv10: 12,
+      /*
+       * ⚠️ 700 ms entre contatos do mesmo alvo. É o que protege quem NÃO pode
+       * ser empurrado: um chefe imune fica dentro do fogo, e sem isso gastaria
+       * os doze contatos do Lv.10 em dois segundos e meio.
+       */
+      contatoMs: 700,
+      maxAtLv1: 3,
+      maxAtLv10: 3,
     },
+    /**
+     * 🌬️ **Dois tiles por contato** — ficha do dono. É o empurrão que transforma
+     * dano em BARREIRA: sem ele o monstro atravessa queimado, com ele não
+     * atravessa. As regras de quem não pode ser empurrado (chefe, imóvel, parede
+     * atrás) são as do `empurra`, que já existiam.
+     */
+    empurraTiles: 2,
+    /**
+     * 🔥 **A QUEIMADURA FICA, e a ficha de 13/09 não falou dela.** Ela já estava
+     * aqui antes, e o pedido do dono foi explícito em não inventar regra onde já
+     * existe uma equivalente — tirar seria a mesma decisão pelo avesso.
+     *
+     * ⚠️ Se ela tiver de sair, é uma linha: o dano por contato não depende dela.
+     */
     applies: {
       id: 'burn',
       chanceAtLv1: 0.25,
@@ -1744,7 +1836,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       power: 5,
     },
     fx: 'fire_wall',
-    desc: 'Parede de chamas no chão: atravessar custa caro.',
+    desc: 'Linha de chamas de 3 células: quem tenta cruzar queima e é jogado para trás.',
   },
   meteor: {
     id: 'meteor',
@@ -4270,6 +4362,19 @@ export function skillGroundMax(def: SkillDef, nivel: number): number {
   const lv1 = def.ground.maxAtLv1 ?? 1;
   const lv10 = def.ground.maxAtLv10 ?? lv1;
   return Math.max(1, Math.round(porNivel(nivel, lv1, lv10)));
+}
+
+/**
+ * 🔥 Quantos contatos cada alvo aguenta da barreira, no nível informado.
+ *
+ * Devolve `undefined` quando a ficha não declara limite — e o `undefined` é
+ * significativo: é ele que faz a área pulsar para sempre, como as outras seis.
+ */
+export function skillGroundContatos(def: SkillDef, nivel: number): number | undefined {
+  const g = def.ground;
+  if (!g || g.contatosAtLv1 === undefined) return undefined;
+  const lv10 = g.contatosAtLv10 ?? g.contatosAtLv1;
+  return Math.max(1, Math.round(porNivel(nivel, g.contatosAtLv1, lv10)));
 }
 
 // ---------------------------------------------------------------------------

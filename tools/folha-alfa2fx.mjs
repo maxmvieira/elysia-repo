@@ -61,6 +61,27 @@ const FOLHAS = {
    * ⚠️ Ficou a `recentraX` abaixo, que nasceu para aquela folha e continua
    * valendo para qualquer uma empacotada solta.
    */
+  /**
+   * 🔥 **A MURALHA DE FOGO (13/09)**, 6 colunas × 3 fileiras.
+   *
+   * ⚠️ **As colunas têm passo REGULAR (295,67) e as fileiras não** — medidas,
+   * elas ocupam [52,263], [308,538] e [597,817], com alturas de 212, 231 e 221.
+   * É exatamente o caso para o qual este cortador existe: alinhar EMBAIXO, porque
+   * o que tem de ficar parado entre um quadro e o seguinte é a linha do chão de
+   * onde as chamas sobem. Esticar as três para a mesma altura faria a muralha
+   * respirar; centralizar faria o chão subir e descer.
+   *
+   * ⚠️ **Saída de 160×128, e a proporção é a da fonte** (295×231 ≈ 1,28 contra
+   * 1,25). Quadrado deformaria as chamas: elas são mais largas que altas, e
+   * espremer a largura as deixaria finas como velas.
+   */
+  muralha18: {
+    larg: 160,
+    alt: 128,
+    colunas: 6,
+    passoX: 295,
+    fileiras: [[52, 263], [308, 538], [597, 817]],
+  },
 };
 
 const [folhaArq, nome] = process.argv.slice(2);

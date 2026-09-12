@@ -9,6 +9,90 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-11 (fim do dia) — A Muralha de Fogo vira barreira de contato
+
+**Onde mora:** `raioX`/`raioY`, `contatos`, `podeContato`/`marcaContato` em
+`shared/src/areas.ts` · `linha`/`contatosAtLv1` em `SkillGround` · `fire_wall` em
+`shared/src/skills.ts` · `plantaArea` e `tickGroundAreas` em `server/src/index.ts` ·
+`chamasDaMuralha` e a prévia da mira em `client/src/main.ts` · `muralha18` em
+`tools/folha-alfa2fx.mjs`
+
+Ficha longa do dono (13/09) para uma habilidade que já existia como **área que pulsa**: um
+retângulo de 3×3 que queimava quem estivesse dentro a cada segundo. Virou outra coisa.
+
+### 🔥 Barreira de CONTATO, e é isso que muda tudo
+
+| | antes | agora |
+|---|---|---|
+| forma | quadrado 3×3 | **linha 1×3**, orientada pela mira |
+| dano | pulso a cada 1 s em quem estiver dentro | **um contato** por entrada, 50 % de ATQM |
+| limite | nenhum | **3 a 12 contatos POR ALVO** |
+| reação | nenhuma | **empurra 2 tiles** para trás |
+| SP | 35 + 5/nível | **40 fixo** |
+| conjuração | 0,8 s | **2,15 s → 0,80 s** |
+
+🔴 **O contador é por alvo, e a ficha do dono é explícita**: *"Monster A 3/5, Monster B 1/5
+— não compartilhar esse contador entre inimigos"*. Uma barreira com contador único seria
+gasta pelo primeiro monstro que encostasse.
+
+🔴 **E ela NÃO entra na colisão do jogo**, o que é contraintuitivo e deliberado. Se
+entrasse (como a Ice Wall), o monstro contornaria a parede pelo caminho mais curto e nunca
+a tocaria — a magia não teria efeito nenhum contra qualquer coisa que saiba andar. **Quem
+barra é o empurrão**: o alvo entra, leva o contato e é devolvido dois tiles.
+
+⚠️ **O empurrão precisou de rumo próprio.** O `empurra` do jogo joga para longe do
+CONJURADOR, e é o certo para um golpe que partiu dele; a barreira está a nove células de
+distância e o que ela faz é devolver o alvo **por onde ele entrou**. Sem isso, um monstro
+que cruzasse vindo do lado do mago seria empurrado para DENTRO do fogo.
+
+⚠️ **E `contatoMs` existe por causa de quem não é empurrado.** Um chefe imune fica em pé
+dentro das chamas; sem um intervalo mínimo entre contatos do mesmo alvo, ele gastaria os
+doze do Lv.10 em dois segundos e meio.
+
+### 🧭 A orientação, e a prévia que não mente
+
+A linha nasce **perpendicular à mira**: quem lança para o leste levanta uma parede de pé,
+que é a que barra quem vem de lá. O empate (diagonal exata) cai sempre na parede de pé —
+sortear seria impedir o jogador de aprender o que vai acontecer.
+
+✅ **E a mira mostra a orientação antes do clique**, com a MESMA conta do servidor. A decisão
+tática inteira da habilidade acontece antes de gastar a magia; com o anel quadrado de
+sempre, o jogador descobriria a direção depois de a parede estar no chão.
+
+### ⚖️ Dois números que a ficha não trazia
+
+- **Recarga 5 s** (era 14). O dono pede três muralhas simultâneas e no Lv.10 cada uma dura
+  14 s; com 14 s de recarga a segunda só nasceria depois de a primeira morrer, e o teto de
+  três seria letra morta.
+- **A queimadura ficou.** Ela já estava na ficha antes, e o pedido era explícito em não
+  inventar regra onde já existe equivalente — tirar seria a mesma decisão pelo avesso.
+
+### 🧪 O teste de progressão cobrou a TERCEIRA forma de crescer
+
+`skills.test.ts` mede se toda habilidade ofensiva dá mais dano no Lv.10, e a conta dele era
+`golpes × poder`. A Muralha tem os dois FIXOS: o que cresce é quantas vezes ela fere o mesmo
+alvo. O teste acusou, e estava certo — ele mede o dano que um alvo leva, e essa era a parcela
+que faltava. É a segunda vez que ele cobra uma forma nova de progressão (a primeira foi a
+Esfera, em 12/09), e as duas vezes a resposta foi ensiná-lo, não afrouxar.
+
+### 🔥 A arte, e por que são dois desenhos diferentes
+
+A folha (6×3, alfa de verdade) foi cortada pelo `folha-alfa2fx`, que alinha as fileiras pelo
+CHÃO — é o que mantém parada a linha de onde as chamas sobem. Saída em 160×128, a proporção
+da fonte: espremer para quadrado deixaria as chamas finas como velas.
+
+⚠️ **Deitada é UM desenho; de pé são TRÊS.** A arte é uma parede horizontal de três chamas,
+e esticada nas três células ela cai 1:1 no que foi desenhado. Não há arte vertical, e girar
+a que existe **deitaria as chamas** — a coisa que o olho mais rejeita num efeito de fogo.
+Então a de pé são três fogos empilhados, cada um um pouco mais largo que o tile para não
+abrir corredor entre eles.
+
+⚠️ E cada célula começa num quadro diferente: três cópias em sincronia leem como um desenho
+só piscando, que é justamente o *"aspecto completamente estático"* que a ficha pede para
+evitar.
+
+---
+
 ## 2026-09-11 (fim do dia) — A Explosão Glacial vira defesa
 
 **Onde mora:** `emVolta` em `SkillDef` e `skillMiraNoChao` · `glacial_burst` em

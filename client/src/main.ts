@@ -4723,8 +4723,79 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     nature_wrath: [0x5aa02a, 0xe6ffcf],
   };
 
+  /**
+   * 🔥 **As chamas da Muralha de Fogo, uma por CÉLULA ocupada.**
+   *
+   * 🔴 **Por célula, e não uma só esticada** — e a razão é a orientação. A
+   * muralha pode nascer deitada (3×1) ou de pé (1×3); a arte é uma parede
+   * horizontal de chamas, e esticá-la para cobrir uma coluna a deitaria. Chama
+   * deitada é a coisa que o olho mais rejeita num efeito de fogo.
+   *
+   * ⚠️ **Cada célula começa num quadro DIFERENTE**, e é isso que impede o
+   * *"aspecto completamente estático"* que a ficha do dono pede para evitar: três
+   * cópias em sincronia leem como um desenho só piscando.
+   *
+   * A folha tem três atos — a chama nascendo (1–6), a parede acesa (7–12) e a
+   * dissipação (13–18) —, e eles são tocados como a barreira vive: nasce uma vez,
+   * ARDE em laço enquanto durar, e só apaga quando o servidor manda.
+   */
+  const MURALHA_NASCE = 12;
+  const MURALHA_ARDE = 5;
+  function chamasDaMuralha(node: Container, raioX: number, raioY: number): void {
+    const quadros = folhasEfeito.get('muralha18');
+    if (!quadros || quadros.length < 18) return;
+    /*
+     * 🔴 **DEITADA é UM desenho; DE PÉ são TRÊS.** As duas orientações precisam
+     * de tratamentos diferentes, e tentar uma regra só dá errado nas duas:
+     *
+     * - **Deitada** (3×1): a arte é exatamente isto — uma parede de três chamas.
+     *   Um desenho esticado nas três células cai 1:1 no que o artista desenhou, e
+     *   sai com 2,4 tiles de altura, que é o que faz dela uma PAREDE.
+     * - **De pé** (1×3): não há arte de parede vertical, e girar a que existe
+     *   deitaria as chamas — a coisa que o olho mais rejeita num efeito de fogo.
+     *   Então são três fogos empilhados, cada um um pouco mais largo que o tile
+     *   para não abrir corredor entre eles.
+     *
+     * ⚠️ A cópia de pé transborda uns 0,3 tile para cada lado. É mentira barata:
+     * o jogador lê "fogo alto numa coluna", e a alternativa — espremer a arte em
+     * 32 px — deixaria as chamas finas como velas.
+     */
+    const deitada = raioX > raioY;
+    const largura = deitada ? (raioX * 2 + 1) * TS : TS * 1.6;
+    let fase = 0;
+    for (let dy = -raioY; dy <= raioY; dy++) {
+      for (let dx = -raioX; dx <= raioX; dx++) {
+        if (deitada && dx !== 0) continue; // um desenho só cobre as três
+        const s = new AnimatedSprite(quadros.slice(0, MURALHA_NASCE));
+        /*
+         * ⚠️ **Âncora em 0,93 na vertical**: o recorte alinha as três fileiras
+         * pelo CHÃO, e a linha de onde as chamas sobem fica quase no rodapé do
+         * quadro. Ancorar no meio deixaria a parede flutuando meio tile.
+         */
+        s.anchor.set(0.5, 0.93);
+        s.x = dx * TS;
+        s.y = dy * TS + TS / 2;
+        s.scale.set(largura / 160);
+        s.animationSpeed = MURALHA_NASCE / (700 / (1000 / 60));
+        s.currentFrame = fase % MURALHA_NASCE;
+        s.loop = false;
+        s.onComplete = () => {
+          // Nasceu: passa a ARDER, em laço, até o servidor mandar apagar.
+          s.textures = quadros.slice(MURALHA_ARDE, MURALHA_NASCE);
+          s.loop = true;
+          s.animationSpeed = (MURALHA_NASCE - MURALHA_ARDE) / (600 / (1000 / 60));
+          s.gotoAndPlay(fase % (MURALHA_NASCE - MURALHA_ARDE));
+        };
+        s.play();
+        node.addChild(s);
+        fase += 2;
+      }
+    }
+  }
+
   function addGroundArea(
     id: string, fx: string, tileX: number, tileY: number, radius: number, durationMs: number,
+    raioX?: number, raioY?: number,
   ): void {
     removeGroundArea(id); // substituição (a 4ª muralha) reusa o mesmo caminho
     const [corte, brilho] = CORES_AREA[fx] ?? [0x8a5ad8, 0xefe6ff];
@@ -4734,6 +4805,21 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // Abaixo das entidades: a área é CHÃO, e cobrir o monstro que está dentro
     // dela seria esconder justamente o que o jogador precisa mirar.
     node.zIndex = 100;
+
+    /*
+     * 🔥 **A muralha desenha só as CHAMAS — sem retângulo, sem cantos.** A ficha
+     * do dono é explícita (*"não adicionar círculo mágico, não adicionar aura"*),
+     * e aqui a moldura seria pior que enfeite: a área dela É visível, são as
+     * chamas. O retângulo continua para as outras seis, onde o efeito é discreto
+     * e sem ele ninguém sabe onde a magia pega.
+     */
+    if (folhasEfeito.has('muralha18') && fx === 'fire_wall') {
+      chamasDaMuralha(node, raioX ?? radius, raioY ?? radius);
+      fxLayer.addChild(node);
+      groundAreaNodes.set(id, node);
+      setTimeout(() => removeGroundArea(id), durationMs + 1500);
+      return;
+    }
 
     const lado = (radius * 2 + 1) * TS;
     const g = new Graphics();
@@ -4769,7 +4855,26 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const node = groundAreaNodes.get(id);
     if (!node) return;
     groundAreaNodes.delete(id);
-    node.destroy({ children: true });
+    /*
+     * 🔥 **A muralha APAGA em vez de sumir.** A folha tem seis quadros de
+     * dissipação, e cortá-los faria a parede piscar para fora — que é o defeito
+     * que o `desvanece` das quedas existe para evitar. Os filhos são
+     * `AnimatedSprite`; qualquer outra área cai no `destroy` de sempre.
+     */
+    const quadros = folhasEfeito.get('muralha18');
+    const chamas = quadros && quadros.length >= 18
+      ? node.children.filter((c): c is AnimatedSprite => c instanceof AnimatedSprite)
+      : [];
+    if (chamas.length === 0) { node.destroy({ children: true }); return; }
+    for (const s of chamas) {
+      s.textures = quadros!.slice(MURALHA_NASCE);
+      s.loop = false;
+      s.animationSpeed = (18 - MURALHA_NASCE) / (500 / (1000 / 60));
+      s.gotoAndPlay(0);
+    }
+    // ⚠️ Um relógio só para o nó inteiro: `onComplete` por chama destruiria o
+    // contêiner na primeira que acabasse, levando as outras junto pela metade.
+    setTimeout(() => node.destroy({ children: true }), 520);
   }
 
   /**
@@ -5562,7 +5667,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           break;
         case 'area':
           if (msg.floor === myFloor) {
-            addGroundArea(msg.id, msg.fx, msg.x, msg.y, msg.radius, msg.durationMs);
+            addGroundArea(
+              msg.id, msg.fx, msg.x, msg.y, msg.radius, msg.durationMs,
+              msg.raioX, msg.raioY,
+            );
           }
           break;
         case 'areagone':
@@ -8548,6 +8656,29 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const px = tx * TS;
     const py = ty * TS;
     miraMarca.clear();
+    /*
+     * 🔥 **A MURALHA MOSTRA A ORIENTAÇÃO ANTES DE SAIR.**
+     *
+     * A barreira nasce perpendicular à linha conjurador → mira, e o jogador
+     * precisa VER isso antes de gastar a magia: com o anel quadrado de sempre,
+     * ele descobriria a direção depois de a parede estar no chão, e a decisão
+     * tática inteira da habilidade acontece antes do clique.
+     *
+     * ⚠️ A conta é a MESMA do servidor (eixo dominante, empate na parede de pé).
+     * Duas contas diferentes aqui e lá seriam uma prévia que mente.
+     */
+    if (def.ground?.linha) {
+      circuloMira.visible = false;
+      const deitada = Math.abs(ty - myTileY) > Math.abs(tx - myTileX);
+      const larg = (deitada ? raio * 2 + 1 : 1) * TS;
+      const alt = (deitada ? 1 : raio * 2 + 1) * TS;
+      miraMarca
+        .rect(px + TS / 2 - larg / 2, py + TS / 2 - alt / 2, larg, alt)
+        .fill({ color: cor, alpha: 0.16 })
+        .stroke({ width: 2, color: cor, alpha: 0.85 });
+      miraMarca.visible = true;
+      return;
+    }
     if (raio > 0) {
       /*
        * ⭕ **O DISCO DE PREENCHIMENTO SAIU** — dono, 12/09, comparando as duas

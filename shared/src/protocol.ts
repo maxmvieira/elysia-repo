@@ -1055,6 +1055,12 @@ export interface S2C_AreaSpawn {
   y: number;
   floor: number;
   radius: number;
+  /**
+   * 🔥 Raio por eixo, quando a área não é quadrada (a Muralha de Fogo é 1×3).
+   * Ausentes, valem `radius` nos dois — que é o caso de todas as outras.
+   */
+  raioX?: number;
+  raioY?: number;
   durationMs: number;
   fx: string;
 }

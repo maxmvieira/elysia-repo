@@ -123,6 +123,8 @@ import {
   MODIFIER_CEIL,
   areaBlocks,
   areaCovers,
+  marcaContato,
+  podeContato,
   areaVisibleTo,
   countAreasOf,
   dropOldestOf,
@@ -143,6 +145,7 @@ import {
   skillConditionDuration,
   skillDuration,
   skillGroundDuration,
+  skillGroundContatos,
   skillGroundMax,
   skillHits,
   skillModifiers,
@@ -4901,10 +4904,21 @@ function empurraAoAcaso(c: Creature, tiles: number): void {
   }
 }
 
-/** Empurra a criatura um tile para longe de quem bateu, se houver para onde. */
-function empurra(player: Player, c: Creature, tiles = 1): void {
-  const dx = Math.sign(c.tileX - player.tileX);
-  const dy = Math.sign(c.tileY - player.tileY);
+/**
+ * Empurra a criatura para longe de quem bateu, se houver para onde.
+ *
+ * 🔥 **`rumo` existe por causa da Muralha de Fogo**, e a diferença importa: o
+ * empurrão normal joga para longe do CONJURADOR, e é o certo para um golpe que
+ * partiu dele. A barreira não parte de ninguém — ela está no chão, a nove
+ * células de distância, e o que ela faz é **devolver o alvo por onde ele
+ * entrou**. Sem o rumo próprio, um monstro que cruzasse a muralha vindo do lado
+ * do mago seria empurrado PARA DENTRO do fogo.
+ */
+function empurra(
+  player: Player, c: Creature, tiles = 1, rumo?: { dx: number; dy: number },
+): void {
+  const dx = rumo ? rumo.dx : Math.sign(c.tileX - player.tileX);
+  const dy = rumo ? rumo.dy : Math.sign(c.tileY - player.tileY);
   if (dx === 0 && dy === 0) return;
   /*
    * ⚠️ **Anda tile a tile e PARA no primeiro obstáculo**, como o empurrão da
@@ -5015,6 +5029,22 @@ function plantaArea(
     send(player, { t: 'denied', reason: 'Magia demais no chão. Espere um instante.' });
     return;
   }
+  /*
+   * 🔥 **A BARREIRA NÃO NASCE EM CIMA DE QUEM A LANÇOU**, e a ficha do dono pede
+   * isso em letra: *"não criar a barreira diretamente sobre o personagem"*.
+   *
+   * 🔴 Não é só estética. A muralha fere quem a atravessa e empurra de volta; no
+   * próprio tile do mago ela o empurraria a cada tique, ou — pior, em PvP —
+   * seguraria o inimigo colado nele em vez de afastar. Uma barreira que nasce
+   * onde você está não é barreira, é armadilha para si mesmo.
+   *
+   * ⚠️ Só vale para as de LINHA. As outras áreas de chão (Santuário, Círculo
+   * Arcano) existem justamente para ficar em cima de quem lançou.
+   */
+  if (g.linha && mira.tileX === player.tileX && mira.tileY === player.tileY) {
+    send(player, { t: 'denied', reason: 'Escolha um lugar à sua frente.' });
+    return;
+  }
   // 🔴 Ice Wall: 1 parede no Lv.1, 3 no Lv.10. Ao erguer a 4ª, a mais antiga
   // cai — recusar em silêncio seria pior do que substituir.
   const teto = skillGroundMax(def, nivel);
@@ -5031,6 +5061,7 @@ function plantaArea(
 
   const duracao = skillGroundDuration(def, nivel);
   const raio = skillRange(def, nivel);
+  const contatos = skillGroundContatos(def, nivel);
   // Cura sai de `healPower`; dano sai do poder mágico. A mesma bifurcação do
   // resto do arquivo, aqui já resolvida em número absoluto por pulso.
   const afinidade = benefitsFromNatureAffinity(def)
@@ -5040,16 +5071,36 @@ function plantaArea(
     ? player.derived.healPower * skillPower(def, nivel)
     : player.derived.magicAtk * skillPower(def, nivel) * offenseMult(player) * afinidade;
 
+  const ax = mira.tileX ?? player.tileX;
+  const ay = mira.tileY ?? player.tileY;
+  /*
+   * 🔥 **A LINHA NASCE PERPENDICULAR À MIRA.**
+   *
+   * Ficha do dono (13/09): *"a barreira deve ser posicionada de acordo com a
+   * direção escolhida pelo jogador"*. Quem lança para o LESTE quer barrar o que
+   * vem de lá — e o que barra um avanço horizontal é uma parede DE PÉ.
+   *
+   * ⚠️ O eixo dominante decide, e o empate (diagonal exata) cai na parede de pé:
+   * numa diagonal as duas orientações barram igual, e escolher sempre a mesma é
+   * melhor que sortear — o jogador aprende o que vai acontecer.
+   */
+  const linha = g.linha === true;
+  const dx = ax - player.tileX;
+  const dy = ay - player.tileY;
+  const deitada = linha && Math.abs(dy) > Math.abs(dx);
   const area: GroundArea = {
     id: `a${proximaAreaId++}`,
     skillId: def.id,
     ownerId: player.id,
     kind: g.kind,
     // 🔴 Plantada na MIRA (08/09). Sem mira, aos pés do jogador — o de antes.
-    x: mira.tileX ?? player.tileX,
-    y: mira.tileY ?? player.tileY,
+    x: ax,
+    y: ay,
     floor: player.floor,
     radius: raio,
+    ...(linha
+      ? { raioX: deitada ? raio : 0, raioY: deitada ? 0 : raio }
+      : {}),
     expiresAt: now + duracao,
     nextTickAt: now + g.tickMs,
     tickMs: g.tickMs,
@@ -5060,6 +5111,20 @@ function plantaArea(
     hitsPlayers: g.hitsPlayers,
     hitsCreatures: g.hitsCreatures,
     blocks: g.blocks ?? false,
+    /*
+     * 🔥 O limite de contatos e o empurrão do contato. Ausentes na ficha, a área
+     * pulsa em todo mundo para sempre — o comportamento das outras seis.
+     */
+    ...(contatos !== undefined
+      ? {
+        maxContatos: contatos,
+        contatos: {},
+        ...(g.contatoMs !== undefined ? { contatoMs: g.contatoMs } : {}),
+        ...(def.empurraTiles !== undefined
+          ? { empurraTiles: skillEmpurrao(def, nivel) }
+          : {}),
+      }
+      : {}),
     fx: def.fx,
     ...(def.applies
       ? {
@@ -5084,6 +5149,9 @@ function plantaArea(
   const msg = {
     t: 'area' as const, id: area.id, skill: def.id, kind: area.kind,
     x: area.x, y: area.y, floor: area.floor, radius: area.radius,
+    // 🔥 Só vão quando a área não é quadrada: o cliente precisa saber se a
+    // muralha está de pé ou deitada para desenhar as três células no lugar.
+    ...(area.raioX !== undefined ? { raioX: area.raioX, raioY: area.raioY } : {}),
     durationMs: duracao, fx: def.fx,
   };
   for (const p of players.values()) {
@@ -5277,8 +5345,35 @@ function tickGroundAreas(now: number): void {
     if (a.hitsCreatures && a.kind === 'damage' && dono) {
       for (const c of creatures.values()) {
         if (!c.alive || !areaCovers(a, c.tileX, c.tileY, c.floor)) continue;
+        /*
+         * 🔥 **A BARREIRA DE CONTATO não pulsa: ela reage a quem pisa.**
+         *
+         * `podeContato` responde as duas perguntas de uma vez — o alvo já gastou
+         * os contatos dele, e já passou o intervalo desde o último. Sem limite na
+         * ficha ela devolve sempre `true`, e a área volta a ser a de antes.
+         */
+        if (!podeContato(a, c.id, now)) continue;
         golpeDeArea(dono, a, c, now);
-        if (!c.alive) continue;
+        marcaContato(a, c.id, now);
+        /*
+         * 🌬️ **E o empurrão vem DEPOIS do dano, com o alvo ainda vivo.**
+         * Arremessar um cadáver não tem efeito nenhum no jogo, mas move a
+         * criatura um quadro antes de a morte ser desenhada — e em tela isso lê
+         * como "ele escapou".
+         */
+        if (c.alive && a.empurraTiles !== undefined) {
+          /*
+           * 🌬️ **Empurra PARA TRÁS DELE, e não para longe do mago.** A criatura
+           * entrou na muralha olhando para onde andava, então o contrário da
+           * direção dela é o caminho de volta — é assim que a barreira *barra*
+           * em vez de só queimar.
+           *
+           * ⚠️ E é por isso que o empurrão da muralha não pode usar o rumo
+           * padrão: o conjurador pode estar a nove células, de qualquer lado.
+           */
+          const v = DIRECTION_VECTORS[c.direction];
+          empurra(dono, c, a.empurraTiles, { dx: -v.dx, dy: -v.dy });
+        }
       }
     }
     if (a.hitsPlayers) {
@@ -5290,7 +5385,9 @@ function tickGroundAreas(now: number): void {
         }
         // Dano em jogador: só quem NÃO é aliado do dono.
         if (!dono || ehAliado(dono, p)) continue;
+        if (!podeContato(a, p.id, now)) continue;
         danoDeAreaEmJogador(dono, a, p, now);
+        marcaContato(a, p.id, now);
       }
     }
   }

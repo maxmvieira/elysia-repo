@@ -20,6 +20,7 @@ import {
   skillPointsTotalUpTo,
   skillPower,
   skillHits,
+  skillGroundContatos,
   skillRange,
   skillResetCost,
   skillTotalCost,
@@ -91,14 +92,24 @@ test('subir o nível aumenta o dano das habilidades ofensivas', () => {
    * 12 no Lv.10). Ela ficou quatro vezes mais forte e o teste dizia que não
    * ficou — porque olhava metade da conta.
    *
-   * ⚠️ As duas formas de crescer convivem de propósito: a Nevasca tem contagem
-   * fixa e poder crescente, a Esfera o inverso. Um teste que só conhece uma
-   * delas veta a outra sem motivo.
+   * ⚠️ As formas de crescer convivem de propósito: a Nevasca tem contagem fixa e
+   * poder crescente, a Esfera o inverso. Um teste que só conhece uma delas veta a
+   * outra sem motivo.
+   *
+   * 🔴 **E em 13/09 apareceu a TERCEIRA: contatos por alvo.** A Muralha de Fogo
+   * tem poder fixo (50 % de ATQM) e contagem fixa (um golpe por contato); o que
+   * cresce é quantas vezes a MESMA barreira pode ferir o MESMO inimigo — de 3
+   * para 12. O teste acusou, e estava certo em acusar: ele mede o dano que um
+   * alvo leva, e essa é a conta que faltava. É a segunda vez que ele cobra uma
+   * forma nova de progressão, e as duas vezes a resposta foi ensiná-lo, não
+   * afrouxar.
    */
   const ofensivas = Object.values(SKILLS).filter((d) => d.power > 0);
   assert.ok(ofensivas.length >= 5, 'o Knight tem várias habilidades de dano');
   for (const def of ofensivas) {
-    const total = (nivel: number): number => skillHits(def, nivel) * skillPower(def, nivel);
+    const total = (nivel: number): number => skillHits(def, nivel)
+      * skillPower(def, nivel)
+      * (skillGroundContatos(def, nivel) ?? 1);
     assert.ok(
       total(10) > total(1),
       `${def.id} deveria dar mais dano no Lv.10 (${total(1).toFixed(2)} → ${total(10).toFixed(2)})`,

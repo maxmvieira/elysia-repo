@@ -26,6 +26,7 @@ import {
   skillDuration,
   skillGroundDuration,
   skillGroundMax,
+  skillGroundContatos,
   skillConditionChance,
   skillConditionDuration,
   skillPower,
@@ -540,6 +541,57 @@ test('Explosão Glacial é 360° ao redor de si — a resposta a quem colou', ()
    */
   assert.equal(g.emVolta, true);
   assert.equal(skillMiraNoChao(g), false, 'em volta de si não se mira');
+});
+
+test('🔥 Muralha de Fogo: barreira de CONTATO, não área que pulsa', () => {
+  const m = SKILLS.fire_wall;
+  const g = m.ground!;
+
+  /*
+   * 🔥 **A ficha do dono, 13/09.** O que este teste guarda são as RELAÇÕES que
+   * fazem dela uma barreira em vez de uma poça de dano — e cada uma tem um jeito
+   * conhecido de se perder sozinha.
+   */
+  assert.equal(g.linha, true, 'é uma LINHA de 1×3, não um quadrado');
+  assert.equal(skillRange(m, 1), 1, 'raio 1 = três células');
+  assert.equal(skillRange(m, 10), 1, 'e não cresce: o que cresce são os contatos');
+  assert.equal(skillCastRange(m, 1), 9);
+
+  /*
+   * 🔴 **O contador por alvo é a mecânica inteira.** Sem limite, a muralha
+   * empurraria o mesmo monstro para sempre e ele nunca chegaria ao mago — o que
+   * transformaria uma barreira em prisão.
+   */
+  assert.equal(skillGroundContatos(m, 1), 3);
+  assert.equal(skillGroundContatos(m, 10), 12);
+
+  /*
+   * ⚠️ **`blocks` FALSO, e é contraintuitivo de propósito.** Se a muralha
+   * entrasse na colisão, o monstro contornaria pelo caminho mais curto e nunca a
+   * tocaria: a magia não teria efeito nenhum contra qualquer coisa que saiba
+   * andar. Quem barra é o EMPURRÃO.
+   */
+  assert.notEqual(g.blocks, true, 'não é colisão: quem barra é o empurrão');
+  assert.equal(m.empurraTiles, 2);
+
+  /*
+   * ⚠️ **Poder fixo, duração e contatos crescentes.** É uma habilidade de
+   * CONTROLE que sobe de nível, não uma de dano — e o teste geral de progressão
+   * (`skills.test.ts`) só passa porque aprendeu a contar os contatos.
+   */
+  assert.equal(skillPower(m, 1), skillPower(m, 10), '50 % de ATQM em toda a régua');
+  assert.ok(skillGroundDuration(m, 10) > skillGroundDuration(m, 1) * 2);
+  assert.equal(skillManaCost(m, 1), skillManaCost(m, 10), '40 de SP em todos os níveis');
+
+  /*
+   * ⚠️ **A recarga tem de caber na duração**, senão o teto de três muralhas
+   * simultâneas é letra morta: a segunda só nasceria depois de a primeira morrer.
+   */
+  assert.ok(
+    m.cooldownMs < skillGroundDuration(m, 10) / 2,
+    'três muralhas de pé ao mesmo tempo exigem recarga bem menor que a duração',
+  );
+  assert.equal(skillGroundMax(m, 10), 3);
 });
 
 test('❄️ Explosão Glacial: defesa é reação — rápida, frequente e CARA', () => {
