@@ -3439,11 +3439,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ⚠️ O raio do DANO continua vindo da ficha da skill — 2 tiles —, nunca do
      * tamanho da imagem. São dois números de propósito, como a ficha pede.
      *
-     * ⚠️ **1000 ms para 17 quadros** (59 ms cada), que é o ritmo sugerido na
-     * ficha — e são 17, não 14: a folha foi medida, não contada no olho.
+     * ⚠️ **650 ms para 17 quadros** (38 ms cada), e eram 1000. O dono pediu
+     * mais rápido vendo em tela: a magia é uma DEFESA de reação — quem a usa
+     * está cercado — e um segundo de espinhos crescendo lia como ritual, não
+     * como susto. São 17 quadros, não os 14 da ficha: a folha foi medida.
      */
     glacial_burst: {
-      ancoraX: 0.287, ancoraY: 0.946, escala: 0.75, dur: 1000, sobeY: 0, noChao: true,
+      ancoraX: 0.287, ancoraY: 0.946, escala: 0.75, dur: 650, sobeY: 0, noChao: true,
       // ⚠️ −62,6° medidos na folha. Ver `aponta`.
       aponta: -1.0934,
     },
@@ -6411,10 +6413,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
            * ⚠️ **DoT conta.** Veneno e queimadura são dano real, e a ficha só
            * exclui o que não machucou. O que o `dot` evita é o GESTO de ataque,
            * mais acima — coisa diferente.
+           *
+           * ⚠️ **E vale para QUALQUER criatura, não só a selecionada.** A ficha
+           * original pedia "só o alvo atual"; com a vida passando a ficar visível
+           * para sempre, restringir ao alvo esconderia a vida de tudo que uma
+           * magia de área acabou de ferir. Jogador não tem `mostraUi`, então
+           * entrar na lista não faz nada para ele.
            */
-          if (!msg.dodged && msg.amount > 0 && msg.targetId === targetId) {
-            jaSangrou.add(msg.targetId);
-          }
+          if (!msg.dodged && msg.amount > 0) jaSangrou.add(msg.targetId);
           const view = sprites.get(msg.targetId);
           if (view) {
             const iAmTarget = msg.targetId === myId;
@@ -10219,6 +10225,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
          * `atualizaUiDasEntidades`, que limpa a memória de dano no mesmo quadro.
          */
         if (id === targetId) targetId = null;
+        /*
+         * 🩸 **E sai da lista dos feridos.** A vida ficou visível "para sempre",
+         * e "sempre" acaba aqui: sem esta linha a lista cresceria a sessão
+         * inteira, guardando id de bicho morto há meia hora.
+         */
+        jaSangrou.delete(id);
         view.container.destroy();
         sprites.delete(id);
         // A fita morre junto: o destroy do container já leva o nó, mas deixar a
@@ -10528,35 +10540,48 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * morto. Aqui o estado é RECALCULADO: quem não está na lista deste quadro é
    * apagado, sem precisar que alguém se lembre de apagá-lo.
    *
-   * ⚠️ **A memória de dano morre junto com a seleção.** `jaSangrou` é limpo no
-   * mesmo passo em que a UI se apaga, então trocar de alvo e voltar ao anterior
-   * faz a vida esconder de novo até o próximo dano — que é o que a ficha pede
-   * em "limpar o estado de dano do alvo anterior".
+   * ⚠️ **A memória de dano NÃO morre com a seleção** — morria, e o dono mandou
+   * o contrário depois de jogar. Ela só acaba quando a criatura some do mundo
+   * (ver o laço de snapshot). Quem sangrou mostra a vida até morrer.
    */
   const jaSangrou = new Set<string>();
   const uiAtiva = new Set<string>();
 
   function atualizaUiDasEntidades(): void {
-    const novos = new Set<string>();
     const sel = targetId ?? undefined;
-    if (sel) {
-      const v = sprites.get(sel);
-      // ⚠️ A vida só entra se houve dano CONFIRMADO. Ver o `case 'hit'`.
-      if (v?.mostraUi) {
-        v.mostraUi({ nome: true, vida: jaSangrou.has(sel), contorno: true });
-        novos.add(sel);
-      }
-    }
     const sob = entidadeSobOMouse?.id;
-    if (sob && sob !== sel) {
-      // ⚠️ Sob o mouse e não selecionado: SÓ o nome. Sem vida, sem contorno.
-      const v = sprites.get(sob);
-      if (v?.mostraUi) { v.mostraUi({ nome: true, vida: false, contorno: false }); novos.add(sob); }
+    /*
+     * 🩸 **QUEM SANGROU NÃO ESCONDE MAIS A VIDA** (dono, 12/09: *"depois que os
+     * monstros tomam dano, a vida precisa ficar visível sempre — mas somente
+     * depois de tomar algum dano"*).
+     *
+     * 🔴 **Antes a memória de dano morria junto com a seleção**, e era o que a
+     * ficha original pedia. Na prática ficou ruim: trocar de alvo apagava a
+     * vida do bicho que você acabou de ferir, e voltar nele pedia bater de novo
+     * para saber quanto faltava. Agora a lista dos feridos manda sozinha, e
+     * seleção e mouse decidem só NOME e CONTORNO.
+     *
+     * ⚠️ **A barra sozinha, sem nome, é de propósito.** O pedido foi a VIDA
+     * ficar visível; encher a tela de placas de novo desfaria o trabalho de
+     * mais cedo.
+     */
+    const interessa = new Set<string>(jaSangrou);
+    if (sel) interessa.add(sel);
+    if (sob) interessa.add(sob);
+    const novos = new Set<string>();
+    for (const id of interessa) {
+      const v = sprites.get(id);
+      if (!v?.mostraUi) continue;
+      v.mostraUi({
+        nome: id === sel || id === sob,
+        vida: jaSangrou.has(id),
+        contorno: id === sel,
+      });
+      novos.add(id);
     }
     for (const id of uiAtiva) {
       if (novos.has(id)) continue;
       sprites.get(id)?.mostraUi?.({ nome: false, vida: false, contorno: false });
-      jaSangrou.delete(id);
     }
     uiAtiva.clear();
     for (const id of novos) uiAtiva.add(id);

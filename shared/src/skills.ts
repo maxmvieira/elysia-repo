@@ -2358,9 +2358,20 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      *
      * 🔴 **A chance é modesta e a duração é CURTA de propósito.** Congelamento
      * bloqueia tudo (mover, atacar, conjurar) e a magia pode sair a cada 2 s no
-     * Lv.10: 60 % por dois segundos, repetido, é prisão permanente. 25 % → 50 %
-     * com 1,2 s → 2,5 s dá ao mago o passo que ele precisa para sair, sem
-     * transformar a defesa em controle total.
+     * Lv.10: com chance alta e duração longa, repetida, vira prisão permanente.
+     * A CHANCE é o freio — 25 % → 50 % —, e é ela que impede a corrente.
+
+     * ❄️ **3 s → 5 s de congelamento** (dono, 12/09), e eram 1,2 s → 2,5 s. O
+     * dobro, e o motivo é de leitura: a 1,2 s o bloco de gelo mal terminava de
+     * crescer (a animação leva 0,42 s só para nascer) e já derretia — o jogador
+     * via um piscar, não um monstro preso. Agora o gelo fica parado tempo
+     * suficiente para a prisão ser lida como prisão.
+
+     * ⚠️ **E isso empurra a habilidade para perto do controle**: 50 % por 5 s a
+     * cada 2 s de recarga, num bicho só, trava ele quase sempre. O que segura
+     * é o SP alto e o fato de a chance ser POR ALVO — cercado, o mago congela
+     * metade e ainda apanha da outra. Se em teste virar controle demais, o
+     * número a mexer é a CHANCE, não a duração, que agora tem razão visual.
      *
      * ⚠️ **E o próprio dano NÃO quebra este congelamento**, porque a condição é
      * aplicada DEPOIS do golpe — ver a nota em `castSpell`. O que quebra é o
@@ -2371,8 +2382,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       id: 'freeze',
       chanceAtLv1: 0.25,
       chanceAtLv10: 0.50,
-      durationAtLv1: 1200,
-      durationAtLv10: 2500,
+      durationAtLv1: 3000,
+      durationAtLv10: 5000,
     },
     fx: 'glacial_burst',
     desc: 'Estoura gelo em 360° ao seu redor: empurra, congela e abre espaço.',

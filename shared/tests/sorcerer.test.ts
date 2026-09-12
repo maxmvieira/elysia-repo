@@ -641,13 +641,42 @@ test('❄️ Explosão Glacial: defesa é reação — rápida, frequente e CARA
   assert.ok(porSegundo >= 50, `SP por segundo é o freio da magia; achei ${porSegundo}`);
 
   /*
-   * ❄️ **Congela, mas não prende para sempre.** `DD-SOR-012` existe para o gelo
-   * não ser controle garantido, e uma defesa que sai a cada 2 s é justamente
-   * onde isso escorregaria.
+   * ❄️ **Congela, e o freio mudou de lugar.** `DD-SOR-012` existe para o gelo não
+   * ser controle garantido. Até 12/09 quem segurava isso era a DURAÇÃO: o teste
+   * exigia 3 s no máximo, e o comprimento curto tornava a corrente impossível.
+   *
+   * 🔴 **O dono mandou 3 s → 5 s, e o motivo é de LEITURA, não de força:** a 1,2 s
+   * o bloco de gelo mal terminava de crescer (a animação leva 0,42 s só para
+   * nascer) e já derretia — o jogador via um piscar, não um monstro preso. O
+   * pedido é legítimo e a decisão é dele; o que este teste faz agora é guardar o
+   * número NOVO e deixar a conta à vista.
+   *
+   * ⚠️ **A conta que o limite antigo escondia:** no Lv.10 são 50 % de chance, 5 s
+   * de gelo e 2 s de recarga. Em média, cada conjuração prende um alvo por 2,5 s,
+   * e ela sai a cada 2 s — ou seja, **contra UM monstro sozinho o gelo tende a
+   * ser permanente**. O que sobra de freio é (a) o SP alto, (b) a chance ser
+   * sorteada POR ALVO, então cercado o mago congela metade e apanha da outra.
+   *
+   * ✅ **Se em teste virar controle demais, o número a mexer é a CHANCE** — a
+   * duração agora tem razão visual, a chance não tem nenhuma.
    */
   assert.equal(g.applies?.id, 'freeze');
   assert.ok((g.applies?.chanceAtLv10 ?? 1) <= 0.5, 'metade dos cercadores, no máximo');
-  assert.ok((g.applies?.durationAtLv10 ?? 0) <= 3000, 'congelamento CURTO: dá o passo, não a luta');
+  assert.ok(
+    (g.applies?.durationAtLv1 ?? 0) >= 3000 && (g.applies?.durationAtLv10 ?? 0) <= 5000,
+    'o gelo dura de 3 s a 5 s: tempo de LER a prisão, e o teto é do dono',
+  );
+  /*
+   * ⚠️ **O gelo nunca pode passar da recarga por mais de 2,5×.** É o que resta do
+   * anti-corrente depois que a duração cresceu: hoje o valor bate exatamente no
+   * teto (5 s contra 2 s), então QUALQUER aumento futuro de duração — ou queda
+   * de recarga — derruba este teste. É de propósito: é o ponto em que alguém
+   * precisa parar e decidir de novo, em vez de escorregar mais um segundo.
+   */
+  assert.ok(
+    (g.applies?.durationAtLv10 ?? 0) <= skillCooldown(g, 10) * 2.5,
+    'gelo contra recarga: passou de 2,5×, a corrente fecha sozinha',
+  );
 
   /*
    * 🌬️ **E empurra — sem `knockback`.** A magia só tem uma condição, e ela é o
