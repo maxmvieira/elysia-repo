@@ -87,6 +87,15 @@ a que existe **deitaria as chamas** — a coisa que o olho mais rejeita num efei
 Então a de pé são três fogos empilhados, cada um um pouco mais largo que o tile para não
 abrir corredor entre eles.
 
+⚠️ **E a ALTURA foi esticada 3× depois do primeiro teste em tela** (*"está muito pequeno a
+muralha"*). Os dois eixos não podem crescer juntos: a largura está PRESA às três células que
+a magia machuca, e esticá-la poria fogo desenhado onde ninguém queima. Então a largura
+cresce só 1,3× (para as chamas passarem da beira do tile) e a altura vai de 2,4 para **7,2
+tiles** — é a altura que faz uma linha de fogo virar parede, e é ela que o olho mede quando
+diz "pequeno".
+
+⚠️ Os dois fatores não se multiplicam: a altura sai da largura BASE. Compondo-os, o 3× virava
+3,9× e a muralha saía com 9,4 tiles de chama — uma torre.
 ⚠️ E cada célula começa num quadro diferente: três cópias em sincronia leem como um desenho
 só piscando, que é justamente o *"aspecto completamente estático"* que a ficha pede para
 evitar.

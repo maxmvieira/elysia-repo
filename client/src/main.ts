@@ -4760,8 +4760,35 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * o jogador lê "fogo alto numa coluna", e a alternativa — espremer a arte em
      * 32 px — deixaria as chamas finas como velas.
      */
+    /*
+     * 🔥 **A ALTURA é esticada à parte da largura, e por isso são dois fatores.**
+     *
+     * Dono, 13/09: *"está muito pequeno a muralha, faça ela pelo menos 3× maior"*.
+     * Crescer os dois eixos juntos não serve: a largura está PRESA às três
+     * células que a magia machuca, e esticá-la três vezes poria fogo desenhado
+     * onde ninguém queima — a própria ficha dele pede que a barreira fique
+     * *"visualmente alinhada às 3 células ocupadas"*.
+     *
+     * ✅ Então a largura cresce só o suficiente para as chamas passarem da beira
+     * do tile (1,3×, uns 5 px de cada lado) e **a altura cresce 3×**: de 2,4 para
+     * 7 tiles na deitada. É a altura que faz uma linha de fogo virar PAREDE, e é
+     * ela que o olho mede quando diz "pequeno".
+     *
+     * ⚠️ Esticar fogo na vertical é barato — chama é alta por natureza, e o
+     * desenho não denuncia. Esticar na horizontal engorda as línguas de fogo e
+     * denuncia na hora.
+     */
+    const ESTICA_ALTURA = 3;
+    const ALARGA = 1.3;
     const deitada = raioX > raioY;
-    const largura = deitada ? (raioX * 2 + 1) * TS : TS * 1.6;
+    /*
+     * ⚠️ **A altura sai da largura BASE, não da alargada.** Multiplicar os dois
+     * fatores compunha: 1,3 × 3 dava 3,9 vezes de altura, ou 9,4 tiles de chama —
+     * uma torre. O 3× que o dono pediu é sobre o tamanho que ele viu em tela.
+     */
+    const base = deitada ? (raioX * 2 + 1) * TS : TS * 1.6;
+    const largura = base * ALARGA;
+    const altura = (base / 160) * 128 * ESTICA_ALTURA;
     let fase = 0;
     for (let dy = -raioY; dy <= raioY; dy++) {
       for (let dx = -raioX; dx <= raioX; dx++) {
@@ -4775,7 +4802,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         s.anchor.set(0.5, 0.93);
         s.x = dx * TS;
         s.y = dy * TS + TS / 2;
-        s.scale.set(largura / 160);
+        s.scale.set(largura / 160, altura / 128);
         s.animationSpeed = MURALHA_NASCE / (700 / (1000 / 60));
         s.currentFrame = fase % MURALHA_NASCE;
         s.loop = false;
