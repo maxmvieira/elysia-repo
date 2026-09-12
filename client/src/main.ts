@@ -3121,6 +3121,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * ⚠️ 182 px são 5,7 tiles, contra os 5×5 (160 px) que a magia machuca — a
      * margem de drama de sempre, e nada além dela. A 1,7 o anel tinha dez tiles:
      * o mago ficava perdido dentro de um círculo de gelo do tamanho da tela.
+     *
+     * ⚠️ **A escala sobreviveu à quarta folha porque o BURACO foi medido.** O
+     * anel de 24 quadros (12/09) tem vão de raio 38–41 px em quadros de 192 —
+     * a 0,95, 2,3 tiles de diâmetro livre para um personagem de 1 tile. Era a
+     * exigência do dono: *"não pode sobrepor o personagem no centro"*. Toda
+     * folha nova precisa dessa medida ANTES de mexer na escala; a escala aqui é
+     * razão entre arte e tile, e não quer dizer nada sozinha.
      */
     glacial_burst: { ancoraY: 0.5, escala: 0.95, dur: 800 },
   };

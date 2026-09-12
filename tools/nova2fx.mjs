@@ -71,7 +71,31 @@ const TEM_ALFA = (() => {
 })();
 /** Piso do alfa: o véu fantasma das folhas geradas por IA. */
 const PISO_ALFA = 24;
+/**
+ * 🔴 **FUNDO CLARO: a chave é a SATURAÇÃO.**
+ *
+ * A quarta folha glacial (13/09) chegou com o xadrez de transparência PINTADO —
+ * o arquivo é 100 % opaco e o "fundo" é um cinza de 210. Nem o alfa (não existe)
+ * nem o brilho (o cinza é mais claro que metade do desenho) separam nada.
+ *
+ * ✅ O cinza é NEUTRO e o gelo é AZUL: medida, a saturação do fundo fica em 0,01
+ * e a dos cristais passa de 0,3. O branco do reflexo, que é quase sem cor, entra
+ * por um corte de brilho ALTO — acima do cinza do xadrez, que nunca chega lá.
+ */
+const FUNDO_CLARO = (() => {
+  const v = [];
+  for (let i = 0; i < img.px.length; i += 4 * 401) v.push(lum(i));
+  v.sort((a, b) => a - b);
+  return !TEM_ALFA && (v[v.length >> 1] ?? 0) > 140;
+})();
 const alfa = (x, y) => {
+  if (FUNDO_CLARO) {
+    const o2 = (y * img.w + x) * 4;
+    const mx = Math.max(img.px[o2], img.px[o2 + 1], img.px[o2 + 2]);
+    const mn = Math.min(img.px[o2], img.px[o2 + 1], img.px[o2 + 2]);
+    const sat = mx > 0 ? (mx - mn) / mx : 0;
+    return Math.max(presa((sat - 0.06) / 0.14), presa((lum(o2) - 236) / 16));
+  }
   const o = (y * img.w + x) * 4;
   if (TEM_ALFA) return img.px[o + 3] < PISO_ALFA ? 0 : img.px[o + 3] / 255;
   return presa((lum(o) - PISO) / (TETO - PISO));

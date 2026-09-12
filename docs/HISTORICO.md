@@ -9,6 +9,94 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-12 — A quarta folha da Glacial, e a chave que lê fundo CLARO
+
+**Onde mora:** `FUNDO_CLARO` em `tools/nova2fx.mjs` · `glacial_burst` em
+`client/src/fx-folhas.json` e em `FOLHA_FEITIO`, `client/src/main.ts` ·
+`arte-fonte/fx/glacial4.png`
+
+Folha nova do dono, sem texto junto: 6 colunas × 4 fileiras, 24 anéis. O primeiro corte
+saiu com um **disco cinza** em cada quadro, e a causa não era a escada nem a cerca — era
+que **a folha é 100 % opaca com o xadrez de transparência PINTADO dentro**. Medido: 0 % de
+pixels transparentes, 0 % de alfa parcial, cinza de fundo em 210 de luminância.
+
+🔴 **As duas chaves que o cortador tinha estavam ambas erradas para esta folha.** O alfa do
+arquivo diz "tudo é desenho"; o brilho diz que um fundo de 210 é mais desenho que a parte
+azul-escura do cristal. A chave certa aqui é a **saturação** — o xadrez é cinza puro e o
+anel é azul —, somada a uma chave de brilho alto só para os realces brancos, que são
+dessaturados e fazem parte do desenho:
+
+```
+alfa = máx( (sat − 0,06) / 0,14 , (lum − 236) / 16 )
+```
+
+⚠️ **E ela é ESCOLHIDA por medição, não por bandeira na mão.** O ramo só liga quando a
+folha não tem alfa **e** a mediana de luminância passa de 140 — um fundo preto chapado
+continua caindo na chave por brilho, que é a certa lá. Três folhas glaciais, três chaves
+diferentes, e nenhuma delas dá para adivinhar pelo nome do arquivo: **a chave do recorte é
+uma medida, não uma convenção.**
+
+✅ **O que segurou a escala foi medir o BURACO.** A exigência do dono era *"não pode
+sobrepor o personagem no centro, ele precisa ficar visível"*. O vão dos anéis mede 38–41 px
+de raio em quadros de 192; a 0,95 sobram 2,3 tiles de diâmetro livre para um personagem de
+1 tile. A escala de 0,95 ficou por prova, não por ter sobrevivido à troca.
+
+⚠️ **A contagem de quadros estava mentindo desde a troca anterior**: o JSON dizia 25 e o PNG
+em disco tinha 24. O cliente lê a contagem do JSON e fatia a textura por ela — 25 fatias num
+PNG de 24 dão um quadro fantasma e um passo torto na animação inteira. Um número copiado
+onde dava para recontar, o defeito de sempre.
+
+---
+
+## 2026-09-11 (fim do dia) — A Muralha de Gelo ganha VIDA, e a parede passa a morrer de duas maneiras
+
+**Onde mora:** `hp`/`hpMax`/`desgasteHpPorSeg` e `danificaArea` em
+`shared/src/areas.ts` · `hpAtLv1`/`hpAtLv10` em `SkillGround` e `skillGroundHp` ·
+`ice_wall` em `shared/src/skills.ts` · o desgaste e `quebraParede` em
+`server/src/index.ts` · `MURALHAS` em `client/src/main.ts` · `gelo25` em
+`tools/folha-alfa2fx.mjs`
+
+Ficha do dono (13/09) para outra habilidade que já existia como um quadrado que só
+bloqueava. Virou **estrutura**: linha de 5 células, 9 tiles de alcance, 20 SP, 400→2200 de
+vida, desgaste de 50 por segundo, e colisão de verdade.
+
+🔴 **Reusa inteira a Muralha de Fogo do mesmo dia** — `linha` (a orientação sai
+perpendicular à mira), `castRange`, o desenho por células. O que é novo é a VIDA, e ela
+entrou como campo **genérico** de `GroundArea`, com um `danificaArea` que não sabe de que
+magia se trata. Era o que a ficha pedia com todas as letras: *"implementação reutilizável
+para objetos temporários destrutíveis, não uma lógica exclusiva"*.
+
+### Os dois relógios batem de propósito
+
+400 de vida a 50/s dá os 8 s do Lv. 1; 2200 dá os 44 s do Lv. 10. O teste guarda essa
+igualdade porque é a única coisa que não dá para descobrir lendo a ficha — mexer num dos
+três números sem mexer nos outros faz a parede morrer por um motivo que o jogador não vê.
+
+⚠️ **O desgaste quase virou código morto.** O laço das áreas que pulsam ignora
+`kind: 'wall'` na primeira linha; pôr o desgaste lá dentro teria dado uma parede eterna, em
+silêncio. Ele foi para ANTES do laço. É a terceira vez no projeto que um campo é escrito
+onde nada o lê — a família de defeito está registrada, e continua aparecendo.
+
+### ⚔️ O monstro que não passa bate na parede, e o gatilho é o PASSO NEGADO
+
+Não a proximidade: um bicho perseguindo o jogador não para para socar um muro que não o
+atrapalha. Usa a mesma força e a mesma recarga do golpe normal — um número próprio seria um
+segundo lugar para equilibrar a mesma coisa.
+
+### ❄️ A folha entrou no cortador que já havia, com uma chave a mais
+
+5×5 sobre preto chapado. Foi para o `folha-alfa2fx` com uma chave por BRILHO em vez de um
+sexto cortador, porque o que importa nela é o **mesmo** que importa na muralha de fogo:
+fileiras de alturas diferentes alinhadas pelo CHÃO, que é a linha de onde os cristais
+crescem. E o desenho das duas paredes virou uma tabela — entre fogo e gelo o que muda são
+números.
+
+⚠️ **`estica` é 1 no gelo e 1,45 no fogo, e não é gosto.** Cristal esticado vira estalactite
+torta, porque a forma dele é rígida e o olho conhece. Chama aguenta até certo ponto — o dono
+achou o limite em tela.
+
+---
+
 ## 2026-09-11 (fim do dia) — A Muralha de Fogo vira barreira de contato
 
 **Onde mora:** `raioX`/`raioY`, `contatos`, `podeContato`/`marcaContato` em
