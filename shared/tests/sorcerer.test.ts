@@ -207,12 +207,32 @@ test('❄️ Ice Wall: parede de 5 células com VIDA, e os dois relógios batem'
   }
 });
 
-test('a Ice Wall é a ÚNICA magia que bloqueia passagem', () => {
-  // Muralha de Fogo controla espaço tornando-o caro, não impedindo-o. Confundir
-  // as duas apagaria a diferença entre as escolas.
-  for (const d of Object.values(SKILLS)) {
-    if (d.id === 'ice_wall') continue;
-    assert.ok(!d.ground?.blocks, `${d.id} não deveria bloquear passagem`);
+test('bloquear passagem é de DUAS magias, e cada uma paga por isso', () => {
+  /*
+   * 🔴 **Era uma só até a ficha simplificada.** A nota deste teste dizia que a
+   * Muralha de Fogo *"controla espaço tornando-o caro, não impedindo-o"*, e a
+   * ficha do dono desfez isso: ela passou a barrar também.
+   *
+   * ✅ **Então o teste deixou de ser uma LISTA e virou a regra por trás dela.**
+   * Parede que barra precisa de uma saída — vida para ser derrubada, ou contador
+   * de contatos para ser atravessada a um preço. Sem nenhuma das duas, o
+   * Feiticeiro ergue um muro que o monstro simplesmente contorna, e a magia não
+   * faz nada contra o que saiba andar. Uma lista branca não pegaria a terceira
+   * magia que alguém marcar como bloqueante amanhã; esta regra pega.
+   */
+  const barreiras = Object.values(SKILLS).filter((d) => d.ground?.blocks);
+  assert.deepEqual(
+    barreiras.map((d) => d.id).sort(),
+    ['fire_wall', 'ice_wall'],
+    'barrar passagem é exceção: entrar nesta lista é decisão de dono',
+  );
+  for (const d of barreiras) {
+    const derruba = (d.ground?.hpAtLv1 ?? 0) > 0;
+    const atravessa = (d.ground?.contatosAtLv1 ?? 0) > 0;
+    assert.ok(
+      derruba || atravessa,
+      `${d.id}: parede sem saída — nem se derruba nem se atravessa, só se contorna`,
+    );
   }
 });
 
@@ -573,9 +593,15 @@ test('🔥 Muralha de Fogo: barreira de CONTATO, não área que pulsa', () => {
    * fazem dela uma barreira em vez de uma poça de dano — e cada uma tem um jeito
    * conhecido de se perder sozinha.
    */
-  assert.equal(g.linha, true, 'é uma LINHA de 1×3, não um quadrado');
-  assert.equal(skillRange(m, 1), 2, 'raio 2 = cinco células');
-  assert.equal(skillRange(m, 10), 2, 'e não cresce: o que cresce são os contatos');
+  assert.equal(g.linha, true, 'é uma LINHA, não um quadrado');
+  /*
+   * 🔥 **Três células de novo, depois de cinco.** O dono
+   * reverteu a própria decisão dentro de um pedido de SIMPLIFICAR, e a ficha
+   * nova repete 1×3 em cinco lugares. O que este teste guarda é que o número
+   * seja UM — meio-comprimento, não largura — e que ele não cresça com o nível.
+   */
+  assert.equal(skillRange(m, 1), 1, 'raio 1 = as TRÊS células da ficha');
+  assert.equal(skillRange(m, 10), 1, 'e não cresce: o que cresce são os contatos');
   assert.equal(skillCastRange(m, 1), 9);
 
   /*
@@ -587,12 +613,21 @@ test('🔥 Muralha de Fogo: barreira de CONTATO, não área que pulsa', () => {
   assert.equal(skillGroundContatos(m, 10), 12);
 
   /*
-   * ⚠️ **`blocks` FALSO, e é contraintuitivo de propósito.** Se a muralha
-   * entrasse na colisão, o monstro contornaria pelo caminho mais curto e nunca a
-   * tocaria: a magia não teria efeito nenhum contra qualquer coisa que saiba
-   * andar. Quem barra é o EMPURRÃO.
+   * 🔴 **`blocks` VERDADEIRO — e este teste guardava o CONTRÁRIO**, com um
+   * motivo que continua sendo verdade: parede que barra faz o monstro
+   * contornar pelo caminho mais curto, e aí ele nunca a toca.
+   *
+   * ✅ A ficha nova pede colisão em letra ("bloquear a passagem" é a prioridade
+   * 3 dela), e o que impede o desastre antigo é o servidor tratar o passo
+   * NEGADO como contato (`tentaAtravessar`). Por isso as duas asserções andam
+   * juntas: **barrar sem contato é uma parede que ninguém toca**, e ligar uma
+   * sem a outra é exatamente o jeito de a magia sumir em silêncio.
    */
-  assert.notEqual(g.blocks, true, 'não é colisão: quem barra é o empurrão');
+  assert.equal(g.blocks, true, 'a ficha simplificada pede colisão: ela BARRA a passagem');
+  assert.ok(
+    skillGroundContatos(m, 1) > 0,
+    'barrar sem ferir quem esbarra faria a magia não ter efeito em quem sabe andar',
+  );
   assert.equal(m.empurraTiles, 2);
 
   /*
@@ -605,14 +640,24 @@ test('🔥 Muralha de Fogo: barreira de CONTATO, não área que pulsa', () => {
   assert.equal(skillManaCost(m, 1), skillManaCost(m, 10), '40 de SP em todos os níveis');
 
   /*
-   * ⚠️ **A recarga tem de caber na duração**, senão o teto de três muralhas
-   * simultâneas é letra morta: a segunda só nasceria depois de a primeira morrer.
+   * 🔥 **UMA barreira em toda a régua** — ficha simplificada. Eram três na
+   * anterior, e a nova adia o assunto em letra: *"por enquanto não implementar:
+   * múltiplas barreiras; limite de 3 barreiras"*.
+   */
+  assert.equal(skillGroundMax(m, 1), 1);
+  assert.equal(skillGroundMax(m, 10), 1, 'o teto não cresce com o nível');
+  /*
+   * ⚠️ **E a recarga tem de fechar antes de a barreira do Lv.1 cair.** Esta
+   * comparação substitui a de antes, que media a recarga contra as TRÊS muralhas
+   * simultâneas e morreu com elas. O que ela protege agora é mais direto: se a
+   * recarga passar da duração, existe um intervalo em que o Feiticeiro está sem
+   * barreira E sem poder erguer outra — a magia que ele escolheu para se
+   * defender não está lá justamente quando ele precisa dela.
    */
   assert.ok(
-    m.cooldownMs < skillGroundDuration(m, 10) / 2,
-    'três muralhas de pé ao mesmo tempo exigem recarga bem menor que a duração',
+    m.cooldownMs <= skillGroundDuration(m, 1),
+    'a recarga tem de fechar antes de a barreira do Lv.1 cair',
   );
-  assert.equal(skillGroundMax(m, 10), 3);
 });
 
 test('❄️ Explosão Glacial: defesa é reação — rápida, frequente e CARA', () => {

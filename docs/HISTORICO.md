@@ -9,6 +9,102 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-12 (noite) — A Barreira de Fogo encolhe para três células e vira COLISÃO
+
+**Onde mora:** `fire_wall` em `shared/src/skills.ts` · `blocks` em `SkillGround` e em
+`S2C_AreaSpawn` · `passosDiretos`, `barreiraDeContato`, `tentaAtravessar` e
+`contatoDaBarreira` em `server/src/index.ts` · `tilesDeBarreira`/`podeAndar` e
+`addGroundArea` em `client/src/main.ts`
+
+Ficha do dono: *"a implementação atual da Barreira de Fogo está ficando complexa demais…
+implemente primeiro uma versão simples, estável e funcional"*, em oito fases, terminando
+num teste de ponta a ponta. Quase tudo que ela pede **já existia** — criação mirada,
+orientação, duração, dano por contato, contador por alvo, empurrão de dois tiles. O que
+mudou foram três coisas, e uma delas desfaz uma decisão antiga com um motivo correto.
+
+### As três mudanças, e o que morreu com elas
+
+| | antes | agora |
+|---|---|---|
+| Células | 5 (`range: 2`) | **3** (`range: 1`) |
+| Colisão | não barra | **barra** (`blocks: true`) |
+| Simultâneas | 3 em toda a régua | **1** |
+
+⚠️ **Cada uma matou a razão de um número vizinho, e isso é o que dá trabalho.** A recarga
+de 5 s era justificada pela conta das TRÊS muralhas (*"a 5 s dá para ter as três de pé no
+Lv.10"*); com o teto em uma, a conta morre. Ela ficou em 5 s por um motivo NOVO e mais
+simples — no Lv.1 a barreira dura exatos 5 s, então a recarga fecha quando ela cai —, e o
+teste que media a recarga contra as três muralhas foi reescrito para medir isso.
+
+### 🔴 Barrar e ferir se anulam — a não ser que o passo NEGADO seja o contato
+
+A nota que estava no código dizia, com todas as letras, por que a muralha **não** entrava
+na colisão: *"se entrasse, o monstro contornaria a parede pelo caminho mais curto e nunca
+a tocaria — o que anularia a magia inteira contra qualquer coisa que saiba andar"*. Está
+certo, e continua certo: `stepToward` é guloso, e um bicho que encontra a muralha no eixo
+dominante simplesmente desliza para o lado.
+
+✅ **A saída é a própria ficha nova:** *"quando um inimigo entrar **ou tentar atravessar**
+uma das 3 células"*. O servidor pergunta pela barreira **antes** do desvio, sobre os
+mesmos tiles que o passo tentaria e na mesma ordem — e é por isso que a ordem virou função
+(`passosDiretos`), em vez de uma segunda cópia que sairia do ar no dia em que uma das duas
+mudasse. Quem tenta atravessar leva contato e empurrão **sem sair do lugar**.
+
+⚠️ **Passo livre encerra a pergunta.** Se o primeiro candidato dá certo, o monstro vai por
+ali e não tentou atravessar nada — mesmo que a segunda opção fosse a muralha. Sem essa
+linha, todo bicho que passasse RENTE à barreira levaria contato, e ela viraria uma poça de
+dano com dois tiles de alcance.
+
+⚠️ **E gastos os contatos, o monstro passa a contornar em silêncio:** continua sem
+atravessar, mas a barreira para de ferir. É o fim natural de uma parede de fogo que já
+queimou o que tinha para queimar.
+
+### O que o contato faz mora num lugar só
+
+Dois caminhos diferentes chegam ao mesmo evento — o tique (quem está DENTRO do fogo, porque
+a barreira nasceu em cima dele) e o passo negado (quem tentou atravessar). A ficha trata os
+dois como a mesma coisa, então `contatoDaBarreira` é função, e **quem chama diz onde tocou
+e para onde recua**: o estouro de brasa sai na célula da muralha, e o recuo é sempre o
+contrário de por onde ele veio. Dois blocos iguais lado a lado são como um deles fica sem o
+contador ou sem o empurrão.
+
+### 🧱 A rota do CLIENTE precisava saber, e a Muralha de Gelo já convivia com isso
+
+O cliente traça o caminho com `podeAndar`, que espelha o `tileOccupied` do servidor — e não
+sabia de área nenhuma. Resultado: rota por cima da muralha, servidor recusando cada passo,
+personagem empurrando parede. O defeito existe desde que a Muralha de Gelo nasceu; a de
+Fogo, que é barata e sai várias vezes por luta, tornaria isso rotina.
+
+✅ `blocks` entrou no `S2C_AreaSpawn` e o cliente guarda os tiles **por área** (duas
+muralhas podem se cruzar, e um Set solto perderia o tile compartilhado quando a primeira
+caísse). O caminho libera ANTES do desenho, de propósito: a muralha leva seis quadros para
+se dissipar e o servidor já deixa passar durante eles.
+
+⚠️ E o `addGroundArea` passou a receber a MENSAGEM inteira. Eram sete argumentos
+posicionais quando o oitavo chegou, dois deles opcionais no fim — a forma em que trocar dois
+de lugar compila e só aparece em tela.
+
+### 🔥 A dica da magia mentia por quase seis vezes
+
+Em tela, no Lv.10, a Muralha de Fogo prometia *"70 pulsos em 14 s"* — a conta genérica de
+duração ÷ `tickMs`. Só que `tickMs` aqui é a taxa de **detecção**, não a de dano: cada
+inimigo leva no máximo 12 contatos, com 700 ms entre eles. Agora diz *"Dano 60 % por
+CONTATO · até 12 por inimigo · barra a passagem por 14 s"*, e o gatilho é
+`contatosAtLv1` — qualquer barreira de contato que nascer amanhã já se descreve certo.
+
+### O que foi visto em tela, e o que NÃO foi
+
+✅ Conjuração, as **três** células, as duas orientações (deitada mirando ao norte/sul, de pé
+mirando a leste/oeste), o fim do prazo e a dica corrigida — todos conferidos no jogo rodando.
+
+🔴 **O fluxo de combate do item 17 da ficha NÃO foi visto de ponta a ponta** — monstro
+tentando atravessar, apanhando, sendo empurrado, esgotando o contador. Os bichos mansos que
+dá para provocar em segurança perdem o interesse antes de chegar à parede, e os que
+perseguem sem falhar mataram o personagem de teste **duas vezes** (um Chefe Gnoll e um
+Espectro; ~40 mil de XP e um nível). Fica para o dono conferir com os olhos dele.
+
+---
+
 ## 2026-09-12 (madrugada) — A quarta folha do Meteoro, e a nuvem que o rodapé não deixa apagar
 
 **Onde mora:** `COL`/`POR_COL` por argumento e os quatro `FUMACA_*` em

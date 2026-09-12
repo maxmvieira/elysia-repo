@@ -2205,6 +2205,22 @@ function podeAndarPara(x: number, y: number, floor: number): boolean {
   return !areaBlocks(groundAreas, x, y, floor);
 }
 
+/**
+ * Os dois passos que vÃO NA DIREÇÃO do alvo, na ordem em que valem a pena — o
+ * eixo de maior distância primeiro.
+ *
+ * 🔥 **Virou função porque a Muralha de Fogo precisa da MESMA ordem.** Ela
+ * pergunta "o monstro tentou atravessar?", e a resposta só está certa se a
+ * pergunta for feita sobre exatamente os tiles que o passo tentaria — nem os
+ * desvios laterais (contornar não é atravessar), nem uma ordem própria. Duas
+ * cópias desta lista sairiam do ar no dia em que uma delas mudasse.
+ */
+function passosDiretos(cx: number, cy: number, tx: number, ty: number): number[][] {
+  const dx = Math.sign(tx - cx);
+  const dy = Math.sign(ty - cy);
+  return Math.abs(tx - cx) >= Math.abs(ty - cy) ? [[dx, 0], [0, dy]] : [[0, dy], [dx, 0]];
+}
+
 function stepToward(
   cx: number, cy: number, tx: number, ty: number, floor: number, avoidCenter = false,
   selfId?: string,
@@ -2212,9 +2228,7 @@ function stepToward(
   const dx = Math.sign(tx - cx);
   const dy = Math.sign(ty - cy);
   // Tenta primeiro o eixo de maior distância; depois o outro.
-  const tries: number[][] = Math.abs(tx - cx) >= Math.abs(ty - cy)
-    ? [[dx, 0], [0, dy]]
-    : [[0, dy], [dx, 0]];
+  const tries: number[][] = passosDiretos(cx, cy, tx, ty);
   // DESVIO: quando o alvo está em linha reta (um eixo zero) e o caminho direto
   // está bloqueado (parede, árvore ou a borda da zona central), desliza para o
   // lado para CONTORNAR em vez de travar. Sem isto o chefe paralisava na entrada
@@ -5196,6 +5210,9 @@ function plantaArea(
     // 🔥 Só vão quando a área não é quadrada: o cliente precisa saber se a
     // muralha está de pé ou deitada para desenhar as três células no lugar.
     ...(area.raioX !== undefined ? { raioX: area.raioX, raioY: area.raioY } : {}),
+    // 🧱 Só quando barra: é a rota do cliente que lê, para não traçar caminho
+    // por dentro da muralha e o personagem ficar empurrando parede.
+    ...(area.blocks ? { blocks: true } : {}),
     durationMs: duracao, fx: def.fx,
   };
   for (const p of players.values()) {
@@ -5424,46 +5441,20 @@ function tickGroundAreas(now: number): void {
          */
         if (!podeContato(a, c.id, now)) continue;
         /*
-         * 🔥 **O PONTO DO CONTATO é onde ele TOCOU, e não onde ele parou.**
-         * Guardado antes do empurrão: o estouro de brasa tem de sair na muralha,
-         * que é o que o jogador está olhando, e não dois tiles atrás — onde o
-         * monstro só aparece depois.
-         */
-        const tocouX = c.tileX;
-        const tocouY = c.tileY;
-        golpeDeArea(dono, a, c, now);
-        marcaContato(a, c.id, now);
-        /*
-         * 💥 **E o contato AVISA o cliente** — dono, 13/09: *"os monstros
-         * precisam ter impacto ao tocarem nela"*. Sem isto, o único sinal era o
-         * número de dano: o monstro era arremessado dois tiles em silêncio, e em
-         * tela parecia que ele tinha escorregado.
+         * 🔥 **O PONTO DO CONTATO é onde ele ESTÁ**, porque aqui ele está DENTRO
+         * do fogo — a barreira nasceu em cima dele, ou um empurrão de outra magia
+         * o jogou para cá. Quem entra pelo lado de fora nunca chega neste laço:
+         * a muralha é colisão, e esse caminho é o `tentaAtravessar`.
          *
-         * ⚠️ Só quando há contato de verdade. Mandar por tique encheria a rede de
-         * pacotes enquanto um chefe imune ao empurrão estivesse em pé no fogo.
+         * 🌬️ E o recuo é o contrário da DIREÇÃO dele: ele olhava para onde andava
+         * quando caiu aqui, então é por ali que ele volta.
          */
-        broadcastFloor(a.floor, {
-          t: 'fx', kind: 'fire_wall_hit', x: tocouX, y: tocouY, floor: a.floor,
-        });
-        /*
-         * 🌬️ **E o empurrão vem DEPOIS do dano, com o alvo ainda vivo.**
-         * Arremessar um cadáver não tem efeito nenhum no jogo, mas move a
-         * criatura um quadro antes de a morte ser desenhada — e em tela isso lê
-         * como "ele escapou".
-         */
-        if (c.alive && a.empurraTiles !== undefined) {
-          /*
-           * 🌬️ **Empurra PARA TRÁS DELE, e não para longe do mago.** A criatura
-           * entrou na muralha olhando para onde andava, então o contrário da
-           * direção dela é o caminho de volta — é assim que a barreira *barra*
-           * em vez de só queimar.
-           *
-           * ⚠️ E é por isso que o empurrão da muralha não pode usar o rumo
-           * padrão: o conjurador pode estar a nove células, de qualquer lado.
-           */
-          const v = DIRECTION_VECTORS[c.direction];
-          empurra(dono, c, a.empurraTiles, { dx: -v.dx, dy: -v.dy });
-        }
+        const v = DIRECTION_VECTORS[c.direction];
+        contatoDaBarreira(
+          a, dono, c, now,
+          { x: c.tileX, y: c.tileY },
+          { dx: -v.dx, dy: -v.dy },
+        );
       }
     }
     if (a.hitsPlayers) {
@@ -5481,6 +5472,49 @@ function tickGroundAreas(now: number): void {
       }
     }
   }
+}
+
+/**
+ * 🔥 **O QUE A BARREIRA FAZ COM QUEM A TOCA — num lugar só.**
+ *
+ * 🔴 Dois caminhos diferentes chegam aqui, e é por isso que isto é função: o
+ * tique, para quem está DENTRO do fogo, e o passo negado, para quem tentou
+ * ATRAVESSAR. A ficha simplificada trata os dois como o mesmo evento — *"quando um
+ * inimigo entrar ou tentar atravessar"* — e separá-los em dois blocos iguais é
+ * exatamente como um deles fica sem o contador ou sem o empurrão.
+ *
+ * ⚠️ **Quem chama diz ONDE tocou e para ONDE recua**, porque as duas coisas
+ * mudam entre os dois casos e nenhuma delas dá para deduzir aqui: o estouro de
+ * brasa sai na célula da muralha (é o que o jogador está olhando), e o recuo é
+ * sempre o contrário de por onde ele veio.
+ *
+ * ⚠️ **O empurrão vem DEPOIS do dano e só com o alvo vivo.** Arremessar um
+ * cadáver não muda nada no jogo, mas move a criatura um quadro antes de a morte
+ * ser desenhada — e em tela isso lê como "ele escapou".
+ */
+function contatoDaBarreira(
+  a: GroundArea,
+  dono: Player,
+  c: Creature,
+  now: number,
+  tocou: { x: number; y: number },
+  recuo: { dx: number; dy: number },
+): void {
+  golpeDeArea(dono, a, c, now);
+  marcaContato(a, c.id, now);
+  /*
+   * 💥 **O contato AVISA o cliente** — dono, 13/09: *"os monstros precisam ter
+   * impacto ao tocarem nela"*. Sem isto o único sinal era o número de dano: o
+   * monstro era arremessado dois tiles em silêncio, e em tela parecia que ele
+   * tinha escorregado.
+   *
+   * ⚠️ Só quando há contato de verdade. Mandar por tique encheria a rede de
+   * pacotes enquanto um chefe imune ao empurrão estivesse em pé no fogo.
+   */
+  broadcastFloor(a.floor, {
+    t: 'fx', kind: 'fire_wall_hit', x: tocou.x, y: tocou.y, floor: a.floor,
+  });
+  if (c.alive && a.empurraTiles !== undefined) empurra(dono, c, a.empurraTiles, recuo);
 }
 
 /**
@@ -5748,6 +5782,65 @@ function quebraParede(c: Creature, alvo: Player, now: number): void {
     }
     return;
   }
+}
+
+/**
+ * 🔥 A barreira de CONTATO que ocupa este tile, se houver.
+ *
+ * 🔴 **Reconhecida pelos CAMPOS, e não pelo nome da magia.** Barra passagem e
+ * tem contador de contatos — hoje só a Muralha de Fogo junta as duas coisas, e
+ * a de Gelo fica de fora por não ter contatos (ela se defende com HP, e quem
+ * cuida dela é o `quebraParede`). Escrever `skillId === 'fire_wall'` aqui
+ * seria amarrar a mecânica a uma ficha, e a próxima barreira de contato nasceria
+ * muda.
+ */
+function barreiraDeContato(x: number, y: number, floor: number): GroundArea | undefined {
+  return groundAreas.find(
+    (a) => a.blocks && a.maxContatos !== undefined && areaCovers(a, x, y, floor),
+  );
+}
+
+/**
+ * 🔥 **O monstro TENTOU ATRAVESSAR a barreira? Então ele queima aqui mesmo.**
+ * Devolve `true` quando houve contato — e aí ele NÃO anda neste tique.
+ *
+ * 🔴 **É esta função que deixa a muralha ser colisão E arma ao mesmo tempo.** O
+ * medo escrito na ficha antiga era real: uma parede que barra faz o monstro
+ * contornar pelo caminho mais curto, e ele nunca a toca. A saída é perguntar
+ * ANTES do desvio — sobre os passos que ele TENTARIA dar, na ordem em que
+ * tentaria (`passosDiretos`) —, porque é nesse instante que ele está
+ * empurrando o corpo contra o fogo.
+ *
+ * ⚠️ **Passo livre encerra a pergunta.** Se o primeiro candidato dá certo, o
+ * monstro vai por ali e não tentou atravessar coisa alguma — mesmo que a segunda
+ * opção fosse a muralha. Sem esta linha, todo bicho que passasse RENTE à
+ * barreira levaria contato, e ela viraria uma poça de dano com dois tiles de
+ * alcance.
+ *
+ * ⚠️ **Contatos gastos, o monstro passa a contornar em silêncio.** Ele continua
+ * sem atravessar (`creatureCanEnter` já barra), mas a barreira para de ferir:
+ * `podeContato` devolve falso e o `continue` entrega o caminho ao desvio
+ * normal.
+ */
+function tentaAtravessar(
+  c: Creature, tx: number, ty: number, now: number, avoidCenter: boolean,
+): boolean {
+  for (const [mx, my] of passosDiretos(c.tileX, c.tileY, tx, ty)) {
+    if (mx === 0 && my === 0) continue;
+    const nx = c.tileX + mx!;
+    const ny = c.tileY + my!;
+    if (creatureCanEnter(nx, ny, c.floor, avoidCenter, c.id)) return false;
+    const barreira = barreiraDeContato(nx, ny, c.floor);
+    if (!barreira) continue;
+    const dono = players.get(barreira.ownerId);
+    if (!dono || !podeContato(barreira, c.id, now)) continue;
+    // Vira para o fogo antes de apanhar dele: o cliente desenha o bicho de
+    // frente para a muralha, que é de onde o empurrão vem.
+    c.direction = dirFromDelta(mx!, my!, c.direction);
+    contatoDaBarreira(barreira, dono, c, now, { x: nx, y: ny }, { dx: -mx!, dy: -my! });
+    return true;
+  }
+  return false;
 }
 
 function creatureAttack(creature: Creature, player: Player, now: number): void {
@@ -8053,9 +8146,21 @@ function updateCreatures(now: number): void {
         // Longe demais para o corpo a corpo, perto o bastante para a magia.
         creatureCastSpell(c, target, now);
       } else if (now - c.lastMoveAt >= moveCd) {
-        const step = stepToward(c.tileX, c.tileY, target.tileX, target.tileY, c.floor, avoidCenter, c.id);
-        if (step) { c.tileX = step.x; c.tileY = step.y; c.lastMoveAt = now; }
-        else quebraParede(c, target, now);
+        /*
+         * 🔥 **A barreira de fogo é perguntada ANTES do desvio.** Aqui o monstro
+         * ainda quer ir em frente; um passo depois ele já escolheu contornar, e
+         * aí não há mais "tentou atravessar" para detectar.
+         */
+        if (tentaAtravessar(c, target.tileX, target.tileY, now, avoidCenter)) {
+          // Queimou e recuou: o tique dele acabou. Sem marcar o relógio, ele
+          // tentaria de novo no quadro seguinte e o contatoMs viraria o único
+          // freio de uma criatura colada no fogo.
+          c.lastMoveAt = now;
+        } else {
+          const step = stepToward(c.tileX, c.tileY, target.tileX, target.tileY, c.floor, avoidCenter, c.id);
+          if (step) { c.tileX = step.x; c.tileY = step.y; c.lastMoveAt = now; }
+          else quebraParede(c, target, now);
+        }
       }
     } else if (chebyshev(c.tileX, c.tileY, c.homeX, c.homeY) > 6) {
       // SEM alvo e LONGE de casa: volta andando ao ponto de origem (leash). Sem

@@ -2,20 +2,39 @@
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
-> Último commit: `e7bf5a0`. Árvore limpa, tudo empurrado.
+> Último commit: `7b2ca3c`. Árvore limpa. **Ainda NÃO empurrado** — o dono não
+> pediu; é uma linha de `git push`.
 >
-> O dia foi **inteiro de apresentação**: VFX das magias de manhã, e da tarde em
-> diante a CAMADA DE INTERAÇÃO — ponteiro do jogo, marcador de destino, o que
-> responde ao mouse e o que o monstro mostra. A mecânica de combate e de
-> movimento não mudou uma linha; o que mudou foi o que o jogador vê e o que ele
-> consegue clicar.
+> O dia foi **quase inteiro de apresentação**: VFX das magias de manhã, e da
+> tarde em diante a CAMADA DE INTERAÇÃO — ponteiro do jogo, marcador de destino,
+> o que responde ao mouse e o que o monstro mostra.
+>
+> 🔥 **À noite a mecânica voltou:** a ficha da BARREIRA DE FOGO SIMPLIFICADA. Três
+> células em vez de cinco, uma muralha em vez de três, e ela passou a **barrar**
+> passagem — o que exigiu resolver a contradição de barrar E ferir. Ver o
+> `HISTORICO.md`, entrada *2026-09-12 (noite)*.
 
 ## 🎯 O QUE ESTÁ COMBINADO PARA DEPOIS
 
-🔴 **Corrigir a Muralha de Fogo e a Muralha de Gelo.** Continua de pé desde
-cedo, e o dono **não detalhou o que está errado** — pergunte ou peça para ver em
-tela, não invente a lista. O fogo já levou uma rodada de conserto (*"não parece
-vivo no chão"*); o gelo nunca foi ajustado em tela, só implementado.
+🔴 **O TESTE DE PONTA A PONTA DA BARREIRA DE FOGO — item 17 da ficha — NÃO FOI
+VISTO.** Conjuração, as três células, as duas orientações, o fim do prazo e a dica
+foram conferidos em tela. **O combate não**: monstro tentando atravessar,
+apanhando, sendo empurrado, esgotando o contador e depois contornando em
+silêncio. É a primeira coisa a olhar jogando.
+
+> ⚠️ E vale saber por que parou aí: os bichos mansos que dá para provocar em
+> segurança perdem o interesse antes de chegar à parede, e os que perseguem sem
+> falhar **mataram o personagem de teste duas vezes** (Chefe Gnoll e Espectro;
+> ~40 mil de XP e um nível no `Testedois`). Foi erro meu de escolha de alvo, e o
+> preço saiu do save do dono.
+
+🔴 **Corrigir a Muralha de GELO continua de pé**, e o dono **não detalhou o que
+está errado** — pergunte ou peça para ver em tela, não invente a lista. Ela nunca
+foi ajustada em tela, só implementada.
+
+⚠️ **E a ficha nova adiou coisas EM LETRA** — *"por enquanto não implementar"*:
+múltiplas barreiras, o teto de três, efeitos especiais, partículas extras. Elas
+só voltam quando as oito fases estiverem de pé em jogo.
 
 🔴 **O EQUILÍBRIO DO CONGELAMENTO PRECISA DE OLHO, e a conta está no teste.**
 O dono mandou o gelo durar 3 s → 5 s (era 1,2 → 2,5), por um motivo legítimo e de
@@ -66,6 +85,8 @@ isso impossível de encenar sem briga real.
 | 🧊 **Bloco de gelo** | o congelamento virou animação de 8 quadros, proporcional ao corpo do monstro |
 | ⚔️ **Área de clique** | de um tile fixo para a SILHUETA do desenho |
 | 🔬 **Sala de revisão** | capturar o jogo quadro a quadro para julgar VFX devagar |
+| 🔥 **Barreira de Fogo** | 3 células, UMA muralha, e ela passou a ser COLISÃO — com o passo negado virando contato |
+| 🧱 **Rota do cliente** | ela não sabia de muralha nenhuma; agora desvia das duas (o gelo ganhou de brinde) |
 
 ## 🔬 A FERRAMENTA NOVA QUE VALE CONHECER
 
@@ -129,7 +150,20 @@ câmera assim que o herói dá um passo (medido: 32 px de erro).
    `inherit` e quem manda volta a ser o `body`. Nos elementos de INTERFACE
    (botão, slot, hotbar) o `cursor: pointer` continua certo.
 
-8. **Campo escrito que ninguém lê é a família de defeito que mais se repete
+8. **Ligar uma regra pode ANULAR outra em silêncio — e a nota que avisava disso
+   estava escrita no código.** A Muralha de Fogo não entrava na colisão de
+   propósito: *"se entrasse, o monstro contornaria a parede pelo caminho mais
+   curto e nunca a tocaria"*. Ligar `blocks` sem mais nada faria a magia parar
+   de funcionar **sem um único erro em tela**. O que destravou foi tratar o passo
+   NEGADO como contato. **Quando uma nota explica por que algo está desligado,
+   ela é a lista de verificação para ligá-lo** — não um obstáculo a apagar.
+
+9. **Mexer num número mata a RAZÃO do número vizinho.** O teto de três muralhas
+   caiu para uma, e com ele morreu a conta que justificava a recarga de 5 s — e
+   o teste que a guardava. O número ficou, a justificativa é outra, e o teste
+   passou a medir a nova. Um número certo por acidente é o próximo a se perder.
+
+10. **Campo escrito que ninguém lê é a família de defeito que mais se repete
    aqui.** QUATRO apareceram hoje (`criaturasPorTile`, `geloDoChao`, o `fenda` do
    `FOLHA_FEITIO`) mais o `alvos` do protocolo, que nasceu e morreu no mesmo
    dia — e os quatro saíram no commit em que perderam o leitor.
@@ -140,6 +174,13 @@ câmera assim que o herói dá um passo (medido: 32 px de erro).
   método (o corte é ancorado embaixo e ali a nuvem ESTÁ embaixo), não parâmetro.
 - **A transição "primeiro dano → barra de vida" não foi encenada** pelo navegador
   automatizado; a checagem foi estrutural. É o primeiro lugar para olhar jogando.
+- **O combate da Barreira de Fogo também não** — ver o primeiro item de "o que
+  está combinado". O `tentaAtravessar` é a única lógica NOVA do dia sem uma volta
+  em jogo.
+- **Em PvP a muralha apenas BARRA o inimigo**: um jogador não tem "passo negado"
+  para detectar (ele anda por vontade própria), então ele só leva contato se
+  estiver DENTRO do fogo. É coerente, mas é uma decisão que ninguém tomou de
+  propósito — caiu do desenho.
 - **`anel_conjuracao` não tem arte-fonte** em `arte-fonte/`.
 - **~50 MB de folhas direcionais do Meteoro sem uso** em `arte-fonte/`.
 - **O repositório é PÚBLICO** e os docs assumem privado; há assets de terceiros

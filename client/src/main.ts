@@ -48,6 +48,7 @@ import {
   skillDuration,
   skillConditionChance,
   skillConditionDuration,
+  skillGroundContatos,
   skillGroundDuration,
   skillGroundMax,
   skillHits,
@@ -97,6 +98,7 @@ import {
   stanceDamagePenalty,
   stanceDamageReduction,
   STANCE_SLOW,
+  type S2C_AreaSpawn,
   type S2C_CorpseContents,
   type S2C_Inventory,
   type S2C_Stats,
@@ -4862,9 +4864,28 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   /** Último snapshot indexado por id: a ficha do menu sai daqui, sem ida ao servidor. */
   const porId = new Map<string, EntitySnapshot>();
 
+  /**
+   * 🧱 **Os tiles das MURALHAS, por área.**
+   *
+   * 🔴 Separado do `tilesBloqueados` porque os dois têm relógios diferentes:
+   * aquele é refeito a cada snapshot (monstro anda o tempo todo), e este muda
+   * só quando uma muralha nasce ou cai. Refazer este a cada snapshot exigiria
+   * que o snapshot trouxesse as áreas, que ele não traz.
+   *
+   * ⚠️ Guardado por ÁREA, e não um Set solto: duas muralhas podem se cruzar, e
+   * um Set solto perderia o tile compartilhado quando a primeira caísse.
+   */
+  const tilesDeBarreira = new Map<string, number[]>();
+  const tilesBarrados = new Set<number>();
+  function refazBarreiras(): void {
+    tilesBarrados.clear();
+    for (const tiles of tilesDeBarreira.values()) for (const t of tiles) tilesBarrados.add(t);
+  }
+
   function podeAndar(x: number, y: number): boolean {
     if (!isWalkable(map, x, y, myFloor)) return false;
-    return !tilesBloqueados.has(y * map.width + x);
+    const tile = y * map.width + x;
+    return !tilesBloqueados.has(tile) && !tilesBarrados.has(tile);
   }
 
   /**
@@ -5476,11 +5497,31 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     for (let i = 0; i < copias; i++) acende(i, false);
   }
 
-  function addGroundArea(
-    id: string, fx: string, tileX: number, tileY: number, radius: number, durationMs: number,
-    raioX?: number, raioY?: number,
-  ): void {
-    removeGroundArea(id); // substituição (a 4ª muralha) reusa o mesmo caminho
+  /**
+   * 🧱 **Recebe a mensagem inteira, e não oito argumentos soltos.** Eram sete
+   * posicionais quando o `blocks` chegou, com dois opcionais no fim — a forma
+   * em que trocar dois de lugar compila e só aparece em tela.
+   */
+  function addGroundArea(msg: S2C_AreaSpawn): void {
+    const {
+      id, fx, x: tileX, y: tileY, radius, durationMs, raioX, raioY,
+    } = msg;
+    removeGroundArea(id); // substituição (a muralha nova) reusa o mesmo caminho
+    /*
+     * 🧱 **A rota passa a desviar daqui.** Só as muralhas mandam `blocks`, e
+     * o cálculo é o mesmo `areaCovers` do servidor escrito em tiles: o raio por
+     * eixo quando existe, o `radius` quando não.
+     */
+    if (msg.blocks) {
+      const rx = raioX ?? radius;
+      const ry = raioY ?? radius;
+      const tiles: number[] = [];
+      for (let dy = -ry; dy <= ry; dy++) {
+        for (let dx = -rx; dx <= rx; dx++) tiles.push((tileY + dy) * map.width + (tileX + dx));
+      }
+      tilesDeBarreira.set(id, tiles);
+      refazBarreiras();
+    }
     const [corte, brilho] = CORES_AREA[fx] ?? [0x8a5ad8, 0xefe6ff];
     const node = new Container();
     node.x = tileX * TS + TS / 2;
@@ -5536,6 +5577,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   function removeGroundArea(id: string): void {
+    /*
+     * 🧱 **O caminho libera ANTES do desenho**, e de propósito: a muralha leva
+     * seis quadros para se dissipar, e durante eles o servidor já deixa passar.
+     * Liberar junto com o sprite faria o personagem recusar um passo que o
+     * servidor aceita — e aí a parede que "já apagou" continuaria barrando.
+     *
+     * ⚠️ E fica ANTES do `return`: uma área sem nó (a rede de segurança do
+     * `setTimeout` chegando duas vezes) tem de soltar os tiles do mesmo jeito.
+     */
+    if (tilesDeBarreira.delete(id)) refazBarreiras();
     const node = groundAreaNodes.get(id);
     if (!node) return;
     groundAreaNodes.delete(id);
@@ -6381,12 +6432,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           }
           break;
         case 'area':
-          if (msg.floor === myFloor) {
-            addGroundArea(
-              msg.id, msg.fx, msg.x, msg.y, msg.radius, msg.durationMs,
-              msg.raioX, msg.raioY,
-            );
-          }
+          if (msg.floor === myFloor) addGroundArea(msg);
           break;
         case 'areagone':
           removeGroundArea(msg.id);
@@ -8938,10 +8984,28 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           `até ${skillGroundMax(def, efetivo)} simultânea(s)`
         : def.ground?.kind === 'ward'
           ? `Anula TODO o dano físico de quem estiver dentro por ${(dur / 1000).toFixed(1)}s`
-          : `${def.ground?.kind === 'heal' ? 'Cura' : 'Dano'} ` +
-            `${(skillPower(def, efetivo) * 100).toFixed(0)}% a cada ` +
-            `${((def.ground?.tickMs ?? 1000) / 1000).toFixed(1)}s · ` +
-            `${pulsos} pulsos em ${(dur / 1000).toFixed(0)}s`;
+          /*
+           * 🔥 **A BARREIRA DE CONTATO NÃO PULSA, e a dica dizia que sim.**
+           *
+           * 🔴 Em tela, no Lv.10, a Muralha de Fogo prometia *"70 pulsos em
+           * 14 s"* — a conta genérica de duração ÷ `tickMs`. Só que `tickMs` aqui
+           * é a taxa de DETECÇÃO, não a de dano: cada inimigo leva no máximo 12
+           * contatos, com 700 ms entre eles. A dica anunciava quase seis vezes o
+           * que a magia entrega, e num número em que o jogador se baseia para
+           * escolher magia.
+           *
+           * ⚠️ O gatilho é `contatosAtLv1`, e não o nome da magia: qualquer
+           * barreira de contato que nascer amanhã já se descreve certo.
+           */
+          : def.ground?.contatosAtLv1 !== undefined
+            ? `Dano ${(skillPower(def, efetivo) * 100).toFixed(0)}% por CONTATO · ` +
+              `até ${skillGroundContatos(def, efetivo)} por inimigo · ` +
+              `${def.ground?.blocks ? 'barra a passagem por' : 'dura'} ` +
+              `${(dur / 1000).toFixed(0)}s`
+            : `${def.ground?.kind === 'heal' ? 'Cura' : 'Dano'} ` +
+              `${(skillPower(def, efetivo) * 100).toFixed(0)}% a cada ` +
+              `${((def.ground?.tickMs ?? 1000) / 1000).toFixed(1)}s · ` +
+              `${pulsos} pulsos em ${(dur / 1000).toFixed(0)}s`;
     } else if (def.kind === 'multihit') {
       const golpes = skillHits(def, efetivo);
       const poder = skillPower(def, efetivo);

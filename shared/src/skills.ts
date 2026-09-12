@@ -206,7 +206,16 @@ export interface SkillGround {
   durationAtLv10: number;
   hitsPlayers: boolean;
   hitsCreatures: boolean;
-  /** Impede a passagem (só a Ice Wall). */
+  /**
+   * Impede a passagem. Duas magias: a Muralha de Gelo e, desde a ficha
+   * simplificada, a de Fogo.
+   *
+   * 🔴 **Marcar isto sem dar uma SAÍDA é um erro de desenho.** Uma parede que
+   * só barra faz o monstro contornar e não custa nada a ele. As duas que
+   * existem pagam esse preço de jeitos diferentes — o gelo tem `hpAtLv1` e
+   * cai na porrada, o fogo tem `contatosAtLv1` e queima quem tenta passar —,
+   * e o teste guarda a regra.
+   */
   blocks?: boolean;
   /** Quantas instâncias simultâneas do MESMO conjurador. Ausente = 1. */
   maxAtLv1?: number;
@@ -1747,12 +1756,15 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     manaCost: 40,
     manaPerLevel: 0,
     /**
-     * ⚠️ **5 s de recarga, e a ficha do dono não diz nada sobre ela** — o número
-     * é meu, e a conta é esta: ele pede **três muralhas simultâneas**, e no Lv.10
-     * cada uma dura 14 s. Com os 14 s de recarga de antes, a segunda só nasceria
-     * quando a primeira já tivesse morrido, e o teto de três seria letra morta.
-     * A 5 s dá para ter as três de pé no Lv.10 e uma no Lv.1 (5 s de duração),
-     * que é a progressão que o resto da ficha desenha.
+     * ⚠️ **5 s de recarga, e a ficha do dono nunca falou dela** — o número é meu,
+     * e a conta que o justificava MORREU: ela vinha das três muralhas
+     * simultâneas, e desde a ficha simplificada só existe uma (ver `maxAtLv1`).
+     *
+     * ✅ O que sobra a segurando é mais simples e continua de pé: no Lv.1 a
+     * barreira dura exatos 5 s, então a recarga fecha quando ela cai — nunca há
+     * um intervalo em que o Feiticeiro está sem barreira E sem poder erguer.
+     * Do Lv.2 em diante a duração passa a recarga, e erguer de novo TROCA a que
+     * está de pé: reposicionar a barreira, não acumular.
      */
     cooldownMs: 5000,
     /**
@@ -1765,15 +1777,23 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     powerPerLevel: 0,
     shape: 'ground',
     /**
-     * ⚠️ **`range` aqui é o meio-comprimento da LINHA**: 2 dá as CINCO células
-     * que o dono pediu depois de ver as três em tela. Não confundir com a
-     * distância de lançamento, que é `castRange`.
+     * ⚠️ **`range` aqui é o meio-comprimento da LINHA**: 1 dá as TRÊS células
+     * da ficha simplificada. Não confundir com a distância de lançamento, que é
+     * `castRange`.
      *
-     * 🔴 E ele muda o ALCANCE REAL da magia, não a aparência: cinco células de
-     * parede barram um corredor inteiro, onde três deixavam passar pelas
-     * beiradas. É a diferença entre atrapalhar e bloquear.
+     * 🔴 **Voltou de 2 para 1, e é uma decisão do dono revertendo outra dele.**
+     * Em 13/09 ele pediu CINCO células depois de ver três em tela, com um motivo
+     * medido: cinco barram um corredor inteiro, três deixam passar pelas
+     * beiradas. A ficha SIMPLIFICADA pede 1×3 em cinco lugares diferentes
+     * (`barrier.cells = [cell0, cell1, cell2]`), dentro de um pedido explícito
+     * de SIMPLIFICAR e pôr a magia de pé de ponta a ponta antes de crescer.
+     *
+     * ✅ **E o que devolve o que as cinco células davam é o `blocks` lá embaixo.**
+     * Quem contornava três células andando por fora do fogo hoje bate na parede:
+     * a beirada continua lá, mas passá-la custa o caminho mais longo em vez de
+     * custar nada.
      */
-    range: 2,
+    range: 1,
     rangeEvery: 0,
     castRange: 9,
     castRangeEvery: 0,
@@ -1797,10 +1817,21 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * sentido ao contador por alvo — sem ele, um monstro empurrado voltaria para
      * sempre.
      *
-     * ⚠️ **Ela NÃO entra na colisão do jogo** (`blocks` fica falso, que é da Ice
-     * Wall). Se entrasse, o monstro contornaria a parede pelo caminho mais curto
-     * e nunca a tocaria — o que anularia a magia inteira contra qualquer coisa
-     * que saiba andar. O empurrão é o bloqueio.
+     * 🔴 **AGORA ELA ENTRA NA COLISÃO** (`blocks: true`), e isto reverte uma
+     * decisão de 13/09 que estava escrita aqui com um motivo CORRETO: se a
+     * muralha barrasse, o monstro contornaria pelo caminho mais curto e nunca a
+     * tocaria — a magia não faria nada contra o que saiba andar.
+     *
+     * ✅ **O que destrava a reversão é o passo NEGADO virar contato.** O servidor
+     * pergunta pela barreira ANTES de o monstro desviar: quem tenta atravessar
+     * leva o contato e o empurrão sem sair do lugar (ver `tentaAtravessar` no
+     * servidor). É a letra da ficha simplificada — *"quando um inimigo entrar ou
+     * TENTAR ATRAVESSAR uma das 3 células"* —, e é o que faz barrar e ferir
+     * conviverem em vez de se anularem.
+     *
+     * ⚠️ Gastos os contatos dele, o monstro continua sem passar e aí sim
+     * contorna. A barreira para de ferir e vira obstáculo — o fim natural de uma
+     * parede de fogo que já queimou o que tinha para queimar.
      *
      * ⚠️ **`tickMs: 200` é a taxa de DETECÇÃO, não a de dano.** Quem separa dois
      * contatos do mesmo alvo é `contatoMs`; o tique curto existe para pegar o
@@ -1823,8 +1854,23 @@ export const SKILLS: Record<SkillId, SkillDef> = {
        * os doze contatos do Lv.10 em dois segundos e meio.
        */
       contatoMs: 700,
-      maxAtLv1: 3,
-      maxAtLv10: 3,
+      /*
+       * 🔥 **Ela É colisão.** É a segunda magia do jogo a virar parede de verdade,
+       * e a primeira que fere quem esbarra. Ver a nota grande logo acima: sem o
+       * passo negado virar contato, ligar isto ANULA a magia.
+       */
+      blocks: true,
+      /*
+       * 🔥 **UMA barreira, e é a ficha simplificada em letra**: *"por enquanto não
+       * implementar: múltiplas barreiras; limite de 3 barreiras"*. Eram três em
+       * todos os níveis desde 13/09.
+       *
+       * ⚠️ Erguer a segunda não é recusado: derruba a primeira (`dropOldestOf`),
+       * como o jogo já faz com armadilha e muralha de gelo. Recusar em silêncio é
+       * pior do que substituir.
+       */
+      maxAtLv1: 1,
+      maxAtLv10: 1,
     },
     /**
      * 🌬️ **Dois tiles por contato** — ficha do dono. É o empurrão que transforma

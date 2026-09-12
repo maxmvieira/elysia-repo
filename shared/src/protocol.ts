@@ -1061,6 +1061,17 @@ export interface S2C_AreaSpawn {
    */
   raioX?: number;
   raioY?: number;
+  /**
+   * 🧱 **A área barra passagem?** Só as duas muralhas mandam isto.
+   *
+   * 🔴 **Quem lê é a ROTA do cliente, não o desenho.** Sem o campo, o cliente
+   * traça o caminho por cima da muralha, o servidor recusa cada passo e o
+   * personagem fica empurrando a parede — o mesmo defeito que o
+   * `tilesBloqueados` evita com monstro. A Muralha de Gelo conviveu com isso desde
+   * que nasceu; a de Fogo, que é barata e sai várias vezes por luta, tornaria o
+   * defeito rotina.
+   */
+  blocks?: boolean;
   durationMs: number;
   fx: string;
 }
