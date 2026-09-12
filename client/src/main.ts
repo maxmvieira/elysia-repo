@@ -2560,7 +2560,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     s.anchor.set(0.5, MARCADOR.ancoraY);
     s.scale.set(MARCADOR.escala);
     /*
-     * ⚠️ **`TS - 2` no eixo Y, igual ao `targetRing`.** É a linha onde o
+     * ⚠️ **`TS - 2` no eixo Y, igual ao anel de alvo que havia aqui.** É a linha onde o
      * personagem PISA dentro do tile, e é onde todo anel de chão deste jogo é
      * desenhado. Centrar no meio do tile poria o círculo dois pixels acima dos
      * pés de quem chegasse ali.
@@ -2576,12 +2576,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   // Anel de alvo (sob o inimigo selecionado) e camada de efeitos (números).
-  const targetRing = new Graphics();
-  targetRing.ellipse(TS / 2, TS - 2, TS / 2 - 1, TS / 4);
-  targetRing.stroke({ width: 2, color: 0xff4040, alpha: 0.9 });
-  targetRing.zIndex = -0.5;
-  targetRing.visible = false;
-  objects.addChild(targetRing);
   const fxLayer = new Container();
   world.addChild(fxLayer);
 
@@ -4067,7 +4061,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * dentro da explosão — que é o que se quer ver.
      *
      * ⚠️ `objects` ordena por `zIndex` e as marcas de chão vivem no negativo
-     * (o marcador de destino −0,8, `targetRing` −0,5). O estouro entra
+     * (o marcador de destino −0,8). O estouro entra
      * entre elas e as entidades.
      *
      * 🔴 **MENOS O RELÂMPAGO, e a regra de 11/09 continua certa para o resto.**
@@ -4989,7 +4983,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   function clearTarget(): void {
     if (!targetId) return;
     targetId = null;
-    targetRing.visible = false;
     net.send({ t: 'cancel' });
   }
 
@@ -6393,6 +6386,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
              * pelo `fx`, que traz a contagem de bolts. Manter as duas faria a
              * bola aparecer duas vezes por impacto.
              */
+          }
+          /*
+           * ⚔️ **DANO CONFIRMADO: é ISTO que revela a barra de vida.** A ficha é
+           * taxativa sobre o que NÃO vale — passar o mouse, clicar, selecionar,
+           * errar, ser bloqueado, o servidor recusar. Aqui só entra o que o
+           * servidor já cobrou de alguém: esquiva fora, dano zero fora.
+           *
+           * ⚠️ **DoT conta.** Veneno e queimadura são dano real, e a ficha só
+           * exclui o que não machucou. O que o `dot` evita é o GESTO de ataque,
+           * mais acima — coisa diferente.
+           */
+          if (!msg.dodged && msg.amount > 0 && msg.targetId === targetId) {
+            jaSangrou.add(msg.targetId);
           }
           const view = sprites.get(msg.targetId);
           if (view) {
@@ -10191,10 +10197,13 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
     for (const [id, view] of sprites) {
       if (!seen.has(id)) {
-        if (id === targetId) {
-          targetId = null;
-          targetRing.visible = false;
-        }
+        /*
+         * ⚔️ **Morreu ou sumiu: a seleção vai junto.** A ficha pede que nada
+         * fique preso onde o monstro estava — e como o `destroy` logo abaixo
+         * leva nome, barra e contorno, basta soltar o alvo. Ver
+         * `atualizaUiDeMonstros`, que limpa a memória de dano no mesmo quadro.
+         */
+        if (id === targetId) targetId = null;
         view.container.destroy();
         sprites.delete(id);
         // A fita morre junto: o destroy do container já leva o nó, mas deixar a
@@ -10491,6 +10500,49 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     }
     criaturaSobOMouse = n ? String(n.label).slice('criatura:'.length) : undefined;
     cursorDoJogo(criaturaSobOMouse ? 'ataque' : 'padrao');
+  }
+
+  /**
+   * ⚔️ **O CONTROLADOR DA UI DE MONSTRO.**
+   *
+   * 🔴 **Um lugar só decide, e ele roda TODO QUADRO.** A alternativa seria mexer
+   * na UI em cada evento — entrou o mouse, clicou, bateu, morreu — e é assim que
+   * se esquece um caminho e fica uma barra de vida presa em cima de um monstro
+   * morto. Aqui o estado é RECALCULADO: quem não está na lista deste quadro é
+   * apagado, sem precisar que alguém se lembre de apagá-lo.
+   *
+   * ⚠️ **A memória de dano morre junto com a seleção.** `jaSangrou` é limpo no
+   * mesmo passo em que a UI se apaga, então trocar de alvo e voltar ao anterior
+   * faz a vida esconder de novo até o próximo dano — que é o que a ficha pede
+   * em "limpar o estado de dano do alvo anterior".
+   */
+  const jaSangrou = new Set<string>();
+  const uiAtiva = new Set<string>();
+
+  function atualizaUiDeMonstros(): void {
+    const novos = new Set<string>();
+    const sel = targetId ?? undefined;
+    if (sel) {
+      const v = sprites.get(sel);
+      // ⚠️ A vida só entra se houve dano CONFIRMADO. Ver o `case 'hit'`.
+      if (v?.mostraUi) {
+        v.mostraUi({ nome: true, vida: jaSangrou.has(sel), contorno: true });
+        novos.add(sel);
+      }
+    }
+    const sob = criaturaSobOMouse;
+    if (sob && sob !== sel) {
+      // ⚠️ Sob o mouse e não selecionado: SÓ o nome. Sem vida, sem contorno.
+      const v = sprites.get(sob);
+      if (v?.mostraUi) { v.mostraUi({ nome: true, vida: false, contorno: false }); novos.add(sob); }
+    }
+    for (const id of uiAtiva) {
+      if (novos.has(id)) continue;
+      sprites.get(id)?.mostraUi?.({ nome: false, vida: false, contorno: false });
+      jaSangrou.delete(id);
+    }
+    uiAtiva.clear();
+    for (const id of novos) uiAtiva.add(id);
   }
 
   viewportEl.addEventListener('mousemove', (ev) => {
@@ -11365,16 +11417,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
       circuloConj.alpha = Math.min(0.55, circuloConj.alpha + dtC / 180 * 0.55);
     }
 
-    // Anel de alvo sob o inimigo selecionado.
-    const tgt = targetId ? sprites.get(targetId) : undefined;
-    if (tgt) {
-      targetRing.visible = true;
-      targetRing.x = tgt.container.x;
-      targetRing.y = tgt.container.y;
-      targetRing.zIndex = tgt.container.zIndex - 0.01;
-    } else {
-      targetRing.visible = false;
-    }
+    atualizaUiDeMonstros();
 
     // Números de dano flutuantes (sobem e desaparecem).
     const dt = app.ticker.deltaMS;
@@ -11888,6 +11931,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 // ---- Entidades (jogador / criatura / item) ---------------------------------
 interface EntityView {
   container: Container;
+  /**
+   * ⚔️ Liga nome, vida e contorno de MONSTRO. Ausente em quem não é monstro —
+   * jogador e NPC mostram o nome sempre, e não têm alvo nem contorno.
+   */
+  mostraUi?: (ui: { nome: boolean; vida: boolean; contorno: boolean }) => void;
   setDirection: (dir: Direction) => void;
   setTarget: (x: number, y: number) => void;
   setHp: (hp?: number, maxHp?: number) => void;
@@ -12615,6 +12663,88 @@ interface ActorLayer {
   idle: DirAnim;
 }
 
+/**
+ * ⚔️ **A UI DE MONSTRO: nome, vida e contorno — escondidos por padrão.**
+ *
+ * 🔴 Ficha do dono (12/09). O que havia era o oposto: nome e barra de vida
+ * SEMPRE visíveis em toda criatura, mais um anel vermelho no chão sob o alvo. A
+ * tela de caça virava uma parede de placas.
+ *
+ * ✅ Agora o padrão é o monstro sozinho; o nome aparece sob o mouse, o contorno
+ * quando ele é o alvo, e a VIDA só depois de dano confirmado.
+ *
+ * 🔴 **O contorno é um SPRITE-SOMBRA atrás do original, tingido de vermelho e um
+ * pouco maior.** Das cinco opções da ficha é a única que não precisa de filtro
+ * nem de shader — o renderizador atual não tem nenhum carregado, e puxar uma
+ * biblioteca de contorno para desenhar uma silhueta seria pagar caro por pouco.
+ * Ele copia a TEXTURA do sprite a cada quadro, então acompanha sozinho a
+ * animação, a direção e o espelhamento, sem saber nada sobre eles.
+ *
+ * ⚠️ **A vida passa a ser guardada aqui.** `setHp` chega do servidor a 15 Hz e
+ * não pode mais pintar a barra direto: se pintasse, a vida apareceria no
+ * primeiro snapshot e a ficha inteira cairia. O valor é lembrado e só vira
+ * desenho quando `mostraUi` autoriza.
+ *
+ * ⚠️ **Sem sprite (as bolhas de placeholder), o contorno é um anel desenhado em
+ * volta do corpo** — no ar, à altura da bolha, e não no chão. Não é o anel
+ * antigo de volta: aquele era uma elipse deitada no solo, esta é a silhueta do
+ * bicho.
+ */
+function uiDeMonstro(opts: {
+  c: Container;
+  sprite?: Sprite;
+  label: Text;
+  hpbar: { node: Container; set: (hp?: number, maxHp?: number) => void };
+}): {
+  mostraUi: (ui: { nome: boolean; vida: boolean; contorno: boolean }) => void;
+  setHp: (hp?: number, maxHp?: number) => void;
+} {
+  const { c, sprite, label, hpbar } = opts;
+  label.visible = false;
+  hpbar.node.visible = false;
+  let vidaVisivel = false;
+  let hpAtual: number | undefined;
+  let hpMax: number | undefined;
+
+  const contorno = sprite ? new Sprite() : new Graphics();
+  contorno.visible = false;
+  if (sprite) {
+    (contorno as Sprite).tint = 0xff2a2a;
+    (contorno as Sprite).anchor.set(sprite.anchor.x, sprite.anchor.y);
+    c.addChildAt(contorno, c.getChildIndex(sprite));
+  } else {
+    (contorno as Graphics).circle(TS / 2, TS - 12, TS * 0.55)
+      .stroke({ width: 2, color: 0xff2a2a, alpha: 0.9 });
+    c.addChildAt(contorno, 0);
+  }
+
+  function setHp(hp?: number, maxHp?: number): void {
+    hpAtual = hp;
+    hpMax = maxHp;
+    if (vidaVisivel) hpbar.set(hp, maxHp);
+    else hpbar.node.visible = false;
+  }
+
+  function mostraUi(ui: { nome: boolean; vida: boolean; contorno: boolean }): void {
+    label.visible = ui.nome;
+    vidaVisivel = ui.vida;
+    if (ui.vida) hpbar.set(hpAtual, hpMax);
+    else hpbar.node.visible = false;
+    contorno.visible = ui.contorno;
+    if (ui.contorno && sprite) {
+      const g = contorno as Sprite;
+      g.texture = sprite.texture;
+      g.x = sprite.x;
+      g.y = sprite.y;
+      // ⚠️ Preserva o SINAL da escala: é ele que espelha o bicho ao virar.
+      g.scale.set(sprite.scale.x * 1.12, sprite.scale.y * 1.12);
+      g.alpha = 0.85;
+    }
+  }
+
+  return { mostraUi, setHp };
+}
+
 interface MiniActorOpts {
   e: EntitySnapshot;
   anim: DirAnim;
@@ -12670,6 +12800,13 @@ interface MiniActorOpts {
   hurtAnim?: DirAnim;
   deathAnim?: DirAnim;
   onClick?: (id: string) => void;
+  /**
+   * ⚔️ É um MONSTRO: nome e vida escondidos por padrão, contorno no alvo.
+   *
+   * ⚠️ Precisa ser dito de fora porque este construtor também monta jogador e
+   * NPC, e nesses o nome tem de continuar sempre visível.
+   */
+  monstro?: boolean;
 }
 
 /**
@@ -12761,6 +12898,8 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
   }
   c.addChild(hpbar.node);
   c.addChild(nlabel);
+  // ⚔️ Só monstro esconde nome e vida por padrão. Ver `uiDeMonstro`.
+  const ui = opts.monstro ? uiDeMonstro({ c, sprite, label: nlabel, hpbar }) : undefined;
 
   /**
    * ✨ **A AURA DE CONJURAÇÃO** — anéis no chão, sob os pés de quem conjura.
@@ -13310,7 +13449,7 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
       oneShot = null;
       applyState();
     }
-    hpbar.set(hp, maxHp);
+    (ui ? ui.setHp : hpbar.set)(hp, maxHp);
   }
 
   /**
@@ -13474,6 +13613,7 @@ function makeMiniActor(opts: MiniActorOpts): EntityView {
     update,
     setCasting,
     setFrozen,
+    mostraUi: ui?.mostraUi,
     // Com folha de ataque, toca a animação; sem ela, cai no pulinho de sempre.
     // Os dois efeitos coexistem de propósito: o pulinho continua dando peso ao
     // golpe mesmo quando há animação.
@@ -13515,6 +13655,8 @@ interface SpriteActorOpts {
   /** Tonalidade-base do sprite (ex.: roxo do chefe). Padrão: branco (sem tinta). */
   tint?: number;
   onClick?: (id: string) => void;
+  /** ⚔️ É um MONSTRO — ver `monstro` em `MiniActorOpts`. */
+  monstro?: boolean;
 }
 
 function makeSpriteActor(opts: SpriteActorOpts): EntityView {
@@ -13546,7 +13688,10 @@ function makeSpriteActor(opts: SpriteActorOpts): EntityView {
 
   const hpbar = makeHpBar();
   c.addChild(hpbar.node);
-  c.addChild(nameLabel(e.name, nameColor));
+  const nlabel = nameLabel(e.name, nameColor);
+  c.addChild(nlabel);
+  // ⚔️ Só monstro esconde nome e vida por padrão. Ver `uiDeMonstro`.
+  const ui = opts.monstro ? uiDeMonstro({ c, sprite, label: nlabel, hpbar }) : undefined;
 
   // Movimento: mesma interpolação linear sincronizada à cadência do servidor.
   let fromX = e.tileX * TS;
@@ -13651,8 +13796,9 @@ function makeSpriteActor(opts: SpriteActorOpts): EntityView {
     container: c,
     setDirection,
     setTarget,
-    setHp: hpbar.set,
+    setHp: ui ? ui.setHp : hpbar.set,
     update,
+    mostraUi: ui?.mostraUi,
     playAttack: (_magia?: boolean) => { if (oneShot !== 'attack') playOnce('attack'); },
     playHurt: () => { if (!oneShot) playOnce('hurt'); },
   };
@@ -13774,6 +13920,8 @@ function makeCreatureView(
      */
     const cfg = CREATURE_SHEETS[e.creatureType!]!;
     return makeMiniActor({
+      // ⚔️ É monstro: nome e vida escondidos por padrão, contorno no alvo.
+      monstro: true,
       e,
       anim: folhas.walk,
       scale: cfg.scale,
@@ -13795,6 +13943,8 @@ function makeCreatureView(
   const isBoss = e.creatureType === 'super_slime';
   if (isBoss && anims) {
     return makeSpriteActor({
+      // ⚔️ É monstro: nome e vida escondidos por padrão, contorno no alvo.
+      monstro: true,
       e, anim: anims.slime, cfg: BOSS_SLIME_CFG, nameColor: 0xc46bff,
       creatureTint: true, tint: 0xa657ff, onClick: onTargetClick,
     });
@@ -13802,6 +13952,8 @@ function makeCreatureView(
   if (isBoss && mini.slimeAnim) {
     const s = mini.slimeAnim;
     return makeMiniActor({
+      // ⚔️ É monstro: nome e vida escondidos por padrão, contorno no alvo.
+      monstro: true,
       e, anim: { down: s, up: s, right: s, left: s }, scale: 3.6,
       nameColor: 0xc46bff, alwaysAnimate: true, creatureTint: true, tint: 0xa657ff, onClick: onTargetClick,
     });
@@ -13834,6 +13986,8 @@ function makeCreatureView(
   const slimeVariant = e.creatureType ? mini.slimeVariants?.[e.creatureType] : undefined;
   if (slimeVariant) {
     return makeSpriteActor({
+      // ⚔️ É monstro: nome e vida escondidos por padrão, contorno no alvo.
+      monstro: true,
       e, anim: slimeVariant, cfg: SLIME_CFG, creatureTint: true,
       nameColor: lighten(CREATURE_PLACEHOLDER_COLORS[e.creatureType!] ?? 0x5fae5f, 0.45),
       onClick: onTargetClick,
@@ -13846,6 +14000,8 @@ function makeCreatureView(
   // death) — escolha do usuário. Avermelha à noite (creatureTint).
   if (isSlime && anims) {
     return makeSpriteActor({
+      // ⚔️ É monstro: nome e vida escondidos por padrão, contorno no alvo.
+      monstro: true,
       e, anim: anims.slime, cfg: SLIME_CFG, nameColor: 0xa0e0a0, creatureTint: true, onClick: onTargetClick,
     });
   }
@@ -13853,6 +14009,8 @@ function makeCreatureView(
   if (isSlime && mini.slimeAnim) {
     const s = mini.slimeAnim;
     return makeMiniActor({
+      // ⚔️ É monstro: nome e vida escondidos por padrão, contorno no alvo.
+      monstro: true,
       e, anim: { down: s, up: s, right: s, left: s }, scale: 2.2,
       nameColor: 0xa0e0a0, alwaysAnimate: true, creatureTint: true, onClick: onTargetClick,
     });
@@ -13889,7 +14047,10 @@ function makeCreatureView(
   // a cor elas seriam 18 blobs verdes idênticos com 140 a 480 de vida.
   const blobColor = CREATURE_PLACEHOLDER_COLORS[e.creatureType ?? 'slime'] ?? 0x5fae5f;
   const nameCol = isSnake ? 0x9ab84a : isRotworm ? 0xd08a6a : lighten(blobColor, 0.45);
-  c.addChild(nameLabel(e.name, nameCol));
+  const nlabel = nameLabel(e.name, nameCol);
+  c.addChild(nlabel);
+  // ⚔️ Sem sprite: o contorno vira um anel em volta da bolha. Ver `uiDeMonstro`.
+  const ui = uiDeMonstro({ c, label: nlabel, hpbar });
 
   // Blob que "respira" (squash), na cor da espécie. Olhos escuros.
   // Continua sendo placeholder: quando a criatura ganhar sprite, ela deixa de
@@ -14089,8 +14250,9 @@ function makeCreatureView(
     container: c,
     setDirection: () => {},
     setTarget,
-    setHp: hpbar.set,
+    setHp: ui.setHp,
     update,
+    mostraUi: ui.mostraUi,
   };
 }
 
