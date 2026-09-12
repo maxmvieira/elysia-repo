@@ -2520,12 +2520,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     ancoraY: 0.70,
     /**
-     * ⚠️ **0,5 porque a elipse tem 89 px na célula de 96**, ou 2,78 tiles — o
-     * dobro do que um marcador de destino deve ocupar. A 0,5 ela fica com 45 px,
-     * 1,4 tile: cobre o tile clicado com uma folga de brilho e não invade os
-     * vizinhos, que era o que o quadrado verde fazia com uma borda de 1 px.
+     * ⚠️ **0,65, e a elipse tem 89 px na célula de 96** — 2,78 tiles a escala 1.
+     * A 0,65 ela fica com 58 px, ou **1,8 tile**.
+     *
+     * ⚠️ **Era 0,5 (1,4 tile) e o dono pediu maior em tela.** O quadrado verde
+     * marcava UM tile exato, e eu tinha copiado essa medida achando que a
+     * precisão era o valor — mas o quadrado precisava ser exato porque era a
+     * única marca; um círculo de brilho difuso lê como MIRA, e mira pequena
+     * demais some no chão. O que ele marca continua sendo o tile do centro.
      */
-    escala: 0.5,
+    escala: 0.65,
     /** 12 quadros em 600 ms = 50 ms cada. A queda tem 6 e o círculo, 6. */
     dur: 600,
   };

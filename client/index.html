@@ -76,8 +76,10 @@
          * fallback o navegador fica SEM cursor nenhum: o jogador perde o mouse
          * dentro do jogo e não tem como sair.
          *
-         * ⚠️ 35×48, contra os 32 do padrão do Windows. A arte é ornamentada e a
-         * 32 vira borrão; trocar de tamanho é mexer aqui **e** no cortador.
+         * ⚠️ **26×36, e começou em 35×48.** O dono cortou em tela ("está muito
+         * grande"). O piso é 32, onde a gema e o bisel viram borrão — 36 é o
+         * menor tamanho em que a arte ainda se lê. Trocar é mexer no cortador
+         * (`tools/cursor2hud.mjs`) e conferir o ponto quente que ele imprime.
          */
         cursor: var(--cursor-jogo);
       }

@@ -12,13 +12,14 @@
  * apontando para cima e para a esquerda, esse é o lugar, e ele não se chuta.
  *
  * ⚠️ **A redução é por MÉDIA DE BLOCO PONDERADA PELO ALFA**, como nos cortadores
- * de FX. A arte vem de IA a 489×671 e o cursor tem 48 px de altura: são 14×. Se
+ * de FX. A arte vem de IA a 489×671 e o cursor tem 36 px de altura: são 19×. Se
  * a média somasse a cor de pixel transparente, a borda sairia suja de preto, que
  * é a cor guardada num pixel invisível.
  *
- * ⚠️ **48 px de altura, e o padrão do Windows é 32.** A arte é ornamentada — a
- * gema, o bisel, o contorno azul — e a 32 vira um borrão cinza. O Chrome aceita
- * até 128; 48 é o meio-termo entre ler a arte e não tapar o que está embaixo.
+ * ⚠️ **36 px de altura, e o padrão do Windows é 32.** Começou em 48 e o dono
+ * cortou em tela: *"faça o cursor ser um pouco menor, está muito grande"*. A 32
+ * a gema e o bisel viram um borrão cinza, então 36 é o menor tamanho em que a
+ * arte ainda se lê — o piso é a ARTE, não o gosto.
  * Trocar o tamanho é trocar o número aqui **e** o `cursor:` do `index.html`, que
  * repete o ponto quente em pixels.
  *
@@ -37,7 +38,7 @@ if (!arq) {
   console.error('uso: node tools/cursor2hud.mjs <arte.png> [altura]');
   process.exit(1);
 }
-const ALT = Number(altArg ?? 48) || 48;
+const ALT = Number(altArg ?? 36) || 36;
 
 const img = decode(arq);
 
