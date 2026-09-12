@@ -4511,9 +4511,21 @@ function executeSpell(
   };
 
   if (!emQueda) {
+    /*
+     * ❄️ **A magia que nasce EM VOLTA manda para onde mirar.** Ver `alvos` no
+     * protocolo: a Glacial virou um estouro POR inimigo, cada um virado para
+     * ele, e a lista tem de vir de quem decidiu o dano. O cliente aponta; ele
+     * não escolhe.
+     *
+     * ⚠️ Só `emVolta` paga esses bytes. Para o resto das magias a lista seria
+     * ruído por pacote, e nenhuma delas aponta nada.
+     */
     broadcastFloor(player.floor, {
       t: 'fx', kind: def.fx, x: fxAt.tileX, y: fxAt.tileY, floor: player.floor,
       ...(def.shape === 'area' ? { radius: alcance } : {}),
+      ...(def.emVolta === true
+        ? { alvos: targets.map((c) => ({ x: c.tileX, y: c.tileY })) }
+        : {}),
     });
   }
 

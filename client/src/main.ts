@@ -2234,8 +2234,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * ensaio cair no mesmo lugar que a magia de verdade; receber pixel
        * convidaria a errar meio tile e a "consertar" a âncora por causa disso.
        */
-      feitio(nome: string, tileX: number, tileY: number): void {
-        tocaEfeito(nome, tileX * TS + TS / 2, tileY * TS + TS);
+      feitio(nome: string, tileX: number, tileY: number, rumo?: number): void {
+        tocaEfeito(nome, tileX * TS + TS / 2, tileY * TS + TS, rumo);
       },
       /**
        * O tile do herói local, para o ensaio cair EM CIMA dele.
@@ -3305,6 +3305,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
        * meio dela.
        */
       noChao?: boolean;
+      /**
+       * ❄️ **O ângulo para onde a ARTE já aponta, em radianos.**
+       *
+       * Presente = este efeito é APONTADO: o cliente gira cada cópia para o alvo
+       * dela, descontando este valor. Ausente = o efeito não tem direção e é
+       * desenhado como veio.
+       *
+       * ⚠️ **É uma medida da folha, não uma preferência.** Sai do centro de massa
+       * dos quadros de ápice em relação ao pé — na arte dos espinhos, −62,6°
+       * (para cima e para a direita). Trocar a folha exige medir de novo, senão
+       * todos os espinhos apontam torto ao mesmo tempo.
+       */
+      aponta?: number;
     }
   > = {
     /*
@@ -3421,10 +3434,19 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     glacial_burst: {
       ancoraX: 0.287, ancoraY: 0.946, escala: 0.75, dur: 1000, sobeY: 0, noChao: true,
+      // ⚠️ −62,6° medidos na folha. Ver `aponta`.
+      aponta: -1.0934,
     },
   };
 
-  function tocaEfeito(nome: string, wx: number, wy: number): void {
+  /**
+   * ⚠️ **`rumo` gira o efeito em torno da ÂNCORA, em radianos de tela.**
+   *
+   * ❄️ Nasceu para a Explosão Glacial: ela virou um estouro POR inimigo, cada
+   * um apontado para o seu. Como a âncora é o PÉ da explosão, girar em volta
+   * dela mantém o pé debaixo do mago e só vira os espinhos.
+   */
+  function tocaEfeito(nome: string, wx: number, wy: number, rumo?: number): void {
     const frames = folhasEfeito.get(nome);
     if (!frames) return;
     const feitio = FOLHA_FEITIO[nome];
@@ -3437,6 +3459,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     node.y = wy - (feitio?.sobeY ?? 0);
     // ⚠️ Chão: sob as entidades, como o estouro do Meteoro. Ver `noChao`.
     node.zIndex = feitio?.noChao ? -0.55 : 9997;
+    if (rumo !== undefined) node.rotation = rumo;
     node.animationSpeed = frames.length / ((feitio?.dur ?? DUR_EFEITO) / (1000 / 60));
     (feitio?.noChao ? objects : fxLayer).addChild(node);
     /*
@@ -6248,8 +6271,41 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
              * e poucas habilidades, e é para onde cai tudo que não tem folha.
              */
             const folha = folhaDoFx(msg.kind);
-            if (folha) tocaEfeito(folha, msg.x * TS + TS / 2, msg.y * TS + TS);
-            else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1, msg.targetId);
+            if (folha) {
+              const px = msg.x * TS + TS / 2;
+              const py = msg.y * TS + TS;
+              const apontado = FOLHA_FEITIO[folha]?.aponta;
+              if (apontado === undefined) {
+                tocaEfeito(folha, px, py);
+              } else if (msg.alvos && msg.alvos.length > 0) {
+                /*
+                 * ❄️ **UM ESTOURO POR INIMIGO, virado para ele** (dono, 12/09:
+                 * *"se tiver somente 1 monstro, saem espinhos direcionados nesse
+                 * monstro; se ele estiver completamente cercado, precisa sair
+                 * espinhos para todos"*).
+                 *
+                 * ⚠️ **A lista vem do SERVIDOR.** Ver `alvos` no protocolo: quem
+                 * decide o dano decide para onde os espinhos apontam, senão o
+                 * desenho mostraria um conjunto de alvos e o dano cobraria outro.
+                 */
+                for (const a of msg.alvos) {
+                  const ax = a.x * TS + TS / 2;
+                  const ay = a.y * TS + TS;
+                  tocaEfeito(folha, px, py, Math.atan2(ay - py, ax - px) - apontado);
+                }
+              } else {
+                /*
+                 * ⚠️ **Sem ninguém por perto a magia SAI MESMO ASSIM** (regra do
+                 * dono, 13/09): gastar SP e não ver nada leria como falha do jogo.
+                 *
+                 * ⚠️ **E sai SEM GIRAR, do jeito que a arte foi desenhada.** Não há
+                 * direção honesta a escolher — o `fx` não diz quem conjurou, e o
+                 * cliente só conhece a direção do PRÓPRIO herói. Apontar para o lado
+                 * errado seria pior que não apontar.
+                 */
+                tocaEfeito(folha, px, py);
+              }
+            } else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1, msg.targetId);
           }
           break;
         case 'heal': {

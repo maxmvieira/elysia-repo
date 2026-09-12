@@ -956,6 +956,23 @@ export interface S2C_Effect {
   fromX?: number;
   fromY?: number;
   /**
+   * ❄️ **PARA ONDE os espinhos apontam, em tiles.**
+   *
+   * Pedido do dono em 12/09, redesenhando a Explosão Glacial: *"se tiver
+   * somente 1 monstro, saem espinhos direcionados nesse monstro; se ele estiver
+   * completamente cercado, precisa sair espinhos para todos"*. A magia deixou de
+   * ser um estouro só e virou UM por inimigo, cada um virado para ele.
+   *
+   * 🔴 **Quem manda a lista é o SERVIDOR, e não é capricho.** É ele que decide
+   * quem foi atingido; se o cliente escolhesse sozinho para onde apontar, os
+   * espinhos mostrariam um conjunto de alvos e o dano cobraria outro — e o
+   * jogador acreditaria nos espinhos.
+   *
+   * ⚠️ Vazia quando ninguém estava por perto: a magia sai assim mesmo (regra do
+   * dono, 13/09), e aí o cliente aponta um estouro para onde o mago olha.
+   */
+  alvos?: Array<{ x: number; y: number }>;
+  /**
    * 🔴 **Quantos golpes esta conjuração tem** — o Fire Bolt do nível 7 manda 7.
    *
    * Existe porque o cliente **não sabe o nível de habilidade dos outros
