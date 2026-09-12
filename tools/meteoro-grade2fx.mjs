@@ -105,12 +105,34 @@ const BRANCO_TETO = 240;
  */
 const ESCURO = 26;
 
-/** A janela recortada da FONTE, em pixels dela. Cabe o maior quadro (218×446). */
-const JAN_W = 200;
+/**
+ * A janela recortada da FONTE, em pixels dela.
+ *
+ * 🔴 **A LARGURA É MEDIDA NA FOLHA, e 200 cortou a quarta.** O dono viu em tela:
+ * *"as laterais da animação estão sendo cortadas"* — arestas retas dos dois
+ * lados do estouro. Medidos os 28 desenhos da folha 7×4, o maior tem **220 px**
+ * de largura numa célula de 219; a janela de 200 jogava fora 10 px de cada lado.
+ *
+ * ⚠️ **E o corte não era suave, o que aponta direto para cá.** A cerca do quadro
+ * (`cx0..cx1`) desvanece em 20 px de propósito; a janela não desvanece nada —
+ * o que fica fora dela simplesmente não é amostrado. Aresta RETA em efeito de
+ * fogo é sempre janela, nunca cerca.
+ *
+ * ⚠️ Sobra de 12 px para o desvanecimento da cerca ter onde acontecer.
+ */
+const JAN_W = 232;
 const JAN_H = 340;
 
-/** A célula de saída. Metade da janela: é uma redução, que sai limpa. */
-const LARG = 128;
+/**
+ * A célula de saída — uma redução de 0,64 da janela, que sai limpa.
+ *
+ * 🔴 **`LARG` ANDA COM `JAN_W`, e é isso que mantém o tamanho em tela.** A razão
+ * entre os dois é a escala do desenho; preservada, um quadro mais largo só ganha
+ * margem, e o meteoro continua do mesmo tamanho no jogo. Mudar `JAN_W` sozinho
+ * espremeria a arte, e mudar `LARG` sozinho a esticaria — nos dois casos sem
+ * erro nenhum, só feio.
+ */
+const LARG = 148;
 const ALT = 218;
 
 /**

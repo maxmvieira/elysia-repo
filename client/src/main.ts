@@ -3714,18 +3714,20 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
     lightning_fall: { cristais: 22, espalha: 64 },
     /*
-     * ☄️ **E o Meteoro avulso também não tinha entrada — o mesmo silêncio.**
-     * *"Mais forte o impacto"* (dono, 13/09): o tremor e o clarão já disparavam,
-     * mas nada VOAVA. É a diferença entre o chão tremer e a pedra estourar.
+     * ☄️ **O METEORO SAIU DESTA TABELA em 12/09, e a entrada fica registrada
+     * aqui como aviso.** Ele teve `{ cristais: 28, espalha: 80, cor: 0xffb066 }`
+     * por um dia, e em tela isso era um campo de espinhos de gelo BEGE fincados
+     * na grama, em pé, todos iguais.
      *
-     * ⚠️ **28 num raio de 2,5 tiles**, o maior dos três: o estouro dele tem nove
-     * tiles de largura, e estilhaço espalhado em raio menor que o clarão some
-     * dentro dele — foi a lição do relâmpago.
+     * 🔴 **O defeito era de SILHUETA, e cor não conserta silhueta.** A tinta de
+     * brasa foi uma tentativa honesta de fazer gelo virar pedra, e não tinha como
+     * dar certo: o que o olho lê primeiro é a forma. Hoje o Meteoro tem escombros
+     * próprios, desenhados — ver `ESCOMBROS` e `escombrosDeImpacto`.
      *
-     * ⚠️ **Tinta de BRASA**, e não a branco-azulada dos outros dois. A folha de
-     * cristal é a mesma; o que muda a leitura é o tom.
+     * ⚠️ **As outras duas magias continuam aqui de propósito.** A Nevasca É gelo,
+     * e no contato com a Muralha o estilhaço é pequeno e some em 400 ms — nos
+     * dois casos a folha serve. Trocar por trocar seria refazer o que funciona.
      */
-    meteor_solo: { cristais: 28, espalha: 80, cor: 0xffb066 },
     /*
      * 🔥 **O contato com a Muralha, e ele é o MENOR da tabela.** Oito num raio de
      * meio tile: o contato acontece toda vez que um bicho encosta, e um bando
@@ -4175,6 +4177,192 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         g.stroke({ width: 4.5, color: 0xff5a10, alpha: vive * 0.55 });
         traca(l.pts, f);
         g.stroke({ width: 1.8, color: 0xffd070, alpha: vive * 0.9 });
+      }
+    };
+    app.ticker.add(passo);
+  }
+
+  /**
+   * 🪨 **ESCOMBROS: pedra, fagulha e poeira do impacto.**
+   *
+   * 🔴 **Nasceu porque o jogo só tinha UMA espécie de partícula.** Até 12/09,
+   * `nasceParticula` conhecia a camada `'cristal'` e nada mais — a folha de gelo
+   * da Nevasca, reusada tingida por todas as magias. No Meteoro isso punha 28
+   * espinhos de gelo BEGE fincados na grama, em pé, todos do mesmo tamanho. O
+   * dono viu e pediu *"mais realista esse impacto no chão e a explosão também"*.
+   * Tingir arte de gelo nunca ia virar pedra: a silhueta é a informação, e
+   * silhueta não se conserta com cor.
+   *
+   * ✅ **Três materiais, porque um impacto real tem três tempos:** a pedra que
+   * voa e CAI (e fica no chão), a fagulha que risca o ar e some, e a poeira que
+   * se abre rente ao solo e é a única coisa que sobra. Sem a poeira o estouro
+   * parece acontecer num vidro; ela é o que dá chão ao efeito.
+   *
+   * 🔴 **E a mistura é DIFERENTE por material, o que obriga a dois `Graphics`.**
+   * Pedra e poeira são ESCUROS e vão em mistura normal — soma não sabe
+   * escurecer, lição que este projeto já pagou duas vezes (a nuvem do relâmpago
+   * e a fumaça do Meteoro). Fagulha é luz e vai em aditiva. Um `Graphics` só
+   * obrigaria a escolher, e a escolha erraria metade.
+   *
+   * ⚠️ **Pedra e fagulha ficam na camada do AR; a poeira, na do chão.** É a
+   * regra que o `risco` já segue: o que está no ar não passa atrás de árvore. A
+   * poeira está no solo, e ali ficar sob as entidades é o certo — é o mesmo
+   * motivo pelo qual o estouro do Meteoro é desenhado embaixo dos monstros.
+   *
+   * ⚠️ **Tudo achatado em 0,55 no eixo Y**, como as rachaduras e os estilhaços da
+   * Nevasca: o chão é visto de viés, e um espalhamento redondo lê como desenho
+   * de pé.
+   */
+  const ESCOMBROS: Record<string, { pedras: number; fagulhas: number; poeira: number }> = {
+    /*
+     * ⚠️ **18 pedras para um estouro de nove tiles.** Eram 28 cristais, e o
+     * número não veio junto: cristal de gelo é fino e alto, pedra é um caco
+     * largo. Vinte e oito cacos no raio de 2,5 tiles fecham o chão e tapam a
+     * cratera que as rachaduras acabaram de abrir.
+     */
+    meteor_solo: { pedras: 18, fagulhas: 44, poeira: 7 },
+  };
+
+  function escombrosDeImpacto(magia: string, wx: number, wy: number, raioPx: number): void {
+    const cfg = ESCOMBROS[magia];
+    if (!cfg) return;
+
+    const ACHATA = 0.55;
+    const chao = new Graphics();
+    chao.x = wx; chao.y = wy; chao.zIndex = -0.55;
+    objects.addChild(chao);
+    const solido = new Graphics();
+    solido.x = wx; solido.y = wy; solido.zIndex = 9996;
+    fxLayer.addChild(solido);
+    const aceso = new Graphics();
+    aceso.blendMode = 'add';
+    aceso.x = wx; aceso.y = wy; aceso.zIndex = 9996;
+    fxLayer.addChild(aceso);
+
+    const sorte = (a: number, b: number): number => a + Math.random() * (b - a);
+
+    /*
+     * ⚠️ **A pedra guarda o PERFIL dela, sorteado uma vez.** Redesenhar um
+     * polígono novo a cada quadro faria o caco TREMELICAR — vira ruído, não
+     * rocha. O que muda por quadro é só a posição e o giro.
+     */
+    const pedras = Array.from({ length: cfg.pedras }, () => {
+      const lados = 5;
+      const raio = sorte(2.5, 6.5);
+      return {
+        ang: Math.random() * Math.PI * 2,
+        dist: raioPx * sorte(0.3, 1.05),
+        alto: sorte(38, 92),
+        voo: sorte(360, 620),
+        giro: sorte(-0.06, 0.06),
+        rot: Math.random() * Math.PI * 2,
+        // ⚠️ Um terço sai INCANDESCENTE: é uma pedra que acabou de atravessar o
+        // céu. Todas acesas leriam como fogo de artifício; nenhuma, como entulho.
+        quente: Math.random() < 0.34,
+        perfil: Array.from({ length: lados }, (_, i) => {
+          const a = (i / lados) * Math.PI * 2;
+          const r = raio * sorte(0.55, 1.35);
+          return [Math.cos(a) * r, Math.sin(a) * r * 0.8] as [number, number];
+        }),
+      };
+    });
+
+    const fagulhas = Array.from({ length: cfg.fagulhas }, () => ({
+      ang: Math.random() * Math.PI * 2,
+      dist: raioPx * sorte(0.5, 1.6),
+      alto: sorte(30, 130),
+      voo: sorte(240, 520),
+      tam: sorte(0.9, 2.3),
+      cor: [0xffe6a0, 0xff9a30, 0xff5a12][(Math.random() * 3) | 0]!,
+    }));
+
+    /*
+     * ⚠️ **A poeira nasce DESLOCADA do centro, e cada sopro tem o seu.** Sete
+     * elipses concêntricas seriam um alvo de tiro; deslocadas, viram nuvem. É a
+     * mesma correção que as chamas da muralha precisaram.
+     */
+    const poeira = Array.from({ length: cfg.poeira }, () => ({
+      ox: sorte(-0.35, 0.35) * raioPx,
+      oy: sorte(-0.2, 0.2) * raioPx * ACHATA,
+      r0: raioPx * sorte(0.12, 0.3),
+      r1: raioPx * sorte(0.75, 1.3),
+      atraso: sorte(0, 0.22),
+      dur: sorte(520, 900),
+      sobe: sorte(4, 16),
+    }));
+
+    const nasceu = performance.now();
+    const DUR = 1250;
+    const passo = (): void => {
+      const t = performance.now() - nasceu;
+      if (t >= DUR) {
+        chao.destroy(); solido.destroy(); aceso.destroy();
+        app.ticker.remove(passo);
+        return;
+      }
+      chao.clear(); solido.clear(); aceso.clear();
+
+      for (const p of poeira) {
+        const f = (t - p.atraso * DUR) / p.dur;
+        if (f <= 0 || f >= 1) continue;
+        const r = p.r0 + (p.r1 - p.r0) * (1 - (1 - f) * (1 - f));
+        /*
+         * ⚠️ **Sobe até um terço e some o resto do caminho.** Poeira que aparece
+         * cheia e apaga linear lê como fumaça de desenho animado; a de verdade
+         * ainda está engrossando quando já começou a rarear.
+         */
+        const a = (f < 0.33 ? f / 0.33 : 1 - (f - 0.33) / 0.67) * 0.26;
+        chao.ellipse(p.ox, p.oy - p.sobe * f, r, r * ACHATA);
+        chao.fill({ color: 0x7d6b57, alpha: Math.max(0, a) });
+      }
+
+      for (const p of pedras) {
+        const f = t / p.voo;
+        // ⚠️ Desacelera saindo (1−(1−f)²): pedra arremessada perde velocidade no
+        // ar. Linear leria como peça deslizando em trilho.
+        const avanco = f >= 1 ? 1 : 1 - (1 - f) * (1 - f);
+        const x = Math.cos(p.ang) * p.dist * avanco;
+        const y = Math.sin(p.ang) * p.dist * ACHATA * avanco;
+        // Parábola: sobe e volta ao chão no fim do voo. Depois fica parada.
+        const z = f >= 1 ? 0 : p.alto * 4 * f * (1 - f);
+        const rot = p.rot + p.giro * Math.min(t, p.voo) * 0.35;
+        /*
+         * ⚠️ **Some no FIM da vida inteira, não no fim do voo.** O caco que
+         * pousa e desaparece no mesmo quadro desmente o impacto; ele tem de
+         * ficar ali um instante, como entulho, antes de sumir.
+         */
+        const vive = t < DUR * 0.62 ? 1 : 1 - (t - DUR * 0.62) / (DUR * 0.38);
+        const cos = Math.cos(rot);
+        const sen = Math.sin(rot);
+        solido.poly(p.perfil.map(([px, py]) => ({
+          x: x + px * cos - py * sen,
+          y: y - z + px * sen + py * cos,
+        })));
+        solido.fill({ color: p.quente ? 0x4a2a1c : 0x352f2a, alpha: vive });
+        if (p.quente) {
+          // O miolo aceso da pedra que ainda está quente, esfriando no voo.
+          const brasa = Math.max(0, 1 - f * 0.85) * vive;
+          aceso.circle(x, y - z, 2.4);
+          aceso.fill({ color: 0xff7a24, alpha: brasa * 0.75 });
+        }
+      }
+
+      for (const p of fagulhas) {
+        const f = t / p.voo;
+        if (f >= 1) continue;
+        const avanco = 1 - (1 - f) * (1 - f);
+        const x = Math.cos(p.ang) * p.dist * avanco;
+        const y = Math.sin(p.ang) * p.dist * ACHATA * avanco;
+        const z = p.alto * 4 * f * (1 - f);
+        /*
+         * ⚠️ **Fagulha é RISCO, não ponto.** Um ponto de 2 px a esta velocidade
+         * pisca e some; o traço na direção do próprio movimento é o que o olho lê
+         * como faísca voando. O rabo encurta conforme ela perde velocidade.
+         */
+        const rabo = (1 - f) * 9;
+        aceso.moveTo(x - Math.cos(p.ang) * rabo, y - z - Math.sin(p.ang) * rabo * ACHATA);
+        aceso.lineTo(x, y - z);
+        aceso.stroke({ width: p.tam, color: p.cor, alpha: (1 - f) * 0.95 });
       }
     };
     app.ticker.add(passo);
@@ -10998,6 +11186,8 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           if (q.raioDano !== undefined) {
             clarãoDeImpacto(q.node.x, q.node.y, (q.raioDano + 0.5) * TS);
             rachaduras(q.node.x, q.node.y, (q.raioDano + 0.5) * TS);
+            // 🪨 E os escombros: pedra, fagulha e poeira. Ver `ESCOMBROS`.
+            escombrosDeImpacto(q.magia, q.node.x, q.node.y, (q.raioDano + 0.5) * TS);
           }
         }
       }
