@@ -2,7 +2,7 @@
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
-> Último commit: `1fd9ceb`. Árvore limpa, tudo empurrado.
+> Último commit: `0f6e54d`. Árvore limpa, tudo empurrado.
 >
 > O dia foi **inteiro de apresentação**: VFX das magias de manhã, e da tarde em
 > diante a CAMADA DE INTERAÇÃO — ponteiro do jogo, marcador de destino, o que
@@ -17,13 +17,22 @@ cedo, e o dono **não detalhou o que está errado** — pergunte ou peça para v
 tela, não invente a lista. O fogo já levou uma rodada de conserto (*"não parece
 vivo no chão"*); o gelo nunca foi ajustado em tela, só implementado.
 
-⚠️ **Duas decisões que estão com o dono, não com o código:**
+✅ **A Explosão Glacial fechou, e vale saber COMO.** Eu entreguei a arte nova
+avisando que ela é DIRECIONAL — os espinhos saem para um lado só, contra os 360°
+da ficha. O dono não trocou a arte: trocou a MAGIA. Agora é **um estouro por
+inimigo, virado para ele**; cercado, eles fecham a roda sozinhos, e sem ninguém
+por perto saem seis em volta. A limitação da arte virou a regra da habilidade.
 
-1. **A arte da Explosão Glacial é DIRECIONAL** — os espinhos saem para um lado
-   só, enquanto a ficha dele descreve 360°. Ou vem arte radial, ou se desenha a
-   mesma folha espelhada (que esbarra no *"não adicionar por código"* dele).
-2. **A ficha nova da Glacial pede `castTime: 0`**, contra os 1,2 s → 0,7 s que
-   ele mesmo especificou quando redesenhou a skill. Ficaram os dele.
+⚠️ **E a lista de alvos vem do SERVIDOR** (campo `alvos` no `S2C_Effect`). Quem
+decide o dano decide para onde os espinhos apontam; se o cliente escolhesse, o
+desenho mostraria um conjunto de alvos e o dano cobraria outro.
+
+⚠️ **Uma decisão ainda com o dono:** a ficha nova da Glacial pede `castTime: 0`,
+contra os 1,2 s → 0,7 s que ele mesmo especificou quando redesenhou a skill.
+Ficaram os dele.
+
+⚠️ **O que ainda não foi visto em jogo:** um leque por inimigo com dois ou três
+monstros ESPALHADOS (não em volta). Em volta já foi conferido.
 
 ## ⏸️ O QUE ENTROU EM 12/09
 
@@ -31,7 +40,7 @@ vivo no chão"*); o gelo nunca foi ajustado em tela, só implementado.
 |---|---|
 | 🪨 **Escombros do Meteoro** | pedra, fagulha e poeira desenhadas; o jogo só tinha UMA espécie de partícula (o cristal da Nevasca) |
 | ☄️ **Meteoro** | quarta folha (7×4), nuvem apagada no corte, janela do cortador que decepava as laterais |
-| ❄️ **Glacial** | três artes em um dia; a atual são espinhos que nascem do chão, em 17 quadros |
+| ❄️ **Glacial** | três artes num dia, e a magia foi REDESENHADA: um estouro por inimigo, virado para ele |
 | 🖱️ **Ponteiro do jogo** | cursor próprio, mais a variante VERMELHA sobre monstro |
 | 🎯 **Marcador de destino** | o quadrado verde virou animação de 12 quadros que congela no último |
 | 🏷️ **Nome sob o mouse** | monstro, bolsa, corpo, nó e NPC deixam de anunciar o nome; só o jogador mantém |
