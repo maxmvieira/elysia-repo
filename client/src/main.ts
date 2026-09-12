@@ -4786,9 +4786,9 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * horizontal de chamas, e esticá-la para cobrir uma coluna a deitaria. Chama
    * deitada é a coisa que o olho mais rejeita num efeito de fogo.
    *
-   * ⚠️ **Cada célula começa num quadro DIFERENTE**, e é isso que impede o
-   * *"aspecto completamente estático"* que a ficha do dono pede para evitar: três
-   * cópias em sincronia leem como um desenho só piscando.
+   * ⚠️ **Nada é igual entre duas cópias** — fase, velocidade e espelhamento —, e é
+   * isso que impede o *"aspecto completamente estático"* que a ficha do dono pede
+   * para evitar. Ver `acende`.
    *
    * A folha tem três atos — a chama nascendo (1–6), a parede acesa (7–12) e a
    * dissipação (13–18) —, e eles são tocados como a barreira vive: nasce uma vez,
@@ -4799,118 +4799,101 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   function chamasDaMuralha(node: Container, raioX: number, raioY: number): void {
     const quadros = folhasEfeito.get('muralha18');
     if (!quadros || quadros.length < 18) return;
-    /*
-     * 🔴 **DEITADA é UM desenho; DE PÉ são TRÊS.** As duas orientações precisam
-     * de tratamentos diferentes, e tentar uma regra só dá errado nas duas:
-     *
-     * - **Deitada** (3×1): a arte é exatamente isto — uma parede de três chamas.
-     *   Um desenho esticado nas três células cai 1:1 no que o artista desenhou, e
-     *   sai com 2,4 tiles de altura, que é o que faz dela uma PAREDE.
-     * - **De pé** (1×3): não há arte de parede vertical, e girar a que existe
-     *   deitaria as chamas — a coisa que o olho mais rejeita num efeito de fogo.
-     *   Então são três fogos empilhados, cada um um pouco mais largo que o tile
-     *   para não abrir corredor entre eles.
-     *
-     * ⚠️ A cópia de pé transborda uns 0,3 tile para cada lado. É mentira barata:
-     * o jogador lê "fogo alto numa coluna", e a alternativa — espremer a arte em
-     * 32 px — deixaria as chamas finas como velas.
-     */
-    /*
-     * 🔥 **A ALTURA é esticada à parte da largura, e por isso são dois fatores.**
-     *
-     * Dono, 13/09: *"está muito pequeno a muralha, faça ela pelo menos 3× maior"*.
-     * Crescer os dois eixos juntos não serve: a largura está PRESA às três
-     * células que a magia machuca, e esticá-la três vezes poria fogo desenhado
-     * onde ninguém queima — a própria ficha dele pede que a barreira fique
-     * *"visualmente alinhada às 3 células ocupadas"*.
-     *
-     * ✅ Então a largura cresce só o suficiente para as chamas passarem da beira
-     * do tile (1,3×, uns 5 px de cada lado) e **a altura cresce 3×**: de 2,4 para
-     * 7 tiles na deitada. É a altura que faz uma linha de fogo virar PAREDE, e é
-     * ela que o olho mede quando diz "pequeno".
-     *
-     * ⚠️ Esticar fogo na vertical é barato — chama é alta por natureza, e o
-     * desenho não denuncia. Esticar na horizontal engorda as línguas de fogo e
-     * denuncia na hora.
-     */
     const deitada = raioX > raioY;
     const comprimento = (deitada ? raioX : raioY) * 2 + 1;
-    /*
-     * ⚠️ **Cada cópia cobre TRÊS células, e não a muralha inteira.** A arte é uma
-     * parede de três chamas; esticá-la por cinco engorda cada língua de fogo em
-     * 67 % e ela deixa de parecer chama. Com o comprimento virando cinco (dono,
-     * 13/09), a linha passou a ser coberta por DUAS cópias de 2,5 células — que
-     * é quase o tamanho para o qual a arte foi desenhada.
-     */
-    const porCopia = deitada ? Math.min(3, comprimento) : 1.6;
-    const copias = deitada ? Math.ceil(comprimento / 3) : comprimento;
-    /*
-     * 🔴 **A ALTURA é fixa em tiles, e não derivada da largura.** Ela era
-     * proporcional, e com a muralha passando de três para cinco células as chamas
-     * teriam crescido 67 % junto — o dono já tinha aprovado a altura, e ela não
-     * pode mudar porque o comprimento mudou.
-     *
-     * ⚠️ 7,2 tiles é o 3× que ele pediu sobre o tamanho que viu em tela.
-     */
-    const ALTURA_TILES = 7.2;
-    const largura = porCopia * TS * 1.3;
-    const altura = ALTURA_TILES * TS;
 
     /*
-     * 🔥 **A BRASA NO CHÃO, e é ela que prende a muralha ao solo.**
+     * 🔥 **A BRASA NO CHÃO, e ela é SOMADA em vez de pintada.**
      *
-     * Dono, 13/09: *"elas não parecem estar fixas no chão, e sim flutuando"*. A
-     * causa não é a âncora — as chamas já nasciam na linha do tile. É que **fogo
-     * de verdade ilumina o chão em volta**, e sem esse halo o desenho não tem
-     * nada que o ligue ao piso: ele lê como um adesivo alto pairando sobre a
-     * grama.
+     * Dono, 13/09: *"não parece que está vivo no chão"*. A primeira versão punha
+     * uma elipse escura de chamuscado por baixo da luz, e em tela ela virou uma
+     * MANCHA MARROM — o olho leu pedra, não brasa. Fogo não escurece o chão
+     * enquanto arde: ele o ILUMINA.
      *
-     * ✅ Duas elipses por célula, achatadas (o chão é visto de viés): uma escura
-     * de chamuscado por baixo e uma alaranjada de luz por cima. Custa duas formas
-     * e resolve a queixa inteira.
+     * ✅ Duas elipses, as duas em mistura aditiva, achatadas porque o chão é
+     * visto de viés. Só isso já prende a muralha ao piso.
      */
-    const chao = new Graphics();
+    const brasa = new Graphics();
+    brasa.blendMode = 'add';
     for (let dy = -raioY; dy <= raioY; dy++) {
       for (let dx = -raioX; dx <= raioX; dx++) {
         const cx = dx * TS;
         const cy = dy * TS + TS / 4;
-        chao.ellipse(cx, cy, TS * 0.75, TS * 0.34).fill({ color: 0x2a1408, alpha: 0.5 });
-        chao.ellipse(cx, cy, TS * 0.62, TS * 0.26).fill({ color: 0xff7a1a, alpha: 0.35 });
-        chao.ellipse(cx, cy, TS * 0.34, TS * 0.15).fill({ color: 0xffd27a, alpha: 0.45 });
+        brasa.ellipse(cx, cy, TS * 0.8, TS * 0.34).fill({ color: 0xff5a12, alpha: 0.30 });
+        brasa.ellipse(cx, cy, TS * 0.42, TS * 0.18).fill({ color: 0xffc46b, alpha: 0.40 });
       }
     }
-    node.addChild(chao);
+    node.addChild(brasa);
 
-    let fase = 0;
-    for (let i = 0; i < copias; i++) {
-      // Espalha as cópias pelo comprimento, centradas no meio da muralha.
-      const passo = comprimento / copias;
-      const off = (i + 0.5) * passo - comprimento / 2;
+    /*
+     * 🔴 **DUAS FILEIRAS DE CHAMA, e é isso que faz a parede parecer viva.**
+     *
+     * A versão anterior esticava UM desenho 3× na vertical para ficar alta. Em
+     * tela o dono viu o que isso faz: *"parece que não está vivo"*. Esticar não
+     * cria fogo — cria VELA. A chama desenhada tem uma proporção, e o movimento
+     * dela (as pontas que sobem e somem) só lê nessa proporção; ao triplicar a
+     * altura, cada lambida vira um risco vertical lento.
+     *
+     * ✅ Altura se constrói com CAMADAS, não com escala: uma fileira de trás,
+     * maior e mais apagada, e uma da frente, na proporção natural. Juntas passam
+     * de quatro tiles e continuam se mexendo como fogo.
+     *
+     * ⚠️ **E nada é igual entre duas cópias**: cada uma tem velocidade própria,
+     * fase própria e metade delas está ESPELHADA. Era a mesma arte repetida no
+     * mesmo ritmo — seis chamas idênticas lado a lado, que é o que o olho lê como
+     * papel de parede em vez de fogo.
+     */
+    const ESTICA = 1.45;
+    const copias = comprimento;
+    const largura = (deitada ? 2.3 : 1.8) * TS;
+    const altura = (largura / 160) * 128 * ESTICA;
+
+    const acende = (
+      i: number, atras: boolean,
+    ): void => {
+      const off = i - (comprimento - 1) / 2;
       const s = new AnimatedSprite(quadros.slice(0, MURALHA_NASCE));
       /*
-       * ⚠️ **Âncora em 0,99: o PÉ da chama, medido.** O recorte alinha as três
-       * fileiras pelo chão e o desenho termina em 0,984–0,992 da altura do
-       * quadro. Com 0,93 sobravam 6 % de quadro abaixo da linha do tile — a
-       * muralha ficava enterrada meio tile, que de longe lê como flutuando.
+       * ⚠️ **Âncora 0,99: o PÉ da chama, medido.** O recorte alinha as fileiras
+       * pelo chão e o desenho termina em 0,984–0,992 da altura do quadro.
        */
       s.anchor.set(0.5, 0.99);
-      s.x = deitada ? off * TS : 0;
-      s.y = (deitada ? 0 : off * TS) + TS / 4;
-      s.scale.set(largura / 160, altura / 128);
-      s.animationSpeed = MURALHA_NASCE / (700 / (1000 / 60));
-      s.currentFrame = fase % MURALHA_NASCE;
+      const escala = atras ? 1.3 : 1;
+      s.x = (deitada ? off * TS : 0) + (atras ? (i % 2 ? 5 : -5) : 0);
+      // A fileira de trás sobe um pouco: é o que dá profundidade sem esticar.
+      s.y = (deitada ? 0 : off * TS) + TS / 4 - (atras ? TS * 0.55 : 0);
+      /*
+       * ⚠️ O espelhamento é no SINAL da escala, e alterna por cópia. Sem ele a
+       * mesma língua de fogo aparece no mesmo lugar de cada célula, e a repetição
+       * salta aos olhos antes da animação.
+       */
+      const espelha = (i + (atras ? 1 : 0)) % 2 === 0 ? 1 : -1;
+      s.scale.set((largura / 160) * escala * espelha, (altura / 128) * escala);
+      s.alpha = atras ? 0.55 : 1;
+      /*
+       * ⚠️ **Velocidade PRÓPRIA por cópia** (±18 %). Com todas no mesmo ritmo, as
+       * fases se realinham a cada volta do laço e a parede volta a pulsar junto —
+       * o defeito reaparece uns segundos depois de nascer, que é pior do que
+       * nascer errado.
+       */
+      const ritmo = 0.82 + ((i * 7 + (atras ? 3 : 0)) % 5) * 0.09;
+      s.animationSpeed = (MURALHA_NASCE / (700 / (1000 / 60))) * ritmo;
+      s.currentFrame = (i * 3 + (atras ? 5 : 0)) % MURALHA_NASCE;
       s.loop = false;
       s.onComplete = () => {
         // Nasceu: passa a ARDER, em laço, até o servidor mandar apagar.
         s.textures = quadros.slice(MURALHA_ARDE, MURALHA_NASCE);
         s.loop = true;
-        s.animationSpeed = (MURALHA_NASCE - MURALHA_ARDE) / (600 / (1000 / 60));
-        s.gotoAndPlay(fase % (MURALHA_NASCE - MURALHA_ARDE));
+        s.animationSpeed = ((MURALHA_NASCE - MURALHA_ARDE) / (600 / (1000 / 60))) * ritmo;
+        s.gotoAndPlay((i * 2 + (atras ? 3 : 0)) % (MURALHA_NASCE - MURALHA_ARDE));
       };
       s.play();
       node.addChild(s);
-      fase += 2;
-    }
+    };
+
+    // ⚠️ Trás primeiro: quem é desenhado depois fica na frente.
+    for (let i = 0; i < copias; i++) acende(i, true);
+    for (let i = 0; i < copias; i++) acende(i, false);
   }
 
   function addGroundArea(

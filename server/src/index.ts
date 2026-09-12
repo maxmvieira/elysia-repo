@@ -4343,8 +4343,22 @@ function executeSpell(
      * ⚠️ É intencional que dê para lançar em terreno vazio — serve para bloquear
      * passagem e para acertar quem está chegando. Recusar seria dizer ao jogador
      * que ele não pode mirar onde quer.
+     *
+     * ❄️ **E a que estoura EM VOLTA também sai sem ninguém por perto** (dono,
+     * 13/09: *"mesmo que não tenha inimigos a magia lança"*).
+     *
+     * 🔴 Recusar era pior do que parece: a Explosão Glacial existe para o momento
+     * em que os monstros estão CHEGANDO, e é justamente aí que eles ainda não
+     * estão no alcance. O jogador apertava, não saía nada, e no segundo seguinte
+     * já estava cercado — a magia falhava exatamente no instante para o qual foi
+     * desenhada.
+     *
+     * ⚠️ **E ele PAGA por isso**: a mana sai e a recarga conta igual. Errar o
+     * tempo é decisão do jogador, e é ela que dá peso à habilidade; o servidor
+     * recusando por ele tirava a decisão da mesa.
      */
-    if (targets.length === 0 && !(def.queda === true && def.shape === 'area')) {
+    const podeSairVazia = (def.queda === true && def.shape === 'area') || def.emVolta === true;
+    if (targets.length === 0 && !podeSairVazia) {
       send(player, { t: 'denied', reason: 'Nenhum inimigo ao alcance.' });
       return;
     }
@@ -4407,8 +4421,15 @@ function executeSpell(
   // Condição pura (Silêncio, Raízes Prensoras): controle sem dano.
   if (def.kind === 'condition') {
     aplicaCondicaoDaSkill(player, def, nivel, targets, now);
+    /*
+     * ⚠️ **Sem alvo, o efeito sai no CONJURADOR.** Desde 13/09 uma magia pode
+     * sair sem ninguém ao alcance (ver `podeSairVazia`), e `targets[0]!` era uma
+     * mina: hoje nenhuma habilidade de condição é `emVolta`, mas a primeira que
+     * for derrubaria o servidor em vez de não fazer nada.
+     */
+    const onde = targets[0] ?? player;
     broadcastFloor(player.floor, {
-      t: 'fx', kind: def.fx, x: targets[0]!.tileX, y: targets[0]!.tileY, floor: player.floor,
+      t: 'fx', kind: def.fx, x: onde.tileX, y: onde.tileY, floor: player.floor,
     });
     sendStats(player);
     return;
