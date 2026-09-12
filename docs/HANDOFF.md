@@ -2,7 +2,7 @@
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
-> Último commit: `098669d`. Árvore limpa, tudo empurrado.
+> Último commit: `e7bf5a0`. Árvore limpa, tudo empurrado.
 >
 > O dia foi **inteiro de apresentação**: VFX das magias de manhã, e da tarde em
 > diante a CAMADA DE INTERAÇÃO — ponteiro do jogo, marcador de destino, o que
@@ -59,7 +59,7 @@ isso impossível de encenar sem briga real.
 | 🪨 **Escombros do Meteoro** | pedra, fagulha e poeira desenhadas; o jogo só tinha UMA espécie de partícula (o cristal da Nevasca) |
 | ☄️ **Meteoro** | quarta folha (7×4), nuvem apagada no corte, janela do cortador que decepava as laterais |
 | ❄️ **Glacial** | três artes num dia, e a magia foi REDESENHADA: um estouro por inimigo, virado para ele |
-| 🖱️ **Ponteiro do jogo** | cursor próprio, mais a variante VERMELHA sobre monstro |
+| 🖱️ **Ponteiro do jogo** | cursor próprio, variante VERMELHA sobre monstro e MÃOZINHA ANIMADA sobre bolsa |
 | 🎯 **Marcador de destino** | o quadrado verde virou animação de 12 quadros que congela no último |
 | 🏷️ **Nome sob o mouse** | monstro, bolsa, corpo, nó e NPC deixam de anunciar o nome; só o jogador mantém |
 | 🩸 **Vida após o dano** | vida só depois de dano confirmado — e aí visível PARA SEMPRE, até o bicho morrer |
@@ -120,9 +120,19 @@ câmera assim que o herói dá um passo (medido: 32 px de erro).
    `escala`, `ancoraX`/`ancoraY`, `sobeY`, `ESCALA_IMPACTO`. Toda folha nova os
    invalida, e a medida que os justifica tem de ser refeita.
 
-7. **Campo escrito que ninguém lê é a família de defeito que mais se repete
-   aqui.** Três apareceram hoje (`criaturasPorTile`, `geloDoChao`, o `fenda` do
-   `FOLHA_FEITIO`), e os três saíram no mesmo commit em que perderam o leitor.
+7. **O Pixi escreve `cursor` no CANVAS, e estilo inline vence classe do
+   `body`.** Deu defeito DUAS vezes no mesmo dia: um `crosshair` do sistema
+   aparecendo sobre monstro (onde devia estar o cursor de ataque) e o dedinho
+   do Windows aparecendo sobre bolsa (onde a mãozinha desenhada já estava, e
+   onde o ponteiro do sistema estava ESCONDIDO de propósito). **Não ponha
+   `cursor` em contêiner de MUNDO** — sem a propriedade o Pixi aplica
+   `inherit` e quem manda volta a ser o `body`. Nos elementos de INTERFACE
+   (botão, slot, hotbar) o `cursor: pointer` continua certo.
+
+8. **Campo escrito que ninguém lê é a família de defeito que mais se repete
+   aqui.** QUATRO apareceram hoje (`criaturasPorTile`, `geloDoChao`, o `fenda` do
+   `FOLHA_FEITIO`) mais o `alvos` do protocolo, que nasceu e morreu no mesmo
+   dia — e os quatro saíram no commit em que perderam o leitor.
 
 ## ⚠️ PENDÊNCIAS ANTIGAS QUE NINGUÉM FECHOU
 
