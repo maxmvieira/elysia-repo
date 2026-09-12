@@ -6295,15 +6295,22 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
                 }
               } else {
                 /*
-                 * ⚠️ **Sem ninguém por perto a magia SAI MESMO ASSIM** (regra do
-                 * dono, 13/09): gastar SP e não ver nada leria como falha do jogo.
+                 * ❄️ **Sem ninguém por perto, sai a RODA INTEIRA.**
                  *
-                 * ⚠️ **E sai SEM GIRAR, do jeito que a arte foi desenhada.** Não há
-                 * direção honesta a escolher — o `fx` não diz quem conjurou, e o
-                 * cliente só conhece a direção do PRÓPRIO herói. Apontar para o lado
-                 * errado seria pior que não apontar.
+                 * ⚠️ A magia sai mesmo sem alvo (regra do dono, 13/09), e a primeira
+                 * versão disto soltava UM estouro sem girar — do jeito que a arte foi
+                 * desenhada. O dono viu e mostrou: um leque solto apontando para o
+                 * nada lê como bug, porque a direção parece escolhida e não é.
+                 *
+                 * ✅ Seis estouros em volta é o mesmo desenho do "completamente
+                 * cercado" — a forma própria da magia, e não uma direção inventada.
+                 * Seis porque o leque da arte abre uns 60°: fecham a volta sem
+                 * empilhar.
                  */
-                tocaEfeito(folha, px, py);
+                const VOLTAS = 6;
+                for (let i = 0; i < VOLTAS; i++) {
+                  tocaEfeito(folha, px, py, (i / VOLTAS) * Math.PI * 2 - apontado);
+                }
               }
             } else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1, msg.targetId);
           }
