@@ -9,6 +9,85 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-20 — A Barreira de Fogo fecha as oito fases, com um cliente de SCRIPT
+
+**Onde mora:** `tools/teste-barreira.mjs` (novo) · nada de código de jogo mudou
+
+O fluxo do item 17 da ficha — *"monstro tenta atravessar, recebe dano, é empurrado,
+contador aumenta, após o limite não recebe mais"* — estava aberto desde 12/09. Fechou
+hoje, e o que destravou não foi código de jogo: foi trocar o **piloto**.
+
+### 🔴 Pilotar o cliente pelo navegador não funciona para COMBATE
+
+Três tentativas, três mortes do personagem de teste. O motivo é estrutural e vale
+guardar: entre tirar o screenshot, ler, decidir e mandar o clique passam **segundos**,
+e o Diabrete Alado deste mapa tira 353 de vida em cinco. O jogo não é rápido demais;
+o controle remoto é lento demais. Nenhum ajuste de mira resolvia isso.
+
+✅ **O cliente virou um script que fala o protocolo.** Ele autentica pelo auto-login do
+`dev:test`, anda tile a tile com `move`, conjura com mira e nível, e lê cada mensagem
+que volta. O que muda tudo é uma linha: **ele manda `/heal` a cada snapshot em que
+faltar vida**. Morrer deixa de ser possível, e sobra só a pergunta que interessa.
+
+### O que ficou provado, em número
+
+| Fase | Prova |
+|---|---|
+| 3 · barra | seis comandos de passo contra a parede; o herói parou COLADO, em 163 com a parede em 162 |
+| 5 · toca | brasa (`fx`) nas células da muralha, no instante do passo negado |
+| 6 · dói | 44 por contato no mesmo bicho, constante — separado da queimadura, que sai a 1 |
+| 7 · empurra | (164,145) → (162,143) e (163,144) → (161,144): **dois tiles**, para trás dele |
+| 8 · para | `c40` levou **3 contatos** e parou — o teto exato do Lv.1 |
+
+⚠️ **A fase 3 só vale com o controle.** Uma volta saiu com o herói parado e a parede
+três tiles à frente, e sem medir o caminho VAZIO antes o relatório teria dado a parede
+como culpada — quem segurava era um bicho encostado. *"Não andou"* e *"a parede barrou"*
+são coisas diferentes.
+
+### ✅ Os DOIS caminhos do contato apareceram, e dá para distinguir pela brasa
+
+O desenho previa dois chamadores para `contatoDaBarreira`, e o teste mostrou os dois no
+mesmo relatório — separados por **onde o `fx` cai**:
+
+- brasa na célula DO BICHO → ele estava dentro do fogo, e quem bateu foi o tique;
+- brasa na célula DA MURALHA → ele tentou atravessar de fora, e quem bateu foi o
+  `tentaAtravessar`.
+
+Não foi planejado assim, mas é a consequência de quem chama dizer onde tocou — e agora é
+a maneira mais barata de saber qual dos dois rodou.
+
+### 🔴 O contador é POR INIMIGO, e foi o meu PLACAR que quase acusou o jogo
+
+Uma parede pegou quatro bichos de uma vez e o relatório saiu com *"c69: 4 contatos,
+PASSOU DO TETO"*. O jogo estava certo; a conta era minha. Eu casava cada brasa com o
+primeiro golpe dentro de 60 ms usando `find`, e num tique com quatro golpes as quatro
+brasas casaram todas com o mesmo. Corrigido com um `Set` de golpes já consumidos, o
+placar mostrou o que o servidor sempre fez: **c40 3 · c69 2 · c71 2**, cada um com a
+própria conta — que é a letra da ficha (*"não compartilhar esse contador entre
+inimigos"*).
+
+⚠️ Vale como lembrete da família de defeito: **ferramenta de medição errada acusa código
+certo**, e é mais fácil acreditar no relatório do que auditá-lo.
+
+### O que a ferramenta ensinou sobre o próprio jogo
+
+- **Neutro não serve de cobaia.** A primeira volta escolheu o vizinho mais próximo e caiu
+  num Slime Verde: ele esfria e volta a perambular, e a muralha morreu de velhice
+  esperando. Hoje o alvo sai de `startsFight`.
+- **A coleira é `aggroRange + 2`**, e é o que explica o monstro "desistir" quando se anda
+  para longe. Quem apanhou tem coleira bem maior — por isso o script provoca com um Fire
+  Bolt de nível 1 antes de medir.
+- **Conjurar tem recarga global** (*"Conjurando rápido demais (0.3s)"*), então provocar e
+  erguer a parede em seguida exige uma segunda tentativa.
+
+### 💔 A dívida
+
+O `Testedois` desceu de **149 para 148** nas três mortes: ~60 mil de XP e um nível. Dá
+para repor com `/level 149` no `dev:test`, e continua parado esperando o dono decidir —
+é o save dele.
+
+---
+
 ## 2026-09-12 (noite) — A Barreira de Fogo encolhe para três células e vira COLISÃO
 
 **Onde mora:** `fire_wall` em `shared/src/skills.ts` · `blocks` em `SkillGround` e em

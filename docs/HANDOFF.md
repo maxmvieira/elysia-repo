@@ -1,3 +1,85 @@
+# Handoff — 2026-09-20 · PONTO DE RETOMADA
+
+> Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
+> `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
+> Último commit: `COMMIT`. Árvore limpa, tudo empurrado.
+>
+> 🔥 **A Barreira de Fogo FECHOU** — as oito fases da ficha, a última inclusive.
+> Nenhuma linha de código de jogo mudou hoje: o que faltava era conseguir OLHAR,
+> e isso virou `tools/teste-barreira.mjs`.
+
+## 🎯 O QUE ESTÁ COMBINADO PARA DEPOIS
+
+🔴 **Corrigir a Muralha de GELO.** É o que sobrou da dupla, está de pé desde 12/09
+e o dono **não detalhou o que está errado** — pergunte ou peça para ver em tela,
+não invente a lista. Ela nunca foi ajustada em tela, só implementada.
+
+⚠️ **A ficha da Barreira adiou coisas EM LETRA**, e agora elas podem voltar:
+múltiplas barreiras, o teto de três, efeitos especiais, partículas extras. A
+condição que ela mesma pôs — *"somente depois de todas essas fases funcionando"* —
+está cumprida.
+
+💔 **O `Testedois` desceu de 149 para 148.** Foram TRÊS mortes minhas tentando o
+teste de combate pelo navegador (Chefe Gnoll, Espectro, Diabrete), ~60 mil de XP e
+um nível. Dá para repor com `/level 149` no `dev:test`; está parado esperando o
+dono, porque é o save dele.
+
+## 🔬 A FERRAMENTA QUE FECHOU O ASSUNTO
+
+    node tools/teste-barreira.mjs bloqueio   # fase 3
+    node tools/teste-barreira.mjs contato    # fases 5-8
+
+🔴 **Pilotar o cliente pelo navegador NÃO serve para combate**, e isso é
+estrutural: entre o screenshot, a leitura, a decisão e o clique passam segundos, e
+o Diabrete deste mapa tira 353 de vida em cinco. O script fala o mesmo protocolo,
+anda tile a tile, conjura com mira e nível — e **manda `/heal` a cada snapshot em
+que faltar vida**, o que tira a morte da equação.
+
+✅ Ele imprime um relatório com carimbo de tempo: quando a parede nasceu, onde cada
+bicho estava a cada passo, cada brasa, cada golpe, e um placar **por inimigo**.
+
+## ⏸️ O QUE FICOU PROVADO, EM NÚMERO
+
+| | |
+|---|---|
+| 🧱 **Fase 3 · barra** | seis comandos de passo; o herói parou COLADO em 163, parede em 162 |
+| 💥 **Fase 5 · toca** | brasa nas células da muralha, no instante do passo negado |
+| 🩸 **Fase 6 · dói** | 44 por contato, constante — separado da queimadura, que sai a 1 |
+| 🌬️ **Fase 7 · empurra** | (164,145) → (162,143): **dois tiles**, para trás dele |
+| 🔢 **Fase 8 · para** | `c40` levou **3 contatos** e parou: o teto exato do Lv.1 |
+
+✅ **E os DOIS caminhos do contato apareceram no mesmo relatório**, distinguíveis
+por onde a brasa cai: na célula DO BICHO é o tique (ele estava dentro); na célula
+DA MURALHA é o `tentaAtravessar` (ele tentou entrar de fora).
+
+## 🪤 DUAS ARMADILHAS NOVAS
+
+1. **Ferramenta de medição errada acusa código certo.** Meu placar disse *"c69: 4
+   contatos, PASSOU DO TETO"* e o jogo estava impecável: eu casava cada brasa com o
+   primeiro golpe dentro de 60 ms, e num tique com quatro golpes as quatro brasas
+   casaram com o mesmo. **Audite o relatório antes de abrir o código.**
+
+2. **Neutro não serve de cobaia.** A primeira volta pegou o vizinho mais próximo —
+   um Slime Verde — e ele esfriou no meio do caminho: a muralha morreu de velhice
+   esperando. Para medir perseguição, o alvo tem de passar por `startsFight`, e
+   convém provocá-lo (quem apanhou ganha coleira bem maior que `aggroRange + 2`).
+
+## ⚠️ PENDÊNCIAS QUE CONTINUAM ABERTAS
+
+- **Em PvP a muralha apenas BARRA o inimigo**: um jogador não tem "passo negado"
+  para detectar, então só leva contato se estiver DENTRO do fogo. É coerente, mas
+  caiu do desenho — ninguém decidiu isso.
+- **O equilíbrio do congelamento** (50 % × 5 s contra 2 s de recarga ⇒ permanente
+  contra alvo único). O número a mexer é a CHANCE; a duração tem razão visual.
+- **O `castTime` da Explosão Glacial** ainda diverge: a ficha nova pede `0`, o dono
+  especificou 1,2 s → 0,7 s. Ficaram os dele.
+- **A transição "primeiro dano → barra de vida"** nunca foi encenada.
+- **O terceiro quadro do Meteoro** guarda um resto de nuvem — limitação de método.
+- **`anel_conjuracao` não tem arte-fonte**; **~50 MB de folhas do Meteoro sem uso**.
+- **O repositório é PÚBLICO** e os docs assumem privado. Continua sem decisão.
+
+---
+
 # Handoff — 2026-09-12 (fim do dia) · PONTO DE RETOMADA
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
