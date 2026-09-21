@@ -75,12 +75,40 @@ const FOLHAS = {
    * 1,25). Quadrado deformaria as chamas: elas são mais largas que altas, e
    * espremer a largura as deixaria finas como velas.
    */
+  /**
+   * ⚠️ **ARTE ANTERIOR, aposentada em 20/09** pela `muralha12`. Fica porque a
+   * fonte (`arte-fonte/fx/muralha.png`) continua no repo e estas são as medidas
+   * dela — remedir custa mais do que guardar seis números.
+   */
   muralha18: {
     larg: 160,
     alt: 128,
     colunas: 6,
     passoX: 295,
     fileiras: [[52, 263], [308, 538], [597, 817]],
+  },
+  /**
+   * 🔥 **A MURALHA DE FOGO, arte nova (20/09)**, 4 colunas × 3 fileiras.
+   *
+   * ⚠️ **Substitui a `muralha18`, e as medidas são OUTRAS** — nada aqui foi
+   * herdado dela. Medido: as fileiras ocupam [23,279], [292,565] e [592,849],
+   * com alturas de 257, 274 e 258; as colunas caem num passo de 443,5 e o
+   * conteúdo de cada uma cabe folgado na célula de 443.
+   *
+   * 🔴 **208×128 porque 443/274 ≈ 1,62**, e a proporção da fonte manda. A arte
+   * antiga era 1,25 (mais alta que larga) e o cliente a esticava 1,45 na
+   * vertical para ela virar parede; esta já É uma parede larga, e esticar seria
+   * repetir o defeito que a nota do cliente descreve — chama esticada vira vela.
+   *
+   * ⚠️ Os 12 quadros são três atos: nasce (1–9), arde em laço (5–9) e dissipa
+   * (10–12). A fileira do meio inteira é a parede acesa.
+   */
+  muralha12: {
+    larg: 208,
+    alt: 128,
+    colunas: 4,
+    passoX: 443,
+    fileiras: [[23, 279], [292, 565], [592, 849]],
   },
   /**
    * ❄️ **A MURALHA DE GELO (13/09)**, 5 colunas × 5 fileiras.

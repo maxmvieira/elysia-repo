@@ -5,14 +5,25 @@
 > Último commit de código: `f5aef0e`. Árvore limpa, tudo empurrado.
 >
 > 🔥 **A Barreira de Fogo FECHOU** — as oito fases da ficha, a última inclusive.
-> Nenhuma linha de código de jogo mudou hoje: o que faltava era conseguir OLHAR,
-> e isso virou `tools/teste-barreira.mjs`.
+> O que faltava era conseguir OLHAR, e isso virou `tools/teste-barreira.mjs`.
+>
+> 🎨 **E à noite ela trocou de arte e entrou no MUNDO.** As chamas saíram do
+> `fxLayer` (que desenha por cima de tudo) para o `objects`, uma célula por nó,
+> ordenadas por profundidade como árvore e monstro — que é o que o dono pediu ao
+> dizer que ela *"não parece fixa lá"*.
 
 ## 🎯 O QUE ESTÁ COMBINADO PARA DEPOIS
 
 🔴 **Corrigir a Muralha de GELO.** É o que sobrou da dupla, está de pé desde 12/09
 e o dono **não detalhou o que está errado** — pergunte ou peça para ver em tela,
 não invente a lista. Ela nunca foi ajustada em tela, só implementada.
+
+> ⚠️ **E ela MUDOU de altura em 20/09, sem ninguém pedir.** A conta da altura usava
+> dois literais da folha do FOGO (`160`/`128`) e a folha do gelo é 160×96 — ou
+> seja, a parede de gelo vinha esticada **33 % na vertical desde que nasceu**. Com
+> `celW`/`celH` na receita ela passou a usar a proporção da própria arte. Se
+> parecer mais baixa que na lembrança, é isso — e pode muito bem ser uma das
+> coisas que o dono ia apontar.
 
 ⚠️ **A ficha da Barreira adiou coisas EM LETRA**, e agora elas podem voltar:
 múltiplas barreiras, o teto de três, efeitos especiais, partículas extras. A

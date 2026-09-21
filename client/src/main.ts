@@ -5328,7 +5328,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   // nevasca está não tem como sair dela — e a magia vira punição arbitrária.
   // -------------------------------------------------------------------------
 
-  const groundAreaNodes = new Map<string, Container>();
+  /**
+   * Os nós de cada área. **Uma LISTA, e não um nó só**, desde que a muralha
+   * passou a entrar no mundo por CÉLULA para ser ordenada por profundidade
+   * (ver `chamasDaMuralha`). As outras seis áreas continuam com um elemento.
+   */
+  const groundAreaNodes = new Map<string, Container[]>();
   /**
    * Qual barreira cada nó desenha, para a QUEBRA saber que folha tocar.
    *
@@ -5380,123 +5385,171 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * conhece), enquanto chama esticada ainda lê como chama até certo ponto. Foi o
    * dono quem encontrou o limite do fogo em tela: a 3× virou vela.
    */
+  /**
+   * 🧱 **As barreiras de chão que têm FOLHA, e o que cada uma pede.**
+   *
+   * 🔴 Duas magias, um desenho só: a de fogo e a de gelo são a mesma coisa em
+   * tela — uma fileira de algo que cresce do chão, arde enquanto dura e se desfaz
+   * no fim. O que muda são números, e é por isso que eles moram numa tabela.
+   *
+   * 🔴 **`celW`/`celH` são o tamanho da CÉLULA na folha, e existem porque
+   * estavam ESCRITOS NA CONTA.** A altura saía de `(largura / 160) * 128`, com os
+   * dois números cravados no código — e eles eram da `muralha18`. A folha do gelo
+   * é 160×96, então a muralha de gelo vinha sendo esticada **33 % na vertical**
+   * desde que nasceu, sem ninguém ter pedido. É a família de defeito de sempre:
+   * número copiado para um lugar onde ele não pode ser recalculado.
+   */
   const MURALHAS: Record<string, {
-    folha: string; nasce: number; arde: number; larguraTiles: number; estica: number;
+    folha: string; nasce: number; arde: number;
+    larguraTiles: number; estica: number; celW: number; celH: number;
   }> = {
-    // 🔥 18 quadros: nasce (1–12), arde em laço (6–12), dissipa (13–18).
-    fire_wall: { folha: 'muralha18', nasce: 12, arde: 5, larguraTiles: 2.3, estica: 1.45 },
     /*
-     * ❄️ 25 quadros, e a ficha do dono descreve as três fases: formação (1–15),
-     * parede ativa (11–20) e destruição (21–25). O laço da parede ativa começa
-     * ANTES do fim da formação de propósito — os cristais continuam crescendo um
-     * pouco depois de a parede já bloquear, e é isso que tira o ar de desenho
-     * parado que a ficha pede para evitar.
+     * 🔥 **Arte nova (20/09), 12 quadros**, medidos pela massa de cada um: nasce
+     * (1–9), arde em laço (5–9), dissipa (10–12). A fileira do meio inteira é a
+     * parede acesa.
+     *
+     * ⚠️ **`estica: 1` — a arte antiga precisava de 1,45 e esta não.** Aquela era
+     * mais alta que larga (1,25) e virava parede à força; esta já É uma parede
+     * larga (1,62), com a linha de brasa desenhada no pé. Esticar aqui repetiria
+     * o defeito que o dono achou em tela: chama esticada vira vela.
      */
-    ice_wall: { folha: 'gelo25', nasce: 15, arde: 10, larguraTiles: 1.9, estica: 1 },
+    fire_wall: {
+      folha: 'muralha12', nasce: 9, arde: 4,
+      larguraTiles: 2.6, estica: 1, celW: 208, celH: 128,
+    },
+    /*
+     * ❄️ 25 quadros: formação (1–15), parede ativa (11–20), destruição (21–25). O
+     * laço começa ANTES do fim da formação de propósito — os cristais continuam
+     * crescendo um pouco depois de a parede já bloquear.
+     *
+     * ⚠️ **A célula dela é 160×96, e isso muda a altura em tela**: até 20/09 a
+     * conta usava 128 (da folha do fogo) e a esticava 33 %. Se a parede de gelo
+     * parecer mais baixa que na sua lembrança, é esta linha — e é a proporção
+     * verdadeira da arte.
+     */
+    ice_wall: {
+      folha: 'gelo25', nasce: 15, arde: 10,
+      larguraTiles: 1.9, estica: 1, celW: 160, celH: 96,
+    },
   };
-  function chamasDaMuralha(node: Container, raioX: number, raioY: number, fx: string): void {
+
+  /**
+   * 🔥 **As chamas da muralha — UM NÓ POR CÉLULA, dentro do mundo.**
+   *
+   * 🔴 **Elas deixaram de viver no `fxLayer` em 20/09, e essa é a mudança que o
+   * dono pediu:** *"o personagem quando chega perto dela não parece que ela está
+   * fixa lá"*. O `fxLayer` entra no mundo DEPOIS do `objects`, então tudo que mora
+   * nele desenha por cima de qualquer entidade — o herói podia estar dois tiles à
+   * FRENTE da parede e mesmo assim sumir atrás das chamas. Sem relação de
+   * profundidade, o olho lê a magia como um adesivo na tela, não como uma coisa
+   * plantada no chão.
+   *
+   * ✅ Agora cada célula é um filho do `objects`, ordenado por `zIndex` como árvore,
+   * monstro e parede — e aí a regra do jogo inteiro passa a valer de graça: quem
+   * está ao sul cobre, quem está ao norte é coberto.
+   *
+   * ⚠️ **Por CÉLULA, e não um nó só para a muralha inteira**, porque uma parede DE
+   * PÉ ocupa três FILEIRAS diferentes: um `zIndex` único estaria certo para uma e
+   * errado para as outras duas. Na parede deitada as três dividem a mesma
+   * fileira e o resultado é o mesmo — custo zero por uniformizar.
+   */
+  function chamasDaMuralha(
+    raioX: number, raioY: number, fx: string, tileX: number, tileY: number,
+  ): Container[] {
     const receita = MURALHAS[fx];
-    if (!receita) return;
+    if (!receita) return [];
     const quadros = folhasEfeito.get(receita.folha);
-    if (!quadros || quadros.length <= receita.nasce) return;
+    if (!quadros || quadros.length <= receita.nasce) return [];
     const { nasce: NASCE, arde: ARDE } = receita;
-    const deitada = raioX > raioY;
-    const comprimento = (deitada ? raioX : raioY) * 2 + 1;
 
     /*
-     * 🔥 **A BRASA NO CHÃO, e ela é SOMADA em vez de pintada.**
-     *
-     * Dono, 13/09: *"não parece que está vivo no chão"*. A primeira versão punha
-     * uma elipse escura de chamuscado por baixo da luz, e em tela ela virou uma
-     * MANCHA MARROM — o olho leu pedra, não brasa. Fogo não escurece o chão
-     * enquanto arde: ele o ILUMINA.
-     *
-     * ✅ Duas elipses, as duas em mistura aditiva, achatadas porque o chão é
-     * visto de viés. Só isso já prende a muralha ao piso.
+     * 🔥 **A proporção é a da FOLHA, e a largura é o único número escolhido.**
+     * 2,6 tiles por cópia com as cópias a um tile de distância dá 1,6 tile de
+     * sobreposição — é isso que faz três desenhos lerem como UMA parede contínua
+     * em vez de três fogueiras enfileiradas.
      */
-    const brasa = new Graphics();
-    brasa.blendMode = 'add';
+    const largura = receita.larguraTiles * TS;
+    const altura = (largura / receita.celW) * receita.celH * receita.estica;
+
+    const nos: Container[] = [];
+    let i = 0;
     for (let dy = -raioY; dy <= raioY; dy++) {
-      for (let dx = -raioX; dx <= raioX; dx++) {
-        const cx = dx * TS;
-        const cy = dy * TS + TS / 4;
-        brasa.ellipse(cx, cy, TS * 0.8, TS * 0.34).fill({ color: 0xff5a12, alpha: 0.30 });
-        brasa.ellipse(cx, cy, TS * 0.42, TS * 0.18).fill({ color: 0xffc46b, alpha: 0.40 });
+      for (let dx = -raioX; dx <= raioX; dx++, i += 1) {
+        const no = new Container();
+        no.eventMode = 'none';
+        no.x = (tileX + dx) * TS + TS / 2;
+        no.y = (tileY + dy) * TS + TS / 2;
+        /*
+         * ⚠️ **0,45 fica logo ABAIXO do 0,5 dos personagens**, e a diferença só
+         * aparece quando os dois estão na MESMA fileira — lado a lado, com a chama
+         * larga invadindo a coluna dele. Nesse empate quem tem de aparecer é o
+         * personagem: ele está ao lado do fogo, não atrás dele.
+         */
+        no.zIndex = (tileY + dy) + 0.45;
+
+        /*
+         * 🔥 **UMA poça de luz, e fraca.** A versão de 13/09 pintava DUAS elipses
+         * aditivas fortes por célula, porque a arte antiga não tinha pé nenhum e a
+         * muralha parecia flutuar (dono: *"não parece que está vivo no chão"*).
+         * Esta arte traz a linha de brasa DESENHADA, e manter as duas elipses
+         * dobraria a mesma luz — o chão virava um borrão claro sob a parede.
+         */
+        const brasa = new Graphics();
+        brasa.blendMode = 'add';
+        brasa.ellipse(0, TS / 4, TS * 0.62, TS * 0.26).fill({ color: 0xff6a1a, alpha: 0.16 });
+        no.addChild(brasa);
+
+        /*
+         * 🔴 **DUAS FILEIRAS DE CHAMA por célula, e é assim que a parede ganha
+         * altura sem ser esticada.** Uma atrás, maior e mais apagada, subida um
+         * pouco; uma na frente, na proporção natural. Juntas passam de dois tiles e
+         * continuam se mexendo como fogo — que é o que multiplicar a escala
+         * vertical destrói.
+         */
+        const acende = (atras: boolean): void => {
+          const s = new AnimatedSprite(quadros.slice(0, NASCE));
+          // ⚠️ Âncora no PÉ: o corte alinha as fileiras pelo chão, e a linha de
+          // brasa termina no rodapé da célula.
+          s.anchor.set(0.5, 0.99);
+          const escala = atras ? 1.28 : 1;
+          s.x = atras ? (i % 2 ? 4 : -4) : 0;
+          s.y = TS / 4 - (atras ? TS * 0.45 : 0);
+          /*
+           * ⚠️ O espelhamento vai no SINAL da escala e alterna por célula. Sem ele
+           * a mesma língua de fogo aparece no mesmo lugar de cada célula, e a
+           * repetição salta aos olhos antes da animação.
+           */
+          const espelha = (i + (atras ? 1 : 0)) % 2 === 0 ? 1 : -1;
+          s.scale.set((largura / receita.celW) * escala * espelha, (altura / receita.celH) * escala);
+          s.alpha = atras ? 0.55 : 1;
+          /*
+           * ⚠️ **Velocidade PRÓPRIA por cópia** (±18 %). Com todas no mesmo ritmo as
+           * fases se realinham a cada volta do laço e a parede volta a pulsar junto
+           * — o defeito reaparece uns segundos depois de nascer, que é pior do que
+           * nascer errado.
+           */
+          const ritmo = 0.82 + ((i * 7 + (atras ? 3 : 0)) % 5) * 0.09;
+          s.animationSpeed = (NASCE / (700 / (1000 / 60))) * ritmo;
+          s.currentFrame = (i * 3 + (atras ? 5 : 0)) % NASCE;
+          s.loop = false;
+          s.onComplete = () => {
+            // Nasceu: passa a ARDER, em laço, até o servidor mandar apagar.
+            s.textures = quadros.slice(ARDE, NASCE);
+            s.loop = true;
+            s.animationSpeed = ((NASCE - ARDE) / (600 / (1000 / 60))) * ritmo;
+            s.gotoAndPlay((i * 2 + (atras ? 3 : 0)) % (NASCE - ARDE));
+          };
+          s.play();
+          no.addChild(s);
+        };
+        // ⚠️ Trás primeiro: quem é desenhado depois fica na frente.
+        acende(true);
+        acende(false);
+        nos.push(no);
       }
     }
-    node.addChild(brasa);
-
-    /*
-     * 🔴 **DUAS FILEIRAS DE CHAMA, e é isso que faz a parede parecer viva.**
-     *
-     * A versão anterior esticava UM desenho 3× na vertical para ficar alta. Em
-     * tela o dono viu o que isso faz: *"parece que não está vivo"*. Esticar não
-     * cria fogo — cria VELA. A chama desenhada tem uma proporção, e o movimento
-     * dela (as pontas que sobem e somem) só lê nessa proporção; ao triplicar a
-     * altura, cada lambida vira um risco vertical lento.
-     *
-     * ✅ Altura se constrói com CAMADAS, não com escala: uma fileira de trás,
-     * maior e mais apagada, e uma da frente, na proporção natural. Juntas passam
-     * de quatro tiles e continuam se mexendo como fogo.
-     *
-     * ⚠️ **E nada é igual entre duas cópias**: cada uma tem velocidade própria,
-     * fase própria e metade delas está ESPELHADA. Era a mesma arte repetida no
-     * mesmo ritmo — seis chamas idênticas lado a lado, que é o que o olho lê como
-     * papel de parede em vez de fogo.
-     */
-    const ESTICA = receita.estica;
-    const copias = comprimento;
-    const largura = receita.larguraTiles * (deitada ? 1 : 0.8) * TS;
-    const altura = (largura / 160) * 128 * ESTICA;
-
-    const acende = (
-      i: number, atras: boolean,
-    ): void => {
-      const off = i - (comprimento - 1) / 2;
-      const s = new AnimatedSprite(quadros.slice(0, NASCE));
-      /*
-       * ⚠️ **Âncora 0,99: o PÉ da chama, medido.** O recorte alinha as fileiras
-       * pelo chão e o desenho termina em 0,984–0,992 da altura do quadro.
-       */
-      s.anchor.set(0.5, 0.99);
-      const escala = atras ? 1.3 : 1;
-      s.x = (deitada ? off * TS : 0) + (atras ? (i % 2 ? 5 : -5) : 0);
-      // A fileira de trás sobe um pouco: é o que dá profundidade sem esticar.
-      s.y = (deitada ? 0 : off * TS) + TS / 4 - (atras ? TS * 0.55 : 0);
-      /*
-       * ⚠️ O espelhamento é no SINAL da escala, e alterna por cópia. Sem ele a
-       * mesma língua de fogo aparece no mesmo lugar de cada célula, e a repetição
-       * salta aos olhos antes da animação.
-       */
-      const espelha = (i + (atras ? 1 : 0)) % 2 === 0 ? 1 : -1;
-      s.scale.set((largura / 160) * escala * espelha, (altura / 128) * escala);
-      s.alpha = atras ? 0.55 : 1;
-      /*
-       * ⚠️ **Velocidade PRÓPRIA por cópia** (±18 %). Com todas no mesmo ritmo, as
-       * fases se realinham a cada volta do laço e a parede volta a pulsar junto —
-       * o defeito reaparece uns segundos depois de nascer, que é pior do que
-       * nascer errado.
-       */
-      const ritmo = 0.82 + ((i * 7 + (atras ? 3 : 0)) % 5) * 0.09;
-      s.animationSpeed = (NASCE / (700 / (1000 / 60))) * ritmo;
-      s.currentFrame = (i * 3 + (atras ? 5 : 0)) % NASCE;
-      s.loop = false;
-      s.onComplete = () => {
-        // Nasceu: passa a ARDER, em laço, até o servidor mandar apagar.
-        s.textures = quadros.slice(ARDE, NASCE);
-        s.loop = true;
-        s.animationSpeed = ((NASCE - ARDE) / (600 / (1000 / 60))) * ritmo;
-        s.gotoAndPlay((i * 2 + (atras ? 3 : 0)) % (NASCE - ARDE));
-      };
-      s.play();
-      node.addChild(s);
-    };
-
-    // ⚠️ Trás primeiro: quem é desenhado depois fica na frente.
-    for (let i = 0; i < copias; i++) acende(i, true);
-    for (let i = 0; i < copias; i++) acende(i, false);
+    return nos;
   }
-
   /**
    * 🧱 **Recebe a mensagem inteira, e não oito argumentos soltos.** Eram sete
    * posicionais quando o `blocks` chegou, com dois opcionais no fim — a forma
@@ -5538,12 +5591,23 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * e sem ele ninguém sabe onde a magia pega.
      */
     if (MURALHAS[fx] && folhasEfeito.has(MURALHAS[fx]!.folha)) {
-      chamasDaMuralha(node, raioX ?? radius, raioY ?? radius, fx);
-      muralhaDoNo.set(id, fx);
-      fxLayer.addChild(node);
-      groundAreaNodes.set(id, node);
-      setTimeout(() => removeGroundArea(id), durationMs + 1500);
-      return;
+      /*
+       * 🧱 **No `objects`, e não no `fxLayer`.** É o contêiner ordenado por
+       * profundidade, o mesmo de árvore e monstro — e é ele que faz a parede
+       * ficar ATRÁS de quem está à frente dela. O `node` criado lá em cima não
+       * serve aqui: ele é um só, e a muralha precisa de um por célula.
+       */
+      const celulas = chamasDaMuralha(raioX ?? radius, raioY ?? radius, fx, tileX, tileY);
+      if (celulas.length > 0) {
+        // ⚠️ Só depois de ter as células: sem folha carregada o caminho cai no
+        //    retângulo lá embaixo, e aí o `node` ainda é necessário.
+        node.destroy();
+        muralhaDoNo.set(id, fx);
+        for (const c of celulas) objects.addChild(c);
+        groundAreaNodes.set(id, celulas);
+        setTimeout(() => removeGroundArea(id), durationMs + 1500);
+        return;
+      }
     }
 
     const lado = (radius * 2 + 1) * TS;
@@ -5570,7 +5634,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      */
 
     fxLayer.addChild(node);
-    groundAreaNodes.set(id, node);
+    groundAreaNodes.set(id, [node]);
     // Rede de segurança: se o `areagone` se perder, a área some sozinha um
     // pouco depois do previsto em vez de ficar pintada para sempre.
     setTimeout(() => removeGroundArea(id), durationMs + 1500);
@@ -5587,35 +5651,37 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * `setTimeout` chegando duas vezes) tem de soltar os tiles do mesmo jeito.
      */
     if (tilesDeBarreira.delete(id)) refazBarreiras();
-    const node = groundAreaNodes.get(id);
-    if (!node) return;
+    const nos = groundAreaNodes.get(id);
+    if (!nos) return;
     groundAreaNodes.delete(id);
     /*
-     * 🔥 **A muralha APAGA em vez de sumir.** A folha tem seis quadros de
-     * dissipação, e cortá-los faria a parede piscar para fora — que é o defeito
-     * que o `desvanece` das quedas existe para evitar. Os filhos são
-     * `AnimatedSprite`; qualquer outra área cai no `destroy` de sempre.
+     * 🔥 **A muralha APAGA em vez de sumir.** A folha tem quadros de dissipação,
+     * e cortá-los faria a parede piscar para fora — que é o defeito que o
+     * `desvanece` das quedas existe para evitar. Os filhos são `AnimatedSprite`;
+     * qualquer outra área cai no `destroy` de sempre.
      */
     const receita = MURALHAS[muralhaDoNo.get(id) ?? ''];
     muralhaDoNo.delete(id);
     const quadros = receita ? folhasEfeito.get(receita.folha) : undefined;
+    // ⚠️ As chamas estão espalhadas por VÁRIOS nós desde que a muralha virou um
+    //    nó por célula — varrer só o primeiro apagaria um terço da parede.
     const chamas = quadros
-      ? node.children.filter((c): c is AnimatedSprite => c instanceof AnimatedSprite)
+      ? nos.flatMap((n) => n.children.filter((c): c is AnimatedSprite => c instanceof AnimatedSprite))
       : [];
     if (!quadros || !receita || chamas.length === 0) {
-      node.destroy({ children: true });
+      for (const n of nos) n.destroy({ children: true });
       return;
     }
     const quebra = quadros.slice(receita.nasce);
-    for (const s of chamas) {
-      s.textures = quebra;
-      s.loop = false;
-      s.animationSpeed = quebra.length / (500 / (1000 / 60));
-      s.gotoAndPlay(0);
+    for (const s2 of chamas) {
+      s2.textures = quebra;
+      s2.loop = false;
+      s2.animationSpeed = quebra.length / (500 / (1000 / 60));
+      s2.gotoAndPlay(0);
     }
-    // ⚠️ Um relógio só para o nó inteiro: `onComplete` por chama destruiria o
-    // contêiner na primeira que acabasse, levando as outras junto pela metade.
-    setTimeout(() => node.destroy({ children: true }), 520);
+    // ⚠️ Um relógio só para a muralha inteira: `onComplete` por chama destruiria
+    //    o contêiner na primeira que acabasse, levando as outras junto pela metade.
+    setTimeout(() => { for (const n of nos) n.destroy({ children: true }); }, 520);
   }
 
   /**

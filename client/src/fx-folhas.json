@@ -1,14 +1,14 @@
 {
-  "revival": 16,
+  "cursor_coleta": 17,
   "debuff": 16,
+  "gelo_congelado": 8,
+  "gelo25": 25,
+  "glacial_burst": 17,
   "immunity": 16,
   "life_recovery": 12,
   "mana_recovery": 12,
-  "strength_buff": 12,
-  "glacial_burst": 17,
-  "muralha18": 18,
-  "gelo25": 25,
   "marcador_destino": 12,
-  "gelo_congelado": 8,
-  "cursor_coleta": 17
+  "muralha12": 12,
+  "revival": 16,
+  "strength_buff": 12
 }

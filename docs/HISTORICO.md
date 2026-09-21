@@ -9,6 +9,71 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-20 (noite) — A Muralha de Fogo ganha arte nova e entra no MUNDO
+
+**Onde mora:** `muralha12` em `tools/folha-alfa2fx.mjs` · `MURALHAS` e
+`chamasDaMuralha` em `client/src/main.ts` · `arte-fonte/fx/muralha_fogo2.png`
+
+Duas coisas do dono no mesmo pedido: *"substitua a sprite da firewall por essa"* e
+*"quero a física dela no chão; o personagem quando chega perto dela não parece que ela
+está fixa lá"*. A primeira é corte de folha; a segunda é a mais importante do dia.
+
+### 🔴 O que fazia a muralha parecer um adesivo: ela não estava no mundo
+
+As chamas viviam no `fxLayer`, e esse contêiner entra no `world` **depois** do `objects`.
+Quem mora nele desenha por cima de qualquer entidade, sempre — então o herói parado à
+frente da parede era engolido pelas chamas em vez de ficar na frente delas. Sem relação
+de profundidade não há como o olho ler a magia como uma coisa plantada no chão: ela lê
+como desenho colado na tela.
+
+✅ **Cada célula virou um filho do `objects`, com `zIndex` próprio**, como árvore, monstro
+e parede. A regra do jogo inteiro passou a valer de graça: quem está ao sul cobre, quem
+está ao norte é coberto.
+
+⚠️ **Por CÉLULA, e não um nó para a muralha inteira**, porque uma parede DE PÉ ocupa três
+FILEIRAS: um `zIndex` único estaria certo para uma e errado para as outras duas. Na
+deitada as três dividem a mesma fileira e o resultado é idêntico — uniformizar custou zero.
+
+⚠️ **E o `0,45` tem motivo:** fica logo abaixo do `0,5` dos personagens, e a diferença só
+aparece no empate — os dois na MESMA fileira, lado a lado, com a chama larga invadindo a
+coluna dele. Aí quem tem de aparecer é o personagem: ele está *ao lado* do fogo.
+
+### A folha: 12 quadros, três atos medidos pela massa
+
+Medida antes de cortar: alfa de verdade, 3 fileiras em [23,279], [292,565] e [592,849],
+4 colunas num passo de 443,5. A massa de cada quadro fecha os três atos sem chute —
+nasce (4132 → 12634), arde (13774 → 12595) e morre (8503 → 3494).
+
+⚠️ **Saída 208×128, e a proporção é a da fonte** (443/274 ≈ 1,62). A arte antiga era 1,25
+— mais alta que larga — e o cliente a esticava **1,45** na vertical para ela virar parede.
+Esta já É uma parede larga, com a linha de brasa desenhada no pé: `estica` voltou a 1.
+Esticar aqui repetiria o defeito que o próprio código descreve, chama esticada vira vela.
+
+### 🔴 Dois números cravados no código, e um deles deformava a MURALHA DE GELO
+
+A altura saía de `(largura / 160) * 128` — e os dois literais eram da folha do fogo. A
+folha do gelo é **160×96**, então a Muralha de Gelo vinha sendo esticada **33 % na
+vertical desde que nasceu**, sem ninguém ter pedido. Agora `celW`/`celH` moram na receita
+de cada folha.
+
+⚠️ **Isso muda a Muralha de Gelo em tela**, e ela é justamente a próxima da fila: se
+parecer mais baixa que na lembrança, é esta linha — e é a proporção verdadeira da arte.
+
+### A poça de luz encolheu, porque a arte trouxe a dela
+
+A versão de 13/09 pintava DUAS elipses aditivas fortes por célula, porque a arte antiga
+não tinha pé nenhum e a muralha parecia flutuar (*"não parece que está vivo no chão"*).
+Esta arte traz a brasa desenhada; manter as duas dobrava a mesma luz e o chão virava um
+borrão claro sob a parede. Ficou **uma**, a 0,16 de alfa.
+
+### O que saiu
+
+`muralha18.png` foi apagada de `client/public/assets/fx/` e do `fx-folhas.json` — ninguém
+mais a lê. A grade dela fica no cortador, marcada como aposentada: a fonte continua no
+repo e remedir custa mais do que guardar seis números.
+
+---
+
 ## 2026-09-20 — A Barreira de Fogo fecha as oito fases, com um cliente de SCRIPT
 
 **Onde mora:** `tools/teste-barreira.mjs` (novo) · nada de código de jogo mudou
