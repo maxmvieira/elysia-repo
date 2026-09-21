@@ -2,7 +2,7 @@
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
-> Último commit de código: `f5aef0e`. Árvore limpa, tudo empurrado.
+> Último commit de código: `4f531c3`. Árvore limpa, tudo empurrado.
 >
 > 🔥 **A Barreira de Fogo FECHOU** — as oito fases da ficha, a última inclusive.
 > O que faltava era conseguir OLHAR, e isso virou `tools/teste-barreira.mjs`.
