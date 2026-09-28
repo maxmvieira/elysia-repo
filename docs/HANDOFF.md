@@ -1,3 +1,87 @@
+# Handoff — 2026-09-28 · PONTO DE RETOMADA
+
+> Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
+> `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
+> Último commit de código: `COMMIT`. Árvore limpa, tudo empurrado.
+>
+> 🌊 **A Muralha de Fogo NÃO EXISTE MAIS.** A ficha do dono a substituiu pela
+> **Firewave** — uma onda que parte do personagem, avança na direção mirada,
+> queima quem estiver no caminho e some. Tudo que fazia a barreira ser barreira
+> saiu: bloqueio, duração, vida própria, contador de contatos, teto de barreiras.
+
+## 🎯 O QUE ESTÁ COMBINADO PARA DEPOIS
+
+🔴 **A Firewave precisa de ARTE.** A ficha proíbe reusar a sprite da muralha (§12) e
+arte nova não veio, então a frente de fogo é **desenhada por código** — três elipses
+aditivas achatadas no eixo do avanço, mais brasas. Aponta certo e lê como onda, mas é
+o candidato óbvio a receber uma folha de verdade.
+
+🔴 **DUAS DECISÕES QUE SÃO DO DONO, e estão marcadas no código:**
+
+> **1. O que cresce com o nível.** Na barreira o 50 % era por CONTATO e o que crescia
+> era a contagem deles (3 → 12). A onda acerta cada inimigo UMA vez, então aquela
+> progressão morreu — e com poder fixo a magia daria o mesmo dano no Lv.1 e no Lv.10.
+> Decidi que **o poder cresce** (0,50 vira o valor do Lv.1, que é onde as duas fichas
+> se encontram) e que o alcance vai de 3 a 6 tiles. Se ele quiser 50 % fixo em toda a
+> régua, o que cresce terá de ser outra coisa — e alcance não serve, porque o teste de
+> progressão mede dano POR ALVO.
+>
+> **2. Velocidade, alcance e largura** saíram de mim: 90 ms por tile, 3→6 tiles de
+> percurso, faixa de 3 células. A ficha os deixou "configuráveis" sem números.
+
+🔴 **Corrigir a Muralha de GELO** continua de pé desde 12/09, e o dono **não detalhou
+o que está errado**. Ela também mudou de altura em 20/09 sem ninguém pedir (ver o
+handoff anterior): a conta usava dois literais da folha do fogo.
+
+💔 **O `Testedois` está no 148** — três mortes minhas em 20/09.
+
+## 🔬 COMO CONFERIR A ONDA SEM MORRER
+
+    node --import tsx tools/teste-firewave.mjs
+
+Mede o que a ficha chama de teste mínimo (§21): os passos avançando, o rumo, o dano, o
+empurrão e — o mais fácil de quebrar — **um golpe por inimigo**.
+
+⚠️ Ele distingue o golpe da onda da parcela de QUEIMADURA por tempo. Sem isso o placar
+acusa "acertou duas vezes" quando o segundo número é o DoT; foi o primeiro resultado
+que ele deu. Mesma armadilha do teste da barreira: **ferramenta de medição errada
+acusa código certo.**
+
+## ⏸️ O QUE ENTROU
+
+| | |
+|---|---|
+| 🌊 **Firewave** | substitui a Muralha de Fogo; onda direcional com dano, empurrão e um golpe por inimigo |
+| ♻️ **Reuso** | nasce dentro do `golpesPendentes` (a fila da Chuva de Meteoros), sem arquitetura nova |
+| 🧹 **Remoção** | o contador de contatos saiu inteiro: 4 campos de `GroundArea`, 2 de `SkillGround`, 5 funções |
+| 💾 **Migração** | `fire_wall` → `firewave` em `IDS_RENOMEADOS`: quem tinha barreira 10 tem onda 10 |
+| 🎨 **VFX** | frente desenhada por código, um `fx` por passo — o cliente não guarda cópia da velocidade |
+
+## 🪤 O QUE ESTE BLOCO ENSINOU
+
+1. **Renomear uma skill apaga pontos investidos em silêncio.** `skill_levels` é um JSON
+   com o id como chave. O remédio já existia (`IDS_RENOMEADOS`, de 12/09) e o defeito
+   apareceu do jeito certo: o teste ao vivo disse *"você ainda não aprendeu Firewave"*.
+
+2. **Magia nova herda `fx` que não pediu.** A onda saía com um estouro de três tiles em
+   cima do mouse, antes de existir — era o clarão único que toda magia de área manda no
+   ponto mirado. Quem tem trajetória não tem ponto: os `fx` vêm um por passo.
+
+3. **O sistema de projéteis do jogo é só DESENHO.** `S2C_Projectile` anima um voo cujo
+   dano já foi resolvido. Para algo que fere ao longo do trajeto, quem serve é a fila de
+   golpes agendados.
+
+## ⚠️ PENDÊNCIAS QUE CONTINUAM ABERTAS
+
+- **O equilíbrio do congelamento** (50 % × 5 s contra 2 s de recarga).
+- **O `castTime` da Explosão Glacial** ainda diverge da ficha.
+- **A transição "primeiro dano → barra de vida"** nunca foi encenada.
+- **`anel_conjuracao` sem arte-fonte**; **~50 MB de folhas do Meteoro sem uso**; e a
+  `muralha12`, que ficou sem dono quando a barreira saiu.
+- **O repositório é PÚBLICO** e os docs assumem privado.
+
+---
+
 # Handoff — 2026-09-20 · PONTO DE RETOMADA
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).

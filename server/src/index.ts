@@ -124,8 +124,6 @@ import {
   areaBlocks,
   areaCovers,
   danificaArea,
-  marcaContato,
-  podeContato,
   areaVisibleTo,
   countAreasOf,
   dropOldestOf,
@@ -146,7 +144,6 @@ import {
   skillConditionDuration,
   skillDuration,
   skillGroundDuration,
-  skillGroundContatos,
   skillGroundHp,
   skillGroundMax,
   skillHits,
@@ -3555,6 +3552,20 @@ interface Tempestade {
    * separado, e é o certo — cada uma tem o próprio gelo para formar.
    */
   acertos: Map<string, number>;
+  /**
+   * 🌊 **Cada alvo apanha UMA vez nesta conjuração** — a regra da Firewave (§8 da
+   * ficha).
+   *
+   * 🔴 Os passos da onda se sobrepõem de propósito: é a sobreposição que impede
+   * buraco quando a onda vai na diagonal. Sem esta trava o mesmo monstro levaria
+   * dois ou três golpes da MESMA rajada — que é justamente o defeito que a ficha
+   * descreve (*"evita dano múltiplo causado pela atualização dos frames"*).
+   *
+   * ⚠️ O registro é o próprio `acertos`, que já existia para a Nevasca contar
+   * acertos entre bolas da mesma conjuração. Um `Set` paralelo seria o mesmo
+   * estado guardado duas vezes.
+   */
+  umaVezPorAlvo?: boolean;
   condicao?: { id: ConditionId; chance: number; durationMs: number; power?: number };
 }
 
@@ -3749,7 +3760,27 @@ function tickGolpesPendentes(now: number): void {
          * ponto"* —, e aqui ela vale para o lado contrário: a arte fica menor
          * que o estrago, e o anel é quem conta a verdade.
          */
-        ...(def.shape === 'area' ? { radius: skillRange(def, g.nivel) } : {}),
+        ...(def.shape === 'area' && !def.direcional
+          ? { radius: skillRange(def, g.nivel) }
+          : {}),
+        /*
+         * 🌊 **A ONDA manda o RUMO e a meia-largura, não o raio da magia.**
+         *
+         * O `radius` de uma magia de área é o alcance dela; na onda esse número é
+         * o COMPRIMENTO do percurso, e mandar isso faria o cliente desenhar uma
+         * frente de fogo seis vezes mais larga do que ela fere. O que a frente
+         * precisa é da largura (`splash`) e da inclinação.
+         *
+         * ⚠️ O ângulo sai do vetor origem → passo, e não da direção de quem
+         * lançou: entre o lançamento e o último passo o mago pode ter se virado, e
+         * a onda que já saiu não muda de rumo por causa disso.
+         */
+        ...(def.direcional && g.tempestade
+          ? {
+            radius: def.splash ?? 1,
+            rumo: Math.atan2(py - g.tempestade.centroY, px - g.tempestade.centroX),
+          }
+          : {}),
         /*
          * 🌠 **O TILE DE QUEM CONJUROU**, para a coisa que cai saber de que lado
          * entrar. Ver `fromX` no protocolo — dono, 12/09: *"está descendo do
@@ -3815,13 +3846,28 @@ function tickGolpesPendentes(now: number): void {
     }
 
     /*
+     * 🌊 **QUEM JÁ APANHOU DESTA ONDA sai da lista.** Ver `umaVezPorAlvo`.
+     *
+     * ⚠️ Filtrar AQUI, e não na montagem acima, porque as duas maneiras de
+     * escolher vítima (área da tempestade e respingo do ponto) desembocam neste
+     * mesmo ponto — pôr a trava numa delas deixaria a outra sem.
+     */
+    const registro = g.tempestade;
+    const vitimas = registro?.umaVezPorAlvo
+      ? atingidos.filter((v) => !registro.acertos.has(v.id))
+      : atingidos;
+    if (registro?.umaVezPorAlvo) {
+      for (const v of vitimas) registro.acertos.set(v.id, 1);
+    }
+
+    /*
      * ⚠️ **O GESTO SAI UMA VEZ POR CONJURAÇÃO, não por vítima.** `g.gesto` é
      * verdadeiro só no primeiro impacto agendado; dentro dele, só a PRIMEIRA
      * vítima o carrega. Sem as duas condições o feiticeiro repetia a animação
      * de conjurar a cada monstro atingido — e com respingo em bando isso são
      * dezenas de vezes.
      */
-    atingidos.forEach((v, k) => {
+    vitimas.forEach((v, k) => {
       const t = g.tempestade;
       /*
        * 🌬️ **O EMPURRÃO VEM ANTES DO DANO, e a ordem importa.** Depois dele,
@@ -4373,7 +4419,14 @@ function executeSpell(
      * tempo é decisão do jogador, e é ela que dá peso à habilidade; o servidor
      * recusando por ele tirava a decisão da mesa.
      */
-    const podeSairVazia = (def.queda === true && def.shape === 'area') || def.emVolta === true;
+    /*
+     * 🌊 **E a ONDA também sai sem ninguém na frente.** Mesmo argumento das duas
+     * acima, com uma razão a mais: a Firewave é DIRECIONAL, e quem decide se há
+     * alguém no rumo é cada passo dela, no instante em que passa. Exigir alvo no
+     * lançamento seria perguntar antes de a onda existir.
+     */
+    const podeSairVazia = (def.queda === true && def.shape === 'area')
+      || def.emVolta === true || def.direcional === true;
     if (targets.length === 0 && !podeSairVazia) {
       send(player, { t: 'denied', reason: 'Nenhum inimigo ao alcance.' });
       return;
@@ -4524,7 +4577,15 @@ function executeSpell(
     return Math.max(1, Math.floor(janela / Math.max(1, golpes)));
   };
 
-  if (!emQueda) {
+  /*
+   * 🌊 **A ONDA não passa por aqui.** Este `fx` é o clarão ÚNICO da conjuração, no
+   * ponto mirado e do tamanho do alcance — e a Firewave não tem ponto nem
+   * tamanho: ela tem uma frente que anda. Deixar sair daqui punha um estouro de
+   * três tiles de raio em cima do mouse, antes de a onda sequer sair dos pés do
+   * mago (visto em teste, 28/09). Os `fx` dela vêm um por passo, do
+   * `tickGolpesPendentes`.
+   */
+  if (!emQueda && !def.direcional) {
     /*
      * ❄️ **A Glacial JÁ MANDOU a lista de alvos daqui, e não manda mais.** Ela
      * chegou a apontar um leque de espinhos para cada inimigo; o dono viu as
@@ -4572,6 +4633,18 @@ function executeSpell(
   const oculto = def.id === 'hidden_strike' && estavaOculto ? HIDDEN_STRIKE_BONUS : 1;
   const poderBase = ataque * skillPower(def, nivel) * offenseMult(player)
     * bonusEquip * sabor * afinidade * oculto;
+
+  /*
+   * 🌊 **A ONDA sai por aqui, e não pelo laço de alvos.** Ela não tem alvo no
+   * lançamento: tem rumo. Quem apanha só se decide passo a passo, quando a frente
+   * de fogo chega àquele tile — que é a diferença entre uma rajada que ATRAVESSA o
+   * campo e uma que escolhe quem acertar antes de sair.
+   */
+  if (def.direcional) {
+    lancaOnda(player, def, nivel, now, mira, poderBase, d.critChance, d.critMult);
+    sendStats(player);
+    return;
+  }
 
   /**
    * 🔴 `DD-SOR-010` **os meteoros caem em posições parcialmente aleatórias**:
@@ -5053,6 +5126,107 @@ function lancaEmAliados(
 }
 
 /**
+ * 🌊 **A FIREWAVE: uma frente de fogo que anda, agendada na fila que já existia.**
+ *
+ * 🔴 **Nenhuma arquitetura nova, e a ficha do dono pede isso em letra** (§20:
+ * *"se já existir um sistema de Projectile / MovingSpell / DirectionalAoE,
+ * reutilizá-lo"*). O sistema que serve é o `golpesPendentes`, da Chuva de
+ * Meteoros: golpes marcados no TEMPO, cada um revalidado no instante em que cai,
+ * com um estado compartilhado por conjuração.
+ *
+ * ✅ A onda é **um golpe agendado por TILE percorrido**. O passo k resolve
+ * `(k-1) × ondaMsPorTile` depois do lançamento, no tile `origem + rumo × k` — e é
+ * exatamente isso que faz a frente AVANÇAR pelo mapa em vez de estourar inteira.
+ *
+ * ⚠️ **Quem apanha sai do `splash`, e não do desenho.** A ficha proíbe usar o
+ * tamanho da sprite para colidir; aqui a pergunta é a de sempre neste jogo —
+ * chebyshev até `splash` do tile do passo.
+ *
+ * ⚠️ **E cada inimigo apanha UMA vez por onda** (§8). Passos vizinhos se
+ * sobrepõem de propósito — é o que impede buraco na diagonal —, então sem o
+ * registro compartilhado o mesmo monstro levaria dois ou três golpes da mesma
+ * rajada. O registro é o `acertos` da `Tempestade`, que já existia para a Nevasca
+ * contar acertos entre bolas da mesma conjuração.
+ */
+function lancaOnda(
+  player: Player,
+  def: SkillDef,
+  nivel: number,
+  now: number,
+  mira: Mira,
+  poderBase: number,
+  critChance: number,
+  critMult: number,
+): void {
+  /*
+   * 🎯 **A MIRA VIRA RUMO, e só isso.** A distância do clique é jogada fora: o
+   * vetor conjurador → mira é reduzido a uma das oito direções do jogo pelo mesmo
+   * `directionFromDelta` que o personagem usa para virar o corpo. Duas contas
+   * diferentes aqui e no movimento dariam uma onda que sai torta em relação ao
+   * sprite de quem lançou.
+   *
+   * ⚠️ Sem mira (atalho disparado sem clique), vale a direção para onde o
+   * personagem já está virado — que é o palpite menos surpreendente.
+   */
+  const dx = (mira.tileX ?? player.tileX) - player.tileX;
+  const dy = (mira.tileY ?? player.tileY) - player.tileY;
+  const rumo = (dx === 0 && dy === 0)
+    ? player.direction
+    : directionFromDelta(dx, dy, player.direction);
+  const v = DIRECTION_VECTORS[rumo];
+  player.direction = rumo;
+
+  const alcance = skillRange(def, nivel);
+  const passo = def.ondaMsPorTile ?? 90;
+  /*
+   * 🌊 **UM registro para a onda inteira.** Criado FORA do laço, de propósito: é a
+   * referência compartilhada que faz o passo 3 saber quem o passo 2 já queimou.
+   * Dentro do laço seriam N registros vazios e cada passo acertaria de novo.
+   */
+  const onda: Tempestade = {
+    centroX: player.tileX,
+    centroY: player.tileY,
+    raio: alcance,
+    daArea: false,
+    umaVezPorAlvo: true,
+    acertos: new Map<string, number>(),
+    ...(def.applies
+      ? {
+        condicao: {
+          id: def.applies.id,
+          chance: skillConditionChance(def, nivel),
+          durationMs: skillConditionDuration(def, nivel),
+          power: def.applies.power,
+        },
+      }
+      : {}),
+  };
+
+  const arremesso = def.empurraTiles !== undefined ? skillEmpurrao(def, nivel) : undefined;
+  for (let k = 1; k <= alcance; k++) {
+    const fxEm = now + (k - 1) * passo;
+    golpesPendentes.push({
+      playerId: player.id, creatureId: '', skillId: def.id, nivel,
+      poderBase, critChance, critMult,
+      fxEm,
+      fxFeito: false,
+      // ⚠️ O gesto de conjurar sai UMA vez, no primeiro passo.
+      gesto: k === 1,
+      /*
+       * 🌊 **O dano cai JUNTO com o desenho, e não depois.** Nas quedas existe um
+       * atraso porque a bola precisa descer do céu; aqui a frente de fogo É o
+       * dano, e separar os dois faria o monstro apanhar de um fogo que já passou.
+       */
+      quando: fxEm,
+      alvoX: player.tileX + v.dx * k,
+      alvoY: player.tileY + v.dy * k,
+      tempestade: onda,
+      ...(arremesso !== undefined ? { empurraAoAcerto: arremesso } : {}),
+    });
+  }
+}
+
+/**
  * 🌿 Larga uma área persistente no chão.
  *
  * A área nasce onde o CONJURADOR está. Mirar com o mouse exigiria posição no
@@ -5105,7 +5279,6 @@ function plantaArea(
 
   const duracao = skillGroundDuration(def, nivel);
   const raio = skillRange(def, nivel);
-  const contatos = skillGroundContatos(def, nivel);
   const vida = skillGroundHp(def, nivel);
   // Cura sai de `healPower`; dano sai do poder mágico. A mesma bifurcação do
   // resto do arquivo, aqui já resolvida em número absoluto por pulso.
@@ -5156,10 +5329,7 @@ function plantaArea(
     hitsPlayers: g.hitsPlayers,
     hitsCreatures: g.hitsCreatures,
     blocks: g.blocks ?? false,
-    /*
-     * 🔥 O limite de contatos e o empurrão do contato. Ausentes na ficha, a área
-     * pulsa em todo mundo para sempre — o comportamento das outras seis.
-     */
+
     /*
      * ❄️ **A estrutura nasce com vida.** Sem `hpAtLv1` na ficha, nada disto
      * existe e a área morre só pelo relógio — o comportamento das outras seis.
@@ -5173,16 +5343,7 @@ function plantaArea(
           : {}),
       }
       : {}),
-    ...(contatos !== undefined
-      ? {
-        maxContatos: contatos,
-        contatos: {},
-        ...(g.contatoMs !== undefined ? { contatoMs: g.contatoMs } : {}),
-        ...(def.empurraTiles !== undefined
-          ? { empurraTiles: skillEmpurrao(def, nivel) }
-          : {}),
-      }
-      : {}),
+
     fx: def.fx,
     ...(def.applies
       ? {
@@ -5433,28 +5594,13 @@ function tickGroundAreas(now: number): void {
       for (const c of creatures.values()) {
         if (!c.alive || !areaCovers(a, c.tileX, c.tileY, c.floor)) continue;
         /*
-         * 🔥 **A BARREIRA DE CONTATO não pulsa: ela reage a quem pisa.**
-         *
-         * `podeContato` responde as duas perguntas de uma vez — o alvo já gastou
-         * os contatos dele, e já passou o intervalo desde o último. Sem limite na
-         * ficha ela devolve sempre `true`, e a área volta a ser a de antes.
+         * 🌊 **O CONTATO da Muralha de Fogo vivia aqui, e saiu em 28/09** com ela.
+         * A área de dano voltou a ser o que sempre foi nas outras: pulsa em quem
+         * está dentro, a cada `tickMs`. Quem quiser o histórico da barreira de
+         * contato — contador por alvo, intervalo mínimo, empurrão por toque — ele
+         * está no `HISTORICO.md` de 12/09 e 20/09.
          */
-        if (!podeContato(a, c.id, now)) continue;
-        /*
-         * 🔥 **O PONTO DO CONTATO é onde ele ESTÁ**, porque aqui ele está DENTRO
-         * do fogo — a barreira nasceu em cima dele, ou um empurrão de outra magia
-         * o jogou para cá. Quem entra pelo lado de fora nunca chega neste laço:
-         * a muralha é colisão, e esse caminho é o `tentaAtravessar`.
-         *
-         * 🌬️ E o recuo é o contrário da DIREÇÃO dele: ele olhava para onde andava
-         * quando caiu aqui, então é por ali que ele volta.
-         */
-        const v = DIRECTION_VECTORS[c.direction];
-        contatoDaBarreira(
-          a, dono, c, now,
-          { x: c.tileX, y: c.tileY },
-          { dx: -v.dx, dy: -v.dy },
-        );
+        golpeDeArea(dono, a, c, now);
       }
     }
     if (a.hitsPlayers) {
@@ -5466,55 +5612,10 @@ function tickGroundAreas(now: number): void {
         }
         // Dano em jogador: só quem NÃO é aliado do dono.
         if (!dono || ehAliado(dono, p)) continue;
-        if (!podeContato(a, p.id, now)) continue;
         danoDeAreaEmJogador(dono, a, p, now);
-        marcaContato(a, p.id, now);
       }
     }
   }
-}
-
-/**
- * 🔥 **O QUE A BARREIRA FAZ COM QUEM A TOCA — num lugar só.**
- *
- * 🔴 Dois caminhos diferentes chegam aqui, e é por isso que isto é função: o
- * tique, para quem está DENTRO do fogo, e o passo negado, para quem tentou
- * ATRAVESSAR. A ficha simplificada trata os dois como o mesmo evento — *"quando um
- * inimigo entrar ou tentar atravessar"* — e separá-los em dois blocos iguais é
- * exatamente como um deles fica sem o contador ou sem o empurrão.
- *
- * ⚠️ **Quem chama diz ONDE tocou e para ONDE recua**, porque as duas coisas
- * mudam entre os dois casos e nenhuma delas dá para deduzir aqui: o estouro de
- * brasa sai na célula da muralha (é o que o jogador está olhando), e o recuo é
- * sempre o contrário de por onde ele veio.
- *
- * ⚠️ **O empurrão vem DEPOIS do dano e só com o alvo vivo.** Arremessar um
- * cadáver não muda nada no jogo, mas move a criatura um quadro antes de a morte
- * ser desenhada — e em tela isso lê como "ele escapou".
- */
-function contatoDaBarreira(
-  a: GroundArea,
-  dono: Player,
-  c: Creature,
-  now: number,
-  tocou: { x: number; y: number },
-  recuo: { dx: number; dy: number },
-): void {
-  golpeDeArea(dono, a, c, now);
-  marcaContato(a, c.id, now);
-  /*
-   * 💥 **O contato AVISA o cliente** — dono, 13/09: *"os monstros precisam ter
-   * impacto ao tocarem nela"*. Sem isto o único sinal era o número de dano: o
-   * monstro era arremessado dois tiles em silêncio, e em tela parecia que ele
-   * tinha escorregado.
-   *
-   * ⚠️ Só quando há contato de verdade. Mandar por tique encheria a rede de
-   * pacotes enquanto um chefe imune ao empurrão estivesse em pé no fogo.
-   */
-  broadcastFloor(a.floor, {
-    t: 'fx', kind: 'fire_wall_hit', x: tocou.x, y: tocou.y, floor: a.floor,
-  });
-  if (c.alive && a.empurraTiles !== undefined) empurra(dono, c, a.empurraTiles, recuo);
 }
 
 /**
@@ -5782,65 +5883,6 @@ function quebraParede(c: Creature, alvo: Player, now: number): void {
     }
     return;
   }
-}
-
-/**
- * 🔥 A barreira de CONTATO que ocupa este tile, se houver.
- *
- * 🔴 **Reconhecida pelos CAMPOS, e não pelo nome da magia.** Barra passagem e
- * tem contador de contatos — hoje só a Muralha de Fogo junta as duas coisas, e
- * a de Gelo fica de fora por não ter contatos (ela se defende com HP, e quem
- * cuida dela é o `quebraParede`). Escrever `skillId === 'fire_wall'` aqui
- * seria amarrar a mecânica a uma ficha, e a próxima barreira de contato nasceria
- * muda.
- */
-function barreiraDeContato(x: number, y: number, floor: number): GroundArea | undefined {
-  return groundAreas.find(
-    (a) => a.blocks && a.maxContatos !== undefined && areaCovers(a, x, y, floor),
-  );
-}
-
-/**
- * 🔥 **O monstro TENTOU ATRAVESSAR a barreira? Então ele queima aqui mesmo.**
- * Devolve `true` quando houve contato — e aí ele NÃO anda neste tique.
- *
- * 🔴 **É esta função que deixa a muralha ser colisão E arma ao mesmo tempo.** O
- * medo escrito na ficha antiga era real: uma parede que barra faz o monstro
- * contornar pelo caminho mais curto, e ele nunca a toca. A saída é perguntar
- * ANTES do desvio — sobre os passos que ele TENTARIA dar, na ordem em que
- * tentaria (`passosDiretos`) —, porque é nesse instante que ele está
- * empurrando o corpo contra o fogo.
- *
- * ⚠️ **Passo livre encerra a pergunta.** Se o primeiro candidato dá certo, o
- * monstro vai por ali e não tentou atravessar coisa alguma — mesmo que a segunda
- * opção fosse a muralha. Sem esta linha, todo bicho que passasse RENTE à
- * barreira levaria contato, e ela viraria uma poça de dano com dois tiles de
- * alcance.
- *
- * ⚠️ **Contatos gastos, o monstro passa a contornar em silêncio.** Ele continua
- * sem atravessar (`creatureCanEnter` já barra), mas a barreira para de ferir:
- * `podeContato` devolve falso e o `continue` entrega o caminho ao desvio
- * normal.
- */
-function tentaAtravessar(
-  c: Creature, tx: number, ty: number, now: number, avoidCenter: boolean,
-): boolean {
-  for (const [mx, my] of passosDiretos(c.tileX, c.tileY, tx, ty)) {
-    if (mx === 0 && my === 0) continue;
-    const nx = c.tileX + mx!;
-    const ny = c.tileY + my!;
-    if (creatureCanEnter(nx, ny, c.floor, avoidCenter, c.id)) return false;
-    const barreira = barreiraDeContato(nx, ny, c.floor);
-    if (!barreira) continue;
-    const dono = players.get(barreira.ownerId);
-    if (!dono || !podeContato(barreira, c.id, now)) continue;
-    // Vira para o fogo antes de apanhar dele: o cliente desenha o bicho de
-    // frente para a muralha, que é de onde o empurrão vem.
-    c.direction = dirFromDelta(mx!, my!, c.direction);
-    contatoDaBarreira(barreira, dono, c, now, { x: nx, y: ny }, { dx: -mx!, dy: -my! });
-    return true;
-  }
-  return false;
 }
 
 function creatureAttack(creature: Creature, player: Player, now: number): void {
@@ -8146,21 +8188,9 @@ function updateCreatures(now: number): void {
         // Longe demais para o corpo a corpo, perto o bastante para a magia.
         creatureCastSpell(c, target, now);
       } else if (now - c.lastMoveAt >= moveCd) {
-        /*
-         * 🔥 **A barreira de fogo é perguntada ANTES do desvio.** Aqui o monstro
-         * ainda quer ir em frente; um passo depois ele já escolheu contornar, e
-         * aí não há mais "tentou atravessar" para detectar.
-         */
-        if (tentaAtravessar(c, target.tileX, target.tileY, now, avoidCenter)) {
-          // Queimou e recuou: o tique dele acabou. Sem marcar o relógio, ele
-          // tentaria de novo no quadro seguinte e o contatoMs viraria o único
-          // freio de uma criatura colada no fogo.
-          c.lastMoveAt = now;
-        } else {
-          const step = stepToward(c.tileX, c.tileY, target.tileX, target.tileY, c.floor, avoidCenter, c.id);
-          if (step) { c.tileX = step.x; c.tileY = step.y; c.lastMoveAt = now; }
-          else quebraParede(c, target, now);
-        }
+        const step = stepToward(c.tileX, c.tileY, target.tileX, target.tileY, c.floor, avoidCenter, c.id);
+        if (step) { c.tileX = step.x; c.tileY = step.y; c.lastMoveAt = now; }
+        else quebraParede(c, target, now);
       }
     } else if (chebyshev(c.tileX, c.tileY, c.homeX, c.homeY) > 6) {
       // SEM alvo e LONGE de casa: volta andando ao ponto de origem (leash). Sem

@@ -239,6 +239,17 @@ const IDS_RENOMEADOS: ReadonlyArray<readonly [string, string]> = [
   // 12/09: a ficha da Jupitel Thunder trocou a magia inteira, e o dono pediu o
   // id novo. O nome em tela ("Esfera Elétrica") nunca mudou.
   ['lightning_ball', 'electric_sphere'],
+  /*
+   * 🌊 28/09: a Muralha de Fogo foi SUBSTITUÍDA pela Firewave — outra magia no
+   * mesmo lugar da árvore, com o mesmo pré-requisito e o mesmo custo.
+   *
+   * ⚠️ **Os pontos seguem, e essa é a decisão.** Dá para argumentar que uma magia
+   * trocada deveria devolver os pontos em vez de herdá-los; só que o jogo não
+   * tem devolução parcial, e a alternativa real seria o personagem perder em
+   * silêncio o que investiu — que é exatamente o defeito que esta lista existe
+   * para impedir. Ela ocupa a MESMA vaga: quem tinha barreira 10 tem onda 10.
+   */
+  ['fire_wall', 'firewave'],
 ];
 
 function migraIdsDeSkill(niveis: SkillLevels): SkillLevels {

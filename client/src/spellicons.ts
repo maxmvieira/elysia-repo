@@ -571,7 +571,7 @@ const GLIFOS: Record<string, Glifo> = {
   nature_affinity: 'circulo',
   // 🔮 Feiticeiro — fogo
   fire_bolt: 'chama',
-  fire_wall: 'muralha',
+  firewave: 'muralha',
   meteor: 'espinho',
   meteor_storm: 'nuvem',
   // 🔮 Feiticeiro — gelo

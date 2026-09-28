@@ -65,7 +65,7 @@ export type SkillId =
   | 'nature_affinity'
   // 🔮 Feiticeiro — 🔥 fogo (4)
   | 'fire_bolt'
-  | 'fire_wall'
+  | 'firewave'
   | 'meteor'
   | 'meteor_storm'
   // 🔮 Feiticeiro — ❄️ gelo (4)
@@ -229,14 +229,6 @@ export interface SkillGround {
    * o jogador a pensar em eixos em vez de em direção.
    */
   linha?: boolean;
-  /**
-   * 🔥 **Quantos contatos cada alvo aguenta**, antes de a barreira parar de
-   * feri-lo. Ver `maxContatos` em `GroundArea`. Ausente = sem limite.
-   */
-  contatosAtLv1?: number;
-  contatosAtLv10?: number;
-  /** Intervalo mínimo entre dois contatos do MESMO alvo. */
-  contatoMs?: number;
   /**
    * ❄️ **VIDA da estrutura**, para as barreiras que podem ser derrubadas. Ver
    * `hp` em `GroundArea`. Ausente = a área só morre pelo relógio.
@@ -570,6 +562,27 @@ export interface SkillDef {
    * numa parede no primeiro tile não tira um ponto do estrago.
    */
   empurraTiles?: number;
+  /**
+   * 🌊 **A magia é DIRECIONAL: a mira diz para onde, não onde.**
+   *
+   * 🔴 Só a Firewave usa. Com ela ligada o servidor reduz o vetor conjurador →
+   * mira a uma das oito direções do jogo e a magia parte dos pés de quem lançou
+   * naquele rumo; a distância do clique é ignorada. Sem ela, a mira continua
+   * significando o CENTRO da área, que é o comportamento de todas as outras.
+   *
+   * ⚠️ Não virou uma `shape` nova de propósito: `area` já faz o cliente pedir um
+   * clique no chão e mandar o tile, que é tudo de que a onda precisa.
+   */
+  direcional?: boolean;
+  /**
+   * 🌊 **Quanto a onda demora POR TILE percorrido**, em ms.
+   *
+   * 🔴 É o servidor que agenda os passos com este número, e é ele quem manda um
+   * `fx` por passo. O cliente não guarda cópia: se guardasse, o fogo passaria a
+   * chegar antes ou depois do dano no dia em que um dos dois mudasse — que é
+   * exatamente a família de defeito que o `quedaMs` do protocolo existe para evitar.
+   */
+  ondaMsPorTile?: number;
   /** ⚡ O empurrão no Lv.10, quando ele cresce. Ausente = fixo. */
   empurraTilesAtLv10?: number;
   /**
@@ -1739,152 +1752,128 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     fx: 'fire_bolt',
     desc: 'Rajada de fogo num alvo. Barata, constante, pode queimar.',
   },
-  fire_wall: {
-    id: 'fire_wall',
-    name: 'Muralha de Fogo',
-    kind: 'ground',
+  /**
+   * 🔥 **FIREWAVE — e ela SUBSTITUI a Muralha de Fogo** (ficha do dono, 28/09).
+   *
+   * 🔴 **Não é uma parede que virou onda: é outra magia no lugar da antiga.** A
+   * ficha é explícita em declarar obsoleto tudo que fazia a barreira ser barreira
+   * — 3 células, bloqueio, duração, vida própria, contador de contatos, teto de
+   * barreiras. O que sobreviveu foram dois números: **50 % de ATQM** e **2 tiles
+   * de empurrão**, que a ficha manda manter.
+   *
+   * ✅ **E ela nasce reaproveitando a fila de golpes agendados** (`golpesPendentes`),
+   * que é o sistema que a Chuva de Meteoros já usa: golpes marcados no tempo,
+   * revalidados no instante do impacto, com um estado compartilhado por
+   * conjuração. A onda é UM passo por tile percorrido — ela avança porque o passo
+   * k resolve `k × ondaMsPorTile` depois do lançamento. Ver `direcional`.
+   */
+  firewave: {
+    id: 'firewave',
+    name: 'Firewave',
+    kind: 'damage',
     branch: 'fogo',
     classes: ['sorcerer'],
     reqLevel: 10,
     requires: [{ skill: 'fire_bolt', level: 3 }],
-    /**
-     * 🔥 **40 de SP em TODOS os níveis** — ficha do dono, 13/09. É a única magia
-     * ofensiva do Feiticeiro com custo fixo, e o motivo é a função dela: quem
-     * ergue muralha faz isso várias vezes na mesma luta, e um custo que cresce
-     * puniria justamente quem usa a habilidade como ela foi desenhada.
+    /*
+     * 🔥 **40 de SP e 5 s de recarga vieram da barreira**, e a ficha nova manda
+     * isso em letra: *"não inventar valores de alcance, velocidade, cooldown ou SP
+     * se o projeto já possui valores definidos"*. Estes o projeto já tinha.
      */
     manaCost: 40,
     manaPerLevel: 0,
-    /**
-     * ⚠️ **5 s de recarga, e a ficha do dono nunca falou dela** — o número é meu,
-     * e a conta que o justificava MORREU: ela vinha das três muralhas
-     * simultâneas, e desde a ficha simplificada só existe uma (ver `maxAtLv1`).
-     *
-     * ✅ O que sobra a segurando é mais simples e continua de pé: no Lv.1 a
-     * barreira dura exatos 5 s, então a recarga fecha quando ela cai — nunca há
-     * um intervalo em que o Feiticeiro está sem barreira E sem poder erguer.
-     * Do Lv.2 em diante a duração passa a recarga, e erguer de novo TROCA a que
-     * está de pé: reposicionar a barreira, não acumular.
-     */
     cooldownMs: 5000,
     /**
-     * 🔥 **50 % de ATQM por CONTATO, e é fixo em toda a régua** (ficha do dono).
-     * O que cresce com o nível é quantas vezes a barreira acerta o mesmo alvo —
-     * de 3 para 12 —, não o quanto cada acerto dói. É uma habilidade de CONTROLE
-     * que subiu de nível, não uma de dano.
+     * 🔴 **0,50 no Lv.1 é a "referência da antiga skill" que a ficha manda manter
+     * — mas ela NÃO pode ficar fixa, e a decisão é minha.**
+     *
+     * Na barreira o 50 % era POR CONTATO, e o que crescia com o nível era quantos
+     * contatos o mesmo inimigo levava (3 → 12). A Firewave acerta cada inimigo
+     * **uma vez só** (ficha, §8), então aquela progressão morreu junto com o
+     * contador — e com poder fixo a magia daria o MESMO dano no Lv.1 e no Lv.10.
+     *
+     * ⚠️ O teste de progressão de `skills.test.ts` pega isso na hora: ele mede
+     * `golpes × poder × contatos` e exige que o Lv.10 doa mais que o Lv.1. Com a
+     * onda os dois primeiros são 1 e o terceiro sumiu.
+     *
+     * ✅ Então o poder cresce, e 0,50 passa a ser o valor do **Lv.1** — que é
+     * exatamente onde as duas fichas se encontram. O teto de 1,30 fica entre o
+     * Fire Bolt (1,18 por bolt, mas dez bolts) e as supremas: uma AoE direcional
+     * de recarga curta que acerta uma vez por inimigo.
+     *
+     * 🔴 **Se o dono quiser 50 % fixo em toda a régua, o lugar de decidir é aqui**
+     * — e aí o que cresce tem de ser outra coisa (alcance e largura já crescem, mas
+     * o teste mede dano POR ALVO, e alcance não entra nessa conta).
      */
     power: 0.5,
-    powerPerLevel: 0,
-    shape: 'ground',
+    powerPerLevel: 0.0889,
     /**
-     * ⚠️ **`range` aqui é o meio-comprimento da LINHA**: 1 dá as TRÊS células
-     * da ficha simplificada. Não confundir com a distância de lançamento, que é
-     * `castRange`.
+     * 🎯 **`direcional` é o campo novo, e ele muda o significado da MIRA.**
      *
-     * 🔴 **Voltou de 2 para 1, e é uma decisão do dono revertendo outra dele.**
-     * Em 13/09 ele pediu CINCO células depois de ver três em tela, com um motivo
-     * medido: cinco barram um corredor inteiro, três deixam passar pelas
-     * beiradas. A ficha SIMPLIFICADA pede 1×3 em cinco lugares diferentes
-     * (`barrier.cells = [cell0, cell1, cell2]`), dentro de um pedido explícito
-     * de SIMPLIFICAR e pôr a magia de pé de ponta a ponta antes de crescer.
+     * Nas outras magias de área o clique diz ONDE a magia estoura. Aqui ele diz
+     * apenas PARA ONDE ela vai: o servidor reduz o vetor conjurador → mira a uma
+     * das oito direções que o jogo já tem (`directionFromDelta`) e a onda parte dos
+     * pés do mago naquele rumo. A distância do clique não importa — só o ângulo.
      *
-     * ✅ **E o que devolve o que as cinco células davam é o `blocks` lá embaixo.**
-     * Quem contornava três células andando por fora do fogo hoje bate na parede:
-     * a beirada continua lá, mas passá-la custa o caminho mais longo em vez de
-     * custar nada.
+     * ⚠️ É o que a ficha chama de `targetType: "direction"`, e o motivo de ela não
+     * virar `shape` nova: `area` já faz o cliente pedir um clique no chão e
+     * mandar o tile, que é tudo de que a onda precisa.
      */
-    range: 1,
-    rangeEvery: 0,
+    direcional: true,
+    shape: 'area',
+    /**
+     * 🌊 **`range` aqui é QUANTOS TILES a onda percorre** — 3 no Lv.1, 6 no Lv.10.
+     * Não é raio: a onda não tem centro, tem frente.
+     */
+    range: 3,
+    rangeEvery: 3,
+    /**
+     * 🌊 **A LARGURA da frente, como meia-largura em tiles.** 1 dá a faixa de três
+     * células que a ficha desenha.
+     *
+     * ⚠️ Reusa o `splash` de propósito: ele já significa *"quem está a até N de
+     * chebyshev do ponto de impacto apanha"*, e é exatamente a pergunta que cada
+     * passo da onda faz. Um campo novo seria o mesmo conceito com dois nomes.
+     *
+     * 🔴 E é por isso que a detecção **não olha para a sprite**, como a ficha exige:
+     * ela olha para o tile do passo e para este número.
+     */
+    splash: 1,
+    /**
+     * 🌊 **A VELOCIDADE, em ms por tile.** 90 ms dá uma onda que cruza seis tiles
+     * em pouco mais de meio segundo — rápida o bastante para ler como rajada, e
+     * não como uma bola rolando.
+     *
+     * ⚠️ É o servidor que a usa para agendar os passos, e é ele quem manda um
+     * `fx` por passo. O cliente não guarda cópia deste número: se guardasse, o
+     * fogo chegaria antes ou depois do dano no dia em que um dos dois mudasse.
+     */
+    ondaMsPorTile: 90,
+    /*
+     * 🎯 9 tiles de mira — herdado da barreira. Só o ÂNGULO é usado, mas o alcance
+     * continua valendo como cerca: mirar a 30 tiles não deve ser aceito.
+     */
     castRange: 9,
     castRangeEvery: 0,
-    durationMs: 8000,
-    /**
-     * ⚠️ **2,15 s no Lv.1 e 0,80 no Lv.10**, com os degraus de 0,15 s da ficha —
-     * a interpolação linear do jogo dá exatamente os dez números que o dono
-     * escreveu, então não há tabela para manter.
+    // 🎯 Instantânea: `castTime: 0` está na ficha em letra.
+    castMs: 0,
+    /*
+     * ⚠️ **A onda não DURA: ela passa.** O tempo de vida dela é o percurso, e esse
+     * sai de `alcance × ondaMsPorTile` no servidor. Este campo é a duração de um
+     * EFEITO que fica (buff, área), e para a Firewave o valor honesto é zero.
      */
-    castMs: 2150,
-    castMsAtLv10: 800,
+    durationMs: 0,
     magic: true,
     damageType: 'fire',
     /**
-     * 🔥 **CONTROLE DE PASSAGEM, e não uma área que pulsa** (ficha do dono,
-     * 13/09). A diferença é grande e está toda aqui:
-     *
-     * 🔴 **Quem entra leva UM contato e é arremessado para fora**, em vez de
-     * queimar a cada segundo enquanto ficar dentro. É isso que faz a barreira
-     * *barrar*: o empurrão de dois tiles desfaz a travessia. E é isso que dá
-     * sentido ao contador por alvo — sem ele, um monstro empurrado voltaria para
-     * sempre.
-     *
-     * 🔴 **AGORA ELA ENTRA NA COLISÃO** (`blocks: true`), e isto reverte uma
-     * decisão de 13/09 que estava escrita aqui com um motivo CORRETO: se a
-     * muralha barrasse, o monstro contornaria pelo caminho mais curto e nunca a
-     * tocaria — a magia não faria nada contra o que saiba andar.
-     *
-     * ✅ **O que destrava a reversão é o passo NEGADO virar contato.** O servidor
-     * pergunta pela barreira ANTES de o monstro desviar: quem tenta atravessar
-     * leva o contato e o empurrão sem sair do lugar (ver `tentaAtravessar` no
-     * servidor). É a letra da ficha simplificada — *"quando um inimigo entrar ou
-     * TENTAR ATRAVESSAR uma das 3 células"* —, e é o que faz barrar e ferir
-     * conviverem em vez de se anularem.
-     *
-     * ⚠️ Gastos os contatos dele, o monstro continua sem passar e aí sim
-     * contorna. A barreira para de ferir e vira obstáculo — o fim natural de uma
-     * parede de fogo que já queimou o que tinha para queimar.
-     *
-     * ⚠️ **`tickMs: 200` é a taxa de DETECÇÃO, não a de dano.** Quem separa dois
-     * contatos do mesmo alvo é `contatoMs`; o tique curto existe para pegar o
-     * monstro no primeiro momento em que ele pisa, antes de ele sair do outro
-     * lado.
-     */
-    ground: {
-      kind: 'damage',
-      tickMs: 200,
-      durationAtLv1: 5000,
-      durationAtLv10: 14000,
-      hitsPlayers: true,
-      hitsCreatures: true,
-      linha: true,
-      contatosAtLv1: 3,
-      contatosAtLv10: 12,
-      /*
-       * ⚠️ 700 ms entre contatos do mesmo alvo. É o que protege quem NÃO pode
-       * ser empurrado: um chefe imune fica dentro do fogo, e sem isso gastaria
-       * os doze contatos do Lv.10 em dois segundos e meio.
-       */
-      contatoMs: 700,
-      /*
-       * 🔥 **Ela É colisão.** É a segunda magia do jogo a virar parede de verdade,
-       * e a primeira que fere quem esbarra. Ver a nota grande logo acima: sem o
-       * passo negado virar contato, ligar isto ANULA a magia.
-       */
-      blocks: true,
-      /*
-       * 🔥 **UMA barreira, e é a ficha simplificada em letra**: *"por enquanto não
-       * implementar: múltiplas barreiras; limite de 3 barreiras"*. Eram três em
-       * todos os níveis desde 13/09.
-       *
-       * ⚠️ Erguer a segunda não é recusado: derruba a primeira (`dropOldestOf`),
-       * como o jogo já faz com armadilha e muralha de gelo. Recusar em silêncio é
-       * pior do que substituir.
-       */
-      maxAtLv1: 1,
-      maxAtLv10: 1,
-    },
-    /**
-     * 🌬️ **Dois tiles por contato** — ficha do dono. É o empurrão que transforma
-     * dano em BARREIRA: sem ele o monstro atravessa queimado, com ele não
-     * atravessa. As regras de quem não pode ser empurrado (chefe, imóvel, parede
-     * atrás) são as do `empurra`, que já existiam.
+     * 🌬️ **Dois tiles, para LONGE do conjurador** — ficha, §7. É o `empurra` de
+     * sempre, que já respeita parede, borda do mapa e quem não pode ser empurrado.
      */
     empurraTiles: 2,
     /**
-     * 🔥 **A QUEIMADURA FICA, e a ficha de 13/09 não falou dela.** Ela já estava
-     * aqui antes, e o pedido do dono foi explícito em não inventar regra onde já
-     * existe uma equivalente — tirar seria a mesma decisão pelo avesso.
-     *
-     * ⚠️ Se ela tiver de sair, é uma linha: o dano por contato não depende dela.
+     * 🔥 **A queimadura FICA.** Ela estava na barreira e a ficha nova não falou
+     * dela; tirar seria inventar uma decisão pelo avesso, do mesmo jeito que
+     * mantê-la é não inventar. Se tiver de sair, é uma linha.
      */
     applies: {
       id: 'burn',
@@ -1894,8 +1883,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       durationAtLv10: 6000,
       power: 5,
     },
-    fx: 'fire_wall',
-    desc: 'Linha de chamas de 3 células: quem tenta cruzar queima e é jogado para trás.',
+    fx: 'firewave',
+    desc: 'Onda de fogo que avança na direção mirada, queima e arremessa quem estiver no caminho.',
   },
   meteor: {
     id: 'meteor',
@@ -2049,7 +2038,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     reqLevel: 50,
     requires: [
       { skill: 'fire_bolt', level: 5 },
-      { skill: 'fire_wall', level: 5 },
+      { skill: 'firewave', level: 5 },
       { skill: 'meteor', level: 5 },
     ],
     manaCost: 140,
@@ -4111,7 +4100,7 @@ export const SKILL_IDS: SkillId[] = [
   'earth_spike', 'binding_roots', 'wind_blades', 'poison_spores', 'nature_wrath',
   'nature_affinity',
   // 🔮 Feiticeiro (18)
-  'fire_bolt', 'fire_wall', 'meteor', 'meteor_storm',
+  'fire_bolt', 'firewave', 'meteor', 'meteor_storm',
   'cold_bolt', 'ice_wall', 'glacial_burst', 'blizzard',
   'electric_sphere', 'electric_discharge', 'thor_wrath',
   'magic_enhance', 'magic_amplify', 'cast_mastery', 'mana_regen',
@@ -4187,7 +4176,7 @@ export const SKILL_BARS: Record<PlayerClass, (SkillId | null)[]> = {
   ]),
   sorcerer: barra([
     'fire_bolt', 'cold_bolt', 'electric_sphere', 'electric_discharge',
-    'meteor', 'glacial_burst', 'fire_wall', 'ice_wall',
+    'meteor', 'glacial_burst', 'firewave', 'ice_wall',
     'arcane_circle', 'meteor_storm', 'blizzard', 'thor_wrath',
     // Segunda fileira: as utilitárias arcanas.
     'magic_amplify', 'magic_protection', 'revealing_flame',
@@ -4495,12 +4484,6 @@ export function skillGroundHp(def: SkillDef, nivel: number): number | undefined 
   return Math.max(1, Math.round(porNivel(nivel, g.hpAtLv1, lv10)));
 }
 
-export function skillGroundContatos(def: SkillDef, nivel: number): number | undefined {
-  const g = def.ground;
-  if (!g || g.contatosAtLv1 === undefined) return undefined;
-  const lv10 = g.contatosAtLv10 ?? g.contatosAtLv1;
-  return Math.max(1, Math.round(porNivel(nivel, g.contatosAtLv1, lv10)));
-}
 
 // ---------------------------------------------------------------------------
 // Cura

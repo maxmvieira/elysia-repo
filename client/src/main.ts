@@ -48,7 +48,6 @@ import {
   skillDuration,
   skillConditionChance,
   skillConditionDuration,
-  skillGroundContatos,
   skillGroundDuration,
   skillGroundMax,
   skillHits,
@@ -4023,7 +4022,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
      * inteiro batendo na parede com vinte estilhaços cada viraria uma cortina de
      * brasa em cima da muralha que o jogador está tentando ler.
      */
-    fire_wall_hit: { cristais: 8, espalha: 16, cor: 0xffb066 },
+    firewave: { cristais: 8, espalha: 16, cor: 0xffb066 },
   };
 
   /**
@@ -5093,6 +5092,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   function spawnSpellFx(
     kind: string, tileX: number, tileY: number, radius: number, alvo?: string,
+    rumo?: number,
   ): void {
     const node = new Container();
     node.x = tileX * TS + TS / 2;
@@ -5100,41 +5100,56 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     node.zIndex = 9998;
 
     /*
-     * 💥 **O CONTATO COM A MURALHA DE FOGO** — dono, 13/09: *"os monstros
-     * precisam ter impacto ao tocarem nela"*.
+     * 🌊 **A FRENTE DA FIREWAVE, um passo dela.**
      *
-     * 🔴 O empurrão de dois tiles já existia e era INVISÍVEL: o monstro aparecia
-     * mais atrás no quadro seguinte, sem nada dizendo por quê. O que faltava era
-     * o instante — o clarão de onde ele bateu.
+     * 🔴 **O servidor manda um `fx` POR TILE percorrido**, no instante em que a
+     * onda chega àquele tile — então o movimento não é desenhado aqui, ele
+     * ACONTECE: o que se vê é a sequência. Com os passos a ~90 ms e cada frente
+     * vivendo 220, três ficam acesas ao mesmo tempo e a mais velha é a mais fraca
+     * — o que dá o rastro curto que a ficha pede, sem o cliente guardar cópia
+     * nenhuma da velocidade da magia.
      *
-     * ⚠️ **Nasce e some em 260 ms**, mais curto que qualquer outro efeito do
-     * arquivo. Um contato acontece toda vez que um bicho encosta, e num bando
-     * inteiro batendo na parede um efeito longo viraria um borrão aceso
-     * cobrindo a muralha que o jogador quer ver.
+     * ⚠️ **NÃO usa a folha da muralha, e isso é letra da ficha**: *"a sprite
+     * antiga da Barreira de Fogo não deve ser usada como Firewave"*. Uma parede de
+     * chamas paradas desenha exatamente o que esta magia deixou de ser.
+     *
+     * ⚠️ E a frente é **comprimida no rumo do avanço**: larga de lado, curta na
+     * profundidade. É o que separa uma onda de uma bola de fogo.
      */
-    if (kind === 'fire_wall_hit') {
+    if (kind === 'firewave') {
       const g = new Graphics();
       g.blendMode = 'add';
       node.addChild(g);
-      // 🔥 Estilhaços de brasa, com a mesma tabela dos outros impactos.
-      cospeEstilhacos('fire_wall_hit', node.x, node.y);
+      // 🔥 Brasas soltas, com a mesma tabela dos outros impactos.
+      cospeEstilhacos('firewave', node.x, node.y);
+      /*
+       * ⚠️ A largura vem do `radius`, que na onda é a MEIA-LARGURA da faixa que
+       * fere — e não o alcance da magia. Ver a nota do servidor: mandar o alcance
+       * aqui desenharia uma frente seis vezes mais larga do que ela machuca.
+       */
+      const meia = (radius + 0.5) * TS;
+      const ang = rumo ?? 0;
       const nasceu = performance.now();
-      const DUR = 260;
+      const DUR = 220;
       const passo = (): void => {
         const r = (performance.now() - nasceu) / DUR;
         if (r >= 1) { node.destroy({ children: true }); app.ticker.remove(passo); return; }
         g.clear();
+        // Abre depressa e apaga devagar: o perfil que lê como GOLPE.
+        const abre = Math.min(1, r / 0.2);
+        const vive = 1 - Math.max(0, (r - 0.2) / 0.8) ** 1.3;
+        g.rotation = ang;
         /*
-         * ⚠️ **Abre depressa e apaga devagar**, como as rachaduras do meteoro: é
-         * o perfil que lê como BATIDA. Linear nos dois lados lê como pulsar.
+         * 🔥 Três camadas, do núcleo para fora, todas achatadas no eixo do avanço:
+         * miolo branco-amarelo, corpo laranja e uma língua adiantada que sai na
+         * frente — é ela que dá a sensação de que a onda está EMPURRANDO o ar.
          */
-        const abre = Math.min(1, r / 0.25);
-        const vive = 1 - Math.max(0, (r - 0.25) / 0.75) ** 1.4;
-        // Anel achatado: o chão é visto de viés, e um círculo redondo lê de pé.
-        g.ellipse(0, 0, TS * (0.35 + abre * 0.7), TS * (0.16 + abre * 0.32))
-          .stroke({ width: 3, color: 0xffb347, alpha: vive * 0.85 });
-        g.ellipse(0, 0, TS * 0.3 * abre, TS * 0.14 * abre)
-          .fill({ color: 0xffe9b0, alpha: vive * 0.5 });
+        g.ellipse(0, 0, TS * 0.40 * abre, meia * abre)
+          .fill({ color: 0xff6a1a, alpha: vive * 0.55 });
+        g.ellipse(0, 0, TS * 0.22 * abre, meia * 0.78 * abre)
+          .fill({ color: 0xffc74a, alpha: vive * 0.75 });
+        g.ellipse(TS * 0.26 * abre, 0, TS * 0.14 * abre, meia * 0.5 * abre)
+          .fill({ color: 0xfff0c0, alpha: vive * 0.6 });
       };
       app.ticker.add(passo);
       fxLayer.addChild(node);
@@ -5347,7 +5362,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   /** Cor de cada área, pela habilidade que a criou. */
   const CORES_AREA: Record<string, [number, number]> = {
-    fire_wall: [0xff6a1a, 0xffc74a],
     ice_wall: [0x6fd0ff, 0xdcf6ff],
     blizzard: [0x3aa8d8, 0xdcf6ff],
     arcane_circle: [0x8a5ad8, 0xefe6ff],
@@ -5404,19 +5418,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     larguraTiles: number; estica: number; celW: number; celH: number;
   }> = {
     /*
-     * 🔥 **Arte nova (20/09), 12 quadros**, medidos pela massa de cada um: nasce
-     * (1–9), arde em laço (5–9), dissipa (10–12). A fileira do meio inteira é a
-     * parede acesa.
+     * 🌊 **A MURALHA DE FOGO saiu daqui em 28/09**, quando a ficha do dono a
+     * substituiu pela Firewave — que é uma onda que atravessa, não uma parede que
+     * fica. A folha `muralha12` e a arte-fonte dela continuam no repo, e a receita
+     * está no histórico de 20/09 se um dia voltar a fazer falta.
      *
-     * ⚠️ **`estica: 1` — a arte antiga precisava de 1,45 e esta não.** Aquela era
-     * mais alta que larga (1,25) e virava parede à força; esta já É uma parede
-     * larga (1,62), com a linha de brasa desenhada no pé. Esticar aqui repetiria
-     * o defeito que o dono achou em tela: chama esticada vira vela.
+     * ⚠️ O que NÃO saiu foi o mecanismo: ele é da Muralha de Gelo também, e ela
+     * continua sendo parede.
      */
-    fire_wall: {
-      folha: 'muralha12', nasce: 9, arde: 4,
-      larguraTiles: 2.6, estica: 1, celW: 208, celH: 128,
-    },
     /*
      * ❄️ 25 quadros: formação (1–15), parede ativa (11–20), destruição (21–25). O
      * laço começa ANTES do fim da formação de propósito — os cristais continuam
@@ -6449,7 +6458,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
                   tocaEfeito(folha, px, py, (i / VOLTAS) * Math.PI * 2 - apontado);
                 }
               }
-            } else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1, msg.targetId);
+            } else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1, msg.targetId, msg.rumo);
           }
           break;
         case 'heal': {
@@ -9050,28 +9059,10 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
           `até ${skillGroundMax(def, efetivo)} simultânea(s)`
         : def.ground?.kind === 'ward'
           ? `Anula TODO o dano físico de quem estiver dentro por ${(dur / 1000).toFixed(1)}s`
-          /*
-           * 🔥 **A BARREIRA DE CONTATO NÃO PULSA, e a dica dizia que sim.**
-           *
-           * 🔴 Em tela, no Lv.10, a Muralha de Fogo prometia *"70 pulsos em
-           * 14 s"* — a conta genérica de duração ÷ `tickMs`. Só que `tickMs` aqui
-           * é a taxa de DETECÇÃO, não a de dano: cada inimigo leva no máximo 12
-           * contatos, com 700 ms entre eles. A dica anunciava quase seis vezes o
-           * que a magia entrega, e num número em que o jogador se baseia para
-           * escolher magia.
-           *
-           * ⚠️ O gatilho é `contatosAtLv1`, e não o nome da magia: qualquer
-           * barreira de contato que nascer amanhã já se descreve certo.
-           */
-          : def.ground?.contatosAtLv1 !== undefined
-            ? `Dano ${(skillPower(def, efetivo) * 100).toFixed(0)}% por CONTATO · ` +
-              `até ${skillGroundContatos(def, efetivo)} por inimigo · ` +
-              `${def.ground?.blocks ? 'barra a passagem por' : 'dura'} ` +
-              `${(dur / 1000).toFixed(0)}s`
-            : `${def.ground?.kind === 'heal' ? 'Cura' : 'Dano'} ` +
-              `${(skillPower(def, efetivo) * 100).toFixed(0)}% a cada ` +
-              `${((def.ground?.tickMs ?? 1000) / 1000).toFixed(1)}s · ` +
-              `${pulsos} pulsos em ${(dur / 1000).toFixed(0)}s`;
+          : `${def.ground?.kind === 'heal' ? 'Cura' : 'Dano'} ` +
+            `${(skillPower(def, efetivo) * 100).toFixed(0)}% a cada ` +
+            `${((def.ground?.tickMs ?? 1000) / 1000).toFixed(1)}s · ` +
+            `${pulsos} pulsos em ${(dur / 1000).toFixed(0)}s`;
     } else if (def.kind === 'multihit') {
       const golpes = skillHits(def, efetivo);
       const poder = skillPower(def, efetivo);

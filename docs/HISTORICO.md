@@ -9,6 +9,95 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-28 — A Muralha de Fogo é SUBSTITUÍDA pela Firewave
+
+**Onde mora:** `firewave` em `shared/src/skills.ts` · `lancaOnda` e `umaVezPorAlvo` em
+`server/src/index.ts` · `rumo` em `S2C_Effect` · o desenho em `client/src/main.ts` ·
+`tools/teste-firewave.mjs`
+
+Ficha do dono: *"a antiga skill Barreira de Fogo foi modificada. NÃO implementar mais uma
+barreira de fogo."* No lugar dela, uma onda que parte do personagem, avança numa direção,
+queima quem estiver no caminho e some.
+
+### ✅ O sistema que serve já existia, e não era o de projéteis
+
+O `S2C_Projectile` é só desenho: o servidor resolve o dano na hora e o cliente anima o voo.
+Não serve para algo que **fere ao longo do trajeto**.
+
+Quem serve é o **`golpesPendentes`**, da Chuva de Meteoros: golpes marcados no TEMPO, cada
+um revalidado no instante em que cai, com um estado compartilhado por conjuração
+(`Tempestade`). A onda é **um golpe agendado por tile percorrido** — o passo k resolve
+`(k−1) × ondaMsPorTile` depois do lançamento, no tile `origem + rumo × k`. É isso que faz a
+frente avançar em vez de estourar inteira, e nenhuma arquitetura nova nasceu.
+
+### As três peças que a ficha pedia, e onde cada uma já morava
+
+| Pedido | Onde já estava |
+|---|---|
+| dano mágico de fogo | `aplicaGolpeDeMagia`, sem tocar |
+| empurrão para longe do conjurador | `empurra` — já respeita parede, borda e imunidade |
+| faixa frontal, sem usar a sprite | `splash`: *"quem está a até N de chebyshev do impacto"* |
+
+⚠️ **`splash` reusado de propósito.** Nos meteoros ele é a CRATERA; na onda é a
+meia-largura da frente. Mesmo campo, mesma pergunta, dois sentidos na ficha — está anotado
+no teste para quem mexer num não quebrar o outro.
+
+### 🔴 "Cada inimigo uma vez" mudou de casa, não desapareceu
+
+Os passos se sobrepõem **de propósito**: é a sobreposição que impede buraco quando a onda
+vai na diagonal. Sem trava, o mesmo monstro levaria dois ou três golpes da mesma rajada —
+o defeito que a ficha descreve. A trava é `umaVezPorAlvo` na `Tempestade`, usando o
+`acertos` que já existia para a Nevasca contar acertos entre bolas.
+
+⚠️ O contador de contatos da barreira (contador por alvo, intervalo mínimo, empurrão por
+toque) **saiu inteiro** — §22 é explícito. Foram quatro campos de `GroundArea`, dois de
+`SkillGround`, duas funções de `areas.ts`, três do servidor e o `skillGroundContatos`.
+
+### 🔴 O que a ficha NÃO respondeu, e eu tive de decidir
+
+**O que cresce com o nível.** Na barreira o 50 % era por CONTATO e o que crescia era a
+contagem deles (3 → 12). A onda acerta uma vez, então aquela progressão morreu junto com o
+contador — e com poder fixo a magia daria o mesmo dano no Lv.1 e no Lv.10. O teste geral
+pega isso na hora.
+
+✅ Decidi que **o poder cresce**, com 0,50 passando a ser o valor do **Lv.1** — que é
+exatamente onde as duas fichas se encontram. Alcance (3 → 6) e nada mais. Está marcado no
+código como decisão de dono: se ele quiser 50 % fixo, o que cresce terá de ser outra coisa,
+e alcance não serve porque o teste mede dano POR ALVO.
+
+### 💾 Renomear a skill apaga os pontos investidos — e já havia remédio
+
+`skill_levels` é um JSON com o id como chave: renomear sem mais nada faria todo personagem
+perder em silêncio o que investiu. O `IDS_RENOMEADOS` existia desde 12/09 para exatamente
+isso; a Firewave entrou nele. **Quem tinha barreira 10 tem onda 10** — a magia ocupa a
+mesma vaga da árvore, com o mesmo pré-requisito e o mesmo custo.
+
+⚠️ Descoberto do jeito certo: o teste ao vivo respondeu *"Você ainda não aprendeu
+Firewave"*.
+
+### O `fx` que sobrava, achado em teste
+
+O primeiro ensaio mostrou um estouro de três tiles de raio **em cima do mouse**, antes de a
+onda sair dos pés do mago. Era o `fx` único da conjuração — o clarão que toda magia de área
+manda no ponto mirado. A onda não tem ponto nem tamanho: tem uma frente que anda, e os `fx`
+dela vêm um por passo.
+
+### O VFX é desenhado por CÓDIGO, e é o ponto fraco
+
+§12 proíbe reusar a sprite da muralha, e arte nova não veio. A frente é desenhada em três
+elipses aditivas achatadas no eixo do avanço, mais brasas — com os passos a ~90 ms e cada
+frente vivendo 220, três ficam acesas ao mesmo tempo e a mais velha é a mais fraca, o que
+dá o rastro curto que a ficha pede. **Funciona e aponta certo, mas é o candidato óbvio a
+receber arte.**
+
+### O que ficou provado
+
+`tools/teste-firewave.mjs`, contra o servidor de verdade: três passos afastando-se do mago
+a ~78 ms um do outro, rumo constante de 135°, meia-largura 1, **um golpe por inimigo**
+(110 no alvo, 183 noutro que estava na faixa), queimadura separada, e empurrão para longe.
+
+---
+
 ## 2026-09-20 (noite) — A Muralha de Fogo ganha arte nova e entra no MUNDO
 
 **Onde mora:** `muralha12` em `tools/folha-alfa2fx.mjs` · `MURALHAS` e

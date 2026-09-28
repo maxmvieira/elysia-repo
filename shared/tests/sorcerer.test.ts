@@ -26,7 +26,6 @@ import {
   skillDuration,
   skillGroundDuration,
   skillGroundMax,
-  skillGroundContatos,
   skillGroundHp,
   skillConditionChance,
   skillConditionDuration,
@@ -105,13 +104,13 @@ test('o Feiticeiro precisa de MANA para causar dano à distância', () => {
 // 🔥 Fogo
 // ---------------------------------------------------------------------------
 
-test('Chuva de Meteoros: pré-requisito Fire Bolt 5 + Fire Wall 5 + Meteoro 5', () => {
+test('Chuva de Meteoros: pré-requisito Fire Bolt 5 + Firewave 5 + Meteoro 5', () => {
   // Citação literal do cap. 70.
   const req = SKILLS.meteor_storm.requires ?? [];
   assert.equal(req.length, 3);
   const mapa = new Map(req.map((r) => [r.skill, r.level]));
   assert.equal(mapa.get('fire_bolt'), 5);
-  assert.equal(mapa.get('fire_wall'), 5);
+  assert.equal(mapa.get('firewave'), 5);
   assert.equal(mapa.get('meteor'), 5);
 });
 
@@ -220,10 +219,16 @@ test('bloquear passagem é de DUAS magias, e cada uma paga por isso', () => {
    * faz nada contra o que saiba andar. Uma lista branca não pegaria a terceira
    * magia que alguém marcar como bloqueante amanhã; esta regra pega.
    */
+  /*
+   * 🔴 **E voltou a ser UMA em 28/09**, quando a Muralha de Fogo deixou de
+   * existir: a ficha do dono a substituiu pela Firewave, que é uma onda que
+   * ATRAVESSA o campo e não bloqueia nada. A regra abaixo não mudou — mudou
+   * quem está sujeito a ela.
+   */
   const barreiras = Object.values(SKILLS).filter((d) => d.ground?.blocks);
   assert.deepEqual(
     barreiras.map((d) => d.id).sort(),
-    ['fire_wall', 'ice_wall'],
+    ['ice_wall'],
     'barrar passagem é exceção: entrar nesta lista é decisão de dono',
   );
   for (const d of barreiras) {
@@ -584,80 +589,77 @@ test('Explosão Glacial é 360° ao redor de si — a resposta a quem colou', ()
   assert.equal(skillMiraNoChao(g), false, 'em volta de si não se mira');
 });
 
-test('🔥 Muralha de Fogo: barreira de CONTATO, não área que pulsa', () => {
-  const m = SKILLS.fire_wall;
-  const g = m.ground!;
+test('🌊 Firewave: uma onda que ATRAVESSA, e não uma parede que fica', () => {
+  const m = SKILLS.firewave;
 
   /*
-   * 🔥 **A ficha do dono, 13/09.** O que este teste guarda são as RELAÇÕES que
-   * fazem dela uma barreira em vez de uma poça de dano — e cada uma tem um jeito
-   * conhecido de se perder sozinha.
-   */
-  assert.equal(g.linha, true, 'é uma LINHA, não um quadrado');
-  /*
-   * 🔥 **Três células de novo, depois de cinco.** O dono
-   * reverteu a própria decisão dentro de um pedido de SIMPLIFICAR, e a ficha
-   * nova repete 1×3 em cinco lugares. O que este teste guarda é que o número
-   * seja UM — meio-comprimento, não largura — e que ele não cresça com o nível.
-   */
-  assert.equal(skillRange(m, 1), 1, 'raio 1 = as TRÊS células da ficha');
-  assert.equal(skillRange(m, 10), 1, 'e não cresce: o que cresce são os contatos');
-  assert.equal(skillCastRange(m, 1), 9);
-
-  /*
-   * 🔴 **O contador por alvo é a mecânica inteira.** Sem limite, a muralha
-   * empurraria o mesmo monstro para sempre e ele nunca chegaria ao mago — o que
-   * transformaria uma barreira em prisão.
-   */
-  assert.equal(skillGroundContatos(m, 1), 3);
-  assert.equal(skillGroundContatos(m, 10), 12);
-
-  /*
-   * 🔴 **`blocks` VERDADEIRO — e este teste guardava o CONTRÁRIO**, com um
-   * motivo que continua sendo verdade: parede que barra faz o monstro
-   * contornar pelo caminho mais curto, e aí ele nunca a toca.
+   * 🔴 **Este teste guardava a MURALHA DE FOGO até 28/09.** A ficha do dono a
+   * substituiu — *"não implementar mais uma barreira de fogo"* — e o que ele guarda
+   * agora é o contrário do que guardava: que nada da barreira sobreviveu.
    *
-   * ✅ A ficha nova pede colisão em letra ("bloquear a passagem" é a prioridade
-   * 3 dela), e o que impede o desastre antigo é o servidor tratar o passo
-   * NEGADO como contato (`tentaAtravessar`). Por isso as duas asserções andam
-   * juntas: **barrar sem contato é uma parede que ninguém toca**, e ligar uma
-   * sem a outra é exatamente o jeito de a magia sumir em silêncio.
+   * ⚠️ A lista abaixo é a própria §2 da ficha, campo a campo. Ela existe porque
+   * "remover a barreira" é fácil de fazer pela metade: basta esquecer um `ground`
+   * e a magia volta a ser área persistente sem ninguém notar.
    */
-  assert.equal(g.blocks, true, 'a ficha simplificada pede colisão: ela BARRA a passagem');
-  assert.ok(
-    skillGroundContatos(m, 1) > 0,
-    'barrar sem ferir quem esbarra faria a magia não ter efeito em quem sabe andar',
-  );
+  assert.equal(m.ground, undefined, 'não é mais área de chão');
+  assert.notEqual(m.shape, 'ground', 'não se planta: atravessa');
+  assert.equal(m.durationMs, 0, 'onda não dura, passa');
+
+  /*
+   * 🌊 **O que a ficha manda MANTER da antiga**, em letra: 50 % de ATQM e dois
+   * tiles de empurrão.
+   */
+  /*
+   * ⚠️ **O 0,5 da FICHA, e não o que `skillPower` devolve.** Toda magia passa pelo
+   * `IMPULSO_MAGICO` global, então o Lv.1 em tela dá 0,60 — e a ficha do dono fala
+   * do número da HABILIDADE, que é este. Era assim na barreira também.
+   */
+  assert.equal(m.power, 0.5, 'a referência de dano da antiga skill');
   assert.equal(m.empurraTiles, 2);
+  assert.equal(m.damageType, 'fire');
+  assert.equal(m.magic, true);
 
   /*
-   * ⚠️ **Poder fixo, duração e contatos crescentes.** É uma habilidade de
-   * CONTROLE que sobe de nível, não uma de dano — e o teste geral de progressão
-   * (`skills.test.ts`) só passa porque aprendeu a contar os contatos.
+   * 🎯 **Instantânea e DIRECIONAL.** A mira vira rumo; a distância do clique não
+   * conta. Sem `direcional` o servidor trataria o clique como CENTRO da área, e a
+   * onda nasceria em cima do mouse em vez de sair dos pés do mago.
    */
-  assert.equal(skillPower(m, 1), skillPower(m, 10), '50 % de ATQM em toda a régua');
-  assert.ok(skillGroundDuration(m, 10) > skillGroundDuration(m, 1) * 2);
-  assert.equal(skillManaCost(m, 1), skillManaCost(m, 10), '40 de SP em todos os níveis');
+  assert.equal(skillCastMs(m, 1, 0, 0), 0, 'castTime 0 está na ficha');
+  assert.equal(m.direcional, true);
+  assert.ok((m.ondaMsPorTile ?? 0) > 0, 'a onda precisa de uma velocidade');
 
   /*
-   * 🔥 **UMA barreira em toda a régua** — ficha simplificada. Eram três na
-   * anterior, e a nova adia o assunto em letra: *"por enquanto não implementar:
-   * múltiplas barreiras; limite de 3 barreiras"*.
+   * 🌊 **O alcance é PERCURSO, e ele cresce.** 3 tiles no Lv.1, 6 no Lv.10 — uma
+   * onda que varre mais campo. E a largura é o `splash`, fixa.
    */
-  assert.equal(skillGroundMax(m, 1), 1);
-  assert.equal(skillGroundMax(m, 10), 1, 'o teto não cresce com o nível');
+  assert.equal(skillRange(m, 1), 3);
+  assert.equal(skillRange(m, 10), 6);
+  assert.equal(m.splash, 1, 'meia-largura 1 = a faixa de três células da ficha');
+
   /*
-   * ⚠️ **E a recarga tem de fechar antes de a barreira do Lv.1 cair.** Esta
-   * comparação substitui a de antes, que media a recarga contra as TRÊS muralhas
-   * simultâneas e morreu com elas. O que ela protege agora é mais direto: se a
-   * recarga passar da duração, existe um intervalo em que o Feiticeiro está sem
-   * barreira E sem poder erguer outra — a magia que ele escolheu para se
-   * defender não está lá justamente quando ele precisa dela.
+   * 🔴 **O PODER CRESCE, e isso é uma decisão, não um descuido.**
+   *
+   * Na barreira o 50 % era por CONTATO e o que crescia era a contagem deles (3 →
+   * 12). A onda acerta cada inimigo **uma vez** (§8 da ficha), então aquela
+   * progressão morreu junto com o contador. Com poder fixo a magia daria o mesmo
+   * dano no Lv.1 e no Lv.10 — e o teste geral de progressão pega isso.
+   *
+   * ⚠️ Se o dono quiser 50 % em toda a régua, é aqui que a conversa acontece: o
+   * que cresce terá de ser outra coisa, e alcance não serve porque o teste geral
+   * mede dano POR ALVO.
    */
   assert.ok(
-    m.cooldownMs <= skillGroundDuration(m, 1),
-    'a recarga tem de fechar antes de a barreira do Lv.1 cair',
+    skillPower(m, 10) > skillPower(m, 1) * 2,
+    'sem contatos para crescer, quem cresce é o poder',
   );
+
+  /*
+   * ⚠️ **40 de SP e 5 s de recarga vieram da barreira**, e a ficha manda não
+   * inventar valores que o projeto já tinha.
+   */
+  assert.equal(skillManaCost(m, 1), 40);
+  assert.equal(skillManaCost(m, 10), 40);
+  assert.equal(m.cooldownMs, 5000);
 });
 
 test('❄️ Explosão Glacial: defesa é reação — rápida, frequente e CARA', () => {
@@ -1291,8 +1293,17 @@ test('💥 cada meteoro respinga numa CRATERA — e isso multiplica o dano em gr
    * células na ficha do Ragnarok. A lista é travada para respingo não virar
    * enfeite que se acrescenta sem pensar: cada um multiplica o dano em grupo.
    */
+  /*
+   * 🌊 **A Firewave entrou nesta lista em 28/09, e por um motivo diferente dos
+   * outros dois.** Neles o `splash` é a CRATERA de uma bola que cai; nela é a
+   * meia-largura da frente de fogo — quem está a até um tile do passo apanha.
+   *
+   * ⚠️ Mesmo campo, mesma pergunta (*chebyshev até N do ponto de impacto*), dois
+   * usos que se leem diferente na ficha. Está anotado aqui de propósito: quem
+   * mexer no respingo mexe na largura da onda junto.
+   */
   const comSplash = Object.values(SKILLS).filter((d) => d.splash !== undefined);
-  assert.deepEqual(comSplash.map((d) => d.id).sort(), ['blizzard', 'meteor_storm']);
+  assert.deepEqual(comSplash.map((d) => d.id).sort(), ['blizzard', 'firewave', 'meteor_storm']);
 });
 
 test('🔴 o carregamento do Fire Bolt desce por DESTREZA, numa curva côncava', () => {

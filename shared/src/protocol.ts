@@ -990,6 +990,14 @@ export interface S2C_Effect {
    * que alguém mexesse numa só. Ver `quedaMs` em `SkillDef`.
    */
   quedaMs?: number;
+  /**
+   * 🌊 **Para onde a coisa APONTA, em radianos.** Só a Firewave manda.
+   *
+   * O cliente desenha a frente de chamas inclinada no rumo do avanço; sem o
+   * ângulo ele teria de deduzi-lo comparando dois `fx` seguidos, e o primeiro
+   * passo da onda sairia sempre virado para o lado errado.
+   */
+  rumo?: number;
 }
 
 /**
