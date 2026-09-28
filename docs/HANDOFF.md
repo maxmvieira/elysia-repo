@@ -2,7 +2,7 @@
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
-> Último commit de código: `COMMIT`. Árvore limpa, tudo empurrado.
+> Último commit de código: `5f410b9`. Árvore limpa, tudo empurrado.
 >
 > 🌊 **A Muralha de Fogo NÃO EXISTE MAIS.** A ficha do dono a substituiu pela
 > **Firewave** — uma onda que parte do personagem, avança na direção mirada,
