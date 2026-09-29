@@ -827,6 +827,8 @@ const creatures = new Map<string, Creature>();
  * consequência é que a área sobrevive à morte do dono — a magia já saiu.
  */
 let groundAreas: GroundArea[] = [];
+/** 🌊 Contador das ondas de fogo. Só serve para o cliente saber qual é qual. */
+let proximaOndaId = 1;
 let proximaAreaId = 1;
 const items = new Map<string, GroundItem>();
 const corpses = new Map<string, Corpse>();
@@ -3566,6 +3568,8 @@ interface Tempestade {
    * estado guardado duas vezes.
    */
   umaVezPorAlvo?: boolean;
+  /** 🌊 Identidade desta onda, para o cliente mover UM desenho. Ver `ondaId`. */
+  ondaId?: string;
   condicao?: { id: ConditionId; chance: number; durationMs: number; power?: number };
 }
 
@@ -3740,7 +3744,14 @@ function tickGolpesPendentes(now: number): void {
         // 🌠 Ver `quedaFx`: a chuva desenha meteoro, não o círculo dela.
         kind: def.quedaFx ?? g.skillId,
         x: px, y: py, floor: player.floor,
-        n: 1,
+        /*
+         * 🌊 **Na onda o `n` diz QUANTOS PASSOS ela tem**, e é o significado de
+         * sempre deste campo: quantos impactos esta conjuração tem. O cliente
+         * precisa dele para saber qual passo é o ÚLTIMO — é nele que a rajada começa
+         * a se desfazer. Sem isso ele teria de deduzir por silêncio, ou seja,
+         * guardar uma cópia da velocidade da magia.
+         */
+        n: def.direcional ? skillRange(def, g.nivel) : 1,
         // ⚠️ Sem `targetId` no ponto fixo: o meteoro cai onde foi sorteado e
         // não persegue ninguém. É a diferença entre bombardeio e teleguiado.
         ...(pontoFixo ? {} : { targetId: c!.id }),
@@ -3779,6 +3790,7 @@ function tickGolpesPendentes(now: number): void {
           ? {
             radius: def.splash ?? 1,
             rumo: Math.atan2(py - g.tempestade.centroY, px - g.tempestade.centroX),
+            ...(g.tempestade.ondaId ? { ondaId: g.tempestade.ondaId } : {}),
           }
           : {}),
         /*
@@ -5184,6 +5196,7 @@ function lancaOnda(
    * Dentro do laço seriam N registros vazios e cada passo acertaria de novo.
    */
   const onda: Tempestade = {
+    ondaId: `w${proximaOndaId++}`,
     centroX: player.tileX,
     centroY: player.tileY,
     raio: alcance,

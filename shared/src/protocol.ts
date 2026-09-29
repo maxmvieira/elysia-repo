@@ -998,6 +998,19 @@ export interface S2C_Effect {
    * passo da onda sairia sempre virado para o lado errado.
    */
   rumo?: number;
+  /**
+   * 🌊 **QUAL onda é esta.** Só a Firewave manda.
+   *
+   * 🔴 O servidor manda um `fx` por TILE percorrido, e sem um id o cliente não
+   * tem como saber se o pacote que chegou é o próximo passo da onda que já está na
+   * tela ou uma rajada nova de outro mago. Sem isso, cada passo viraria um
+   * desenho separado — doze cópias empilhadas em vez de UMA onda que anda.
+   *
+   * ⚠️ Deduzir por proximidade (*"chegou perto e logo depois, deve ser a mesma"*)
+   * é a regra tirada de poucos casos que este projeto já pagou para aprender: dois
+   * feiticeiros lado a lado quebram o palpite.
+   */
+  ondaId?: string;
 }
 
 /**

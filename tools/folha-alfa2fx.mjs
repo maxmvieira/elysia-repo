@@ -88,6 +88,32 @@ const FOLHAS = {
     fileiras: [[52, 263], [308, 538], [597, 817]],
   },
   /**
+   * 🌊 **A FIREWAVE (28/09)**, 6 colunas × 2 fileiras, apontando para a DIREITA.
+   *
+   * Medido: as fileiras ocupam [84,363] e [428,676] — alturas de 280 e 249 — e as
+   * colunas caem num passo de 362 exato.
+   *
+   * 🔴 **`centraY`, e é a diferença inteira em relação à muralha.** Numa parede o
+   * que tem de ficar parado é o CHÃO, e por isso as fileiras se alinham embaixo.
+   * Numa onda que viaja na horizontal, o que não pode oscilar é o EIXO: alinhar
+   * pelo rodapé faria a linha do meio saltar 15 px entre a primeira e a segunda
+   * fileira — e em tela isso é a onda subindo um degrau no meio do percurso.
+   *
+   * ⚠️ Na horizontal nada é recentrado de propósito: a CAUDA da rajada fica na
+   * borda esquerda da célula, que é onde ela nasce. Centrar faria a onda recuar
+   * enquanto cresce.
+   *
+   * ⚠️ **166×128 porque 362/280 ≈ 1,29** — a proporção da fonte.
+   */
+  firewave: {
+    larg: 166,
+    alt: 128,
+    colunas: 6,
+    passoX: 362,
+    fileiras: [[84, 363], [428, 676]],
+    centraY: true,
+  },
+  /**
    * 🔥 **A MURALHA DE FOGO, arte nova (20/09)**, 4 colunas × 3 fileiras.
    *
    * ⚠️ **Substitui a `muralha18`, e as medidas são OUTRAS** — nada aqui foi
@@ -217,7 +243,16 @@ const out = Buffer.alloc(W * ALT * 4);
 
 quadros.forEach((q, k) => {
   const dx = Math.floor((W0 - q.w) / 2);
-  const dy = H0 - q.h;
+  /*
+   * 🔴 **Embaixo ou no MEIO, e quem decide é a folha.**
+   *
+   * O padrão é embaixo porque quase tudo aqui cresce do chão — muralha, cratera,
+   * cristal — e o que tem de ficar parado entre um quadro e o seguinte é a linha
+   * do solo. Uma onda que viaja na horizontal quebra essa regra: nela o ponto fixo
+   * é o EIXO, e alinhar pelo rodapé faz o meio da rajada saltar quando as fileiras
+   * têm alturas diferentes.
+   */
+  const dy = grade.centraY ? Math.round((H0 - q.h) / 2) : H0 - q.h;
   for (let y = 0; y < ALT; y++) {
     for (let x = 0; x < LARG; x++) {
       /*

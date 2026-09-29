@@ -98,6 +98,7 @@ import {
   stanceDamageReduction,
   STANCE_SLOW,
   type S2C_AreaSpawn,
+  type S2C_Effect,
   type S2C_CorpseContents,
   type S2C_Inventory,
   type S2C_Stats,
@@ -5090,71 +5091,112 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     return null;
   }
 
+  /**
+   * 🌊 **UMA onda, UM desenho — movido pelos passos que o servidor manda.**
+   *
+   * 🔴 O servidor manda um `fx` por tile percorrido. A tentação é desenhar um
+   * efeito por pacote, e o resultado são seis rajadas empilhadas no rastro em vez
+   * de uma que anda. Por isso o `ondaId`: o segundo pacote encontra o sprite do
+   * primeiro e o REPOSICIONA.
+   *
+   * ⚠️ **Quem manda no quadro é o PASSO, não o relógio.** A folha tem doze: os
+   * cinco primeiros são a rajada crescendo e os sete últimos a dissipação. Deixar
+   * a animação correr sozinha faria o desenho dissipar no meio do percurso quando
+   * a onda fosse longa, e chegar ao fim ainda pequena quando fosse curta — a
+   * velocidade de quem anda é do servidor, e o cliente não guarda cópia dela.
+   *
+   * ⚠️ **A dissipação começa no ÚLTIMO passo**, e o cliente sabe qual é porque o
+   * `n` do pacote diz quantos a conjuração tem — que é o significado que esse
+   * campo sempre teve. Esperar por um silêncio no lugar disso seria o cliente
+   * adivinhando a velocidade da magia.
+   */
+  const ondasVivas = new Map<string, { s: AnimatedSprite; passo: number; alvoX: number; alvoY: number }>();
+  /** Quadros de AVANÇO da folha; do índice 5 em diante é fumaça. */
+  const ONDA_AVANCO = 5;
+
+  function desenhaOnda(msg: S2C_Effect): void {
+    const quadros = folhasEfeito.get('firewave');
+    if (!quadros || quadros.length <= ONDA_AVANCO) return;
+    const id = msg.ondaId ?? 'onda';
+    const x = msg.x * TS + TS / 2;
+    const y = msg.y * TS + TS / 2;
+
+    let viva = ondasVivas.get(id);
+    if (!viva) {
+      const s2 = new AnimatedSprite(quadros);
+      /*
+       * ⚠️ **Âncora na CABEÇA da rajada**, medida: a arte aponta para a direita e o
+       * fogo termina perto da borda direita da célula. É a cabeça que tem de estar
+       * no tile do passo — a cauda fica para trás, que é de onde a onda veio.
+       */
+      s2.anchor.set(0.92, 0.5);
+      s2.loop = false;
+      s2.animationSpeed = 0;
+      s2.eventMode = 'none';
+      /*
+       * ⚠️ A altura sai da LARGURA da faixa que fere ((raio×2+1) tiles), e a
+       * largura vem junto pela proporção da folha. É a mesma regra da muralha: o
+       * desenho no tamanho do estrago, não o estrago no tamanho do desenho.
+       */
+      const faixa = ((msg.radius ?? 1) * 2 + 1) * TS;
+      s2.scale.set(faixa / 128);
+      s2.x = x;
+      s2.y = y;
+      s2.zIndex = 9998;
+      fxLayer.addChild(s2);
+      viva = { s: s2, passo: 0, alvoX: x, alvoY: y };
+      ondasVivas.set(id, viva);
+    }
+    const atual = viva;
+    atual.passo += 1;
+    atual.alvoX = x;
+    atual.alvoY = y;
+    atual.s.rotation = msg.rumo ?? 0;
+    atual.s.gotoAndStop(Math.min(atual.passo - 1, ONDA_AVANCO - 1));
+
+    /*
+     * ⚠️ **O deslízio entre um passo e o seguinte** — sem ele a onda anda aos
+     * saltos de um tile a cada 90 ms, que é o mesmo defeito que o `setTarget` das
+     * entidades existe para evitar.
+     */
+    if (atual.passo === 1) {
+      const desliza = (): void => {
+        if (atual.s.destroyed) { app.ticker.remove(desliza); return; }
+        atual.s.x += (atual.alvoX - atual.s.x) * 0.35;
+        atual.s.y += (atual.alvoY - atual.s.y) * 0.35;
+      };
+      app.ticker.add(desliza);
+    }
+
+    // Último passo: a rajada se desfaz e some.
+    if (atual.passo >= (msg.n ?? 1)) {
+      ondasVivas.delete(id);
+      atual.s.textures = quadros.slice(ONDA_AVANCO);
+      atual.s.loop = false;
+      atual.s.animationSpeed = (quadros.length - ONDA_AVANCO) / (420 / (1000 / 60));
+      /*
+       * ⚠️ **O alfa cai junto com a animação.** Os dois últimos quadros da folha
+       * são fumaça ESCURA, e sobre a grama eles leem como uma mancha preta parada.
+       * Apagando, a fumaça some como fumaça.
+       */
+      const morre = (): void => {
+        if (atual.s.destroyed) { app.ticker.remove(morre); return; }
+        atual.s.alpha -= 0.035;
+        if (atual.s.alpha <= 0) { app.ticker.remove(morre); atual.s.destroy(); }
+      };
+      atual.s.onComplete = () => { if (!atual.s.destroyed) atual.s.destroy(); };
+      atual.s.gotoAndPlay(0);
+      app.ticker.add(morre);
+    }
+  }
+
   function spawnSpellFx(
     kind: string, tileX: number, tileY: number, radius: number, alvo?: string,
-    rumo?: number,
   ): void {
     const node = new Container();
     node.x = tileX * TS + TS / 2;
     node.y = tileY * TS + TS / 2;
     node.zIndex = 9998;
-
-    /*
-     * 🌊 **A FRENTE DA FIREWAVE, um passo dela.**
-     *
-     * 🔴 **O servidor manda um `fx` POR TILE percorrido**, no instante em que a
-     * onda chega àquele tile — então o movimento não é desenhado aqui, ele
-     * ACONTECE: o que se vê é a sequência. Com os passos a ~90 ms e cada frente
-     * vivendo 220, três ficam acesas ao mesmo tempo e a mais velha é a mais fraca
-     * — o que dá o rastro curto que a ficha pede, sem o cliente guardar cópia
-     * nenhuma da velocidade da magia.
-     *
-     * ⚠️ **NÃO usa a folha da muralha, e isso é letra da ficha**: *"a sprite
-     * antiga da Barreira de Fogo não deve ser usada como Firewave"*. Uma parede de
-     * chamas paradas desenha exatamente o que esta magia deixou de ser.
-     *
-     * ⚠️ E a frente é **comprimida no rumo do avanço**: larga de lado, curta na
-     * profundidade. É o que separa uma onda de uma bola de fogo.
-     */
-    if (kind === 'firewave') {
-      const g = new Graphics();
-      g.blendMode = 'add';
-      node.addChild(g);
-      // 🔥 Brasas soltas, com a mesma tabela dos outros impactos.
-      cospeEstilhacos('firewave', node.x, node.y);
-      /*
-       * ⚠️ A largura vem do `radius`, que na onda é a MEIA-LARGURA da faixa que
-       * fere — e não o alcance da magia. Ver a nota do servidor: mandar o alcance
-       * aqui desenharia uma frente seis vezes mais larga do que ela machuca.
-       */
-      const meia = (radius + 0.5) * TS;
-      const ang = rumo ?? 0;
-      const nasceu = performance.now();
-      const DUR = 220;
-      const passo = (): void => {
-        const r = (performance.now() - nasceu) / DUR;
-        if (r >= 1) { node.destroy({ children: true }); app.ticker.remove(passo); return; }
-        g.clear();
-        // Abre depressa e apaga devagar: o perfil que lê como GOLPE.
-        const abre = Math.min(1, r / 0.2);
-        const vive = 1 - Math.max(0, (r - 0.2) / 0.8) ** 1.3;
-        g.rotation = ang;
-        /*
-         * 🔥 Três camadas, do núcleo para fora, todas achatadas no eixo do avanço:
-         * miolo branco-amarelo, corpo laranja e uma língua adiantada que sai na
-         * frente — é ela que dá a sensação de que a onda está EMPURRANDO o ar.
-         */
-        g.ellipse(0, 0, TS * 0.40 * abre, meia * abre)
-          .fill({ color: 0xff6a1a, alpha: vive * 0.55 });
-        g.ellipse(0, 0, TS * 0.22 * abre, meia * 0.78 * abre)
-          .fill({ color: 0xffc74a, alpha: vive * 0.75 });
-        g.ellipse(TS * 0.26 * abre, 0, TS * 0.14 * abre, meia * 0.5 * abre)
-          .fill({ color: 0xfff0c0, alpha: vive * 0.6 });
-      };
-      app.ticker.add(passo);
-      fxLayer.addChild(node);
-      return;
-    }
 
     if (kind === 'bash') {
       // Anel de corte + lâminas girando para fora, cobrindo o raio real da magia.
@@ -6458,7 +6500,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
                   tocaEfeito(folha, px, py, (i / VOLTAS) * Math.PI * 2 - apontado);
                 }
               }
-            } else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1, msg.targetId, msg.rumo);
+            } else if (msg.kind === 'firewave') {
+              /*
+               * 🌊 **A onda tem função própria porque precisa de quatro campos que o
+               * `spawnSpellFx` não carrega** — rumo, identidade, número de passos e
+               * largura. Enfiar todos lá dentro deixaria uma assinatura de oito
+               * posicionais para servir a UMA magia.
+               */
+              desenhaOnda(msg);
+            } else spawnSpellFx(msg.kind, msg.x, msg.y, msg.radius ?? 1, msg.targetId);
           }
           break;
         case 'heal': {
