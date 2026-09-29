@@ -2,7 +2,7 @@
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
-> Último commit de código: `COMMIT`. Árvore limpa, tudo empurrado.
+> Último commit de código: `3eb7830`. Árvore limpa, tudo empurrado.
 >
 > 🌊 **A Firewave está inteira**: onda direcional que sai dos pés do mago, área em
 > CONE que abre com a distância, dano de 50 % de ATQM (Lv.1), empurrão de 2 tiles e
