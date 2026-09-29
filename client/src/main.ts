@@ -5092,101 +5092,90 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   /**
-   * 🌊 **UMA onda, UM desenho — movido pelos passos que o servidor manda.**
+   * 🔺 **UM cone, ancorado em quem lançou — que ABRE, e não anda.**
    *
-   * 🔴 O servidor manda um `fx` por tile percorrido. A tentação é desenhar um
-   * efeito por pacote, e o resultado são seis rajadas empilhadas no rastro em vez
-   * de uma que anda. Por isso o `ondaId`: o segundo pacote encontra o sprite do
-   * primeiro e o REPOSICIONA.
+   * 🔴 Até 29/09 isto desenhava uma rajada que viajava tile a tile. O dono mandou
+   * a arte do cone e disse *"a área deve ser nesse formato, que é onde o fogo será
+   * lançado"* — e isso muda o desenho INTEIRO: o ápice fica parado nos pés do mago
+   * e o que avança é a BORDA. Um sprite que se desloca desenharia a coisa errada.
    *
-   * ⚠️ **Quem manda no quadro é o PASSO, não o relógio.** A folha tem doze: os
-   * cinco primeiros são a rajada crescendo e os sete últimos a dissipação. Deixar
-   * a animação correr sozinha faria o desenho dissipar no meio do percurso quando
-   * a onda fosse longa, e chegar ao fim ainda pequena quando fosse curta — a
-   * velocidade de quem anda é do servidor, e o cliente não guarda cópia dela.
+   * ⚠️ **O `ondaId` continua indispensável**, por outro motivo: o servidor manda um
+   * `fx` por passo, e sem identidade o segundo passo abriria um cone NOVO por
+   * cima do primeiro. Agora ele só avança o quadro do que já está lá.
    *
-   * ⚠️ **A dissipação começa no ÚLTIMO passo**, e o cliente sabe qual é porque o
-   * `n` do pacote diz quantos a conjuração tem — que é o significado que esse
-   * campo sempre teve. Esperar por um silêncio no lugar disso seria o cliente
-   * adivinhando a velocidade da magia.
+   * ⚠️ **Quem manda no quadro é o PASSO.** A folha tem 14: os sete primeiros são o
+   * cone abrindo e os sete últimos a dissipação. Deixar a animação correr sozinha
+   * faria o cone abrir todo antes de o dano chegar à borda — a velocidade de quem
+   * avança é do servidor, e o cliente não guarda cópia dela.
    */
-  const ondasVivas = new Map<string, { s: AnimatedSprite; passo: number; alvoX: number; alvoY: number }>();
-  /** Quadros de AVANÇO da folha; do índice 5 em diante é fumaça. */
-  const ONDA_AVANCO = 5;
+  const ondasVivas = new Map<string, { s: AnimatedSprite; passo: number }>();
+  /** Quadros de ABERTURA da folha; do índice 7 em diante é dissipação. */
+  const CONE_ABRE = 7;
+  /**
+   * ⚠️ **Quanto da célula, do ápice para cima, o cone ocupa.** Medido no quadro
+   * mais aberto: o ápice fica a 134 px do topo numa célula de 176, e o desenho
+   * sobe até y=3 — 131 px, ou 0,744 da altura. É esse pedaço que tem de valer o
+   * alcance da magia; usar a célula inteira faria o cone ficar 34 % curto.
+   */
+  const CONE_UTIL = 0.744;
 
   function desenhaOnda(msg: S2C_Effect): void {
-    const quadros = folhasEfeito.get('firewave');
-    if (!quadros || quadros.length <= ONDA_AVANCO) return;
+    const quadros = folhasEfeito.get('firewave_cone');
+    if (!quadros || quadros.length <= CONE_ABRE) return;
     const id = msg.ondaId ?? 'onda';
-    const x = msg.x * TS + TS / 2;
-    const y = msg.y * TS + TS / 2;
+    const passos = msg.n ?? 1;
 
     let viva = ondasVivas.get(id);
     if (!viva) {
       const s2 = new AnimatedSprite(quadros);
       /*
-       * ⚠️ **Âncora na CABEÇA da rajada**, medida: a arte aponta para a direita e o
-       * fogo termina perto da borda direita da célula. É a cabeça que tem de estar
-       * no tile do passo — a cauda fica para trás, que é de onde a onda veio.
+       * ⚠️ **Âncora no ÁPICE**, que o cortador mediu em 0,507 / 0,759 da célula.
+       * É o único ponto da arte que não se mexe entre os quadros — e é onde o
+       * personagem está.
        */
-      s2.anchor.set(0.92, 0.5);
+      s2.anchor.set(0.507, 0.759);
       s2.loop = false;
       s2.animationSpeed = 0;
       s2.eventMode = 'none';
       /*
-       * ⚠️ A altura sai da LARGURA da faixa que fere ((raio×2+1) tiles), e a
-       * largura vem junto pela proporção da folha. É a mesma regra da muralha: o
-       * desenho no tamanho do estrago, não o estrago no tamanho do desenho.
+       * 🔺 **O cone nasce na ORIGEM, e o `fx` a traz em `fromX/fromY`.** O `x/y`
+       * do pacote é a FRENTE da onda; ancorar ali poria o ápice na borda.
        */
-      const faixa = ((msg.radius ?? 1) * 2 + 1) * TS;
-      s2.scale.set(faixa / 128);
-      s2.x = x;
-      s2.y = y;
+      s2.x = (msg.fromX ?? msg.x) * TS + TS / 2;
+      s2.y = (msg.fromY ?? msg.y) * TS + TS / 2;
+      /*
+       * ⚠️ **A arte aponta para CIMA e o `rumo` mede a partir do leste**, então o
+       * quarto de volta é a conversão entre os dois — não um ajuste de gosto.
+       */
+      s2.rotation = (msg.rumo ?? 0) + Math.PI / 2;
+      /*
+       * ⚠️ **A escala sai do ALCANCE**, para a ponta do desenho cair no último tile
+       * que o dano alcança. É a mesma regra da muralha: o desenho no tamanho do
+       * estrago, e não o estrago no tamanho do desenho.
+       */
+      const alturaCelula = quadros[0]!.height;
+      s2.scale.set((passos * TS) / (alturaCelula * CONE_UTIL));
       s2.zIndex = 9998;
       fxLayer.addChild(s2);
-      viva = { s: s2, passo: 0, alvoX: x, alvoY: y };
+      viva = { s: s2, passo: 0 };
       ondasVivas.set(id, viva);
     }
     const atual = viva;
     atual.passo += 1;
-    atual.alvoX = x;
-    atual.alvoY = y;
-    atual.s.rotation = msg.rumo ?? 0;
-    atual.s.gotoAndStop(Math.min(atual.passo - 1, ONDA_AVANCO - 1));
-
     /*
-     * ⚠️ **O deslízio entre um passo e o seguinte** — sem ele a onda anda aos
-     * saltos de um tile a cada 90 ms, que é o mesmo defeito que o `setTarget` das
-     * entidades existe para evitar.
+     * ⚠️ O quadro acompanha o quanto da onda já saiu: no último passo o cone está
+     * inteiramente aberto. Com um passo só (alcance 1) ele abre de uma vez.
      */
-    if (atual.passo === 1) {
-      const desliza = (): void => {
-        if (atual.s.destroyed) { app.ticker.remove(desliza); return; }
-        atual.s.x += (atual.alvoX - atual.s.x) * 0.35;
-        atual.s.y += (atual.alvoY - atual.s.y) * 0.35;
-      };
-      app.ticker.add(desliza);
-    }
+    const fracao = passos > 1 ? (atual.passo - 1) / (passos - 1) : 1;
+    atual.s.gotoAndStop(Math.min(CONE_ABRE - 1, Math.round(fracao * (CONE_ABRE - 1))));
 
-    // Último passo: a rajada se desfaz e some.
-    if (atual.passo >= (msg.n ?? 1)) {
+    if (atual.passo >= passos) {
       ondasVivas.delete(id);
-      atual.s.textures = quadros.slice(ONDA_AVANCO);
+      atual.s.textures = quadros.slice(CONE_ABRE);
       atual.s.loop = false;
-      atual.s.animationSpeed = (quadros.length - ONDA_AVANCO) / (420 / (1000 / 60));
-      /*
-       * ⚠️ **O alfa cai junto com a animação.** Os dois últimos quadros da folha
-       * são fumaça ESCURA, e sobre a grama eles leem como uma mancha preta parada.
-       * Apagando, a fumaça some como fumaça.
-       */
-      const morre = (): void => {
-        if (atual.s.destroyed) { app.ticker.remove(morre); return; }
-        atual.s.alpha -= 0.035;
-        if (atual.s.alpha <= 0) { app.ticker.remove(morre); atual.s.destroy(); }
-      };
+      atual.s.animationSpeed = (quadros.length - CONE_ABRE) / (420 / (1000 / 60));
       atual.s.onComplete = () => { if (!atual.s.destroyed) atual.s.destroy(); };
       atual.s.gotoAndPlay(0);
-      app.ticker.add(morre);
     }
   }
 

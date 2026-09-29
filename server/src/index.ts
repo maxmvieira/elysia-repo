@@ -3627,6 +3627,14 @@ interface GolpePendente {
    * Ver a nota no agendamento.
    */
   empurraAoAcerto?: number;
+  /**
+   * 🔺 **O raio DESTE golpe**, quando ele não é o `splash` da ficha.
+   *
+   * 🔴 Existe para o cone da Firewave: cada passo fere mais longe do eixo que o
+   * anterior, então o raio é do PASSO e não da magia. Ausente, vale `def.splash`
+   * — o comportamento de toda queda que respinga.
+   */
+  raioDoGolpe?: number;
 }
 const golpesPendentes: GolpePendente[] = [];
 
@@ -3788,8 +3796,15 @@ function tickGolpesPendentes(now: number): void {
          */
         ...(def.direcional && g.tempestade
           ? {
-            radius: def.splash ?? 1,
+            radius: g.raioDoGolpe ?? def.splash ?? 1,
             rumo: Math.atan2(py - g.tempestade.centroY, px - g.tempestade.centroX),
+            /*
+             * 🔺 **A ORIGEM do cone**, que é onde o ápice fica. O `fx` diz onde a
+             * FRENTE está; o desenho precisa do outro extremo, e `fromX/fromY` já
+             * significa exatamente isto — o tile de quem conjurou.
+             */
+            fromX: g.tempestade.centroX,
+            fromY: g.tempestade.centroY,
             ...(g.tempestade.ondaId ? { ondaId: g.tempestade.ondaId } : {}),
           }
           : {}),
@@ -3852,7 +3867,9 @@ function tickGolpesPendentes(now: number): void {
       if (def.splash !== undefined) {
         for (const outro of creatures.values()) {
           if (outro.id === c?.id || !outro.alive || outro.floor !== player.floor) continue;
-          if (chebyshev(px, py, outro.tileX, outro.tileY) <= def.splash) atingidos.push(outro);
+          if (chebyshev(px, py, outro.tileX, outro.tileY) <= (g.raioDoGolpe ?? def.splash)) {
+            atingidos.push(outro);
+          }
         }
       }
     }
@@ -5216,8 +5233,25 @@ function lancaOnda(
   };
 
   const arremesso = def.empurraTiles !== undefined ? skillEmpurrao(def, nivel) : undefined;
+  /*
+   * 🔺 **O CONE: cada passo fere mais longe do eixo que o anterior.**
+   *
+   * Até 29/09 a onda era uma faixa de largura fixa; a arte que o dono mandou
+   * desenha um cone, e ele foi explícito em que a ÁREA é aquele formato. Com a
+   * abertura medida na folha, o raio do passo k é `k × abertura` — o que faz a
+   * borda do dano acompanhar a borda do desenho em vez de ser um retângulo por
+   * baixo dele.
+   *
+   * ⚠️ **Mínimo de 1**: o primeiro passo cairia com raio 0,78 arredondado para 1
+   * de qualquer jeito, mas deixar explícito impede que uma abertura menor em arte
+   * futura produza um cone que não acerta nem quem está colado.
+   */
+  const abertura = def.ondaAbertura ?? 0;
   for (let k = 1; k <= alcance; k++) {
     const fxEm = now + (k - 1) * passo;
+    const raio = abertura > 0
+      ? Math.max(1, Math.round(k * abertura))
+      : (def.splash ?? 1);
     golpesPendentes.push({
       playerId: player.id, creatureId: '', skillId: def.id, nivel,
       poderBase, critChance, critMult,
@@ -5233,6 +5267,7 @@ function lancaOnda(
       quando: fxEm,
       alvoX: player.tileX + v.dx * k,
       alvoY: player.tileY + v.dy * k,
+      raioDoGolpe: raio,
       tempestade: onda,
       ...(arremesso !== undefined ? { empurraAoAcerto: arremesso } : {}),
     });

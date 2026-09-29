@@ -153,9 +153,17 @@ async function aproximarDe(id, dist, limite = 45) {
   const origemY = eu.tileY;
   // A mira só dá o RUMO: aponto para o tile dele.
   manda({ t: 'cast', spell: 'firewave', tileX: c.tileX, tileY: c.tileY, level: 1 });
-  await espera(2500);
+  /*
+   * ⚠️ **O empurrão é medido LOGO depois da onda, e não no fim do teste.** Um
+   * hostil está perseguindo: dois segundos e meio depois ele já andou de volta, e a
+   * primeira volta deste teste acusou "empurrado para PERTO do mago" medindo o
+   * passeio dele em vez do arremesso.
+   */
+  await espera(700);
+  const logoApos = criaturas.get(alvo.id);
+  await espera(1800);
 
-  const depois = criaturas.get(alvo.id);
+  const depois = logoApos;
   registra(`\n--- placar ---`);
   registra(`passos da onda: ${passos.length}`);
   for (const p of passos) {

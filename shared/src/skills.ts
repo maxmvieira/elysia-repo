@@ -583,6 +583,21 @@ export interface SkillDef {
    * exatamente a família de defeito que o `quedaMs` do protocolo existe para evitar.
    */
   ondaMsPorTile?: number;
+  /**
+   * 🔺 **A ABERTURA do cone: a tangente do meio-ângulo.**
+   *
+   * 🔴 A Firewave deixou de ser uma faixa de largura fixa em 29/09 — o dono
+   * mandou a arte do cone e disse *"a área deve ser nesse formato, que é onde o
+   * fogo será lançado"*. A meia-largura de cada passo passou a crescer com a
+   * distância: `raio(k) = k × abertura`.
+   *
+   * ⚠️ **0,78 saiu da MEDIDA da folha**, não de gosto: no quadro mais aberto o
+   * desenho tem 103 px de meia-largura para 131 de altura a partir do ápice — um
+   * meio-ângulo de 38°. Arte nova muda este número, e é por isso que ele mora na
+   * ficha em vez de no cliente: quem desenha a área e quem a machuca têm de
+   * concordar.
+   */
+  ondaAbertura?: number;
   /** ⚡ O empurrão no Lv.10, quando ele cresce. Ausente = fixo. */
   empurraTilesAtLv10?: number;
   /**
@@ -1849,6 +1864,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * fogo chegaria antes ou depois do dano no dia em que um dos dois mudasse.
      */
     ondaMsPorTile: 90,
+    // 🔺 Meio-ângulo de 38°, medido na folha. Ver `ondaAbertura`.
+    ondaAbertura: 0.78,
     /*
      * 🎯 9 tiles de mira — herdado da barreira. Só o ÂNGULO é usado, mas o alcance
      * continua valendo como cerca: mirar a 30 tiles não deve ser aceito.

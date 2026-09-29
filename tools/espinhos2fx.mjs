@@ -38,6 +38,56 @@ import { decode, encode } from './hud/png.mjs';
 
 const DESTINO = 'client/public/assets/fx';
 const [arq, nome, altArg] = process.argv.slice(2);
+/**
+ * 🔥 **`--sem-quebra`: quadros que crescem DE PROPÓSITO não se partem.**
+ *
+ * 🔴 A quebra recursiva existe para folhas em que dois desenhos se encostaram,
+ * e ela decide pela mediana das larguras. Isso pressupõe quadros de tamanho
+ * parecido — e há folhas em que o tamanho É a animação: o cone da Firewave vai de
+ * 56 a 465 px de largura, e a mediana o fez partir 14 quadros em 33.
+ *
+ * ⚠️ Não dá para decidir isso medindo: "larga demais" e "cresceu" têm a mesma
+ * cara no perfil. Quem sabe qual é o caso é quem olhou a folha.
+ */
+const SEM_QUEBRA = process.argv.includes('--sem-quebra');
+/**
+ * 🧲 **`--junta=<px>`: ilhas mais próximas que isto são o MESMO quadro.**
+ *
+ * 🔴 O último quadro de uma dissipação é fumaça quase invisível, e o perfil o lê
+ * como vários pedaços soltos — na folha do cone ele virou CINCO ilhas, e o
+ * cortador contou 16 quadros onde havia 14.
+ *
+ * ⚠️ O número sai da MEDIDA daquela folha, e por isso é argumento: nela os vãos
+ * DENTRO de um quadro vão até 19 px e os vãos ENTRE quadros começam em 47. Trinta
+ * separa os dois grupos com folga dos dois lados; noutra arte será outro número, e
+ * medir é parte de cortar.
+ */
+const JUNTA = Number((process.argv.find((a) => a.startsWith('--junta=')) ?? '').split('=')[1] ?? 0) || 0;
+/**
+ * 🔺 **`--separa=<fração>: as divisas saem da FAIXA DE BAIXO, não do desenho
+ * inteiro.**
+ *
+ * 🔴 Numa folha de cones que crescem, os desenhos se encostam EM CIMA (onde são
+ * largos) e continuam separados EMBAIXO (onde afinam até o ápice). Medido na folha
+ * da Firewave: pelo perfil inteiro os vãos entre quadros chegam a 16 px — menores
+ * que buracos DENTRO de um quadro, ou seja, impossível de separar. Olhando só os
+ * 35 % de baixo, os sete quadros de cada fileira aparecem limpos.
+ *
+ * ✅ A faixa serve apenas para achar ONDE cortar; o recorte usa a altura inteira.
+ */
+const SEPARA = Number((process.argv.find((a) => a.startsWith('--separa=')) ?? '').split('=')[1] ?? 0) || 0;
+
+/** Funde ilhas separadas por menos de `JUNTA` pixels. */
+function juntaPerto(lista) {
+  if (JUNTA <= 0 || lista.length === 0) return lista;
+  const o = [lista[0]];
+  for (let i = 1; i < lista.length; i++) {
+    const ult = o[o.length - 1];
+    if (lista[i][0] - ult[1] - 1 < JUNTA) ult[1] = lista[i][1];
+    else o.push(lista[i]);
+  }
+  return o;
+}
 if (!arq || !nome) {
   console.error('uso: node tools/espinhos2fx.mjs <folha.png> <nome> [altura]');
   process.exit(1);
@@ -65,7 +115,12 @@ for (let y = 0; y < img.h; y++) {
   for (let x = 0; x < img.w; x++) if (A(x, y) > PISO) n++;
   perfilY[y] = n;
 }
-const fileiras = ilhas(perfilY, 2);
+/*
+ * ⚠️ **Fileira de menos de 10 px é ruído, não fileira.** A folha do cone tem uma
+ * linha de UM pixel entre as duas fileiras de verdade — respingo do desenho —, e
+ * sem este corte ela vira uma terceira fileira com quadros de um pixel de altura.
+ */
+const fileiras = ilhas(perfilY, 2).filter(([a, b]) => b - a + 1 >= 10);
 
 /* 2. Os quadros de cada fileira, pelo perfil horizontal dela. */
 const bruto = [];
@@ -74,7 +129,28 @@ for (const [y0, y1] of fileiras) {
   for (let y = y0; y <= y1; y++) {
     for (let x = 0; x < img.w; x++) if (A(x, y) > PISO) perfilX[x]++;
   }
-  for (const [x0, x1] of ilhas(perfilX, 1)) bruto.push({ x0, x1, y0, y1, perfilX });
+  /*
+   * ⚠️ Com `--separa`, o perfil que DIVIDE é só o da faixa de baixo; as divisas
+   * ficam no meio do vão entre uma ilha e a seguinte, e cada quadro vai de uma
+   * divisa à outra com a altura inteira da fileira.
+   */
+  if (SEPARA > 0) {
+    const corte = y1 - Math.round((y1 - y0 + 1) * SEPARA);
+    const perfilBase = new Int32Array(img.w);
+    for (let y = corte; y <= y1; y++) {
+      for (let x = 0; x < img.w; x++) if (A(x, y) > PISO) perfilBase[x]++;
+    }
+    const apices = juntaPerto(ilhas(perfilBase, 1));
+    for (let k = 0; k < apices.length; k++) {
+      const ini = k === 0 ? 0 : Math.round((apices[k - 1][1] + apices[k][0]) / 2);
+      const fim = k === apices.length - 1
+        ? img.w - 1
+        : Math.round((apices[k][1] + apices[k + 1][0]) / 2);
+      bruto.push({ x0: ini, x1: fim, y0, y1, perfilX });
+    }
+    continue;
+  }
+  for (const [x0, x1] of juntaPerto(ilhas(perfilX, 1))) bruto.push({ x0, x1, y0, y1, perfilX });
 }
 
 /*
@@ -92,7 +168,7 @@ for (const [y0, y1] of fileiras) {
  * qualquer quantidade, e a mediana se recalcula a cada volta.
  */
 const quadros = [...bruto];
-for (let volta = 0; volta < 16; volta++) {
+for (let volta = 0; !SEM_QUEBRA && volta < 16; volta++) {
   const larguras = quadros.map((q) => q.x1 - q.x0 + 1).sort((a, b) => a - b);
   const medianaL = larguras[larguras.length >> 1] ?? 1;
   const gorda = quadros.findIndex((q) => q.x1 - q.x0 + 1 > medianaL * 1.5);
