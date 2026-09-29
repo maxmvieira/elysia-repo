@@ -9,6 +9,74 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-29 — A área da Firewave vira CONE, e o cone acaba na MIRA
+
+**Onde mora:** `ondaAbertura` em `shared/src/skills.ts` · `raioDoGolpe` em
+`server/src/index.ts` · `coneMira` em `client/src/main.ts` · três argumentos novos em
+`tools/espinhos2fx.mjs` · `arte-fonte/fx/firewave_cone.png`
+
+Duas entregas de arte no mesmo dia, e a segunda corrigiu o que eu fiz com a primeira.
+
+### 🔺 A arte do cone mudou a ÁREA, não só o desenho
+
+*"A área deve ser nesse formato, que é onde o fogo será lançado."* A meia-largura de cada
+passo deixou de ser fixa e passou a crescer com a distância: `raio(k) = k × ondaAbertura`.
+
+⚠️ **A abertura de 0,78 saiu da MEDIDA da folha**, não de gosto: no quadro mais aberto o
+desenho tem 103 px de meia-largura para 131 de altura a partir do ápice — meio-ângulo de
+38°. Ela mora na ficha e não no cliente porque **quem desenha a área e quem a machuca têm
+de concordar**.
+
+⚠️ E o golpe agendado ganhou `raioDoGolpe`: numa queda o respingo é da MAGIA, na onda ele é
+do PASSO. Ausente, continua valendo `def.splash`.
+
+### ✂️ Três coisas que o cortador dos espinhos precisou aprender, todas por medida
+
+| Argumento | Por quê |
+|---|---|
+| `--sem-quebra` | a quebra decide pela mediana das larguras, e aqui o TAMANHO é a animação (56 → 465 px). Ela partiu 14 quadros em 33 |
+| `--separa=<fração>` | pelo perfil inteiro os vãos entre quadros chegam a 16 px — menores que buracos DENTRO de um quadro. Nos 35 % de baixo, onde os cones afinam até o ápice, os sete de cada fileira aparecem limpos |
+| fileira < 10 px é ruído | esta folha tem uma linha de UM pixel entre as duas fileiras de verdade |
+
+🔴 **Nenhuma dessas três dá para decidir medindo sozinho.** "Larga demais" e "cresceu" têm
+a mesma cara no perfil; quem sabe qual é o caso é quem olhou a folha. Por isso viraram
+argumento, e não regra automática.
+
+### 🔴 E então: era o MARCADOR, não a animação
+
+Dono, com o selo circular na tela: *"era para substituir ISSO, não a animação da magia em
+si."* Eu tinha trocado a coisa errada — a rajada que viaja virou cone, quando o que devia
+virar cone era a prévia da mira.
+
+✅ A rajada voltou (restaurada do commit anterior) e o cone passou a desenhar a ÁREA antes
+do clique, no lugar do anel arcano.
+
+**A troca faz sentido além do pedido:** o anel redondo responde *"onde isto vai cair"*, que
+é a pergunta certa para uma magia que cai num PONTO. A Firewave não cai em ponto nenhum —
+ela abre um leque a partir dos pés do mago, e o círculo **mentia sobre o que a magia pega**.
+
+⚠️ **O cone da mira fica nos PÉS de quem mira, não no mouse.** É a diferença entre as duas
+perguntas: o selo marca o ALVO, o cone marca o QUE PEGA. O mouse dá só o ângulo — pela
+mesma conta que o servidor usa para o rumo, porque duas contas diferentes seriam uma prévia
+que mente.
+
+### 🪤 A ferramenta de medição errou pela TERCEIRA vez na mesma sequência
+
+O teste acusou *"empurrado para PERTO do mago"*. O empurrão estava certo: eu media a
+posição 2,5 s depois do golpe, e o bicho — que é hostil e persegue — já tinha voltado
+andando. Medindo 700 ms depois, apareceu o que sempre foi: **dois tiles para longe**.
+
+É a terceira vez neste bloco de trabalho (o placar da barreira somando o mesmo golpe quatro
+vezes; o da onda contando queimadura como segundo acerto; agora este). **Auditar o
+relatório antes de abrir o código** virou parte do método.
+
+### 💔 E o Testedois caiu pela quarta vez
+
+Recarreguei a página e conjurei sem olhar que ele estava com 248 de vida num ninho de
+Diabretes Infernais. Descuido puro, não risco calculado — está no **147**.
+
+---
+
 ## 2026-09-28 — A Muralha de Fogo é SUBSTITUÍDA pela Firewave
 
 **Onde mora:** `firewave` em `shared/src/skills.ts` · `lancaOnda` e `umaVezPorAlvo` em

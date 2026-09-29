@@ -1,3 +1,86 @@
+# Handoff — 2026-09-29 · PONTO DE RETOMADA
+
+> Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
+> `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
+> Último commit de código: `COMMIT`. Árvore limpa, tudo empurrado.
+>
+> 🌊 **A Firewave está inteira**: onda direcional que sai dos pés do mago, área em
+> CONE que abre com a distância, dano de 50 % de ATQM (Lv.1), empurrão de 2 tiles e
+> **um golpe por inimigo**. Duas artes do dono entraram — a rajada que viaja (12
+> quadros) é a animação, e o cone (14 quadros) é o **marcador da mira**.
+
+## 🎯 O QUE ESTÁ COMBINADO PARA DEPOIS
+
+🔴 **DUAS DECISÕES QUE SÃO DO DONO**, marcadas no código:
+
+> **1. O que cresce com o nível.** A onda acerta cada inimigo UMA vez, então a
+> progressão por contatos morreu com a barreira. Decidi que **o poder cresce**, com
+> 0,50 virando o valor do Lv.1 — que é onde as duas fichas se encontram. Se ele
+> quiser 50 % fixo em toda a régua, o que cresce terá de ser outra coisa (e alcance
+> não serve: o teste de progressão mede dano POR ALVO).
+>
+> **2. A geometria.** 90 ms por tile, alcance 3 → 6, e o meio-ângulo de 38 % saiu da
+> medida da folha. O cone no Lv.10 cobre 6 tiles e fica GRANDE em tela — vale o olho
+> dele antes de virar definitivo.
+
+🔴 **Corrigir a Muralha de GELO** continua de pé desde 12/09, e o dono **não
+detalhou o que está errado**. Ela também mudou de altura em 20/09 sem ninguém pedir:
+a conta usava dois literais da folha do fogo.
+
+💔 **O `Testedois` está no 147** — quatro mortes minhas. A última foi descuido puro:
+recarreguei e conjurei sem olhar a vida, num ninho de Diabretes. `/level 149` repõe;
+está parado esperando o dono, porque é o save dele.
+
+## 🔬 COMO CONFERIR SEM MORRER
+
+    node --import tsx tools/teste-firewave.mjs
+
+Mede o teste mínimo da ficha: os passos avançando, o rumo, o cone abrindo
+(meia-largura 1 → 2 → 2), o dano, o empurrão e **um golpe por inimigo**.
+
+## ⏸️ O QUE ENTROU EM 28–29/09
+
+| | |
+|---|---|
+| 🌊 **Firewave** | substitui a Muralha de Fogo; nasce dentro do `golpesPendentes`, sem arquitetura nova |
+| 🔺 **Área em cone** | `raio(k) = k × ondaAbertura`, com a abertura medida na folha (38°) |
+| 🎨 **Duas artes** | a rajada é a animação; o cone é o marcador da mira, no lugar do selo circular |
+| ✂️ **Cortador** | `espinhos2fx` ganhou `--sem-quebra`, `--separa` e o descarte de fileira fina |
+| 💾 **Migração** | `fire_wall` → `firewave`: quem tinha barreira 10 tem onda 10 |
+| 🧹 **Remoção** | o contador de contatos da barreira saiu inteiro |
+
+## 🪤 O QUE ESTE BLOCO ENSINOU
+
+1. **Auditar o relatório antes de abrir o código.** A ferramenta de medição acusou
+   código certo TRÊS vezes seguidas: o placar da barreira somando o mesmo golpe
+   quatro vezes; o da onda contando queimadura como segundo acerto; e o do empurrão
+   medindo a posição 2,5 s depois, quando o bicho já tinha voltado andando.
+
+2. **Renomear uma skill apaga pontos investidos em silêncio.** `skill_levels` é um
+   JSON com o id como chave. O remédio já existia (`IDS_RENOMEADOS`).
+
+3. **Magia nova herda `fx` que não pediu.** A onda saía com um estouro de três tiles
+   em cima do mouse, antes de existir — o clarão único que toda magia de área manda.
+
+4. **Nem toda separação de quadros dá para automatizar.** "Larga demais" e "cresceu"
+   têm a mesma cara no perfil. Por isso os cortes viraram argumento, não regra.
+
+5. **O marcador da mira e a animação respondem a perguntas DIFERENTES.** O anel
+   marca o alvo; o cone marca o que pega. Trocar um pelo outro foi meu erro do dia.
+
+## ⚠️ PENDÊNCIAS QUE CONTINUAM ABERTAS
+
+- **Em PvP a onda não tem tratamento próprio** — ela acerta criaturas; jogador
+  inimigo no caminho é caso que ninguém olhou.
+- **O equilíbrio do congelamento** (50 % × 5 s contra 2 s de recarga).
+- **O `castTime` da Explosão Glacial** ainda diverge da ficha.
+- **A transição "primeiro dano → barra de vida"** nunca foi encenada.
+- **`anel_conjuracao` sem arte-fonte**; **~50 MB de folhas do Meteoro sem uso**; e a
+  `muralha12`, órfã desde que a barreira saiu.
+- **O repositório é PÚBLICO** e os docs assumem privado.
+
+---
+
 # Handoff — 2026-09-28 · PONTO DE RETOMADA
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
