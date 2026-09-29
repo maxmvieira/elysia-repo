@@ -632,8 +632,15 @@ test('🌊 Firewave: uma onda que ATRAVESSA, e não uma parede que fica', () => 
    * 🌊 **O alcance é PERCURSO, e ele cresce.** 3 tiles no Lv.1, 6 no Lv.10 — uma
    * onda que varre mais campo. E a largura é o `splash`, fixa.
    */
-  assert.equal(skillRange(m, 1), 3);
-  assert.equal(skillRange(m, 10), 6);
+  /*
+   * 🔴 **Encolheu em 29/09** — dono, jogando: *"está disparando muito longe"*. Era
+   * 3→6, e no Lv.10 a onda varria seis tiles de comprimento por onze de largura na
+   * ponta. O que este teste guarda é que o alcance CRESCE e que ele cabe numa
+   * rajada de perto.
+   */
+  assert.equal(skillRange(m, 1), 2);
+  assert.equal(skillRange(m, 10), 4);
+  assert.ok(skillRange(m, 10) <= 5, 'rajada frontal de perto, não bombardeio');
   assert.equal(m.splash, 1, 'meia-largura 1 = a faixa de três células da ficha');
 
   /*

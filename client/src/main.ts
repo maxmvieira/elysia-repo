@@ -9328,6 +9328,17 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   objects.addChild(coneMira);
   /** Quanto da célula, do ápice para cima, o cone ocupa. Medido: 131 de 176 px. */
   const CONE_UTIL = 0.744;
+  /**
+   * 🔺 **Quanto o cone da MIRA passa do alcance real** — dono, 29/09: *"estica mais
+   * a mira da magia e reduza a área de efeito para dentro da mira"*.
+   *
+   * ⚠️ **A prévia passou a mostrar MAIS do que a magia pega**, o contrário da regra
+   * que o resto do arquivo segue. Ela mente para MENOS: nada é atingido fora do que
+   * o jogador viu marcado, e a área de dano fica folgada dentro do desenho. Para
+   * voltar a casar as duas, este número vira 1 e a `ondaAbertura` da ficha volta
+   * aos 0,78 medidos na folha.
+   */
+  const CONE_MIRA_ESTICA = 1.3;
   /** Quem é o dono do círculo agora. Sem isto, um `casting: null` de OUTRO mago apagaria o círculo deste. */
   let circuloDe: string | null = null;
   /*
@@ -9627,7 +9638,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
         // A arte aponta para CIMA e o ângulo mede do leste: o quarto de volta converte.
         coneMira.rotation = Math.atan2(ty - myTileY, tx - myTileX) + Math.PI / 2;
         const alcance = skillRange(def, nivel);
-        coneMira.scale.set((alcance * TS) / (folha[0]!.height * CONE_UTIL));
+        coneMira.scale.set((alcance * CONE_MIRA_ESTICA * TS) / (folha[0]!.height * CONE_UTIL));
         coneMira.tint = cor;
         coneMira.alpha = fora ? 0.35 : 0.6;
         coneMira.visible = true;

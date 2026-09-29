@@ -1837,11 +1837,16 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     direcional: true,
     shape: 'area',
     /**
-     * 🌊 **`range` aqui é QUANTOS TILES a onda percorre** — 3 no Lv.1, 6 no Lv.10.
+     * 🌊 **`range` aqui é QUANTOS TILES a onda percorre** — 2 no Lv.1, 4 no Lv.10.
      * Não é raio: a onda não tem centro, tem frente.
+     *
+     * 🔴 **Encolheu de 3→6 para 2→4 em 29/09** — dono, jogando: *"ele está
+     * disparando muito longe"*. No Lv.10 a onda varria seis tiles de comprimento e,
+     * com a abertura de então, ONZE de largura na ponta: uma magia de recarga curta
+     * limpando meia tela. O que ela é — rajada frontal de perto — pede menos.
      */
-    range: 3,
-    rangeEvery: 3,
+    range: 2,
+    rangeEvery: 4,
     /**
      * 🌊 **A LARGURA da frente, como meia-largura em tiles.** 1 dá a faixa de três
      * células que a ficha desenha.
@@ -1864,8 +1869,21 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * fogo chegaria antes ou depois do dano no dia em que um dos dois mudasse.
      */
     ondaMsPorTile: 90,
-    // 🔺 Meio-ângulo de 38°, medido na folha. Ver `ondaAbertura`.
-    ondaAbertura: 0.78,
+    /*
+     * 🔺 **0,45 — uns 24° de meio-ângulo, e NÃO os 38° da folha.**
+     *
+     * 🔴 Aqui o desenho e o dano deixaram de ser a mesma medida, a pedido do dono
+     * (29/09): *"reduza a área de efeito da magia para dentro da mira"*. O cone
+     * desenhado passa a ser o limite EXTERNO — tudo que a magia fere está dentro
+     * dele, com folga.
+     *
+     * ⚠️ **É uma prévia que mostra MAIS do que a magia pega**, e isso contraria a
+     * regra que o resto deste arquivo segue (a mira não mente). A diferença é que
+     * ela mente para MENOS: ninguém é atingido fora do que viu marcado. Se o dono
+     * quiser as duas coisas iguais de novo, são dois números — este e o
+     * `CONE_MIRA_ESTICA` do cliente.
+     */
+    ondaAbertura: 0.45,
     /*
      * 🎯 9 tiles de mira — herdado da barreira. Só o ÂNGULO é usado, mas o alcance
      * continua valendo como cerca: mirar a 30 tiles não deve ser aceito.
