@@ -30,8 +30,7 @@ export type AreaKind =
   | 'damage'
   /** Cura quem está dentro. Santuário. */
   | 'heal'
-  /** Só existe para bloquear passagem. Ice Wall. */
-  | 'wall'
+
   /** Protege quem está dentro (o efeito real mora nos modificadores). */
   | 'ward'
   /**
@@ -94,35 +93,12 @@ export interface GroundArea {
   hitsPlayers: boolean;
   /** Atinge criaturas? */
   hitsCreatures: boolean;
-  /** Impede quem tentar entrar. Só a Ice Wall. */
-  blocks: boolean;
   /*
-   * 🌊 **O CONTADOR DE CONTATOS saiu em 28/09, com a Muralha de Fogo.** Eram
-   * quatro campos aqui — `contatos`, `maxContatos`, `contatoMs` e
-   * `empurraTiles` — e todos existiam para UMA magia: a barreira que feria
-   * quem a atravessava. A ficha do dono a substituiu pela Firewave, que é uma
-   * onda e não uma área, então nada mais os preenchia.
-   *
-   * ⚠️ A regra "cada inimigo apanha uma vez" continua existindo — mudou de
-   * casa: agora é `umaVezPorAlvo` na `Tempestade` do servidor, que é onde vive o
-   * estado compartilhado de uma conjuração.
+   * 🧱 **PAREDE SAIU DAQUI em 29/09.** Eram `blocks`, `hp`, `hpMax` e
+   * `desgasteHpPorSeg`, e todos existiam para a Muralha de Gelo — a única magia
+   * do jogo que virava colisão. Com ela fora, nenhuma área barra passagem nem tem
+   * estrutura com vida própria.
    */
-  /**
-   * ❄️ **A estrutura tem VIDA PRÓPRIA, e é ela que decide quando cai.**
-   *
-   * 🔴 A ficha do dono (13/09) dá à Muralha de Gelo duas mortes: o tempo e o HP.
-   * A segunda é a que importa — *"a barreira perde 50 HP por segundo enquanto
-   * estiver ativa"* —, e é ela que faz uma parede de 400 pontos no Lv.1 durar
-   * oito segundos mesmo com a duração dizendo outra coisa.
-   *
-   * ⚠️ **`hp` é opcional de propósito.** As outras seis áreas não têm vida: elas
-   * morrem só pelo relógio, e dar HP a todas seria inventar um estado que
-   * ninguém lê. Quem não declara continua exatamente como antes.
-   */
-  hp?: number;
-  hpMax?: number;
-  /** Quanto de vida a estrutura perde por segundo, só de existir. */
-  desgasteHpPorSeg?: number;
   /**
    * 🪤 Já disparou? Só as armadilhas usam.
    *
@@ -149,37 +125,6 @@ export function areaCovers(a: GroundArea, x: number, y: number, floor: number): 
   if (a.floor !== floor) return false;
   return Math.abs(a.x - x) <= (a.raioX ?? a.radius)
     && Math.abs(a.y - y) <= (a.raioY ?? a.radius);
-}
-
-/**
- * ❄️ **Tira vida de uma estrutura de chão. Devolve `true` se ela CAIU.**
- *
- * 🔴 Genérico de propósito, e não "danifica a muralha de gelo": a ficha do dono
- * pede *"uma implementação reutilizável para objetos temporários destrutíveis,
- * não uma lógica exclusiva"*. Quem chama não precisa saber que área é — só que
- * ela tem vida.
- *
- * ⚠️ Sem `hp` na área, ninguém sofre nada: uma Muralha de Fogo não "quebra" por
- * levar espadada, e chamar isto nela é inofensivo em vez de ser um caso especial
- * em cada chamador.
- */
-export function danificaArea(a: GroundArea, dano: number): boolean {
-  if (a.hp === undefined) return false;
-  a.hp = Math.max(0, a.hp - Math.max(0, dano));
-  return a.hp <= 0;
-}
-
-/** Alguma área BLOQUEANTE ocupa este tile? (Ice Wall.) */
-export function areaBlocks(
-  areas: Iterable<GroundArea>,
-  x: number,
-  y: number,
-  floor: number,
-): boolean {
-  for (const a of areas) {
-    if (a.blocks && areaCovers(a, x, y, floor)) return true;
-  }
-  return false;
 }
 
 /**

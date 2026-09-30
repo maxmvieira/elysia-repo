@@ -53,13 +53,25 @@ const LADO = 128;
 const MAGIAS = {
   // 🔥 Fogo — laranja.
   fire_bolt: 14, //  serpente de fogo com cabeça branca: o projétil que cai
-  fire_wall: 47, //  labareda de pé, que é o desenho de uma muralha
+  /*
+   * 🌊 **A FIREWAVE NÃO ESTÁ AQUI, e é de propósito.** Ela herdou o 47 da Muralha
+   * de Fogo — uma labareda de pé, que desenhava uma parede — e isso deixou de
+   * fazer sentido quando a parede virou onda.
+   *
+   * 🔴 **E nenhuma das 36 artes do pacote é uma onda de fogo.** Procurei: a mais
+   * próxima é a 36 (rastros alaranjados avançando), e ela já é da Chuva de
+   * Meteoros, onde os mesmos rastros leem como cometas caindo — tirá-la de lá
+   * seria piorar uma magia para melhorar outra, que é exatamente a armadilha que
+   * o comentário do Silêncio (abaixo) descreve.
+   *
+   * ✅ Então ela tira o ícone da PRÓPRIA folha de animação. Ver `tools/hud/icone-da-folha.mjs`:
+   * nenhuma miniatura combina mais com uma magia do que um quadro dela mesma.
+   */
   meteor: 41, //     estouro em estrela: o impacto de um só
   meteor_storm: 36, // três cometas: a chuva
 
   // ❄️ Gelo — ciano.
   cold_bolt: 6, //      vórtice com estrela branca no meio: o projétil
-  ice_wall: 42, //      chamas azuis de pé, o par da muralha de fogo
   glacial_burst: 19, // estouro de bolhas geladas, do centro para fora
   blizzard: 26, //      garras de gelo cruzando: os estilhaços da nevasca
 

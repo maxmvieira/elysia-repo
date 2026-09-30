@@ -70,7 +70,6 @@ export type SkillId =
   | 'meteor_storm'
   // 🔮 Feiticeiro — ❄️ gelo (4)
   | 'cold_bolt'
-  | 'ice_wall'
   | 'glacial_burst'
   | 'blizzard'
   // 🔮 Feiticeiro — ⚡ raio (3)
@@ -206,17 +205,17 @@ export interface SkillGround {
   durationAtLv10: number;
   hitsPlayers: boolean;
   hitsCreatures: boolean;
-  /**
-   * Impede a passagem. Duas magias: a Muralha de Gelo e, desde a ficha
-   * simplificada, a de Fogo.
+  /*
+   * 🧱 **`blocks`, `hpAtLv1/hpAtLv10` e `desgasteHpPorSeg` SAÍRAM em 29/09**,
+   * com a Muralha de Gelo — a última magia que erguia parede. Nenhuma outra
+   * marcava colisão nem tinha estrutura com vida própria, então os quatro campos
+   * ficaram sem quem os preenchesse.
    *
-   * 🔴 **Marcar isto sem dar uma SAÍDA é um erro de desenho.** Uma parede que
-   * só barra faz o monstro contornar e não custa nada a ele. As duas que
-   * existem pagam esse preço de jeitos diferentes — o gelo tem `hpAtLv1` e
-   * cai na porrada, o fogo tem `contatosAtLv1` e queima quem tenta passar —,
-   * e o teste guarda a regra.
+   * ⚠️ Se um dia voltar a existir magia que barra passagem, o desenho inteiro
+   * está no HISTORICO de 11/09 e 12/09: a regra era que parede que barra precisa
+   * de uma SAÍDA — vida para ser derrubada, ou contato para ser atravessada a um
+   * preço —, senão o monstro contorna e a magia não faz nada.
    */
-  blocks?: boolean;
   /** Quantas instâncias simultâneas do MESMO conjurador. Ausente = 1. */
   maxAtLv1?: number;
   maxAtLv10?: number;
@@ -229,14 +228,7 @@ export interface SkillGround {
    * o jogador a pensar em eixos em vez de em direção.
    */
   linha?: boolean;
-  /**
-   * ❄️ **VIDA da estrutura**, para as barreiras que podem ser derrubadas. Ver
-   * `hp` em `GroundArea`. Ausente = a área só morre pelo relógio.
-   */
-  hpAtLv1?: number;
-  hpAtLv10?: number;
-  /** Quanto de vida ela perde por segundo só de existir. */
-  desgasteHpPorSeg?: number;
+
 }
 
 export const MAX_SKILL_LEVEL = 10;
@@ -2271,95 +2263,6 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     fx: 'cold_bolt',
     desc: 'Chuva de lascas de gelo num alvo. 10 no Lv.10, com chance de deixá-lo lento.',
   },
-  /**
-   * 🔴 "Barreira física destruível, **1→3 paredes simultâneas**, **20 s→60 s**"
-   * — citação. É a única habilidade do jogo que cria colisão de verdade
-   * (`blocks: true` em `areas.ts`).
-   *
-   * ⚠️ Quando o Feiticeiro tenta erguer a 4ª, a mais antiga cai — recusar em
-   * silêncio seria pior do que substituir.
-   */
-  ice_wall: {
-    id: 'ice_wall',
-    name: 'Muralha de Gelo',
-    kind: 'ground',
-    branch: 'gelo',
-    classes: ['sorcerer'],
-    reqLevel: 12,
-    requires: [{ skill: 'cold_bolt', level: 3 }],
-    /**
-     * ❄️ **20 de SP em todos os níveis** — ficha do dono, 13/09. A magia não dá
-     * dano nenhum: o que ela cobra é a decisão de onde pôr a parede, e um custo
-     * crescente puniria quem a usa como ela foi desenhada.
-     */
-    manaCost: 20,
-    manaPerLevel: 0,
-    /**
-     * ⚠️ **8 s de recarga, e a ficha não fala dela.** O número é meu e vem do
-     * mesmo raciocínio da Muralha de Fogo: o teto é de três paredes no Lv.10, e
-     * com a recarga antiga (12 s) contra 44 s de duração dava para ter as três —
-     * mas a primeira levava 24 s para ficar de pé. A 8 s a formação acompanha a
-     * intenção tática.
-     */
-    cooldownMs: 8000,
-    power: 0,
-    powerPerLevel: 0,
-    shape: 'ground',
-    /**
-     * ❄️ **Raio 2 = as CINCO células da ficha**, e a linha nasce perpendicular à
-     * mira, como a Muralha de Fogo. Ver `linha` e `emVolta`.
-     */
-    range: 2,
-    rangeEvery: 0,
-    castRange: 9,
-    castRangeEvery: 0,
-    durationMs: 20000,
-    /**
-     * ⚠️ **Conjuração de 1 s.** A ficha não pede número, mas pede a aura branca e
-     * a escolha da célula: sem tempo de conjuração não haveria o que interromper,
-     * e o fluxo que o dono desenhou (conjura → mira → valida → cria) perderia o
-     * meio.
-     */
-    castMs: 1000,
-    magic: true,
-    ground: {
-      kind: 'wall',
-      /**
-       * ❄️ **1 s de tique, e agora ELE TEM TRABALHO.** Antes era um campo
-       * obrigatório sem uso — parede não pulsa. Hoje é o relógio do desgaste: 50
-       * de vida por segundo, que é a segunda morte da barreira.
-       */
-      tickMs: 1000,
-      durationAtLv1: 8000,
-      durationAtLv10: 44000,
-      hitsPlayers: false,
-      hitsCreatures: false,
-      blocks: true,
-      linha: true,
-      /**
-       * ❄️ **VIDA de 400 a 2200, e ela é quem manda.** Com 50 de desgaste por
-       * segundo, a parede do Lv.1 cai em 8 s e a do Lv.10 em 44 — exatamente a
-       * duração da ficha. **Os dois números contam a MESMA história de propósito**:
-       * a duração é o teto, o HP é o que sobra depois de alguém bater nela.
-       *
-       * ⚠️ É isso que dá sentido a atacar a muralha: sem o desgaste, HP e tempo
-       * seriam dois relógios independentes e o jogador não saberia qual está
-       * correndo.
-       */
-      hpAtLv1: 400,
-      hpAtLv10: 2200,
-      desgasteHpPorSeg: 50,
-      maxAtLv1: 1,
-      maxAtLv10: 3,
-    },
-    fx: 'ice_wall',
-    desc: 'Ergue uma parede de gelo de 5 células que bloqueia a passagem até ser quebrada.',
-  },
-  /**
-   * 🔴 "360° ao redor de si, **para quando o melee cola nele**" — citação, e é
-   * a razão de ser da habilidade: é a resposta ao Knight que fechou a
-   * distância. Por isso o raio é curto e o efeito é empurrar, não matar.
-   */
   glacial_burst: {
     id: 'glacial_burst',
     name: 'Explosão Glacial',
@@ -2489,7 +2392,6 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     reqLevel: 50,
     requires: [
       { skill: 'cold_bolt', level: 5 },
-      { skill: 'ice_wall', level: 5 },
       { skill: 'glacial_burst', level: 5 },
     ],
     /**
@@ -4136,7 +4038,7 @@ export const SKILL_IDS: SkillId[] = [
   'nature_affinity',
   // 🔮 Feiticeiro (18)
   'fire_bolt', 'firewave', 'meteor', 'meteor_storm',
-  'cold_bolt', 'ice_wall', 'glacial_burst', 'blizzard',
+  'cold_bolt', 'glacial_burst', 'blizzard',
   'electric_sphere', 'electric_discharge', 'thor_wrath',
   'magic_enhance', 'magic_amplify', 'cast_mastery', 'mana_regen',
   'magic_protection', 'revealing_flame', 'arcane_circle',
@@ -4211,7 +4113,7 @@ export const SKILL_BARS: Record<PlayerClass, (SkillId | null)[]> = {
   ]),
   sorcerer: barra([
     'fire_bolt', 'cold_bolt', 'electric_sphere', 'electric_discharge',
-    'meteor', 'glacial_burst', 'firewave', 'ice_wall',
+    'meteor', 'glacial_burst', 'firewave',
     'arcane_circle', 'meteor_storm', 'blizzard', 'thor_wrath',
     // Segunda fileira: as utilitárias arcanas.
     'magic_amplify', 'magic_protection', 'revealing_flame',
@@ -4512,12 +4414,6 @@ export function skillGroundMax(def: SkillDef, nivel: number): number {
  * vida nenhuma — e o `undefined` é significativo: é ele que faz a área morrer só
  * pelo relógio, como as outras seis.
  */
-export function skillGroundHp(def: SkillDef, nivel: number): number | undefined {
-  const g = def.ground;
-  if (!g || g.hpAtLv1 === undefined) return undefined;
-  const lv10 = g.hpAtLv10 ?? g.hpAtLv1;
-  return Math.max(1, Math.round(porNivel(nivel, g.hpAtLv1, lv10)));
-}
 
 
 // ---------------------------------------------------------------------------

@@ -21,7 +21,6 @@ import {
   tickEffects,
   MODIFIER_FLOOR,
   MODIFIER_CEIL,
-  areaBlocks,
   areaCovers,
   countAreasOf,
   dropOldestOf,
@@ -164,7 +163,7 @@ const area = (over: Partial<GroundArea> = {}): GroundArea => ({
   id: 'a1', skillId: 'blizzard', ownerId: 'p1', kind: 'damage',
   x: 10, y: 10, floor: 0, radius: 2,
   expiresAt: 10000, nextTickAt: 0, tickMs: 1000, power: 5,
-  hitsPlayers: true, hitsCreatures: true, blocks: false, fx: 'blizzard',
+  hitsPlayers: true, hitsCreatures: true, fx: 'blizzard',
   ...over,
 });
 
@@ -180,12 +179,11 @@ test('a área não atravessa andares', () => {
   assert.ok(!areaCovers(area({ floor: 0 }), 10, 10, 1));
 });
 
-test('só a área bloqueante impede a passagem', () => {
-  const nevasca = area({ blocks: false });
-  const parede = area({ id: 'a2', skillId: 'ice_wall', kind: 'wall', blocks: true, radius: 0 });
-  assert.ok(!areaBlocks([nevasca], 10, 10, 0), 'atravessar a nevasca dói, mas dá');
-  assert.ok(areaBlocks([parede], 10, 10, 0), 'a muralha de gelo, não');
-});
+/*
+ * 🧱 **O teste da ÁREA BLOQUEANTE saiu em 29/09**, com a Muralha de Gelo — a
+ * única magia que virava colisão. Hoje nenhuma área barra passagem, e o
+ * `areaBlocks` que ele exercitava saiu junto.
+ */
 
 test('as áreas vencidas somem e são devolvidas para o cliente apagar', () => {
   const lista = [area({ id: 'a1', expiresAt: 1000 }), area({ id: 'a2', expiresAt: 9000 })];
@@ -194,28 +192,37 @@ test('as áreas vencidas somem e são devolvidas para o cliente apagar', () => {
   assert.equal(r.expired[0]!.id, 'a1');
 });
 
-test('a contagem por dono e por habilidade é o que limita a Ice Wall', () => {
+test('a contagem por dono e por habilidade separa as áreas', () => {
+  /*
+   * 🧱 Este teste nasceu para o teto de três Muralhas de Gelo, e ela saiu em
+   * 29/09. A conta continua valendo: as armadilhas do Arqueiro e o Círculo Arcano
+   * também têm teto por dono.
+   *
+   * ⚠️ **A quarta área é de OUTRA magia de propósito** — é ela que prova que o
+   * filtro separa por habilidade e não só por dono.
+   */
   const lista = [
-    area({ id: 'a1', ownerId: 'p1', skillId: 'ice_wall' }),
-    area({ id: 'a2', ownerId: 'p1', skillId: 'ice_wall' }),
-    area({ id: 'a3', ownerId: 'p2', skillId: 'ice_wall' }),
-    area({ id: 'a4', ownerId: 'p1', skillId: 'blizzard' }),
+    area({ id: 'a1', ownerId: 'p1', skillId: 'blizzard' }),
+    area({ id: 'a2', ownerId: 'p1', skillId: 'blizzard' }),
+    area({ id: 'a3', ownerId: 'p2', skillId: 'blizzard' }),
+    area({ id: 'a4', ownerId: 'p1', skillId: 'sanctuary' }),
   ];
-  assert.equal(countAreasOf(lista, 'p1', 'ice_wall'), 2);
-  assert.equal(countAreasOf(lista, 'p2', 'ice_wall'), 1);
-  assert.equal(countAreasOf(lista, 'p1', 'fire_wall'), 0);
+  assert.equal(countAreasOf(lista, 'p1', 'blizzard'), 2);
+  assert.equal(countAreasOf(lista, 'p2', 'blizzard'), 1);
+  assert.equal(countAreasOf(lista, 'p1', 'sanctuary'), 1);
+  assert.equal(countAreasOf(lista, 'p1', 'firewave'), 0);
 });
 
 test('ao estourar o limite, cai a mais ANTIGA — e só a do próprio dono', () => {
   const lista = [
-    area({ id: 'velha', ownerId: 'p1', skillId: 'ice_wall', expiresAt: 2000 }),
-    area({ id: 'nova', ownerId: 'p1', skillId: 'ice_wall', expiresAt: 9000 }),
-    area({ id: 'alheia', ownerId: 'p2', skillId: 'ice_wall', expiresAt: 100 }),
+    area({ id: 'velha', ownerId: 'p1', skillId: 'blizzard', expiresAt: 2000 }),
+    area({ id: 'nova', ownerId: 'p1', skillId: 'blizzard', expiresAt: 9000 }),
+    area({ id: 'alheia', ownerId: 'p2', skillId: 'blizzard', expiresAt: 100 }),
   ];
-  const velha = dropOldestOf(lista, 'p1', 'ice_wall');
+  const velha = dropOldestOf(lista, 'p1', 'blizzard');
   assert.equal(velha?.id, 'velha', 'a de p2 vence antes, mas não é dele');
 });
 
 test('sem área daquele dono, não há o que descartar', () => {
-  assert.equal(dropOldestOf([area({ ownerId: 'p2' })], 'p1', 'ice_wall'), null);
+  assert.equal(dropOldestOf([area({ ownerId: 'p2' })], 'p1', 'blizzard'), null);
 });

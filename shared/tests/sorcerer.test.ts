@@ -26,7 +26,6 @@ import {
   skillDuration,
   skillGroundDuration,
   skillGroundMax,
-  skillGroundHp,
   skillConditionChance,
   skillConditionDuration,
   skillPower,
@@ -52,15 +51,20 @@ const magos = (): SkillDef[] => skillsOfClass('sorcerer');
 // A contagem
 // ---------------------------------------------------------------------------
 
-test('o Feiticeiro tem exatamente 18 habilidades em 4 escolas', () => {
-  assert.equal(magos().length, 18);
+test('o Feiticeiro tem exatamente 17 habilidades em 4 escolas', () => {
+  /*
+   * 🧱 **Eram 18 até 29/09.** A Muralha de Gelo saiu a pedido do dono, e com ela
+   * a última magia do jogo que virava colisão. O ramo de gelo perdeu uma.
+   */
+  assert.equal(magos().length, 17);
   assert.deepEqual(branchesOfClass('sorcerer'), ['fogo', 'gelo', 'raio', 'arcano']);
 });
 
-test('as escolas têm 4 · 4 · 3 · 7', () => {
+test('as escolas têm 4 · 3 · 3 · 7', () => {
   const conta = (ramo: string): number => magos().filter((d) => d.branch === ramo).length;
   assert.equal(conta('fogo'), 4, '🔥 fogo');
-  assert.equal(conta('gelo'), 4, '❄️ gelo');
+  // 🧱 Eram 4: a Muralha de Gelo saiu em 29/09.
+  assert.equal(conta('gelo'), 3, '❄️ gelo');
   // "Só 3, de propósito" — o doc diz isso com todas as letras.
   assert.equal(conta('raio'), 3, '⚡ raio');
   assert.equal(conta('arcano'), 7, '✨ arcano');
@@ -176,70 +180,16 @@ test('a série do Fire Bolt dura MAIS que a recarga — e isso é intencional', 
 // ❄️ Gelo
 // ---------------------------------------------------------------------------
 
-test('❄️ Ice Wall: parede de 5 células com VIDA, e os dois relógios batem', () => {
-  const w = SKILLS.ice_wall;
-  assert.equal(skillGroundMax(w, 1), 1, '1 parede no Lv.1');
-  assert.equal(skillGroundMax(w, 10), 3, '3 no Lv.10');
-  assert.equal(w.ground?.blocks, true, 'é barreira física de verdade');
-  assert.equal(w.ground?.linha, true, 'linha de 5, não quadrado');
-  assert.equal(skillRange(w, 1), 2, 'raio 2 = cinco células');
-
-  /*
-   * ❄️ **A ficha do dono trocou a régua em 13/09**: de 20–60 s para 8–44 s, e a
-   * duração deixou de ser o único relógio — a parede passou a ter VIDA.
-   *
-   * 🔴 **O que este teste guarda é que os dois relógios BATEM.** Com 50 de
-   * desgaste por segundo, a vida tem de acabar junto com a duração: se alguém
-   * mexer num dos três números (vida, desgaste, duração) sem mexer nos outros, a
-   * parede passa a morrer por um motivo que o jogador não vê. É a única coisa
-   * aqui que não dá para descobrir lendo a ficha.
-   */
-  const desgaste = w.ground?.desgasteHpPorSeg ?? 0;
-  assert.ok(desgaste > 0, 'a parede se desgasta sozinha');
-  for (const nivel of [1, 5, 10]) {
-    const vida = skillGroundHp(w, nivel) ?? 0;
-    const segundos = vida / desgaste;
-    assert.equal(
-      Math.round(segundos * 1000), skillGroundDuration(w, nivel),
-      `no Lv.${nivel} a vida tem de acabar junto com o tempo`,
-    );
-  }
-});
-
-test('bloquear passagem é de DUAS magias, e cada uma paga por isso', () => {
-  /*
-   * 🔴 **Era uma só até a ficha simplificada.** A nota deste teste dizia que a
-   * Muralha de Fogo *"controla espaço tornando-o caro, não impedindo-o"*, e a
-   * ficha do dono desfez isso: ela passou a barrar também.
-   *
-   * ✅ **Então o teste deixou de ser uma LISTA e virou a regra por trás dela.**
-   * Parede que barra precisa de uma saída — vida para ser derrubada, ou contador
-   * de contatos para ser atravessada a um preço. Sem nenhuma das duas, o
-   * Feiticeiro ergue um muro que o monstro simplesmente contorna, e a magia não
-   * faz nada contra o que saiba andar. Uma lista branca não pegaria a terceira
-   * magia que alguém marcar como bloqueante amanhã; esta regra pega.
-   */
-  /*
-   * 🔴 **E voltou a ser UMA em 28/09**, quando a Muralha de Fogo deixou de
-   * existir: a ficha do dono a substituiu pela Firewave, que é uma onda que
-   * ATRAVESSA o campo e não bloqueia nada. A regra abaixo não mudou — mudou
-   * quem está sujeito a ela.
-   */
-  const barreiras = Object.values(SKILLS).filter((d) => d.ground?.blocks);
-  assert.deepEqual(
-    barreiras.map((d) => d.id).sort(),
-    ['ice_wall'],
-    'barrar passagem é exceção: entrar nesta lista é decisão de dono',
-  );
-  for (const d of barreiras) {
-    const derruba = (d.ground?.hpAtLv1 ?? 0) > 0;
-    const atravessa = (d.ground?.contatosAtLv1 ?? 0) > 0;
-    assert.ok(
-      derruba || atravessa,
-      `${d.id}: parede sem saída — nem se derruba nem se atravessa, só se contorna`,
-    );
-  }
-});
+/*
+ * 🧱 **OS TESTES DA MURALHA DE GELO saíram em 29/09, com ela.** Eram dois: o que
+ * guardava os dois relógios da parede (duração e vida acabando no mesmo instante)
+ * e o que exigia que toda magia bloqueante tivesse uma SAÍDA — vida para ser
+ * derrubada, ou contato para ser atravessada a um preço.
+ *
+ * ⚠️ A segunda regra é a que vale guardar se um dia voltar a existir parede: sem
+ * saída, o monstro contorna e a magia não faz nada contra o que saiba andar. O
+ * desenho inteiro está no HISTORICO de 11/09 e 12/09.
+ */
 
 test('❄️ Nevasca no modelo do RO: congela a cada 3º acerto, e o quique é a magia', () => {
   /*

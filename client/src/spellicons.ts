@@ -338,7 +338,7 @@ const PALETAS: Record<string, Paleta> = {
 /** As silhuetas. Cada uma diz uma FUNÇÃO, não uma magia específica. */
 type Glifo =
   | 'cruz' | 'gota' | 'folha' | 'escudo' | 'seta' | 'caveira' | 'corrente'
-  | 'espinho' | 'raio' | 'floco' | 'chama' | 'muralha' | 'estrela'
+  | 'espinho' | 'raio' | 'floco' | 'chama' | 'estrela'
   | 'circulo' | 'olho' | 'nuvem';
 
 /** Desenha o glifo centrado, na cor do símbolo. */
@@ -476,15 +476,6 @@ function glifo(g: CanvasRenderingContext2D, tipo: Glifo, cor: string, brilho: st
       g.closePath();
       g.fill();
       break;
-    case 'muralha':
-      for (let linha = 0; linha < 3; linha++) {
-        const y = cy - 12 + linha * 9;
-        const off = linha % 2 === 0 ? 0 : 6;
-        for (let bx = -14 + off; bx < 14; bx += 12) {
-          g.fillRect(cx + bx, y, 10, 7);
-        }
-      }
-      break;
     case 'estrela':
       g.beginPath();
       for (let i = 0; i < 8; i++) {
@@ -571,12 +562,13 @@ const GLIFOS: Record<string, Glifo> = {
   nature_affinity: 'circulo',
   // 🔮 Feiticeiro — fogo
   fire_bolt: 'chama',
-  firewave: 'muralha',
+  // 🌊 'chama': a onda é fogo que avança, não parede. O desenho de reserva só
+  //    aparece se a arte sumir do disco — ver `icone-da-folha.mjs`.
+  firewave: 'chama',
   meteor: 'espinho',
   meteor_storm: 'nuvem',
   // 🔮 Feiticeiro — gelo
   cold_bolt: 'espinho',
-  ice_wall: 'muralha',
   glacial_burst: 'estrela',
   blizzard: 'floco',
   // 🔮 Feiticeiro — raio

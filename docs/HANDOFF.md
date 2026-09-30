@@ -1,4 +1,4 @@
-# Handoff — 2026-09-29 · PONTO DE RETOMADA
+# Handoff — 2026-09-29 (noite) · PONTO DE RETOMADA
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
@@ -8,6 +8,11 @@
 > CONE que abre com a distância, dano de 50 % de ATQM (Lv.1), empurrão de 2 tiles e
 > **um golpe por inimigo**. Duas artes do dono entraram — a rajada que viaja (12
 > quadros) é a animação, e o cone (14 quadros) é o **marcador da mira**.
+>
+> 🧱 **E a MURALHA DE GELO foi REMOVIDA**, a pedido do dono. Com ela saiu o último
+> subsistema de parede do jogo: colisão por área, estrutura com vida própria, o
+> monstro que bate no muro, e o desvio de rota do cliente. O Feiticeiro tem 17
+> habilidades agora, e nenhuma magia barra passagem.
 
 ## 🎯 O QUE ESTÁ COMBINADO PARA DEPOIS
 
@@ -23,9 +28,9 @@
 > medida da folha. O cone no Lv.10 cobre 6 tiles e fica GRANDE em tela — vale o olho
 > dele antes de virar definitivo.
 
-🔴 **Corrigir a Muralha de GELO** continua de pé desde 12/09, e o dono **não
-detalhou o que está errado**. Ela também mudou de altura em 20/09 sem ninguém pedir:
-a conta usava dois literais da folha do fogo.
+✅ **A Muralha de Gelo saiu da lista de pendências porque saiu do jogo** (29/09). Ela
+estava combinada desde 12/09 sem o dono nunca ter detalhado o que estava errado; a
+decisão dele foi remover em vez de consertar.
 
 💔 **O `Testedois` está no 147** — quatro mortes minhas. A última foi descuido puro:
 recarreguei e conjurei sem olhar a vida, num ninho de Diabretes. `/level 149` repõe;

@@ -9,6 +9,74 @@ decisões de design ficaram travadas por teste.
 
 ---
 
+## 2026-09-29 (noite) — A Muralha de Gelo sai, e a Firewave ganha ícone próprio
+
+**Onde mora:** a remoção atravessa `shared/src/skills.ts`, `shared/src/areas.ts`,
+`server/src/index.ts`, `client/src/main.ts` e dois testes · o ícone em
+`tools/hud/icone-da-folha.mjs` (novo)
+
+### 🧱 Sair de uma magia é maior do que entrar
+
+A Muralha de Gelo era **a única magia do jogo que virava colisão**, e isso a fez dona de
+um subsistema inteiro. Com ela, saíram:
+
+| | |
+|---|---|
+| `shared/areas.ts` | `AreaKind: 'wall'`, `blocks`, `hp`, `hpMax`, `desgasteHpPorSeg`, `areaBlocks`, `danificaArea` |
+| `shared/skills.ts` | `SkillGround.blocks`, `hpAtLv1/hpAtLv10`, `desgasteHpPorSeg`, `skillGroundHp` |
+| `server` | `quebraParede`, o desgaste no tique das áreas, o gate de colisão em `creatureCanEnter` e `podeAndarPara` |
+| `client` | `tilesDeBarreira`/`refazBarreiras`, `MURALHAS`, `chamasDaMuralha`, `muralhaDoNo`, o ramo `kind === 'wall'` da dica |
+| protocolo | `S2C_AreaSpawn.blocks` |
+| assets | `gelo25.png`, `ice_wall.png` |
+
+⚠️ **E o cliente voltou a traçar rota sem consultar área.** Ele aprendeu a desviar em 12/09
+justamente por causa da muralha; sem magia que barre, era código que nunca mais rodaria.
+
+### 🔴 Dois testes saíram, e um deles vale guardar de cabeça
+
+O que media os **dois relógios** da parede (duração e vida acabando no mesmo instante) foi
+embora com ela. O outro guardava uma regra que sobrevive à magia: **parede que barra
+precisa de uma SAÍDA** — vida para ser derrubada, ou contato para ser atravessada a um
+preço. Sem saída, o monstro contorna e a magia não faz nada contra o que saiba andar.
+
+⚠️ Está escrito no lugar onde os testes estavam, porque é o tipo de coisa que se reaprende
+do jeito caro.
+
+### 🪤 E o rename cego quebrou um teste que parecia não ter relação
+
+Ao tirar `ice_wall` dos testes de área, troquei todas as ocorrências por `blizzard` — e uma
+delas era a quarta área da lista, que existia **justamente para ter uma magia DIFERENTE** e
+provar que a contagem separa por habilidade, não só por dono. Igualadas, a conta deu 3 onde
+esperava 2.
+
+✅ Hoje ela é `sanctuary`, e o comentário diz por que ela precisa ser de outra magia.
+
+### 🖼️ O ícone: nenhuma das 36 artes do pacote é uma onda de fogo
+
+A Firewave herdou o 47 da Muralha de Fogo — uma labareda de pé, que desenhava uma PAREDE.
+Procurei no pacote inteiro: a mais próxima é a 36 (rastros alaranjados avançando), e ela já
+é da Chuva de Meteoros, onde os mesmos rastros leem como cometas caindo. Tirá-la de lá seria
+piorar uma magia para melhorar outra — a armadilha que o comentário do Silêncio já descrevia.
+
+✅ **Então o ícone sai da PRÓPRIA folha de animação da magia** (`icone-da-folha.mjs`, novo).
+Nenhuma miniatura combina mais com uma magia do que um quadro dela mesma: a arte já está no
+repositório, já tem alfa, e é a que o dono escolheu.
+
+⚠️ **O quadro é argumento, e não medida.** Numa animação de três atos o retrato é um do
+meio — o primeiro é pequeno demais e o último é fumaça. Ficou o 4 de 12.
+
+⚠️ E a moldura é quadrada enquanto o quadro não é: o desenho entra inteiro e centrado, com o
+lado maior mandando na escala. Cortar para preencher tiraria as pontas, que são a forma da
+magia.
+
+### 🧹 E a forma de reserva "muralha" saiu junto
+
+O desenhador de ícones tinha uma forma `'muralha'` (três fileiras de tijolos) para quando a
+arte falta. Sem magia de parede, ela ficou sem chamador — e a Firewave passou a apontar para
+`'chama'`, que é o que ela é.
+
+---
+
 ## 2026-09-29 — A área da Firewave vira CONE, e o cone acaba na MIRA
 
 **Onde mora:** `ondaAbertura` em `shared/src/skills.ts` · `raioDoGolpe` em

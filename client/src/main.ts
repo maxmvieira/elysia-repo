@@ -4864,28 +4864,14 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   /** Último snapshot indexado por id: a ficha do menu sai daqui, sem ida ao servidor. */
   const porId = new Map<string, EntitySnapshot>();
 
-  /**
-   * 🧱 **Os tiles das MURALHAS, por área.**
-   *
-   * 🔴 Separado do `tilesBloqueados` porque os dois têm relógios diferentes:
-   * aquele é refeito a cada snapshot (monstro anda o tempo todo), e este muda
-   * só quando uma muralha nasce ou cai. Refazer este a cada snapshot exigiria
-   * que o snapshot trouxesse as áreas, que ele não traz.
-   *
-   * ⚠️ Guardado por ÁREA, e não um Set solto: duas muralhas podem se cruzar, e
-   * um Set solto perderia o tile compartilhado quando a primeira caísse.
+  /*
+   * 🧱 **A ROTA DEIXOU DE DESVIAR DE ÁREA em 29/09.** Ela aprendeu isso em 12/09
+   * porque a muralha barrava passagem e o cliente traçava caminho por cima dela;
+   * com a Muralha de Gelo fora, nenhuma magia vira colisão e não há o que desviar.
    */
-  const tilesDeBarreira = new Map<string, number[]>();
-  const tilesBarrados = new Set<number>();
-  function refazBarreiras(): void {
-    tilesBarrados.clear();
-    for (const tiles of tilesDeBarreira.values()) for (const t of tiles) tilesBarrados.add(t);
-  }
-
   function podeAndar(x: number, y: number): boolean {
     if (!isWalkable(map, x, y, myFloor)) return false;
-    const tile = y * map.width + x;
-    return !tilesBloqueados.has(tile) && !tilesBarrados.has(tile);
+    return !tilesBloqueados.has(y * map.width + x);
   }
 
   /**
@@ -5410,7 +5396,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
 
   /** Cor de cada área, pela habilidade que a criou. */
   const CORES_AREA: Record<string, [number, number]> = {
-    ice_wall: [0x6fd0ff, 0xdcf6ff],
     blizzard: [0x3aa8d8, 0xdcf6ff],
     arcane_circle: [0x8a5ad8, 0xefe6ff],
     spores: [0x6aa02a, 0xd6f0b0],
@@ -5434,179 +5419,16 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * dissipação (13–18) —, e eles são tocados como a barreira vive: nasce uma vez,
    * ARDE em laço enquanto durar, e só apaga quando o servidor manda.
    */
-  /**
-   * 🧱 **As barreiras de chão que têm FOLHA, e o que cada uma pede.**
+  /*
+   * 🧱 **O DESENHO DAS MURALHAS saiu em 29/09**, com a Muralha de Gelo — a
+   * última magia que erguia parede. Eram a tabela `MURALHAS`, o `chamasDaMuralha`
+   * (um nó por célula, ordenado por profundidade) e a memória `muralhaDoNo`.
    *
-   * 🔴 Duas magias, um desenho só: a de fogo e a de gelo são a mesma coisa em
-   * tela — uma fileira de algo que cresce do chão, arde/brilha enquanto dura e se
-   * desfaz no fim. O que muda são números, e é por isso que eles moram numa
-   * tabela em vez de num ramo por magia.
-   *
-   * ⚠️ **O ESTICÃO é 1 no gelo e 1,45 no fogo**, e a diferença não é gosto:
-   * cristal esticado vira estalactite torta (a forma dele é rígida e o olho
-   * conhece), enquanto chama esticada ainda lê como chama até certo ponto. Foi o
-   * dono quem encontrou o limite do fogo em tela: a 3× virou vela.
+   * ⚠️ A lição que veio de lá vale para qualquer FX que se planta no chão, e está
+   * no HISTORICO de 20/09: efeito que mora no `fxLayer` desenha por cima de tudo
+   * e lê como adesivo; para parecer plantado, ele tem de entrar no `objects` com
+   * `zIndex` próprio.
    */
-  /**
-   * 🧱 **As barreiras de chão que têm FOLHA, e o que cada uma pede.**
-   *
-   * 🔴 Duas magias, um desenho só: a de fogo e a de gelo são a mesma coisa em
-   * tela — uma fileira de algo que cresce do chão, arde enquanto dura e se desfaz
-   * no fim. O que muda são números, e é por isso que eles moram numa tabela.
-   *
-   * 🔴 **`celW`/`celH` são o tamanho da CÉLULA na folha, e existem porque
-   * estavam ESCRITOS NA CONTA.** A altura saía de `(largura / 160) * 128`, com os
-   * dois números cravados no código — e eles eram da `muralha18`. A folha do gelo
-   * é 160×96, então a muralha de gelo vinha sendo esticada **33 % na vertical**
-   * desde que nasceu, sem ninguém ter pedido. É a família de defeito de sempre:
-   * número copiado para um lugar onde ele não pode ser recalculado.
-   */
-  const MURALHAS: Record<string, {
-    folha: string; nasce: number; arde: number;
-    larguraTiles: number; estica: number; celW: number; celH: number;
-  }> = {
-    /*
-     * 🌊 **A MURALHA DE FOGO saiu daqui em 28/09**, quando a ficha do dono a
-     * substituiu pela Firewave — que é uma onda que atravessa, não uma parede que
-     * fica. A folha `muralha12` e a arte-fonte dela continuam no repo, e a receita
-     * está no histórico de 20/09 se um dia voltar a fazer falta.
-     *
-     * ⚠️ O que NÃO saiu foi o mecanismo: ele é da Muralha de Gelo também, e ela
-     * continua sendo parede.
-     */
-    /*
-     * ❄️ 25 quadros: formação (1–15), parede ativa (11–20), destruição (21–25). O
-     * laço começa ANTES do fim da formação de propósito — os cristais continuam
-     * crescendo um pouco depois de a parede já bloquear.
-     *
-     * ⚠️ **A célula dela é 160×96, e isso muda a altura em tela**: até 20/09 a
-     * conta usava 128 (da folha do fogo) e a esticava 33 %. Se a parede de gelo
-     * parecer mais baixa que na sua lembrança, é esta linha — e é a proporção
-     * verdadeira da arte.
-     */
-    ice_wall: {
-      folha: 'gelo25', nasce: 15, arde: 10,
-      larguraTiles: 1.9, estica: 1, celW: 160, celH: 96,
-    },
-  };
-
-  /**
-   * 🔥 **As chamas da muralha — UM NÓ POR CÉLULA, dentro do mundo.**
-   *
-   * 🔴 **Elas deixaram de viver no `fxLayer` em 20/09, e essa é a mudança que o
-   * dono pediu:** *"o personagem quando chega perto dela não parece que ela está
-   * fixa lá"*. O `fxLayer` entra no mundo DEPOIS do `objects`, então tudo que mora
-   * nele desenha por cima de qualquer entidade — o herói podia estar dois tiles à
-   * FRENTE da parede e mesmo assim sumir atrás das chamas. Sem relação de
-   * profundidade, o olho lê a magia como um adesivo na tela, não como uma coisa
-   * plantada no chão.
-   *
-   * ✅ Agora cada célula é um filho do `objects`, ordenado por `zIndex` como árvore,
-   * monstro e parede — e aí a regra do jogo inteiro passa a valer de graça: quem
-   * está ao sul cobre, quem está ao norte é coberto.
-   *
-   * ⚠️ **Por CÉLULA, e não um nó só para a muralha inteira**, porque uma parede DE
-   * PÉ ocupa três FILEIRAS diferentes: um `zIndex` único estaria certo para uma e
-   * errado para as outras duas. Na parede deitada as três dividem a mesma
-   * fileira e o resultado é o mesmo — custo zero por uniformizar.
-   */
-  function chamasDaMuralha(
-    raioX: number, raioY: number, fx: string, tileX: number, tileY: number,
-  ): Container[] {
-    const receita = MURALHAS[fx];
-    if (!receita) return [];
-    const quadros = folhasEfeito.get(receita.folha);
-    if (!quadros || quadros.length <= receita.nasce) return [];
-    const { nasce: NASCE, arde: ARDE } = receita;
-
-    /*
-     * 🔥 **A proporção é a da FOLHA, e a largura é o único número escolhido.**
-     * 2,6 tiles por cópia com as cópias a um tile de distância dá 1,6 tile de
-     * sobreposição — é isso que faz três desenhos lerem como UMA parede contínua
-     * em vez de três fogueiras enfileiradas.
-     */
-    const largura = receita.larguraTiles * TS;
-    const altura = (largura / receita.celW) * receita.celH * receita.estica;
-
-    const nos: Container[] = [];
-    let i = 0;
-    for (let dy = -raioY; dy <= raioY; dy++) {
-      for (let dx = -raioX; dx <= raioX; dx++, i += 1) {
-        const no = new Container();
-        no.eventMode = 'none';
-        no.x = (tileX + dx) * TS + TS / 2;
-        no.y = (tileY + dy) * TS + TS / 2;
-        /*
-         * ⚠️ **0,45 fica logo ABAIXO do 0,5 dos personagens**, e a diferença só
-         * aparece quando os dois estão na MESMA fileira — lado a lado, com a chama
-         * larga invadindo a coluna dele. Nesse empate quem tem de aparecer é o
-         * personagem: ele está ao lado do fogo, não atrás dele.
-         */
-        no.zIndex = (tileY + dy) + 0.45;
-
-        /*
-         * 🔥 **UMA poça de luz, e fraca.** A versão de 13/09 pintava DUAS elipses
-         * aditivas fortes por célula, porque a arte antiga não tinha pé nenhum e a
-         * muralha parecia flutuar (dono: *"não parece que está vivo no chão"*).
-         * Esta arte traz a linha de brasa DESENHADA, e manter as duas elipses
-         * dobraria a mesma luz — o chão virava um borrão claro sob a parede.
-         */
-        const brasa = new Graphics();
-        brasa.blendMode = 'add';
-        brasa.ellipse(0, TS / 4, TS * 0.62, TS * 0.26).fill({ color: 0xff6a1a, alpha: 0.16 });
-        no.addChild(brasa);
-
-        /*
-         * 🔴 **DUAS FILEIRAS DE CHAMA por célula, e é assim que a parede ganha
-         * altura sem ser esticada.** Uma atrás, maior e mais apagada, subida um
-         * pouco; uma na frente, na proporção natural. Juntas passam de dois tiles e
-         * continuam se mexendo como fogo — que é o que multiplicar a escala
-         * vertical destrói.
-         */
-        const acende = (atras: boolean): void => {
-          const s = new AnimatedSprite(quadros.slice(0, NASCE));
-          // ⚠️ Âncora no PÉ: o corte alinha as fileiras pelo chão, e a linha de
-          // brasa termina no rodapé da célula.
-          s.anchor.set(0.5, 0.99);
-          const escala = atras ? 1.28 : 1;
-          s.x = atras ? (i % 2 ? 4 : -4) : 0;
-          s.y = TS / 4 - (atras ? TS * 0.45 : 0);
-          /*
-           * ⚠️ O espelhamento vai no SINAL da escala e alterna por célula. Sem ele
-           * a mesma língua de fogo aparece no mesmo lugar de cada célula, e a
-           * repetição salta aos olhos antes da animação.
-           */
-          const espelha = (i + (atras ? 1 : 0)) % 2 === 0 ? 1 : -1;
-          s.scale.set((largura / receita.celW) * escala * espelha, (altura / receita.celH) * escala);
-          s.alpha = atras ? 0.55 : 1;
-          /*
-           * ⚠️ **Velocidade PRÓPRIA por cópia** (±18 %). Com todas no mesmo ritmo as
-           * fases se realinham a cada volta do laço e a parede volta a pulsar junto
-           * — o defeito reaparece uns segundos depois de nascer, que é pior do que
-           * nascer errado.
-           */
-          const ritmo = 0.82 + ((i * 7 + (atras ? 3 : 0)) % 5) * 0.09;
-          s.animationSpeed = (NASCE / (700 / (1000 / 60))) * ritmo;
-          s.currentFrame = (i * 3 + (atras ? 5 : 0)) % NASCE;
-          s.loop = false;
-          s.onComplete = () => {
-            // Nasceu: passa a ARDER, em laço, até o servidor mandar apagar.
-            s.textures = quadros.slice(ARDE, NASCE);
-            s.loop = true;
-            s.animationSpeed = ((NASCE - ARDE) / (600 / (1000 / 60))) * ritmo;
-            s.gotoAndPlay((i * 2 + (atras ? 3 : 0)) % (NASCE - ARDE));
-          };
-          s.play();
-          no.addChild(s);
-        };
-        // ⚠️ Trás primeiro: quem é desenhado depois fica na frente.
-        acende(true);
-        acende(false);
-        nos.push(no);
-      }
-    }
-    return nos;
-  }
   /**
    * 🧱 **Recebe a mensagem inteira, e não oito argumentos soltos.** Eram sete
    * posicionais quando o `blocks` chegou, com dois opcionais no fim — a forma
@@ -5616,22 +5438,7 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     const {
       id, fx, x: tileX, y: tileY, radius, durationMs, raioX, raioY,
     } = msg;
-    removeGroundArea(id); // substituição (a muralha nova) reusa o mesmo caminho
-    /*
-     * 🧱 **A rota passa a desviar daqui.** Só as muralhas mandam `blocks`, e
-     * o cálculo é o mesmo `areaCovers` do servidor escrito em tiles: o raio por
-     * eixo quando existe, o `radius` quando não.
-     */
-    if (msg.blocks) {
-      const rx = raioX ?? radius;
-      const ry = raioY ?? radius;
-      const tiles: number[] = [];
-      for (let dy = -ry; dy <= ry; dy++) {
-        for (let dx = -rx; dx <= rx; dx++) tiles.push((tileY + dy) * map.width + (tileX + dx));
-      }
-      tilesDeBarreira.set(id, tiles);
-      refazBarreiras();
-    }
+    removeGroundArea(id); // substituição reusa o mesmo caminho
     const [corte, brilho] = CORES_AREA[fx] ?? [0x8a5ad8, 0xefe6ff];
     const node = new Container();
     node.x = tileX * TS + TS / 2;
@@ -5639,33 +5446,6 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     // Abaixo das entidades: a área é CHÃO, e cobrir o monstro que está dentro
     // dela seria esconder justamente o que o jogador precisa mirar.
     node.zIndex = 100;
-
-    /*
-     * 🔥 **A muralha desenha só as CHAMAS — sem retângulo, sem cantos.** A ficha
-     * do dono é explícita (*"não adicionar círculo mágico, não adicionar aura"*),
-     * e aqui a moldura seria pior que enfeite: a área dela É visível, são as
-     * chamas. O retângulo continua para as outras seis, onde o efeito é discreto
-     * e sem ele ninguém sabe onde a magia pega.
-     */
-    if (MURALHAS[fx] && folhasEfeito.has(MURALHAS[fx]!.folha)) {
-      /*
-       * 🧱 **No `objects`, e não no `fxLayer`.** É o contêiner ordenado por
-       * profundidade, o mesmo de árvore e monstro — e é ele que faz a parede
-       * ficar ATRÁS de quem está à frente dela. O `node` criado lá em cima não
-       * serve aqui: ele é um só, e a muralha precisa de um por célula.
-       */
-      const celulas = chamasDaMuralha(raioX ?? radius, raioY ?? radius, fx, tileX, tileY);
-      if (celulas.length > 0) {
-        // ⚠️ Só depois de ter as células: sem folha carregada o caminho cai no
-        //    retângulo lá embaixo, e aí o `node` ainda é necessário.
-        node.destroy();
-        muralhaDoNo.set(id, fx);
-        for (const c of celulas) objects.addChild(c);
-        groundAreaNodes.set(id, celulas);
-        setTimeout(() => removeGroundArea(id), durationMs + 1500);
-        return;
-      }
-    }
 
     const lado = (radius * 2 + 1) * TS;
     const g = new Graphics();
@@ -5698,47 +5478,15 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
   }
 
   function removeGroundArea(id: string): void {
-    /*
-     * 🧱 **O caminho libera ANTES do desenho**, e de propósito: a muralha leva
-     * seis quadros para se dissipar, e durante eles o servidor já deixa passar.
-     * Liberar junto com o sprite faria o personagem recusar um passo que o
-     * servidor aceita — e aí a parede que "já apagou" continuaria barrando.
-     *
-     * ⚠️ E fica ANTES do `return`: uma área sem nó (a rede de segurança do
-     * `setTimeout` chegando duas vezes) tem de soltar os tiles do mesmo jeito.
-     */
-    if (tilesDeBarreira.delete(id)) refazBarreiras();
     const nos = groundAreaNodes.get(id);
     if (!nos) return;
     groundAreaNodes.delete(id);
     /*
-     * 🔥 **A muralha APAGA em vez de sumir.** A folha tem quadros de dissipação,
-     * e cortá-los faria a parede piscar para fora — que é o defeito que o
-     * `desvanece` das quedas existe para evitar. Os filhos são `AnimatedSprite`;
-     * qualquer outra área cai no `destroy` de sempre.
+     * 🧱 **A dissipação por folha saiu em 29/09**, com a Muralha de Gelo: era ela
+     * que tinha quadros de destruição para tocar antes de sumir. As seis áreas que
+     * sobraram são desenhadas por código e somem com o nó.
      */
-    const receita = MURALHAS[muralhaDoNo.get(id) ?? ''];
-    muralhaDoNo.delete(id);
-    const quadros = receita ? folhasEfeito.get(receita.folha) : undefined;
-    // ⚠️ As chamas estão espalhadas por VÁRIOS nós desde que a muralha virou um
-    //    nó por célula — varrer só o primeiro apagaria um terço da parede.
-    const chamas = quadros
-      ? nos.flatMap((n) => n.children.filter((c): c is AnimatedSprite => c instanceof AnimatedSprite))
-      : [];
-    if (!quadros || !receita || chamas.length === 0) {
-      for (const n of nos) n.destroy({ children: true });
-      return;
-    }
-    const quebra = quadros.slice(receita.nasce);
-    for (const s2 of chamas) {
-      s2.textures = quebra;
-      s2.loop = false;
-      s2.animationSpeed = quebra.length / (500 / (1000 / 60));
-      s2.gotoAndPlay(0);
-    }
-    // ⚠️ Um relógio só para a muralha inteira: `onComplete` por chama destruiria
-    //    o contêiner na primeira que acabasse, levando as outras junto pela metade.
-    setTimeout(() => { for (const n of nos) n.destroy({ children: true }); }, 520);
+    for (const n of nos) n.destroy({ children: true });
   }
 
   /**
@@ -9110,11 +8858,12 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
     } else if (def.kind === 'ground') {
       const dur = skillGroundDuration(def, efetivo);
       const pulsos = Math.round(dur / (def.ground?.tickMs ?? 1000));
-      efeito = def.ground?.kind === 'wall'
-        ? `Bloqueia a passagem por ${(dur / 1000).toFixed(0)}s · ` +
-          `até ${skillGroundMax(def, efetivo)} simultânea(s)`
-        : def.ground?.kind === 'ward'
-          ? `Anula TODO o dano físico de quem estiver dentro por ${(dur / 1000).toFixed(1)}s`
+      /*
+       * 🧱 O ramo de PAREDE saiu em 29/09 com a Muralha de Gelo — nenhuma área
+       * bloqueia passagem hoje.
+       */
+      efeito = def.ground?.kind === 'ward'
+        ? `Anula TODO o dano físico de quem estiver dentro por ${(dur / 1000).toFixed(1)}s`
           : `${def.ground?.kind === 'heal' ? 'Cura' : 'Dano'} ` +
             `${(skillPower(def, efetivo) * 100).toFixed(0)}% a cada ` +
             `${((def.ground?.tickMs ?? 1000) / 1000).toFixed(1)}s · ` +

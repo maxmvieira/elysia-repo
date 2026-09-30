@@ -121,9 +121,7 @@ import {
   tickEffects,
   MODIFIER_FLOOR,
   MODIFIER_CEIL,
-  areaBlocks,
   areaCovers,
-  danificaArea,
   areaVisibleTo,
   countAreasOf,
   dropOldestOf,
@@ -144,7 +142,6 @@ import {
   skillConditionDuration,
   skillDuration,
   skillGroundDuration,
-  skillGroundHp,
   skillGroundMax,
   skillHits,
   skillModifiers,
@@ -2187,21 +2184,20 @@ function creatureCanEnter(
   if (floor === 0 && inDepotZone(map, x, y)) return false; // monstros não entram no DP
   if (floor === 0 && inCenterSafeZone(x, y)) return false; // ninguém invade a praça
   if (!isWalkable(map, x, y, floor)) return false;
-  // ❄️ Muralha de Gelo: "barreira física destruível" — a única magia do jogo que
-  // vira colisão. Vale para monstro e para jogador (ver `podeAndarPara`).
-  if (areaBlocks(groundAreas, x, y, floor)) return false;
   return !tileOccupied(x, y, floor, selfId);
 }
 
 /**
- * O jogador pode pisar aqui? Igual ao mapa, mais as muralhas de gelo.
+ * O jogador pode pisar aqui?
  *
  * ⚠️ Existe separado de `creatureCanEnter` porque jogador entra no depósito e
  * na praça central, e monstro não.
+ *
+ * 🧱 Até 29/09 ele também consultava as áreas que barram — só a Muralha de Gelo
+ * marcava isso, e ela saiu.
  */
 function podeAndarPara(x: number, y: number, floor: number): boolean {
-  if (!isWalkable(map, x, y, floor)) return false;
-  return !areaBlocks(groundAreas, x, y, floor);
+  return isWalkable(map, x, y, floor);
 }
 
 /**
@@ -5327,7 +5323,6 @@ function plantaArea(
 
   const duracao = skillGroundDuration(def, nivel);
   const raio = skillRange(def, nivel);
-  const vida = skillGroundHp(def, nivel);
   // Cura sai de `healPower`; dano sai do poder mágico. A mesma bifurcação do
   // resto do arquivo, aqui já resolvida em número absoluto por pulso.
   const afinidade = benefitsFromNatureAffinity(def)
@@ -5376,22 +5371,6 @@ function plantaArea(
     // fila de quedas (`Tempestade`). Ver a nota em `golpeDeArea`.
     hitsPlayers: g.hitsPlayers,
     hitsCreatures: g.hitsCreatures,
-    blocks: g.blocks ?? false,
-
-    /*
-     * ❄️ **A estrutura nasce com vida.** Sem `hpAtLv1` na ficha, nada disto
-     * existe e a área morre só pelo relógio — o comportamento das outras seis.
-     */
-    ...(vida !== undefined
-      ? {
-        hp: vida,
-        hpMax: vida,
-        ...(g.desgasteHpPorSeg !== undefined
-          ? { desgasteHpPorSeg: g.desgasteHpPorSeg }
-          : {}),
-      }
-      : {}),
-
     fx: def.fx,
     ...(def.applies
       ? {
@@ -5419,9 +5398,6 @@ function plantaArea(
     // 🔥 Só vão quando a área não é quadrada: o cliente precisa saber se a
     // muralha está de pé ou deitada para desenhar as três células no lugar.
     ...(area.raioX !== undefined ? { raioX: area.raioX, raioY: area.raioY } : {}),
-    // 🧱 Só quando barra: é a rota do cliente que lê, para não traçar caminho
-    // por dentro da muralha e o personagem ficar empurrando parede.
-    ...(area.blocks ? { blocks: true } : {}),
     durationMs: duracao, fx: def.fx,
   };
   for (const p of players.values()) {
@@ -5601,33 +5577,13 @@ function tickGroundAreas(now: number): void {
     }
   }
   /*
-   * ❄️ **O DESGASTE, e é ele que faz a parede de gelo ser uma parede de gelo.**
-   *
-   * Ficha do dono, 13/09: *"a barreira perde 50 HP por segundo enquanto estiver
-   * ativa"*. A área continua tendo prazo, mas quem chega primeiro manda — e com
-   * os números da ficha os dois chegam juntos, de propósito (ver o teste).
-   *
-   * ⚠️ **Antes do laço das áreas que pulsam**, e não dentro dele: a parede é
-   * `kind: 'wall'` e aquele laço a ignora na primeira linha. Foi o primeiro lugar
-   * onde eu ia pôr isto, e teria virado código que nunca roda.
+   * 🧱 **O DESGASTE DA ESTRUTURA saiu em 29/09**, com a Muralha de Gelo. Ela era
+   * a única área com vida própria: perdia 50 HP por segundo só de existir, e podia
+   * cair pela porrada antes de cair pelo relógio. Nenhuma outra tem `hp`.
    */
-  const quebradas: GroundArea[] = [];
-  for (const a of groundAreas) {
-    if (a.hp === undefined || a.desgasteHpPorSeg === undefined) continue;
-    if (now < a.nextTickAt) continue;
-    a.nextTickAt = now + a.tickMs;
-    if (danificaArea(a, (a.desgasteHpPorSeg * a.tickMs) / 1000)) quebradas.push(a);
-  }
-  if (quebradas.length > 0) {
-    const caidas = new Set(quebradas.map((a) => a.id));
-    groundAreas = groundAreas.filter((a) => !caidas.has(a.id));
-    // ⚠️ O mesmo aviso do fim do prazo: o cliente já sabe quebrar a parede por
-    // ele. Um evento novo seria uma segunda maneira de dizer a mesma coisa.
-    for (const a of quebradas) broadcastFloor(a.floor, { t: 'areagone', id: a.id });
-  }
 
   for (const a of groundAreas) {
-    if (a.kind === 'wall' || a.kind === 'ward') continue;
+    if (a.kind === 'ward') continue;
     if (now < a.nextTickAt) continue;
     a.nextTickAt = now + a.tickMs;
     const dono = players.get(a.ownerId);
@@ -5879,57 +5835,6 @@ function tickFury(player: Player, now: number): void {
   if (player.hp <= 1) {
     player.hp = 1;
     endFury(player, now);
-  }
-}
-
-/**
- * ❄️ **O monstro que não passa BATE NA PAREDE.**
- *
- * Ficha do dono, 13/09: a Muralha de Gelo *"pode receber dano de ataques
- * básicos"*. Sem isto ela seria intocável — e uma parede de 44 segundos que nada
- * derruba não é controle, é o fim da luta.
- *
- * 🔴 **O gatilho é o passo NEGADO, e não a proximidade.** É a diferença entre o
- * monstro atacar a parede que está no caminho dele e atacar qualquer parede que
- * encoste — no segundo caso, um bicho perseguindo o jogador pararia para socar um
- * muro que não o atrapalha em nada.
- *
- * ⚠️ **Usa a mesma força e a mesma recarga do golpe normal.** Um número próprio
- * aqui seria um segundo lugar para equilibrar a mesma coisa, e o primeiro a ficar
- * desatualizado quando alguém mexer no ataque dos monstros.
- */
-function quebraParede(c: Creature, alvo: Player, now: number): void {
-  if (now - c.lastAttackAt < creatureAttackCooldown(c, now)) return;
-  const dx = Math.sign(alvo.tileX - c.tileX);
-  const dy = Math.sign(alvo.tileY - c.tileY);
-  for (const [mx, my] of [[dx, 0], [0, dy], [dx, dy]]) {
-    if (mx === 0 && my === 0) continue;
-    const nx = c.tileX + mx!;
-    const ny = c.tileY + my!;
-    const parede = groundAreas.find(
-      (a) => a.blocks && a.hp !== undefined && areaCovers(a, nx, ny, c.floor),
-    );
-    if (!parede) continue;
-    c.lastAttackAt = now;
-    c.direction = dirFromDelta(mx!, my!, c.direction);
-    const dano = Math.max(
-      1,
-      Math.round(c.def.strength * (isNight ? NIGHT_DMG_MULT : 1)
-        * VARIANTS[c.variant].damageMult),
-    );
-    const caiu = danificaArea(parede, dano);
-    /*
-     * ⚠️ O `fx` sai no tile ATINGIDO, não no centro da parede: numa muralha de
-     * cinco células, o clarão no meio não diz onde o bicho está batendo.
-     */
-    broadcastFloor(c.floor, {
-      t: 'fx', kind: 'ice_wall_hit', x: nx, y: ny, floor: c.floor,
-    });
-    if (caiu) {
-      groundAreas = groundAreas.filter((a) => a.id !== parede.id);
-      broadcastFloor(parede.floor, { t: 'areagone', id: parede.id });
-    }
-    return;
   }
 }
 
@@ -8238,7 +8143,6 @@ function updateCreatures(now: number): void {
       } else if (now - c.lastMoveAt >= moveCd) {
         const step = stepToward(c.tileX, c.tileY, target.tileX, target.tileY, c.floor, avoidCenter, c.id);
         if (step) { c.tileX = step.x; c.tileY = step.y; c.lastMoveAt = now; }
-        else quebraParede(c, target, now);
       }
     } else if (chebyshev(c.tileX, c.tileY, c.homeX, c.homeY) > 6) {
       // SEM alvo e LONGE de casa: volta andando ao ponto de origem (leash). Sem
