@@ -9064,11 +9064,11 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * voltar a casar as duas, este número vira 1 e a `ondaAbertura` da ficha volta
    * aos 0,78 medidos na folha.
    *
-   * ⚠️ **1,3 → 1,4 em 29/09**, no mesmo pedido que devolveu o alcance: o dono quis
-   * a marca da área mais longa junto com a magia. No Lv.10 o dano chega a 6 tiles e
-   * o cone desenhado vai a 8,4.
+   * ⚠️ **1,3 → 1,4 → 1,35 em 29/09**, acompanhando os dois pedidos do dono no
+   * mesmo dia (mais distância, depois "um pouco menos"). No Lv.10 o dano chega a 5
+   * tiles e o cone desenhado vai a 6,75.
    */
-  const CONE_MIRA_ESTICA = 1.4;
+  const CONE_MIRA_ESTICA = 1.35;
   /** Quem é o dono do círculo agora. Sem isto, um `casting: null` de OUTRO mago apagaria o círculo deste. */
   let circuloDe: string | null = null;
   /*

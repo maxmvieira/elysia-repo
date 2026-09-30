@@ -1842,8 +1842,18 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * ONZE de largura na ponta — era a largura. Com o cone fechado, os mesmos seis
      * tiles dão sete de largura no fim, e cabem.
      */
+    /*
+     * ⚠️ **Um tile a menos no topo (29/09, fim do dia)** — dono: *"diminua só um
+     * pouco a área e a distância, bem pouco mesmo"*. O Lv.1 fica onde estava; o que
+     * encurta é a ponta da régua, de 6 para 5.
+     *
+     * ✅ **E a ÁREA encolhe junto, sem tocar na abertura**, porque a largura é
+     * fílha do alcance: `raio = k × abertura`. A ponta vai de 7 tiles de largura
+     * para 5. Mexer também no ângulo seria o erro de ontem repetido — dois números
+     * ao mesmo tempo escondem qual dos dois fez efeito.
+     */
     range: 3,
-    rangeEvery: 3,
+    rangeEvery: 4,
     /**
      * 🌊 **A LARGURA da frente, como meia-largura em tiles.** 1 dá a faixa de três
      * células que a ficha desenha.
@@ -1879,6 +1889,13 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * ela mente para MENOS: ninguém é atingido fora do que viu marcado. Se o dono
      * quiser as duas coisas iguais de novo, são dois números — este e o
      * `CONE_MIRA_ESTICA` do cliente.
+     */
+    /*
+     * ⚠️ **NÃO mexida no pedido de "diminuir um pouco a área" (29/09)**, e a razão é
+     * aritmética: o raio de cada passo é ARREDONDADO, então entre 0,42 e 0,45 a
+     * conta dá exatamente os mesmos inteiros em toda a régua. Um ajuste fino aqui
+     * seria um campo alterado sem efeito nenhum — e quem encolheu a área de verdade
+     * foi o alcance, do qual a largura depende.
      */
     ondaAbertura: 0.45,
     /*

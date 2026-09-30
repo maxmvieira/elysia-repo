@@ -593,7 +593,7 @@ test('🌊 Firewave: uma onda que ATRAVESSA, e não uma parede que fica', () => 
    * magia varrer meia tela, não o comprimento.
    */
   assert.equal(skillRange(m, 1), 3);
-  assert.equal(skillRange(m, 10), 6);
+  assert.equal(skillRange(m, 10), 5);
   const larguraNaPonta = Math.round(skillRange(m, 10) * (m.ondaAbertura ?? 0)) * 2 + 1;
   assert.ok(
     larguraNaPonta <= 7,

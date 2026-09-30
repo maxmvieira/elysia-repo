@@ -24,9 +24,14 @@
 > quiser 50 % fixo em toda a régua, o que cresce terá de ser outra coisa (e alcance
 > não serve: o teste de progressão mede dano POR ALVO).
 >
-> **2. A geometria.** 90 ms por tile, alcance 3 → 6, e o meio-ângulo de 38 % saiu da
-> medida da folha. O cone no Lv.10 cobre 6 tiles e fica GRANDE em tela — vale o olho
-> dele antes de virar definitivo.
+> **2. A geometria, e ela já foi ajustada três vezes em 29/09.** Ficou: 90 ms por
+> tile, alcance 3 → 5, meio-ângulo de 24°, e o marcador da mira desenhado a 1,35× do
+> alcance. No Lv.10 o dano chega a 5 tiles com 5 de largura na ponta.
+>
+> 🪤 **E a lição das três voltas vale mais que os números:** quando ele disse que
+> estava disparando longe demais, eu cortei COMPRIMENTO e LARGURA de uma vez — e aí
+> não dava para saber qual dos dois era o problema. Era a largura (11 tiles na ponta).
+> Um número por vez.
 
 ✅ **A Muralha de Gelo saiu da lista de pendências porque saiu do jogo** (29/09). Ela
 estava combinada desde 12/09 sem o dono nunca ter detalhado o que estava errado; a
