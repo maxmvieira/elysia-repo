@@ -88,24 +88,36 @@ const FOLHAS = {
     fileiras: [[52, 263], [308, 538], [597, 817]],
   },
   /**
-   * 🌊 **A FIREWAVE (28/09)**, 6 colunas × 2 fileiras, apontando para a DIREITA.
+   * 🌊 **A FIREWAVE, arte de 29/09** — 4 colunas × 3 fileiras, apontando para a
+   * DIREITA e ABRINDO EM LEQUE enquanto avança.
    *
-   * Medido: as fileiras ocupam [84,363] e [428,676] — alturas de 280 e 249 — e as
-   * colunas caem num passo de 362 exato.
+   * 🔴 **Esta é a que a área pedia.** A anterior era uma rajada RETA, e desde 29/09
+   * o dano sai num CONE que abre com a distância — desenho e estrago discordavam.
+   * Esta abre junto.
    *
-   * 🔴 **`centraY`, e é a diferença inteira em relação à muralha.** Numa parede o
-   * que tem de ficar parado é o CHÃO, e por isso as fileiras se alinham embaixo.
-   * Numa onda que viaja na horizontal, o que não pode oscilar é o EIXO: alinhar
-   * pelo rodapé faria a linha do meio saltar 15 px entre a primeira e a segunda
-   * fileira — e em tela isso é a onda subindo um degrau no meio do percurso.
+   * Medido: fileiras em [23,320], [347,672] e [707,976]; colunas num passo de 384
+   * exato, com 2–3 px de transbordo que a célula absorve.
    *
-   * ⚠️ Na horizontal nada é recentrado de propósito: a CAUDA da rajada fica na
-   * borda esquerda da célula, que é onde ela nasce. Centrar faria a onda recuar
-   * enquanto cresce.
+   * ⚠️ **`centraY`, como a folha anterior e pelo mesmo motivo**: as fileiras têm
+   * 298, 326 e 270 px de altura, e numa onda horizontal o que não pode oscilar é o
+   * EIXO. Alinhar pelo rodapé faria a rajada subir um degrau no meio do voo.
    *
-   * ⚠️ **166×128 porque 362/280 ≈ 1,29** — a proporção da fonte.
+   * ⚠️ **152×128 porque 384/326 ≈ 1,18** — a proporção da fonte.
    */
   firewave: {
+    larg: 152,
+    alt: 128,
+    colunas: 4,
+    passoX: 384,
+    fileiras: [[23, 320], [347, 672], [707, 976]],
+    centraY: true,
+  },
+  /**
+   * 📦 **A FIREWAVE de 28/09** — 6 colunas × 2, rajada RETA. Aposentada no dia
+   * seguinte, quando a área virou cone e o desenho deixou de casar com ela. Fica
+   * porque a fonte continua no repo e estas são as medidas dela.
+   */
+  firewave_reta: {
     larg: 166,
     alt: 128,
     colunas: 6,

@@ -5082,103 +5082,80 @@ async function startGame(playerName: string, charClass: PlayerClass, gender: Gen
    * *"era para substituir isso, não a animação da magia em si"*). A arte do cone
    * desenha a ÁREA antes do clique, no lugar do selo circular; a rajada que sai
    * depois continua sendo esta. Ver `CONE_MIRA`.
-   */
   /**
-   * 🌊 **UMA onda, UM desenho — movido pelos passos que o servidor manda.**
+   * 🌊 **UMA onda, UM desenho — ancorado na CAUDA e crescendo para a frente.**
    *
-   * 🔴 O servidor manda um `fx` por tile percorrido. A tentação é desenhar um
-   * efeito por pacote, e o resultado são seis rajadas empilhadas no rastro em vez
-   * de uma que anda. Por isso o `ondaId`: o segundo pacote encontra o sprite do
-   * primeiro e o REPOSICIONA.
+   * 🔴 **A arte de 29/09 mudou o modelo.** A anterior era uma rajada reta, e o
+   * desenho viajava com a frente. Esta é um LEQUE com o ápice na cauda — ancorar na
+   * cabeça faria o fogo nascer atrás do mago, porque o sprite é mais comprido que
+   * os dois tiles que a onda percorre no Lv.1.
    *
-   * ⚠️ **Quem manda no quadro é o PASSO, não o relógio.** A folha tem doze: os
-   * cinco primeiros são a rajada crescendo e os sete últimos a dissipação. Deixar
-   * a animação correr sozinha faria o desenho dissipar no meio do percurso quando
-   * a onda fosse longa, e chegar ao fim ainda pequena quando fosse curta — a
-   * velocidade de quem anda é do servidor, e o cliente não guarda cópia dela.
+   * ✅ Então a cauda fica PARADA nos pés de quem lançou e o que avança é o leque,
+   * quadro a quadro. É o mesmo desenho que o marcador da mira faz, e agora os dois
+   * concordam com a ÁREA — que também é um cone com o ápice no mago.
    *
-   * ⚠️ **A dissipação começa no ÚLTIMO passo**, e o cliente sabe qual é porque o
-   * `n` do pacote diz quantos a conjuração tem — que é o significado que esse
-   * campo sempre teve. Esperar por um silêncio no lugar disso seria o cliente
-   * adivinhando a velocidade da magia.
+   * ⚠️ **Quem manda no quadro é o PASSO, não o relógio.** O servidor manda um `fx`
+   * por tile percorrido e diz no `n` quantos a conjuração tem; deixar a animação
+   * correr sozinha faria o leque abrir todo antes de o dano chegar à borda. A
+   * velocidade é do servidor, e o cliente não guarda cópia dela.
+   *
+   * ⚠️ **E o `ondaId` é o que impede seis desenhos empilhados**: sem ele, cada
+   * passo abriria uma rajada nova por cima da anterior.
    */
-  const ondasVivas = new Map<string, { s: AnimatedSprite; passo: number; alvoX: number; alvoY: number }>();
-  /** Quadros de AVANÇO da folha; do índice 5 em diante é fumaça. */
-  const ONDA_AVANCO = 5;
+  const ondasVivas = new Map<string, { s: AnimatedSprite; passo: number }>();
+  /** Quadros de AVANÇO da folha; do índice 7 em diante é dissipação. Medido pela massa. */
+  const ONDA_AVANCO = 7;
 
   function desenhaOnda(msg: S2C_Effect): void {
     const quadros = folhasEfeito.get('firewave');
     if (!quadros || quadros.length <= ONDA_AVANCO) return;
     const id = msg.ondaId ?? 'onda';
-    const x = msg.x * TS + TS / 2;
-    const y = msg.y * TS + TS / 2;
+    const passos = msg.n ?? 1;
 
     let viva = ondasVivas.get(id);
     if (!viva) {
       const s2 = new AnimatedSprite(quadros);
       /*
-       * ⚠️ **Âncora na CABEÇA da rajada**, medida: a arte aponta para a direita e o
-       * fogo termina perto da borda direita da célula. É a cabeça que tem de estar
-       * no tile do passo — a cauda fica para trás, que é de onde a onda veio.
+       * ⚠️ **Âncora na CAUDA**, medida: o leque começa a uns 5 px da borda esquerda
+       * da célula em todos os quadros. É o único ponto que não se mexe, e é onde o
+       * personagem está.
        */
-      s2.anchor.set(0.92, 0.5);
+      s2.anchor.set(0.04, 0.5);
       s2.loop = false;
       s2.animationSpeed = 0;
       s2.eventMode = 'none';
       /*
-       * ⚠️ A altura sai da LARGURA da faixa que fere ((raio×2+1) tiles), e a
-       * largura vem junto pela proporção da folha. É a mesma regra da muralha: o
-       * desenho no tamanho do estrago, não o estrago no tamanho do desenho.
+       * 🌊 A onda nasce na ORIGEM, que o `fx` traz em `fromX/fromY`. O `x/y` do
+       * pacote é a FRENTE; ancorar ali poria a cauda na borda do cone.
        */
-      const faixa = ((msg.radius ?? 1) * 2 + 1) * TS;
-      s2.scale.set(faixa / 128);
-      s2.x = x;
-      s2.y = y;
+      s2.x = (msg.fromX ?? msg.x) * TS + TS / 2;
+      s2.y = (msg.fromY ?? msg.y) * TS + TS / 2;
+      s2.rotation = msg.rumo ?? 0;
+      /*
+       * ⚠️ **O comprimento sai do ALCANCE**, para a ponta do leque cair no último
+       * tile que o dano pega. E a célula é lida da própria textura: escrever 152
+       * aqui seria o número da folha copiado para um lugar onde ninguém o recalcula
+       * — a família de defeito que mais se repete neste projeto.
+       */
+      s2.scale.set((passos * TS) / quadros[0]!.width);
       s2.zIndex = 9998;
       fxLayer.addChild(s2);
-      viva = { s: s2, passo: 0, alvoX: x, alvoY: y };
+      viva = { s: s2, passo: 0 };
       ondasVivas.set(id, viva);
     }
     const atual = viva;
     atual.passo += 1;
-    atual.alvoX = x;
-    atual.alvoY = y;
-    atual.s.rotation = msg.rumo ?? 0;
-    atual.s.gotoAndStop(Math.min(atual.passo - 1, ONDA_AVANCO - 1));
+    // O leque abre junto com o avanço: no último passo ele está inteiro.
+    const fracao = passos > 1 ? (atual.passo - 1) / (passos - 1) : 1;
+    atual.s.gotoAndStop(Math.min(ONDA_AVANCO - 1, Math.round(fracao * (ONDA_AVANCO - 1))));
 
-    /*
-     * ⚠️ **O deslízio entre um passo e o seguinte** — sem ele a onda anda aos
-     * saltos de um tile a cada 90 ms, que é o mesmo defeito que o `setTarget` das
-     * entidades existe para evitar.
-     */
-    if (atual.passo === 1) {
-      const desliza = (): void => {
-        if (atual.s.destroyed) { app.ticker.remove(desliza); return; }
-        atual.s.x += (atual.alvoX - atual.s.x) * 0.35;
-        atual.s.y += (atual.alvoY - atual.s.y) * 0.35;
-      };
-      app.ticker.add(desliza);
-    }
-
-    // Último passo: a rajada se desfaz e some.
-    if (atual.passo >= (msg.n ?? 1)) {
+    if (atual.passo >= passos) {
       ondasVivas.delete(id);
       atual.s.textures = quadros.slice(ONDA_AVANCO);
       atual.s.loop = false;
-      atual.s.animationSpeed = (quadros.length - ONDA_AVANCO) / (420 / (1000 / 60));
-      /*
-       * ⚠️ **O alfa cai junto com a animação.** Os dois últimos quadros da folha
-       * são fumaça ESCURA, e sobre a grama eles leem como uma mancha preta parada.
-       * Apagando, a fumaça some como fumaça.
-       */
-      const morre = (): void => {
-        if (atual.s.destroyed) { app.ticker.remove(morre); return; }
-        atual.s.alpha -= 0.035;
-        if (atual.s.alpha <= 0) { app.ticker.remove(morre); atual.s.destroy(); }
-      };
+      atual.s.animationSpeed = (quadros.length - ONDA_AVANCO) / (380 / (1000 / 60));
       atual.s.onComplete = () => { if (!atual.s.destroyed) atual.s.destroy(); };
       atual.s.gotoAndPlay(0);
-      app.ticker.add(morre);
     }
   }
 
