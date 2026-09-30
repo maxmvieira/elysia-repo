@@ -2,7 +2,7 @@
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
-> Último commit de código: `cd7253b`. Árvore limpa, tudo empurrado.
+> Último commit de código: `83dc35a`. Árvore limpa, tudo empurrado.
 >
 > 🌊 **A Firewave está inteira**: onda direcional que sai dos pés do mago, área em
 > CONE que abre com a distância, dano de 50 % de ATQM (Lv.1), empurrão de 2 tiles e
@@ -95,7 +95,7 @@ Mede o teste mínimo da ficha: os passos avançando, o rumo, o cone abrindo
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
-> Último commit de código: `cd7253b`. Árvore limpa, tudo empurrado.
+> Último commit de código: `83dc35a`. Árvore limpa, tudo empurrado.
 >
 > 🌊 **A Muralha de Fogo NÃO EXISTE MAIS.** A ficha do dono a substituiu pela
 > **Firewave** — uma onda que parte do personagem, avança na direção mirada,
@@ -179,7 +179,7 @@ acusa código certo.**
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
-> Último commit de código: `cd7253b`. Árvore limpa, tudo empurrado.
+> Último commit de código: `83dc35a`. Árvore limpa, tudo empurrado.
 >
 > 🔥 **A Barreira de Fogo FECHOU** — as oito fases da ficha, a última inclusive.
 > O que faltava era conseguir OLHAR, e isso virou `tools/teste-barreira.mjs`.
@@ -272,7 +272,7 @@ DA MURALHA é o `tentaAtravessar` (ele tentou entrar de fora).
 
 > Typecheck limpo nos 3 pacotes, **656 testes** (628 shared + 28 server).
 > `ELYSIA_DEV_ACCOUNT=Frank VITE_DEV_ACCOUNT=Frank npm run dev:test` → `localhost:5173`.
-> Último commit de código: `cd7253b`. Árvore limpa, tudo empurrado.
+> Último commit de código: `83dc35a`. Árvore limpa, tudo empurrado.
 >
 > O dia foi **quase inteiro de apresentação**: VFX das magias de manhã, e da
 > tarde em diante a CAMADA DE INTERAÇÃO — ponteiro do jogo, marcador de destino,
