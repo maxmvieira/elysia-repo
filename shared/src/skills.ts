@@ -1832,13 +1832,18 @@ export const SKILLS: Record<SkillId, SkillDef> = {
      * 🌊 **`range` aqui é QUANTOS TILES a onda percorre** — 2 no Lv.1, 4 no Lv.10.
      * Não é raio: a onda não tem centro, tem frente.
      *
-     * 🔴 **Encolheu de 3→6 para 2→4 em 29/09** — dono, jogando: *"ele está
-     * disparando muito longe"*. No Lv.10 a onda varria seis tiles de comprimento e,
-     * com a abertura de então, ONZE de largura na ponta: uma magia de recarga curta
-     * limpando meia tela. O que ela é — rajada frontal de perto — pede menos.
+     * 🔴 **Foi 3→6, virou 2→4, e voltou a 3→6** — e as duas viagens têm a mesma
+     * causa. Em 29/09 o dono disse *"está disparando muito longe"*, e eu cortei
+     * COMPRIMENTO e LARGURA de uma vez: o alcance caiu para 2→4 e a abertura de 38°
+     * para 24°. No mesmo dia ele pediu mais distância de volta.
+     *
+     * ✅ A lição é a de sempre: **mexer em dois números ao mesmo tempo esconde qual
+     * dos dois era o problema.** No Lv.10 a onda incomodava varrendo seis tiles por
+     * ONZE de largura na ponta — era a largura. Com o cone fechado, os mesmos seis
+     * tiles dão sete de largura no fim, e cabem.
      */
-    range: 2,
-    rangeEvery: 4,
+    range: 3,
+    rangeEvery: 3,
     /**
      * 🌊 **A LARGURA da frente, como meia-largura em tiles.** 1 dá a faixa de três
      * células que a ficha desenha.

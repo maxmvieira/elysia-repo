@@ -583,14 +583,22 @@ test('🌊 Firewave: uma onda que ATRAVESSA, e não uma parede que fica', () => 
    * onda que varre mais campo. E a largura é o `splash`, fixa.
    */
   /*
-   * 🔴 **Encolheu em 29/09** — dono, jogando: *"está disparando muito longe"*. Era
-   * 3→6, e no Lv.10 a onda varria seis tiles de comprimento por onze de largura na
-   * ponta. O que este teste guarda é que o alcance CRESCE e que ele cabe numa
-   * rajada de perto.
+   * 🔴 **O alcance foi e voltou no mesmo dia (29/09).** Era 3→6; o dono disse que
+   * estava disparando longe demais e eu cortei comprimento E largura juntos, para
+   * 2→4 com o cone fechado de 38° para 24°. Ele pediu a distância de volta, e o
+   * que ficou foi o alcance antigo com o cone novo.
+   *
+   * ⚠️ O que este teste guarda é a RELAÇÃO, e não o número: o alcance cresce com o
+   * nível, e a LARGURA na ponta continua cabendo numa rajada — é ela que fazia a
+   * magia varrer meia tela, não o comprimento.
    */
-  assert.equal(skillRange(m, 1), 2);
-  assert.equal(skillRange(m, 10), 4);
-  assert.ok(skillRange(m, 10) <= 5, 'rajada frontal de perto, não bombardeio');
+  assert.equal(skillRange(m, 1), 3);
+  assert.equal(skillRange(m, 10), 6);
+  const larguraNaPonta = Math.round(skillRange(m, 10) * (m.ondaAbertura ?? 0)) * 2 + 1;
+  assert.ok(
+    larguraNaPonta <= 7,
+    'a ponta do cone tem de caber na tela: era 11 quando o dono reclamou',
+  );
   assert.equal(m.splash, 1, 'meia-largura 1 = a faixa de três células da ficha');
 
   /*
